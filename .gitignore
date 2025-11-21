@@ -1,9 +1,15 @@
 # Claude Code files
 .claude/
 AI_INSTRUCTIONS.md
+.serena/
 
 # vscode settings
 .vscode/
+
+# Hide the git directory in IDE/file explorers (optional)
+# NOTE: Git always manages the .git directory internally; adding it here
+# only affects ignored/untracked listing in tools and some IDEs.
+.git/
 
 # Python virtualenvs
 .venv/
