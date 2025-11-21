@@ -1,0 +1,54 @@
+# pre-commit 設定（プロジェクト内ツールを使用）
+# - 本設定では `poetry run ...` を使ってフックを実行します。
+#   これにより、プロジェクトの dev-deps に記載されたツールを一元管理できます。
+# - 軽量なチェック（末尾空白削除、EOF 修正、YAML 構文チェック等）は公式フックを使用し、
+#   重いチェック（mypy や pylint）はコミット時の遅延を避けるため push ステージで実行します。
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+
+  # プロジェクト内にインストールされた Black 等を使用します（`poetry run` 経由）。
+  # これによりツールのバージョンは pyproject.toml の dev-deps と一致します。
+  - repo: local
+    hooks:
+      - id: black
+        name: black (project)
+        entry: poetry run black --line-length=79
+        language: system
+        files: \.py$
+
+      - id: isort
+        name: isort (project)
+        entry: poetry run isort --profile=black --line-length=79
+        language: system
+        files: \.py$
+
+      - id: flake8
+        name: flake8 (project)
+        entry: poetry run flake8 --config=.flake8
+        language: system
+        files: \.py$
+
+# 重めの静的解析は pre-push で実行します（コミット毎の実行は遅延を招くため）
+# - mypy や pylint は実行時間が長く出力も多いため、push 前にまとめて走らせる構成が推奨されます。
+repos:
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (project)
+        entry: poetry run mypy --config-file=pyproject.toml
+        language: system
+        files: \.py$
+        stages: [push]
+
+      - id: pylint
+        name: pylint (project)
+        entry: poetry run pylint --rcfile=.pylintrc
+        language: system
+        files: \.py$
+        stages: [push]
