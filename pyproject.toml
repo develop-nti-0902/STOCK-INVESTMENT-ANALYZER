@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "stock-investment-analyzer"
+version = "0.1.0"
+description = ""
+authors = ["DMARU-T"]
+readme = "README.md"
+packages = [{ include = "app" }]
+keywords = ["stocks", "investment", "analyzer"]
+
+[tool.poetry.dependencies]
+python = ">=3.14"
+fastapi = "^0.121.3"
+uvicorn = "^0.38.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+black = "^24.9"
+isort = "^5.13"
+pre-commit = "^3.4"
+mypy = "^1.9"
+
+[tool.poetry.scripts]
+# 例: `poetry run sia` で main を起動したい場合
+# sia = "app.main:main"  # app.main の main() を指定。実際のエントリに合わせて修正してください。
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
