@@ -8,7 +8,9 @@ packages = [{ include = "app" }]
 keywords = ["stocks", "investment", "analyzer"]
 
 [tool.poetry.dependencies]
-python = ">=3.14"
+# Python 3.14 をサポート対象に含めます（3.10 以上、3.15 未満）。
+# チームの合意があれば範囲は調整してください。
+python = ">=3.10,<3.15"
 fastapi = "^0.121.3"
 uvicorn = "^0.38.0"
 
@@ -19,7 +21,8 @@ isort = "^5.13"
 pre-commit = "^3.4"
 mypy = "^1.9"
 flake8 = "^5.0"
-pylint = "^2.0"
+pylint = "^4.0"
+astroid = "^4.0.1"
 
 [tool.poetry.scripts]
 # 例: `poetry run sia` で main を起動したい場合
