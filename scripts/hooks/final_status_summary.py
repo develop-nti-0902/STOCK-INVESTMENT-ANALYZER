@@ -38,7 +38,8 @@ def get_modified_files() -> list[str]:
             line.strip() for line in proc.stdout.splitlines() if line.strip()
         ]
         return files
-    except Exception:
+    except OSError:
+        # git コマンドが存在しない等の環境エラーに対して安全に空リストを返す
         return []
 
 
@@ -52,7 +53,7 @@ def main() -> int:
                 data = json.load(f)
             failed_overall = bool(data.get("failed"))
             checks = data.get("checks", [])
-        except Exception:
+        except (json.JSONDecodeError, OSError, ValueError):
             # ステータスファイルが壊れているなどの場合は安全側で失敗扱い
             failed_overall = True
     # 自動修正による変更検出

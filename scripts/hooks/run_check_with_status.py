@@ -38,7 +38,8 @@ def load_status() -> Dict[str, Any]:
             ):
                 raise ValueError("invalid status json")
             return data
-        except Exception:
+        except (json.JSONDecodeError, OSError, ValueError):
+            # 読み込みエラーや不正な構造は無視して初期化を返す
             pass
     return {"checks": [], "failed": False}
 
@@ -91,11 +92,11 @@ def run_black(
         print_commit_status_after("black", status)
         # blackが修正した場合はコミット失敗（pre-commit標準挙動に合わせる）
         return 1
-    else:
-        set_check_result(status, "black", True)
-        save_status(status)
-        print_commit_status_after("black", status)
-        return 0
+
+    set_check_result(status, "black", True)
+    save_status(status)
+    print_commit_status_after("black", status)
+    return 0
 
 
 def run_isort(
@@ -112,11 +113,11 @@ def run_isort(
         save_status(status)
         print_commit_status_after("isort", status)
         return 1
-    else:
-        set_check_result(status, "isort", True)
-        save_status(status)
-        print_commit_status_after("isort", status)
-        return 0
+
+    set_check_result(status, "isort", True)
+    save_status(status)
+    print_commit_status_after("isort", status)
+    return 0
 
 
 def run_flake8(
@@ -264,22 +265,24 @@ def main() -> int:
         else:
             tool_args.append(token)
 
+    rc = 2
     if known_args.check == "black":
-        return run_black(tool_args, files, status)
-    elif known_args.check == "isort":
-        return run_isort(tool_args, files, status)
-    elif known_args.check == "flake8":
-        return run_flake8(tool_args, files, status)
-    elif known_args.check == "mypy":
+        rc = run_black(tool_args, files, status)
+    if known_args.check == "isort":
+        rc = run_isort(tool_args, files, status)
+    if known_args.check == "flake8":
+        rc = run_flake8(tool_args, files, status)
+    if known_args.check == "mypy":
         # mypyにもファイル/ディレクトリを渡す
-        return run_mypy(tool_args, files, status)
-    elif known_args.check == "pylint":
-        return run_pylint(tool_args, files, status)
-    elif known_args.check == "pytest":
-        return run_pytest(tool_args, files, status)
-    else:
+        rc = run_mypy(tool_args, files, status)
+    if known_args.check == "pylint":
+        rc = run_pylint(tool_args, files, status)
+    if known_args.check == "pytest":
+        rc = run_pytest(tool_args, files, status)
+    if rc == 2:
         print(f"Unsupported check: {known_args.check}")
-        return 2
+
+    return rc
 
 
 if __name__ == "__main__":
