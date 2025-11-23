@@ -27,3 +27,6 @@ dist/
 
 # Pytest cache
 .pytest_cache/
+
+# Environment variables file
+.env

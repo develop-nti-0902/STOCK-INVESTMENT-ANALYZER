@@ -1,0 +1,35 @@
+-- initial schema for STOCK-INVESTMENT-ANALYZER
+-- create minimal tables for development
+
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(150) NOT NULL UNIQUE,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS portfolios (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name VARCHAR(200) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS holdings (
+  id SERIAL PRIMARY KEY,
+  portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+  symbol VARCHAR(20) NOT NULL,
+  quantity NUMERIC NOT NULL,
+  avg_price NUMERIC NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- simple example table for transactions
+CREATE TABLE IF NOT EXISTS transactions (
+  id SERIAL PRIMARY KEY,
+  portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+  symbol VARCHAR(20) NOT NULL,
+  qty NUMERIC NOT NULL,
+  price NUMERIC NOT NULL,
+  traded_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);

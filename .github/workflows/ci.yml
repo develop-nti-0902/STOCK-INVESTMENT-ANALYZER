@@ -1,0 +1,171 @@
+name: CI - tests & linters
+
+# CI ワークフロー（概要）
+# 実行トリガ: pull_request と main ブランチへの push
+# ジョブ:
+#  - lint:  コード整形と静的解析（black/isort/flake8）
+#  - test:  テスト実行（pytest）および Postgres を使った統合テストの想定
+#  - type-check: mypy による型チェック
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  # Lint ジョブ: フォーマッタと静的解析を実行します（black/isort/flake8）。
+  # 早期にコードスタイル違反や簡易的な問題を検出して PR を改善します。
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.14
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install --no-root --no-interaction --no-ansi
+
+      - name: Run linters
+        run: |
+          poetry run black --check .
+          poetry run isort --check-only .
+          poetry run flake8
+          poetry run mypy
+          poetry run pylint app
+
+  # Test ジョブ: pytest を走らせ、coverage と JUnit レポートを生成します。
+  # PostgreSQL サービスを起動してデータベースを利用するテストを想定しています。
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.14]
+    # 環境変数をジョブで設定（サービスの接続情報）
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+      POSTGRES_DB: test_db
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      DATABASE_URL: postgresql://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@localhost:5432/test_db
+    # services: テスト用のコンテナを定義（ここでは PostgreSQL）
+    # 注意: コンテナに渡すパスワードは Secrets を利用してください。
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+          POSTGRES_DB: test_db
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install --no-root --no-interaction --no-ansi
+
+      - name: Install psql client and run DB setup script
+        env:
+          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          PGHOST: ${{ env.POSTGRES_HOST }}
+          PGPORT: ${{ env.POSTGRES_PORT }}
+          PGUSER: ${{ env.POSTGRES_USER }}
+          # NEW_DB will be the same test DB used by the job
+          NEW_DB: ${{ env.POSTGRES_DB }}
+          # These should be set in repository Secrets (create them if missing)
+          NEW_DB_USER: ${{ secrets.CI_APP_DB_USER }}
+          NEW_DB_PASSWORD: ${{ secrets.CI_APP_DB_PASSWORD }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          # 待機: pg_isready が成功するまでリトライ
+          for i in {1..30}; do
+            pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" && break || sleep 1
+          done
+          # 実行: setup_db.sh を positional args で呼ぶ
+          # 引数順: PGHOST PGPORT PGUSER PGPASSWORD NEW_DB NEW_DB_USER NEW_DB_PASSWORD
+          # 末尾に `1` を渡して SKIP_TABLESPACE を有効化（CI ではテーブルスペース作成をスキップ）
+          bash scripts/databaseSetup/setup_db.sh "$PGHOST" "$PGPORT" "$PGUSER" "$PGPASSWORD" "$NEW_DB" "$NEW_DB_USER" "$NEW_DB_PASSWORD" 1
+
+      - name: Run tests
+        run: |
+          mkdir -p reports
+          poetry run pytest --maxfail=1 --disable-warnings -q --cov=. --cov-report=xml:coverage.xml --junitxml=reports/junit-${{ matrix.python-version }}.xml
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.python-version }}
+          path: |
+            coverage.xml
+            reports/junit-${{ matrix.python-version }}.xml
+
+  # Type-check ジョブ: mypy による型検査を実行します。
+  # 型安全性を高めるためのオプションジョブです。
+  type-check:
+    name: Type check (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.14
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+          key: ${{ runner.os }}-pip-mypy-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-mypy-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install --no-root --no-interaction --no-ansi
+
+      - name: Run mypy
+        run: |
+          poetry run mypy
