@@ -46,7 +46,7 @@ jobs:
           poetry run black --check .
           poetry run isort --check-only .
           poetry run flake8
-          poetry run mypy
+          poetry run mypy app tests
           poetry run pylint app
 
   # Test ジョブ: pytest を走らせ、coverage と JUnit レポートを生成します。
@@ -168,4 +168,4 @@ jobs:
 
       - name: Run mypy
         run: |
-          poetry run mypy
+          poetry run mypy app tests
