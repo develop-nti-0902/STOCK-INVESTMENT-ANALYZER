@@ -25,6 +25,7 @@ pylint = "^4.0"
 astroid = "^4.0.1"
 pytest-cov = "^4.0"
 coverage = "^7.0"
+psycopg = { version = "^3.2", extras = ["binary"] }
 
 [tool.poetry.scripts]
 # 例: `poetry run sia` で main を起動したい場合
