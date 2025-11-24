@@ -15,7 +15,9 @@ try:
     from app.api import router as api_router
 
     app.include_router(api_router, prefix="/api")
-except Exception:
+except ImportError:
+    # `app.api` may not yet be implemented in early project setup;
+    # ignore module-not-found errors but let other exceptions surface.
     pass
 
 if __name__ == "__main__":
