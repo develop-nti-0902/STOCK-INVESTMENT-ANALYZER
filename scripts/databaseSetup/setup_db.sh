@@ -8,11 +8,13 @@
 set -euo pipefail
 
 # This script uses the local psql client to create the database and user,
-# and applies the initial schema from `init_schema.sql` if present.
+# and applies the initial schema from `create_stock_tables.sql` and
+# `create_management_tables.sql` if present.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-INIT_SQL="${SCRIPT_DIR}/sql/init_schema.sql"
+STOCK_SQL="${SCRIPT_DIR}/sql/create_stock_tables.sql"
+MGMT_SQL="${SCRIPT_DIR}/sql/create_management_tables.sql"
 
 # Configuration priority (highest to lowest):
 # 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD NEW_DB NEW_DB_USER NEW_DB_PASSWORD
@@ -197,11 +199,18 @@ psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${NEW_DB}" -c "GRANT ALL P
 # Apply initial schema if present
 echo "[6/6] Applying initial schema (if present) and finishing..."
 
-if [[ -f "$INIT_SQL" ]]; then
-    echo "Applying initial schema: $INIT_SQL"
-    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${NEW_DB}" -f "$INIT_SQL" || echo "[WARN] Failed to apply schema (check SQL file and permissions)"
+if [[ -f "$STOCK_SQL" ]]; then
+    echo "Applying stock tables schema: $STOCK_SQL"
+    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${NEW_DB}" -f "$STOCK_SQL" || echo "[WARN] Failed to apply $STOCK_SQL (check SQL file and permissions)"
 else
-    echo "[WARN] init_schema.sql not found; skipping schema apply"
+    echo "[WARN] $STOCK_SQL not found; skipping stock tables apply"
+fi
+
+if [[ -f "$MGMT_SQL" ]]; then
+    echo "Applying management tables schema: $MGMT_SQL"
+    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${NEW_DB}" -f "$MGMT_SQL" || echo "[WARN] Failed to apply $MGMT_SQL (check SQL file and permissions)"
+else
+    echo "[WARN] $MGMT_SQL not found; skipping management tables apply"
 fi
 
 echo ""

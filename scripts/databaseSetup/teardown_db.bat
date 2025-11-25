@@ -11,6 +11,9 @@ setlocal enabledelayedexpansion
 
 REM This script uses the local psql client to drop the database, user, and tablespace,
 REM and optionally removes the data directory created during setup.
+REM NOTE: The teardown removes the entire database specified by NEW_DB.
+REM       Because the database is dropped, deleting individual tables is unnecessary
+REM       and this script does not attempt to drop tables inside the database.
 
 set SCRIPT_DIR=%~dp0
 for %%I in ("%SCRIPT_DIR%..\\..") do set REPO_ROOT=%%~fI\
@@ -81,6 +84,7 @@ echo ========================================
 echo Database teardown (Windows)
 echo ========================================
 echo.
+echo [INFO] This teardown will DROP the entire database. Individual table drops are skipped.
 
 REM Check for psql in PATH
 echo [1/6] Checking PostgreSQL installation...

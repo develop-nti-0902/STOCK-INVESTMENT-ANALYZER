@@ -9,6 +9,9 @@ set -euo pipefail
 
 # This script uses the local psql client to drop the database, user, and tablespace,
 # and optionally removes the data directory created during setup.
+# NOTE: The teardown removes the entire database specified by NEW_DB.
+#       Because the database is dropped, deleting individual tables is unnecessary
+#       and this script does not attempt to drop tables inside the database.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -80,6 +83,7 @@ echo "========================================"
 echo "Database teardown (Linux/macOS)"
 echo "========================================"
 echo ""
+echo "[INFO] This teardown will DROP the entire database. Individual table drops are skipped."
 
 # Check for psql in PATH
 echo "[1/6] Checking PostgreSQL installation..."

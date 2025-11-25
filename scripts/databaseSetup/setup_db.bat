@@ -10,11 +10,13 @@ REM ============================================================================
 setlocal enabledelayedexpansion
 
 REM This script uses the local psql client to create the database and user,
-REM and applies the initial schema from `init_schema.sql` if present.
+REM and applies the initial schema from `create_stock_tables.sql` and
+REM `create_management_tables.sql` if present.
 
 set SCRIPT_DIR=%~dp0
 for %%I in ("%SCRIPT_DIR%..\\..") do set REPO_ROOT=%%~fI\
-set INIT_SQL=%SCRIPT_DIR%sql\init_schema.sql
+set STOCK_SQL=%SCRIPT_DIR%sql\create_stock_tables.sql
+set MGMT_SQL=%SCRIPT_DIR%sql\create_management_tables.sql
 
 REM Configuration priority (highest to lowest):
 REM 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD NEW_DB NEW_DB_USER NEW_DB_PASSWORD
@@ -209,13 +211,21 @@ psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %NEW_DB% -c "GRANT ALL PRIVILEGES ON
 REM Apply initial schema if present
 echo [6/6] Applying initial schema (if present) and finishing...
 
-if exist "%INIT_SQL%" (
-    echo Applying initial schema: %INIT_SQL%
-    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %NEW_DB% -f "%INIT_SQL%"
-    if errorlevel 1 echo [WARN] Failed to apply schema (check SQL file and permissions)
+REM Apply stock tables then management tables if present
+if not exist "%STOCK_SQL%" (
+    echo [WARN] %STOCK_SQL% not found; skipping stock tables apply
+) else (
+    echo Applying stock tables schema: %STOCK_SQL%
+    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %NEW_DB% -f "%STOCK_SQL%"
+    if errorlevel 1 echo [WARN] Failed to apply %STOCK_SQL% (check SQL file and permissions)
 )
-if not exist "%INIT_SQL%" (
-    echo [WARN] init_schema.sql not found; skipping schema apply
+
+if not exist "%MGMT_SQL%" (
+    echo [WARN] %MGMT_SQL% not found; skipping management tables apply
+) else (
+    echo Applying management tables schema: %MGMT_SQL%
+    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %NEW_DB% -f "%MGMT_SQL%"
+    if errorlevel 1 echo [WARN] Failed to apply %MGMT_SQL% (check SQL file and permissions)
 )
 
 endlocal

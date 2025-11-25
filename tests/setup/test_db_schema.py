@@ -26,20 +26,27 @@ def _parse_expected_tables(sql_text: str):
 def test_expected_tables_exist():
     # このテストファイルから見たリポジトリのルートを解決します
     repo_root = Path(__file__).resolve().parents[2]
-    sql_file = (
-        repo_root / "scripts" / "databaseSetup" / "sql" / "init_schema.sql"
-    )
+    repo_sql_dir = repo_root / "scripts" / "databaseSetup" / "sql"
+    stock_sql = repo_sql_dir / "create_stock_tables.sql"
+    mgmt_sql = repo_sql_dir / "create_management_tables.sql"
 
-    if not sql_file.exists():
+    # At least one of the SQL files must exist
+    if not stock_sql.exists() and not mgmt_sql.exists():
         pytest.skip(
-            "init_schema.sql not found at expected location: " + str(sql_file)
+            "No schema SQL files found at expected location: "
+            + str(repo_sql_dir)
         )
 
-    sql_text = sql_file.read_text(encoding="utf-8")
+    sql_text = ""
+    if stock_sql.exists():
+        sql_text += stock_sql.read_text(encoding="utf-8") + "\n"
+    if mgmt_sql.exists():
+        sql_text += mgmt_sql.read_text(encoding="utf-8") + "\n"
+
     expected = _parse_expected_tables(sql_text)
 
     if not expected:
-        pytest.skip("No CREATE TABLE statements found in init_schema.sql")
+        pytest.skip("No CREATE TABLE statements found in schema SQL files")
 
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:

@@ -1,0 +1,181 @@
+-- create_stock_tables.sql
+-- 株価データ（各時間足）用テーブルを作成するSQLスクリプト
+-- 作成されるテーブル: stocks_1m, stocks_5m, stocks_15m, stocks_30m, stocks_1h,
+--                  stocks_1d, stocks_1wk, stocks_1mo
+-- 制約・インデックスは `docs/architecture/.../data_storage_layer.md` の仕様に従います。
+
+BEGIN;
+
+-- 価格は精度を保つため NUMERIC 型を使用しています。必要に応じて精度を指定してください（例: NUMERIC(14,4)）。
+
+-- 分・時間足テーブル（日時は TIMESTAMP 型を使用）
+CREATE TABLE IF NOT EXISTS stocks_1m (
+  id SERIAL PRIMARY KEY,
+  symbol VARCHAR(20) NOT NULL,
+  datetime TIMESTAMP WITH TIME ZONE NOT NULL,
+  open NUMERIC NOT NULL,
+  high NUMERIC NOT NULL,
+  low NUMERIC NOT NULL,
+  close NUMERIC NOT NULL,
+  volume BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT uq_stocks_1m_symbol_datetime UNIQUE (symbol, datetime),
+  CONSTRAINT chk_stocks_1m_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
+  CONSTRAINT chk_stocks_1m_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
+  CONSTRAINT chk_stocks_1m_volume_non_negative CHECK (volume >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stocks_1m_symbol ON stocks_1m (symbol);
+CREATE INDEX IF NOT EXISTS idx_stocks_1m_datetime ON stocks_1m (datetime);
+CREATE INDEX IF NOT EXISTS idx_stocks_1m_symbol_datetime_desc ON stocks_1m (symbol, datetime DESC);
+
+CREATE TABLE IF NOT EXISTS stocks_5m (
+  id SERIAL PRIMARY KEY,
+  symbol VARCHAR(20) NOT NULL,
+  datetime TIMESTAMP WITH TIME ZONE NOT NULL,
+  open NUMERIC NOT NULL,
+  high NUMERIC NOT NULL,
+  low NUMERIC NOT NULL,
+  close NUMERIC NOT NULL,
+  volume BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT uq_stocks_5m_symbol_datetime UNIQUE (symbol, datetime),
+  CONSTRAINT chk_stocks_5m_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
+  CONSTRAINT chk_stocks_5m_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
+  CONSTRAINT chk_stocks_5m_volume_non_negative CHECK (volume >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stocks_5m_symbol ON stocks_5m (symbol);
+CREATE INDEX IF NOT EXISTS idx_stocks_5m_datetime ON stocks_5m (datetime);
+CREATE INDEX IF NOT EXISTS idx_stocks_5m_symbol_datetime_desc ON stocks_5m (symbol, datetime DESC);
+
+CREATE TABLE IF NOT EXISTS stocks_15m (
+  id SERIAL PRIMARY KEY,
+  symbol VARCHAR(20) NOT NULL,
+  datetime TIMESTAMP WITH TIME ZONE NOT NULL,
+  open NUMERIC NOT NULL,
+  high NUMERIC NOT NULL,
+  low NUMERIC NOT NULL,
+  close NUMERIC NOT NULL,
+  volume BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT uq_stocks_15m_symbol_datetime UNIQUE (symbol, datetime),
+  CONSTRAINT chk_stocks_15m_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
+  CONSTRAINT chk_stocks_15m_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
+  CONSTRAINT chk_stocks_15m_volume_non_negative CHECK (volume >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stocks_15m_symbol ON stocks_15m (symbol);
+CREATE INDEX IF NOT EXISTS idx_stocks_15m_datetime ON stocks_15m (datetime);
+CREATE INDEX IF NOT EXISTS idx_stocks_15m_symbol_datetime_desc ON stocks_15m (symbol, datetime DESC);
+
+CREATE TABLE IF NOT EXISTS stocks_30m (
+  id SERIAL PRIMARY KEY,
+  symbol VARCHAR(20) NOT NULL,
+  datetime TIMESTAMP WITH TIME ZONE NOT NULL,
+  open NUMERIC NOT NULL,
+  high NUMERIC NOT NULL,
+  low NUMERIC NOT NULL,
+  close NUMERIC NOT NULL,
+  volume BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT uq_stocks_30m_symbol_datetime UNIQUE (symbol, datetime),
+  CONSTRAINT chk_stocks_30m_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
+  CONSTRAINT chk_stocks_30m_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
+  CONSTRAINT chk_stocks_30m_volume_non_negative CHECK (volume >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stocks_30m_symbol ON stocks_30m (symbol);
+CREATE INDEX IF NOT EXISTS idx_stocks_30m_datetime ON stocks_30m (datetime);
+CREATE INDEX IF NOT EXISTS idx_stocks_30m_symbol_datetime_desc ON stocks_30m (symbol, datetime DESC);
+
+CREATE TABLE IF NOT EXISTS stocks_1h (
+  id SERIAL PRIMARY KEY,
+  symbol VARCHAR(20) NOT NULL,
+  datetime TIMESTAMP WITH TIME ZONE NOT NULL,
+  open NUMERIC NOT NULL,
+  high NUMERIC NOT NULL,
+  low NUMERIC NOT NULL,
+  close NUMERIC NOT NULL,
+  volume BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT uq_stocks_1h_symbol_datetime UNIQUE (symbol, datetime),
+  CONSTRAINT chk_stocks_1h_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
+  CONSTRAINT chk_stocks_1h_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
+  CONSTRAINT chk_stocks_1h_volume_non_negative CHECK (volume >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stocks_1h_symbol ON stocks_1h (symbol);
+CREATE INDEX IF NOT EXISTS idx_stocks_1h_datetime ON stocks_1h (datetime);
+CREATE INDEX IF NOT EXISTS idx_stocks_1h_symbol_datetime_desc ON stocks_1h (symbol, datetime DESC);
+
+-- 日足・週足・月足テーブル（日付ベースの間隔には `DATE` 型を使用）
+CREATE TABLE IF NOT EXISTS stocks_1d (
+  id SERIAL PRIMARY KEY,
+  symbol VARCHAR(20) NOT NULL,
+  date DATE NOT NULL,
+  open NUMERIC NOT NULL,
+  high NUMERIC NOT NULL,
+  low NUMERIC NOT NULL,
+  close NUMERIC NOT NULL,
+  volume BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT uq_stocks_1d_symbol_date UNIQUE (symbol, date),
+  CONSTRAINT chk_stocks_1d_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
+  CONSTRAINT chk_stocks_1d_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
+  CONSTRAINT chk_stocks_1d_volume_non_negative CHECK (volume >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stocks_1d_symbol ON stocks_1d (symbol);
+CREATE INDEX IF NOT EXISTS idx_stocks_1d_date ON stocks_1d (date);
+CREATE INDEX IF NOT EXISTS idx_stocks_1d_symbol_date_desc ON stocks_1d (symbol, date DESC);
+
+CREATE TABLE IF NOT EXISTS stocks_1wk (
+  id SERIAL PRIMARY KEY,
+  symbol VARCHAR(20) NOT NULL,
+  date DATE NOT NULL,
+  open NUMERIC NOT NULL,
+  high NUMERIC NOT NULL,
+  low NUMERIC NOT NULL,
+  close NUMERIC NOT NULL,
+  volume BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT uq_stocks_1wk_symbol_date UNIQUE (symbol, date),
+  CONSTRAINT chk_stocks_1wk_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
+  CONSTRAINT chk_stocks_1wk_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
+  CONSTRAINT chk_stocks_1wk_volume_non_negative CHECK (volume >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stocks_1wk_symbol ON stocks_1wk (symbol);
+CREATE INDEX IF NOT EXISTS idx_stocks_1wk_date ON stocks_1wk (date);
+CREATE INDEX IF NOT EXISTS idx_stocks_1wk_symbol_date_desc ON stocks_1wk (symbol, date DESC);
+
+CREATE TABLE IF NOT EXISTS stocks_1mo (
+  id SERIAL PRIMARY KEY,
+  symbol VARCHAR(20) NOT NULL,
+  date DATE NOT NULL,
+  open NUMERIC NOT NULL,
+  high NUMERIC NOT NULL,
+  low NUMERIC NOT NULL,
+  close NUMERIC NOT NULL,
+  volume BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT uq_stocks_1mo_symbol_date UNIQUE (symbol, date),
+  CONSTRAINT chk_stocks_1mo_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
+  CONSTRAINT chk_stocks_1mo_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
+  CONSTRAINT chk_stocks_1mo_volume_non_negative CHECK (volume >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stocks_1mo_symbol ON stocks_1mo (symbol);
+CREATE INDEX IF NOT EXISTS idx_stocks_1mo_date ON stocks_1mo (date);
+CREATE INDEX IF NOT EXISTS idx_stocks_1mo_symbol_date_desc ON stocks_1mo (symbol, date DESC);
+
+COMMIT;
+
+-- 補足:
+-- - このスクリプトはアーキテクチャ仕様に基づく単純なリレーショナルテーブルを作成します。
+-- - 大規模運用ではテーブルパーティショニング（symbol別または時間範囲別）を検討してください。
+-- - ライブDBへ適用する場合、インデックス作成は `CONCURRENTLY` を使うことを検討してください。
+-- - 固定小数点の精度が必要な場合は NUMERIC(precision,scale) の指定を行ってください（例: NUMERIC(14,4)）。
+-- - 実行例:
+--   psql -h <DB_HOST> -p <DB_PORT> -U <DB_USER> -d <DB_NAME> -f scripts/databaseSetup/sql/create_stock_tables.sql
