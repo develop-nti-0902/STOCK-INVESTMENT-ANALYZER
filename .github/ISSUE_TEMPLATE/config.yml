@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 質問・ディスカッション
+    url: https://github.com/develop-nti-0902/STOCK-INVESTMENT-ANALYZER/discussions
+    about: 質問や議論は Discussions をご利用ください
+  - name: プロジェクトドキュメント
+    url: https://github.com/develop-nti-0902/STOCK-INVESTMENT-ANALYZER/tree/main/docs
+    about: プロジェクトのドキュメントを参照
