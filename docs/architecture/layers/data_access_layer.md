@@ -10,15 +10,41 @@ related_docs:
 # データアクセス層 仕様書
 
 ## 目次
+- [データアクセス層 仕様書](#データアクセス層-仕様書)
+  - [目次](#目次)
+  - [1. 概要](#1-概要)
+    - [役割](#役割)
+    - [責務](#責務)
+    - [設計原則](#設計原則)
+  - [2. 構成](#2-構成)
+    - [ディレクトリ構造](#ディレクトリ構造)
+    - [責任分離](#責任分離)
+  - [3. Repositoryパターン設計](#3-repositoryパターン設計)
+    - [3.1 BaseRepository（汎用CRUD）](#31-baserepository汎用crud)
+    - [3.2 StockRepository（株価データ専用）](#32-stockrepository株価データ専用)
+    - [3.3 依存性注入パターン（共通モジュール利用）](#33-依存性注入パターン共通モジュール利用)
+  - [4. モデル定義](#4-モデル定義)
+    - [4.1 モデル一覧](#41-モデル一覧)
+    - [4.2 株価データモデル詳細](#42-株価データモデル詳細)
+    - [4.3 モデル実装例](#43-モデル実装例)
+  - [5. データベース接続管理（共通モジュール利用）](#5-データベース接続管理共通モジュール利用)
+    - [5.1 共通モジュールの活用](#51-共通モジュールの活用)
+    - [5.2 Repository層での使用方法](#52-repository層での使用方法)
+    - [5.3 接続プール設定（共通モジュール管理）](#53-接続プール設定共通モジュール管理)
+  - [6. アーキテクチャ図](#6-アーキテクチャ図)
+    - [6.1 データアクセス層構成](#61-データアクセス層構成)
+    - [6.2 Repository Pattern詳細](#62-repository-pattern詳細)
+  - [7. トランザクション管理（共通モジュール利用）](#7-トランザクション管理共通モジュール利用)
+    - [7.1 共通モジュールのトランザクション管理機能](#71-共通モジュールのトランザクション管理機能)
+    - [7.2 Repository層でのトランザクション利用](#72-repository層でのトランザクション利用)
+    - [7.3 トランザクション分離レベル（共通モジュール管理）](#73-トランザクション分離レベル共通モジュール管理)
+  - [8. エラーハンドリング（共通モジュール利用）](#8-エラーハンドリング共通モジュール利用)
+    - [8.1 共通モジュールの例外クラス活用](#81-共通モジュールの例外クラス活用)
+    - [8.2 データアクセス層で使用する例外クラス](#82-データアクセス層で使用する例外クラス)
+    - [8.3 Repository層でのエラーハンドリング実装例](#83-repository層でのエラーハンドリング実装例)
+    - [8.4 ログ記録の統一](#84-ログ記録の統一)
+  - [関連ドキュメント](#関連ドキュメント)
 
-- [1. 概要](#1-概要)
-- [2. 構成](#2-構成)
-- [3. Repositoryパターン設計](#3-repositoryパターン設計)
-- [4. モデル定義](#4-モデル定義)
-- [5. データベース接続管理](#5-データベース接続管理)
-- [6. アーキテクチャ図](#6-アーキテクチャ図)
-- [7. トランザクション管理](#7-トランザクション管理)
-- [8. エラーハンドリング](#8-エラーハンドリング)
 
 ---
 
@@ -30,15 +56,15 @@ related_docs:
 
 ### 責務
 
-| 責務                     | 説明                                                                         |
-| ------------------------ | ---------------------------------------------------------------------------- |
-| **非同期ORM定義**        | SQLAlchemy async対応によるテーブル定義とマッピング                          |
-| **Repository実装**       | 株価データ、銘柄マスタ、バッチ履歴等のデータアクセス抽象化                   |
-| **制約定義**             | ユニーク制約、チェック制約、インデックスの設定                               |
-| **非同期CRUD操作**       | asyncpg経由での非同期データベース操作（Create/Read/Update/Delete）           |
-| **セッション管理**       | 非同期データベース接続のライフサイクル管理                                   |
-| **型安全なデータ変換**   | データベース型⇔Python型⇔Pydanticモデルの相互変換                            |
-| **クエリ最適化**         | インデックス設計とクエリパフォーマンスの最適化                               |
+| 責務                   | 説明                                                               |
+| ---------------------- | ------------------------------------------------------------------ |
+| **非同期ORM定義**      | SQLAlchemy async対応によるテーブル定義とマッピング                 |
+| **Repository実装**     | 株価データ、銘柄マスタ、バッチ履歴等のデータアクセス抽象化         |
+| **制約定義**           | ユニーク制約、チェック制約、インデックスの設定                     |
+| **非同期CRUD操作**     | asyncpg経由での非同期データベース操作（Create/Read/Update/Delete） |
+| **セッション管理**     | 非同期データベース接続のライフサイクル管理                         |
+| **型安全なデータ変換** | データベース型⇔Python型⇔Pydanticモデルの相互変換                   |
+| **クエリ最適化**       | インデックス設計とクエリパフォーマンスの最適化                     |
 
 ### 設計原則
 
@@ -87,11 +113,11 @@ app/
 
 ### 責任分離
 
-| 層                         | 責任                                           | 配置                 |
-| -------------------------- | ---------------------------------------------- | -------------------- |
-| **SQLAlchemyモデル層**     | テーブル定義、制約、インデックス               | `app/models/`        |
-| **Repository層**           | 非同期CRUD操作、ビジネス固有クエリ、型変換     | `app/repositories/`  |
-| **セッション管理層**       | 非同期DB接続、トランザクション制御             | FastAPI Dependencies |
+| 層                     | 責任                                       | 配置                 |
+| ---------------------- | ------------------------------------------ | -------------------- |
+| **SQLAlchemyモデル層** | テーブル定義、制約、インデックス           | `app/models/`        |
+| **Repository層**       | 非同期CRUD操作、ビジネス固有クエリ、型変換 | `app/repositories/`  |
+| **セッション管理層**   | 非同期DB接続、トランザクション制御         | FastAPI Dependencies |
 
 ---
 
@@ -103,15 +129,15 @@ app/
 
 **主要メソッド**:
 
-| メソッド                    | 説明                           | 戻り値型                     |
-| --------------------------- | ------------------------------ | ---------------------------- |
-| `async def create()`        | 新規レコード作成               | `T`（モデルインスタンス）    |
-| `async def get_by_id()`     | ID検索                         | `Optional[T]`                |
-| `async def get_all()`       | 全件取得（ページネーション対応）| `List[T]`                    |
-| `async def update()`        | レコード更新                   | `Optional[T]`                |
-| `async def delete()`        | レコード削除                   | `bool`                       |
-| `async def bulk_create()`   | 一括作成                       | `List[T]`                    |
-| `async def count_all()`     | 全件数取得                     | `int`                        |
+| メソッド                  | 説明                             | 戻り値型                  |
+| ------------------------- | -------------------------------- | ------------------------- |
+| `async def create()`      | 新規レコード作成                 | `T`（モデルインスタンス） |
+| `async def get_by_id()`   | ID検索                           | `Optional[T]`             |
+| `async def get_all()`     | 全件取得（ページネーション対応） | `List[T]`                 |
+| `async def update()`      | レコード更新                     | `Optional[T]`             |
+| `async def delete()`      | レコード削除                     | `bool`                    |
+| `async def bulk_create()` | 一括作成                         | `List[T]`                 |
+| `async def count_all()`   | 全件数取得                       | `int`                     |
 
 **実装例**:
 
@@ -199,14 +225,14 @@ class BaseRepository(Generic[T]):
 
 **主要メソッド**:
 
-| メソッド                                | 説明                               | 戻り値型            |
-| --------------------------------------- | ---------------------------------- | ------------------- |
-| `async def get_by_symbol_and_date()`    | 銘柄コード+日付検索（日足以上用）   | `Optional[T]`       |
-| `async def get_by_symbol_and_datetime()`| 銘柄コード+日時検索（分足・時間足用）| `Optional[T]`       |
-| `async def get_by_symbol_range()`       | 銘柄コード+日付範囲検索             | `List[T]`           |
-| `async def count_by_symbol()`           | 銘柄ごとのレコード数               | `int`               |
-| `async def get_latest_date_by_symbol()` | 銘柄の最新日付取得                 | `Optional[date]`    |
-| `async def bulk_upsert()`               | 一括UPSERT（重複時更新）           | `int`               |
+| メソッド                                 | 説明                                  | 戻り値型         |
+| ---------------------------------------- | ------------------------------------- | ---------------- |
+| `async def get_by_symbol_and_date()`     | 銘柄コード+日付検索（日足以上用）     | `Optional[T]`    |
+| `async def get_by_symbol_and_datetime()` | 銘柄コード+日時検索（分足・時間足用） | `Optional[T]`    |
+| `async def get_by_symbol_range()`        | 銘柄コード+日付範囲検索               | `List[T]`        |
+| `async def count_by_symbol()`            | 銘柄ごとのレコード数                  | `int`            |
+| `async def get_latest_date_by_symbol()`  | 銘柄の最新日付取得                    | `Optional[date]` |
+| `async def bulk_upsert()`                | 一括UPSERT（重複時更新）              | `int`            |
 
 **実装例**:
 
@@ -406,79 +432,79 @@ async def get_stock_data(
 
 **株価データモデル（8種類の時間軸）**
 
-| モデルクラス | テーブル名  | 時間軸 | 日時カラム | 用途                 |
-| ------------ | ----------- | ------ | ---------- | -------------------- |
-| `Stocks1m`   | stocks_1m   | 1分足  | datetime   | 短期トレード分析     |
-| `Stocks5m`   | stocks_5m   | 5分足  | datetime   | 短期トレード分析     |
-| `Stocks15m`  | stocks_15m  | 15分足 | datetime   | デイトレード分析     |
-| `Stocks30m`  | stocks_30m  | 30分足 | datetime   | デイトレード分析     |
-| `Stocks1h`   | stocks_1h   | 1時間足| datetime   | スイングトレード分析 |
-| `Stocks1d`   | stocks_1d   | 日足   | date       | 中期投資分析         |
-| `Stocks1wk`  | stocks_1wk  | 週足   | date       | 中長期投資分析       |
-| `Stocks1mo`  | stocks_1mo  | 月足   | date       | 長期投資分析         |
+| モデルクラス | テーブル名 | 時間軸  | 日時カラム | 用途                 |
+| ------------ | ---------- | ------- | ---------- | -------------------- |
+| `Stocks1m`   | stocks_1m  | 1分足   | datetime   | 短期トレード分析     |
+| `Stocks5m`   | stocks_5m  | 5分足   | datetime   | 短期トレード分析     |
+| `Stocks15m`  | stocks_15m | 15分足  | datetime   | デイトレード分析     |
+| `Stocks30m`  | stocks_30m | 30分足  | datetime   | デイトレード分析     |
+| `Stocks1h`   | stocks_1h  | 1時間足 | datetime   | スイングトレード分析 |
+| `Stocks1d`   | stocks_1d  | 日足    | date       | 中期投資分析         |
+| `Stocks1wk`  | stocks_1wk | 週足    | date       | 中長期投資分析       |
+| `Stocks1mo`  | stocks_1mo | 月足    | date       | 長期投資分析         |
 
 **管理データモデル**
 
-| モデルクラス           | テーブル名             | 用途                     |
-| ---------------------- | ---------------------- | ------------------------ |
-| `StockMaster`          | stock_master           | JPX銘柄マスタ管理        |
-| `BatchExecution`       | batch_executions       | バッチ処理実行情報       |
-| `BatchExecutionDetail` | batch_execution_details| バッチ処理詳細（銘柄単位）|
-| `FundamentalData`      | fundamental_data       | ファンダメンタルデータ   |
+| モデルクラス           | テーブル名              | 用途                       |
+| ---------------------- | ----------------------- | -------------------------- |
+| `StockMaster`          | stock_master            | JPX銘柄マスタ管理          |
+| `BatchExecution`       | batch_executions        | バッチ処理実行情報         |
+| `BatchExecutionDetail` | batch_execution_details | バッチ処理詳細（銘柄単位） |
+| `FundamentalData`      | fundamental_data        | ファンダメンタルデータ     |
 
 **ユーザー管理モデル**
 
-| モデルクラス    | テーブル名      | 用途                       |
-| --------------- | --------------- | -------------------------- |
-| `User`          | users           | ユーザー情報（認証情報、プロフィール）|
-| `UserSession`   | user_sessions   | ユーザーセッション（JWT管理）|
-| `UserSettings`  | user_settings   | ユーザー設定（表示設定、通知設定等）|
+| モデルクラス   | テーブル名    | 用途                                   |
+| -------------- | ------------- | -------------------------------------- |
+| `User`         | users         | ユーザー情報（認証情報、プロフィール） |
+| `UserSession`  | user_sessions | ユーザーセッション（JWT管理）          |
+| `UserSettings` | user_settings | ユーザー設定（表示設定、通知設定等）   |
 
 **ポートフォリオ管理モデル**
 
-| モデルクラス       | テーブル名         | 用途                         |
-| ------------------ | ------------------ | ---------------------------- |
-| `Portfolio`        | portfolios         | ポートフォリオ情報           |
-| `PortfolioHolding` | portfolio_holdings | 保有銘柄（数量・取得単価）   |
+| モデルクラス       | テーブル名         | 用途                       |
+| ------------------ | ------------------ | -------------------------- |
+| `Portfolio`        | portfolios         | ポートフォリオ情報         |
+| `PortfolioHolding` | portfolio_holdings | 保有銘柄（数量・取得単価） |
 
 **その他のモデル**
 
-| モデルクラス             | テーブル名               | 用途                         |
-| ------------------------ | ------------------------ | ---------------------------- |
-| `MarketIndex`            | market_indices           | 市場インデックス（日経平均、TOPIX等）|
-| `ScreeningCondition`     | screening_conditions     | スクリーニング条件（保存された条件セット）|
-| `ScreeningResult`        | screening_results        | スクリーニング結果（実行結果の保存）|
-| `BacktestJob`            | backtest_jobs            | バックテストジョブ（実行履歴、パラメータ、結果サマリ）|
-| `BacktestTrade`          | backtest_trades          | バックテスト取引履歴（売買タイミング、損益詳細）|
-| `UserAlert`              | user_alerts              | ユーザーアラート（株価アラート設定、通知履歴）|
+| モデルクラス         | テーブル名           | 用途                                                   |
+| -------------------- | -------------------- | ------------------------------------------------------ |
+| `MarketIndex`        | market_indices       | 市場インデックス（日経平均、TOPIX等）                  |
+| `ScreeningCondition` | screening_conditions | スクリーニング条件（保存された条件セット）             |
+| `ScreeningResult`    | screening_results    | スクリーニング結果（実行結果の保存）                   |
+| `BacktestJob`        | backtest_jobs        | バックテストジョブ（実行履歴、パラメータ、結果サマリ） |
+| `BacktestTrade`      | backtest_trades      | バックテスト取引履歴（売買タイミング、損益詳細）       |
+| `UserAlert`          | user_alerts          | ユーザーアラート（株価アラート設定、通知履歴）         |
 
 ### 4.2 株価データモデル詳細
 
 **共通カラム**:
 
-| カラム名     | 型            | 制約                     | 説明                     |
-| ------------ | ------------- | ------------------------ | ------------------------ |
-| `id`         | Integer       | PK, Auto Increment       | レコードID               |
-| `symbol`     | String(20)    | NOT NULL                 | 銘柄コード（例: "7203.T"）|
-| `open`       | Numeric(10,2) | NOT NULL, >= 0           | 始値                     |
-| `high`       | Numeric(10,2) | NOT NULL, >= 0           | 高値                     |
-| `low`        | Numeric(10,2) | NOT NULL, >= 0           | 安値                     |
-| `close`      | Numeric(10,2) | NOT NULL, >= 0           | 終値                     |
-| `volume`     | BigInteger    | NOT NULL, >= 0           | 出来高                   |
-| `created_at` | DateTime(TZ)  | DEFAULT now()            | 作成日時                 |
-| `updated_at` | DateTime(TZ)  | DEFAULT now()            | 更新日時                 |
+| カラム名     | 型            | 制約               | 説明                       |
+| ------------ | ------------- | ------------------ | -------------------------- |
+| `id`         | Integer       | PK, Auto Increment | レコードID                 |
+| `symbol`     | String(20)    | NOT NULL           | 銘柄コード（例: "7203.T"） |
+| `open`       | Numeric(10,2) | NOT NULL, >= 0     | 始値                       |
+| `high`       | Numeric(10,2) | NOT NULL, >= 0     | 高値                       |
+| `low`        | Numeric(10,2) | NOT NULL, >= 0     | 安値                       |
+| `close`      | Numeric(10,2) | NOT NULL, >= 0     | 終値                       |
+| `volume`     | BigInteger    | NOT NULL, >= 0     | 出来高                     |
+| `created_at` | DateTime(TZ)  | DEFAULT now()      | 作成日時                   |
+| `updated_at` | DateTime(TZ)  | DEFAULT now()      | 更新日時                   |
 
 **分足・時間足モデル固有カラム**:
 
-| カラム名   | 型           | 制約                              | 説明         |
-| ---------- | ------------ | --------------------------------- | ------------ |
-| `datetime` | DateTime(TZ) | NOT NULL, UNIQUE(symbol, datetime)| データ日時   |
+| カラム名   | 型           | 制約                               | 説明       |
+| ---------- | ------------ | ---------------------------------- | ---------- |
+| `datetime` | DateTime(TZ) | NOT NULL, UNIQUE(symbol, datetime) | データ日時 |
 
 **日足・週足・月足モデル固有カラム**:
 
-| カラム名 | 型   | 制約                         | 説明         |
-| -------- | ---- | ---------------------------- | ------------ |
-| `date`   | Date | NOT NULL, UNIQUE(symbol, date)| データ日付   |
+| カラム名 | 型   | 制約                           | 説明       |
+| -------- | ---- | ------------------------------ | ---------- |
+| `date`   | Date | NOT NULL, UNIQUE(symbol, date) | データ日付 |
 
 **制約**:
 
@@ -616,13 +642,13 @@ async def get_stock_data(
 
 接続プールは共通モジュールで一元管理されています:
 
-| パラメータ        | 値   | 説明                                   |
-| ----------------- | ---- | -------------------------------------- |
-| `pool_size`       | 10   | 通常時に保持する接続数                 |
-| `max_overflow`    | 20   | pool_sizeを超えて作成可能な追加接続数  |
-| `pool_pre_ping`   | True | 接続使用前にpingして有効性確認         |
-| `pool_recycle`    | 3600 | 接続を再利用する最大秒数（1時間）      |
-| `pool_timeout`    | 30   | 接続取得時の最大待機秒数               |
+| パラメータ      | 値   | 説明                                  |
+| --------------- | ---- | ------------------------------------- |
+| `pool_size`     | 10   | 通常時に保持する接続数                |
+| `max_overflow`  | 20   | pool_sizeを超えて作成可能な追加接続数 |
+| `pool_pre_ping` | True | 接続使用前にpingして有効性確認        |
+| `pool_recycle`  | 3600 | 接続を再利用する最大秒数（1時間）     |
+| `pool_timeout`  | 30   | 接続取得時の最大待機秒数              |
 
 **最大接続数**: 30（pool_size + max_overflow）
 
@@ -777,11 +803,11 @@ class StockRepository(BaseRepository[Stocks1d]):
 
 トランザクション分離レベルは共通モジュールで管理されています:
 
-| 分離レベル           | 設定                                | 用途                   |
-| -------------------- | ----------------------------------- | ---------------------- |
-| **READ COMMITTED**   | PostgreSQLデフォルト                | 通常のCRUD操作         |
-| **REPEATABLE READ**  | 明示的に設定                        | レポート生成、集計処理 |
-| **SERIALIZABLE**     | 明示的に設定                        | 高度な整合性が必要な場合|
+| 分離レベル          | 設定                 | 用途                     |
+| ------------------- | -------------------- | ------------------------ |
+| **READ COMMITTED**  | PostgreSQLデフォルト | 通常のCRUD操作           |
+| **REPEATABLE READ** | 明示的に設定         | レポート生成、集計処理   |
+| **SERIALIZABLE**    | 明示的に設定         | 高度な整合性が必要な場合 |
 
 **Note**: トランザクション分離レベルの変更は、共通モジュール（`app/utils/database.py`）で行います。
 
@@ -797,14 +823,14 @@ class StockRepository(BaseRepository[Stocks1d]):
 
 データアクセス層では、以下の例外クラスを使用します:
 
-| 例外クラス                 | 用途                                   | 発生箇所             | インポート元                   |
-| -------------------------- | -------------------------------------- | -------------------- | ------------------------------ |
-| `DatabaseError`            | データベース操作の基底エラー           | 全Repository         | `app.exceptions.database`      |
-| `StockDataError`           | 株価データ操作エラー                   | StockRepository      | `app.exceptions.database`      |
-| `MasterDataError`          | 銘柄マスタ操作エラー                   | MasterRepository     | `app.exceptions.database`      |
-| `ConstraintViolationError` | 制約違反エラー                         | Repository           | `app.exceptions.database`      |
-| `DuplicateRecordError`     | UNIQUE制約違反                         | Repository           | `app.exceptions.database`      |
-| `RecordNotFoundError`      | レコード未検出エラー                   | Repository           | `app.exceptions.database`      |
+| 例外クラス                 | 用途                         | 発生箇所         | インポート元              |
+| -------------------------- | ---------------------------- | ---------------- | ------------------------- |
+| `DatabaseError`            | データベース操作の基底エラー | 全Repository     | `app.exceptions.database` |
+| `StockDataError`           | 株価データ操作エラー         | StockRepository  | `app.exceptions.database` |
+| `MasterDataError`          | 銘柄マスタ操作エラー         | MasterRepository | `app.exceptions.database` |
+| `ConstraintViolationError` | 制約違反エラー               | Repository       | `app.exceptions.database` |
+| `DuplicateRecordError`     | UNIQUE制約違反               | Repository       | `app.exceptions.database` |
+| `RecordNotFoundError`      | レコード未検出エラー         | Repository       | `app.exceptions.database` |
 
 ### 8.3 Repository層でのエラーハンドリング実装例
 

@@ -10,14 +10,75 @@ related_docs:
 # API層 仕様書
 
 ## 目次
-
-- [1. 概要](#1-概要)
-- [2. 構成](#2-構成)
-- [3. APIRouter一覧](#3-apirouter一覧)
-- [4. アーキテクチャ図](#4-アーキテクチャ図)
-- [5. シーケンス図](#5-シーケンス図)
-- [6. 共通仕様](#6-共通仕様)
-- [7. エンドポイント詳細](#7-エンドポイント詳細)
+- [API層 仕様書](#api層-仕様書)
+  - [目次](#目次)
+  - [1. 概要](#1-概要)
+    - [役割](#役割)
+    - [責務](#責務)
+    - [設計原則](#設計原則)
+  - [2. 構成](#2-構成)
+    - [ディレクトリ構造](#ディレクトリ構造)
+    - [依存関係](#依存関係)
+  - [3. APIRouter一覧](#3-apirouter一覧)
+    - [登録されているAPIRouter](#登録されているapirouter)
+  - [4. アーキテクチャ図](#4-アーキテクチャ図)
+    - [4.1 レイヤー構成（高レベルビュー）](#41-レイヤー構成高レベルビュー)
+    - [4.2 API層エンドポイント構成](#42-api層エンドポイント構成)
+    - [4.3 共通ユーティリティ詳細](#43-共通ユーティリティ詳細)
+    - [4.4 サービス層連携パターン](#44-サービス層連携パターン)
+  - [5. シーケンス図](#5-シーケンス図)
+    - [5.1 一括データ取得フロー](#51-一括データ取得フロー)
+    - [5.2 認証フロー（JWT）](#52-認証フローjwt)
+    - [5.3 スクリーニング実行フロー](#53-スクリーニング実行フロー)
+    - [5.4 バックテスト実行フロー](#54-バックテスト実行フロー)
+  - [6. 共通仕様](#6-共通仕様)
+    - [6.1 依存性注入（Dependencies）](#61-依存性注入dependencies)
+      - [6.1.1 認証依存性（共通モジュール提供）](#611-認証依存性共通モジュール提供)
+      - [6.1.2 データベース依存性（共通モジュール提供）](#612-データベース依存性共通モジュール提供)
+      - [6.1.3 サービス層依存性（API層固有）](#613-サービス層依存性api層固有)
+    - [6.2 レート制限（共通モジュール提供）](#62-レート制限共通モジュール提供)
+    - [6.3 共通バリデータ（共通モジュール提供）](#63-共通バリデータ共通モジュール提供)
+    - [6.4 エラーハンドラ（共通モジュール提供）](#64-エラーハンドラ共通モジュール提供)
+    - [6.5 レスポンス形式（共通モジュール提供）](#65-レスポンス形式共通モジュール提供)
+  - [7. エンドポイント詳細](#7-エンドポイント詳細)
+    - [7.1 一括データ取得API（Batch Data API）](#71-一括データ取得apibatch-data-api)
+      - [エンドポイント一覧](#エンドポイント一覧)
+      - [リクエスト/レスポンススキーマ](#リクエストレスポンススキーマ)
+    - [7.2 銘柄マスタAPI（Stock Master API）](#72-銘柄マスタapistock-master-api)
+      - [エンドポイント一覧](#エンドポイント一覧-1)
+      - [主要機能](#主要機能)
+    - [7.3 株価データAPI（Stock Data API）](#73-株価データapistock-data-api)
+      - [エンドポイント一覧](#エンドポイント一覧-2)
+      - [主要機能](#主要機能-1)
+    - [7.4 ファンダメンタルデータAPI（Fundamental Data API）](#74-ファンダメンタルデータapifundamental-data-api)
+      - [エンドポイント一覧](#エンドポイント一覧-3)
+      - [取得データ](#取得データ)
+    - [7.5 ポートフォリオAPI（Portfolio API）](#75-ポートフォリオapiportfolio-api)
+      - [エンドポイント一覧](#エンドポイント一覧-4)
+      - [主要機能](#主要機能-2)
+    - [7.6 市場インデックスAPI（Market Indices API）](#76-市場インデックスapimarket-indices-api)
+      - [エンドポイント一覧](#エンドポイント一覧-5)
+      - [対応インデックス](#対応インデックス)
+    - [7.7 スクリーニングAPI（Screening API）](#77-スクリーニングapiscreening-api)
+      - [エンドポイント一覧](#エンドポイント一覧-6)
+      - [スクリーニング条件](#スクリーニング条件)
+    - [7.8 バックテストAPI（Backtest API）](#78-バックテストapibacktest-api)
+      - [エンドポイント一覧](#エンドポイント一覧-7)
+      - [対応戦略](#対応戦略)
+      - [パフォーマンス指標](#パフォーマンス指標)
+    - [7.9 ユーザー管理API（User API）](#79-ユーザー管理apiuser-api)
+      - [エンドポイント一覧](#エンドポイント一覧-8)
+      - [管理項目](#管理項目)
+    - [7.10 認証API（Auth API）](#710-認証apiauth-api)
+      - [エンドポイント一覧](#エンドポイント一覧-9)
+      - [JWT仕様](#jwt仕様)
+    - [7.11 通知API（Notification API）](#711-通知apinotification-api)
+      - [エンドポイント一覧](#エンドポイント一覧-10)
+      - [アラート種類](#アラート種類)
+    - [7.12 システム監視API（System Monitoring API）](#712-システム監視apisystem-monitoring-api)
+      - [エンドポイント一覧](#エンドポイント一覧-11)
+      - [監視項目](#監視項目)
+  - [関連ドキュメント](#関連ドキュメント)
 
 ---
 
@@ -92,16 +153,16 @@ app/api/
 
 以下の機能は共通モジュールから提供されます（詳細は [共通モジュール仕様書](./common_modules.md) を参照）:
 
-| 機能カテゴリ           | 提供モジュール                   | 主要機能                                       |
-| ---------------------- | -------------------------------- | ---------------------------------------------- |
-| **認証・認可**         | `app/utils/security.py`          | `verify_api_key()`, `get_current_user()`       |
-| **DB接続**             | `app/utils/database.py`          | `get_db()` (非同期セッション提供)              |
-| **レート制限**         | `app/utils/rate_limiter.py`      | `@rate_limit` デコレータ, `RateLimiter`クラス  |
-| **バリデーション**     | `app/utils/validators.py`        | `validate_symbols()`, `validate_pagination()`, `validate_interval()` |
-| **エラーハンドリング** | `app/exceptions/handlers.py`     | 統一エラーハンドラ、レスポンス形式標準化       |
-| **レスポンス生成**     | `app/utils/api_response.py`      | `success()`, `error()`, `paginated()`          |
-| **Pydanticスキーマ**   | `app/schemas/`                   | リクエスト/レスポンススキーマ、型安全性保証    |
-| **例外クラス**         | `app/exceptions/`                | カスタム例外階層、統一エラーコード            |
+| 機能カテゴリ           | 提供モジュール               | 主要機能                                                             |
+| ---------------------- | ---------------------------- | -------------------------------------------------------------------- |
+| **認証・認可**         | `app/utils/security.py`      | `verify_api_key()`, `get_current_user()`                             |
+| **DB接続**             | `app/utils/database.py`      | `get_db()` (非同期セッション提供)                                    |
+| **レート制限**         | `app/utils/rate_limiter.py`  | `@rate_limit` デコレータ, `RateLimiter`クラス                        |
+| **バリデーション**     | `app/utils/validators.py`    | `validate_symbols()`, `validate_pagination()`, `validate_interval()` |
+| **エラーハンドリング** | `app/exceptions/handlers.py` | 統一エラーハンドラ、レスポンス形式標準化                             |
+| **レスポンス生成**     | `app/utils/api_response.py`  | `success()`, `error()`, `paginated()`                                |
+| **Pydanticスキーマ**   | `app/schemas/`               | リクエスト/レスポンススキーマ、型安全性保証                          |
+| **例外クラス**         | `app/exceptions/`            | カスタム例外階層、統一エラーコード                                   |
 
 ### 依存関係
 
@@ -210,20 +271,20 @@ graph TB
 
 ### 登録されているAPIRouter
 
-| Router名              | URLプレフィックス   | ファイル             | 主な機能                      | タグ             |
-| --------------------- | ------------------- | -------------------- | ----------------------------- | ---------------- |
-| `batch_router`        | `/api/batch`        | batch_data.py        | 一括データ取得、JPX全銘柄取得 | `batch-data`     |
-| `stock_master_router` | `/api/stock-master` | stock_master.py      | 銘柄マスタ管理                | `stock-master`   |
-| `stock_data_router`   | `/api/stocks`       | stock_data.py        | 株価データ取得、チャート表示  | `stock-data`     |
-| `fundamental_router`  | `/api/fundamental`  | fundamental.py       | ファンダメンタルデータ管理    | `fundamental`    |
-| `portfolio_router`    | `/api/portfolio`    | portfolio.py         | ポートフォリオ管理            | `portfolio`      |
-| `indices_router`      | `/api/indices`      | market_indices.py    | 市場インデックス管理          | `market-indices` |
-| `screening_router`    | `/api/screening`    | screening.py         | スクリーニング機能            | `screening`      |
-| `backtest_router`     | `/api/backtest`     | backtest.py          | バックテスト機能              | `backtest`       |
-| `user_router`         | `/api/user`         | user.py              | ユーザー管理                  | `user`           |
-| `auth_router`         | `/api/auth`         | auth.py              | 認証・認可（JWT）             | `authentication` |
-| `notification_router` | `/api/notifications`| notification.py      | 通知管理                      | `notifications`  |
-| `system_router`       | `/api/system`       | system_monitoring.py | システム監視、ヘルスチェック  | `system`         |
+| Router名              | URLプレフィックス    | ファイル             | 主な機能                      | タグ             |
+| --------------------- | -------------------- | -------------------- | ----------------------------- | ---------------- |
+| `batch_router`        | `/api/batch`         | batch_data.py        | 一括データ取得、JPX全銘柄取得 | `batch-data`     |
+| `stock_master_router` | `/api/stock-master`  | stock_master.py      | 銘柄マスタ管理                | `stock-master`   |
+| `stock_data_router`   | `/api/stocks`        | stock_data.py        | 株価データ取得、チャート表示  | `stock-data`     |
+| `fundamental_router`  | `/api/fundamental`   | fundamental.py       | ファンダメンタルデータ管理    | `fundamental`    |
+| `portfolio_router`    | `/api/portfolio`     | portfolio.py         | ポートフォリオ管理            | `portfolio`      |
+| `indices_router`      | `/api/indices`       | market_indices.py    | 市場インデックス管理          | `market-indices` |
+| `screening_router`    | `/api/screening`     | screening.py         | スクリーニング機能            | `screening`      |
+| `backtest_router`     | `/api/backtest`      | backtest.py          | バックテスト機能              | `backtest`       |
+| `user_router`         | `/api/user`          | user.py              | ユーザー管理                  | `user`           |
+| `auth_router`         | `/api/auth`          | auth.py              | 認証・認可（JWT）             | `authentication` |
+| `notification_router` | `/api/notifications` | notification.py      | 通知管理                      | `notifications`  |
+| `system_router`       | `/api/system`        | system_monitoring.py | システム監視、ヘルスチェック  | `system`         |
 
 **Note**: 各RouterはFastAPIの`APIRouter`を使用し、`app/main.py`の`app.include_router()`で登録されます
 
@@ -816,11 +877,11 @@ async def start_batch(...):
 
 **バリデーション関数**:
 
-| 関数名                  | 検証内容                          | 返却値                              |
-| ----------------------- | --------------------------------- | ----------------------------------- |
-| `validate_symbols()`    | 銘柄リストの型、件数制限（5000件）| `(is_valid, HTTPException or None)` |
-| `validate_pagination()` | limit/offsetの範囲チェック        | `(limit, offset, HTTPException)`    |
-| `validate_interval()`   | 時間軸の妥当性チェック            | `(is_valid, HTTPException or None)` |
+| 関数名                  | 検証内容                           | 返却値                              |
+| ----------------------- | ---------------------------------- | ----------------------------------- |
+| `validate_symbols()`    | 銘柄リストの型、件数制限（5000件） | `(is_valid, HTTPException or None)` |
+| `validate_pagination()` | limit/offsetの範囲チェック         | `(limit, offset, HTTPException)`    |
+| `validate_interval()`   | 時間軸の妥当性チェック             | `(is_valid, HTTPException or None)` |
 
 **使用例**:
 ```python
@@ -848,13 +909,13 @@ async def start_batch(request: BatchRequest):
 
 **統一エラーハンドリング**:
 
-| ステータスコード | エラー種別             | レスポンス内容                   |
-| ---------------- | ---------------------- | -------------------------------- |
-| 400              | バリデーションエラー   | `VALIDATION_ERROR`               |
-| 401              | 認証エラー             | `UNAUTHORIZED`                   |
-| 404              | リソース未検出         | `NOT_FOUND`                      |
-| 429              | レート制限超過         | `RATE_LIMIT_EXCEEDED`            |
-| 500              | 内部サーバーエラー     | `INTERNAL_SERVER_ERROR`          |
+| ステータスコード | エラー種別           | レスポンス内容          |
+| ---------------- | -------------------- | ----------------------- |
+| 400              | バリデーションエラー | `VALIDATION_ERROR`      |
+| 401              | 認証エラー           | `UNAUTHORIZED`          |
+| 404              | リソース未検出       | `NOT_FOUND`             |
+| 429              | レート制限超過       | `RATE_LIMIT_EXCEEDED`   |
+| 500              | 内部サーバーエラー   | `INTERNAL_SERVER_ERROR` |
 
 **共通レスポンス形式**:
 ```json
@@ -871,13 +932,13 @@ async def start_batch(request: BatchRequest):
 
 **Pydanticスキーマ**:
 
-| スキーマ名            | 用途                     | 主要フィールド                          |
-| --------------------- | ------------------------ | --------------------------------------- |
-| `MetaData`            | メタ情報                 | timestamp, request_id                   |
-| `PaginationMeta`      | ページネーション情報     | total, limit, offset, has_next          |
-| `SuccessResponse[T]`  | 成功レスポンス（汎用）   | status, message, data, meta             |
-| `PaginatedResponse[T]`| ページネーション対応     | status, message, data (List[T]), meta   |
-| `ErrorResponse`       | エラーレスポンス         | error, message, details, meta           |
+| スキーマ名             | 用途                   | 主要フィールド                        |
+| ---------------------- | ---------------------- | ------------------------------------- |
+| `MetaData`             | メタ情報               | timestamp, request_id                 |
+| `PaginationMeta`       | ページネーション情報   | total, limit, offset, has_next        |
+| `SuccessResponse[T]`   | 成功レスポンス（汎用） | status, message, data, meta           |
+| `PaginatedResponse[T]` | ページネーション対応   | status, message, data (List[T]), meta |
+| `ErrorResponse`        | エラーレスポンス       | error, message, details, meta         |
 
 **成功レスポンス例**:
 ```json
@@ -919,13 +980,13 @@ async def start_batch(request: BatchRequest):
 
 #### エンドポイント一覧
 
-| エンドポイント                          | メソッド | 機能                             | 認証                       | レート制限        |
-| --------------------------------------- | -------- | -------------------------------- | -------------------------- | ----------------- |
-| `/api/batch/jobs`                       | POST     | 複数銘柄の株価データを並列取得   | APIキー                    | 10リクエスト/60秒 |
-| `/api/batch/jobs/{job_id}`              | GET      | ジョブステータス取得             | APIキー                    | 10リクエスト/60秒 |
-| `/api/batch/jobs/{job_id}`              | DELETE   | ジョブ停止                       | APIキー                    | 10リクエスト/60秒 |
-| `/api/batch/jpx-sequential/jobs`        | POST     | JPX全銘柄を8種類の時間軸で取得   | APIキー                    | 10リクエスト/60秒 |
-| `/api/batch/jpx-sequential/get-symbols` | GET      | JPX銘柄一覧取得                  | APIキー                    | 10リクエスト/60秒 |
+| エンドポイント                          | メソッド | 機能                           | 認証    | レート制限        |
+| --------------------------------------- | -------- | ------------------------------ | ------- | ----------------- |
+| `/api/batch/jobs`                       | POST     | 複数銘柄の株価データを並列取得 | APIキー | 10リクエスト/60秒 |
+| `/api/batch/jobs/{job_id}`              | GET      | ジョブステータス取得           | APIキー | 10リクエスト/60秒 |
+| `/api/batch/jobs/{job_id}`              | DELETE   | ジョブ停止                     | APIキー | 10リクエスト/60秒 |
+| `/api/batch/jpx-sequential/jobs`        | POST     | JPX全銘柄を8種類の時間軸で取得 | APIキー | 10リクエスト/60秒 |
+| `/api/batch/jpx-sequential/get-symbols` | GET      | JPX銘柄一覧取得                | APIキー | 10リクエスト/60秒 |
 
 #### リクエスト/レスポンススキーマ
 
@@ -948,12 +1009,12 @@ async def start_batch(request: BatchRequest):
 
 #### エンドポイント一覧
 
-| エンドポイント                | メソッド | 機能                     | 認証    | ページネーション |
-| ----------------------------- | -------- | ------------------------ | ------- | ---------------- |
-| `/api/stock-master/`          | POST     | 銘柄マスタ更新           | APIキー | -                |
-| `/api/stock-master/`          | GET      | 銘柄マスタ一覧取得       | APIキー | あり             |
-| `/api/stock-master/stocks`    | GET      | 銘柄検索                 | APIキー | あり             |
-| `/api/stock-master/status`    | GET      | 銘柄マスタステータス取得 | APIキー | -                |
+| エンドポイント             | メソッド | 機能                     | 認証    | ページネーション |
+| -------------------------- | -------- | ------------------------ | ------- | ---------------- |
+| `/api/stock-master/`       | POST     | 銘柄マスタ更新           | APIキー | -                |
+| `/api/stock-master/`       | GET      | 銘柄マスタ一覧取得       | APIキー | あり             |
+| `/api/stock-master/stocks` | GET      | 銘柄検索                 | APIキー | あり             |
+| `/api/stock-master/status` | GET      | 銘柄マスタステータス取得 | APIキー | -                |
 
 #### 主要機能
 
@@ -975,11 +1036,11 @@ async def start_batch(request: BatchRequest):
 
 #### エンドポイント一覧
 
-| エンドポイント                | メソッド | 機能                       | 認証 | ページネーション |
-| ----------------------------- | -------- | -------------------------- | ---- | ---------------- |
-| `/api/stocks`                 | GET      | 株価データ一覧取得         | JWT  | あり             |
-| `/api/stocks/{symbol}/chart`  | GET      | 株価チャートデータ取得     | JWT  | -                |
-| `/api/stocks/compare`         | POST     | 複数銘柄の比較データ取得   | JWT  | -                |
+| エンドポイント               | メソッド | 機能                     | 認証 | ページネーション |
+| ---------------------------- | -------- | ------------------------ | ---- | ---------------- |
+| `/api/stocks`                | GET      | 株価データ一覧取得       | JWT  | あり             |
+| `/api/stocks/{symbol}/chart` | GET      | 株価チャートデータ取得   | JWT  | -                |
+| `/api/stocks/compare`        | POST     | 複数銘柄の比較データ取得 | JWT  | -                |
 
 #### 主要機能
 
@@ -1002,19 +1063,19 @@ async def start_batch(request: BatchRequest):
 
 #### エンドポイント一覧
 
-| エンドポイント                      | メソッド | 機能                     | 認証    |
-| ----------------------------------- | -------- | ------------------------ | ------- |
-| `/api/fundamental/fetch`            | POST     | Fデータ取得（外部API）   | APIキー |
-| `/api/fundamental/{symbol}`         | GET      | Fデータ参照（DB）        | JWT     |
-| `/api/fundamental/{symbol}/history` | GET      | Fデータ履歴取得          | JWT     |
+| エンドポイント                      | メソッド | 機能                   | 認証    |
+| ----------------------------------- | -------- | ---------------------- | ------- |
+| `/api/fundamental/fetch`            | POST     | Fデータ取得（外部API） | APIキー |
+| `/api/fundamental/{symbol}`         | GET      | Fデータ参照（DB）      | JWT     |
+| `/api/fundamental/{symbol}/history` | GET      | Fデータ履歴取得        | JWT     |
 
 #### 取得データ
 
-| カテゴリ     | データ項目                                                  |
-| ------------ | ----------------------------------------------------------- |
-| 株価指標     | EPS, BPS, PER, PBR, ROE, 配当利回り                         |
-| 財務データ   | 売上高, 営業利益, 純利益, 自己資本比率                      |
-| 市場データ   | 時価総額, 発行済株式数                                      |
+| カテゴリ   | データ項目                             |
+| ---------- | -------------------------------------- |
+| 株価指標   | EPS, BPS, PER, PBR, ROE, 配当利回り    |
+| 財務データ | 売上高, 営業利益, 純利益, 自己資本比率 |
+| 市場データ | 時価総額, 発行済株式数                 |
 
 ---
 
@@ -1024,13 +1085,13 @@ async def start_batch(request: BatchRequest):
 
 #### エンドポイント一覧
 
-| エンドポイント                    | メソッド | 機能                   | 認証 |
-| --------------------------------- | -------- | ---------------------- | ---- |
-| `/api/portfolio/summary`          | GET      | ポートフォリオ概況取得 | JWT  |
-| `/api/portfolio/holdings`         | GET      | 保有銘柄一覧取得       | JWT  |
-| `/api/portfolio/holdings`         | POST     | 保有銘柄追加           | JWT  |
-| `/api/portfolio/holdings/{id}`    | PUT      | 保有銘柄更新           | JWT  |
-| `/api/portfolio/holdings/{id}`    | DELETE   | 保有銘柄削除           | JWT  |
+| エンドポイント                 | メソッド | 機能                   | 認証 |
+| ------------------------------ | -------- | ---------------------- | ---- |
+| `/api/portfolio/summary`       | GET      | ポートフォリオ概況取得 | JWT  |
+| `/api/portfolio/holdings`      | GET      | 保有銘柄一覧取得       | JWT  |
+| `/api/portfolio/holdings`      | POST     | 保有銘柄追加           | JWT  |
+| `/api/portfolio/holdings/{id}` | PUT      | 保有銘柄更新           | JWT  |
+| `/api/portfolio/holdings/{id}` | DELETE   | 保有銘柄削除           | JWT  |
 
 #### 主要機能
 
@@ -1047,10 +1108,10 @@ async def start_batch(request: BatchRequest):
 
 #### エンドポイント一覧
 
-| エンドポイント                         | メソッド | 機能                     | 認証 |
-| -------------------------------------- | -------- | ------------------------ | ---- |
-| `/api/indices/list`                    | GET      | インデックス一覧取得     | JWT  |
-| `/api/indices/{index_code}/history`    | GET      | インデックス履歴取得     | JWT  |
+| エンドポイント                      | メソッド | 機能                 | 認証 |
+| ----------------------------------- | -------- | -------------------- | ---- |
+| `/api/indices/list`                 | GET      | インデックス一覧取得 | JWT  |
+| `/api/indices/{index_code}/history` | GET      | インデックス履歴取得 | JWT  |
 
 #### 対応インデックス
 
@@ -1067,13 +1128,13 @@ async def start_batch(request: BatchRequest):
 
 #### エンドポイント一覧
 
-| エンドポイント                  | メソッド | 機能                       | 認証 |
-| ------------------------------- | -------- | -------------------------- | ---- |
-| `/api/screening/execute`        | POST     | スクリーニング実行         | JWT  |
-| `/api/screening/presets`        | GET      | プリセット条件一覧         | JWT  |
-| `/api/screening/save`           | POST     | スクリーニング条件保存     | JWT  |
-| `/api/screening/list`           | GET      | 保存済み条件一覧           | JWT  |
-| `/api/screening/{id}/export`    | GET      | 結果エクスポート（CSV/Excel）| JWT  |
+| エンドポイント               | メソッド | 機能                          | 認証 |
+| ---------------------------- | -------- | ----------------------------- | ---- |
+| `/api/screening/execute`     | POST     | スクリーニング実行            | JWT  |
+| `/api/screening/presets`     | GET      | プリセット条件一覧            | JWT  |
+| `/api/screening/save`        | POST     | スクリーニング条件保存        | JWT  |
+| `/api/screening/list`        | GET      | 保存済み条件一覧              | JWT  |
+| `/api/screening/{id}/export` | GET      | 結果エクスポート（CSV/Excel） | JWT  |
 
 #### スクリーニング条件
 
@@ -1096,14 +1157,14 @@ async def start_batch(request: BatchRequest):
 
 #### エンドポイント一覧
 
-| エンドポイント                  | メソッド | 機能                     | 認証 | レート制限       |
-| ------------------------------- | -------- | ------------------------ | ---- | ---------------- |
-| `/api/backtest/start`           | POST     | バックテスト開始         | JWT  | 5リクエスト/60秒 |
-| `/api/backtest/{id}/status`     | GET      | バックテスト進捗取得     | JWT  | -                |
-| `/api/backtest/{id}/result`     | GET      | バックテスト結果取得     | JWT  | -                |
-| `/api/backtest/{id}/trades`     | GET      | 取引履歴取得             | JWT  | -                |
-| `/api/backtest/jobs`            | GET      | ジョブ一覧取得           | JWT  | -                |
-| `/api/backtest/{id}/cancel`     | DELETE   | ジョブキャンセル         | JWT  | -                |
+| エンドポイント              | メソッド | 機能                 | 認証 | レート制限       |
+| --------------------------- | -------- | -------------------- | ---- | ---------------- |
+| `/api/backtest/start`       | POST     | バックテスト開始     | JWT  | 5リクエスト/60秒 |
+| `/api/backtest/{id}/status` | GET      | バックテスト進捗取得 | JWT  | -                |
+| `/api/backtest/{id}/result` | GET      | バックテスト結果取得 | JWT  | -                |
+| `/api/backtest/{id}/trades` | GET      | 取引履歴取得         | JWT  | -                |
+| `/api/backtest/jobs`        | GET      | ジョブ一覧取得       | JWT  | -                |
+| `/api/backtest/{id}/cancel` | DELETE   | ジョブキャンセル     | JWT  | -                |
 
 #### 対応戦略
 
@@ -1127,13 +1188,13 @@ async def start_batch(request: BatchRequest):
 
 #### エンドポイント一覧
 
-| エンドポイント          | メソッド | 機能                 | 認証 |
-| ----------------------- | -------- | -------------------- | ---- |
-| `/api/user/profile`     | GET      | プロフィール取得     | JWT  |
-| `/api/user/profile`     | PUT      | プロフィール更新     | JWT  |
-| `/api/user/password`    | PUT      | パスワード変更       | JWT  |
-| `/api/user/settings`    | GET      | ユーザー設定取得     | JWT  |
-| `/api/user/settings`    | PUT      | ユーザー設定更新     | JWT  |
+| エンドポイント       | メソッド | 機能             | 認証 |
+| -------------------- | -------- | ---------------- | ---- |
+| `/api/user/profile`  | GET      | プロフィール取得 | JWT  |
+| `/api/user/profile`  | PUT      | プロフィール更新 | JWT  |
+| `/api/user/password` | PUT      | パスワード変更   | JWT  |
+| `/api/user/settings` | GET      | ユーザー設定取得 | JWT  |
+| `/api/user/settings` | PUT      | ユーザー設定更新 | JWT  |
 
 #### 管理項目
 
@@ -1154,12 +1215,12 @@ async def start_batch(request: BatchRequest):
 
 #### エンドポイント一覧
 
-| エンドポイント        | メソッド | 機能                     | 認証         |
-| --------------------- | -------- | ------------------------ | ------------ |
-| `/api/auth/login`     | POST     | ログイン                 | 不要         |
-| `/api/auth/logout`    | POST     | ログアウト               | JWT          |
-| `/api/auth/register`  | POST     | ユーザー登録             | 不要         |
-| `/api/auth/refresh`   | POST     | トークンリフレッシュ     | Refresh Token|
+| エンドポイント       | メソッド | 機能                 | 認証          |
+| -------------------- | -------- | -------------------- | ------------- |
+| `/api/auth/login`    | POST     | ログイン             | 不要          |
+| `/api/auth/logout`   | POST     | ログアウト           | JWT           |
+| `/api/auth/register` | POST     | ユーザー登録         | 不要          |
+| `/api/auth/refresh`  | POST     | トークンリフレッシュ | Refresh Token |
 
 #### JWT仕様
 
@@ -1184,13 +1245,13 @@ async def start_batch(request: BatchRequest):
 
 #### エンドポイント一覧
 
-| エンドポイント                        | メソッド | 機能             | 認証 |
-| ------------------------------------- | -------- | ---------------- | ---- |
-| `/api/user/notification-settings`     | GET      | 通知設定取得     | JWT  |
-| `/api/user/notification-settings`     | PUT      | 通知設定更新     | JWT  |
-| `/api/user/alerts`                    | POST     | アラート作成     | JWT  |
-| `/api/user/alerts`                    | GET      | アラート一覧取得 | JWT  |
-| `/api/user/alerts/{id}`               | DELETE   | アラート削除     | JWT  |
+| エンドポイント                    | メソッド | 機能             | 認証 |
+| --------------------------------- | -------- | ---------------- | ---- |
+| `/api/user/notification-settings` | GET      | 通知設定取得     | JWT  |
+| `/api/user/notification-settings` | PUT      | 通知設定更新     | JWT  |
+| `/api/user/alerts`                | POST     | アラート作成     | JWT  |
+| `/api/user/alerts`                | GET      | アラート一覧取得 | JWT  |
+| `/api/user/alerts/{id}`           | DELETE   | アラート削除     | JWT  |
 
 #### アラート種類
 
@@ -1215,11 +1276,11 @@ async def start_batch(request: BatchRequest):
 
 #### エンドポイント一覧
 
-| エンドポイント              | メソッド | 機能                       | 認証    |
-| --------------------------- | -------- | -------------------------- | ------- |
-| `/api/system/health`        | GET      | ヘルスチェック（簡易）     | 不要    |
-| `/api/system/health-check`  | GET      | ヘルスチェック（詳細）     | 不要    |
-| `/api/system/metrics`       | GET      | システムメトリクス取得     | APIキー |
+| エンドポイント             | メソッド | 機能                   | 認証    |
+| -------------------------- | -------- | ---------------------- | ------- |
+| `/api/system/health`       | GET      | ヘルスチェック（簡易） | 不要    |
+| `/api/system/health-check` | GET      | ヘルスチェック（詳細） | 不要    |
+| `/api/system/metrics`      | GET      | システムメトリクス取得 | APIキー |
 
 #### 監視項目
 
