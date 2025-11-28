@@ -2,6 +2,7 @@
 .claude/
 AI_INSTRUCTIONS.md
 .serena/
+prompt.md
 
 # vscode settings
 .vscode/
