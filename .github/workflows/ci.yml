@@ -9,7 +9,7 @@ name: CI - tests & linters
 
 on:
   push:
-    branches: [ main, setup ]
+    branches: [ main, develop ]
   pull_request:
 
 jobs:
