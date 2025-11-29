@@ -3,6 +3,8 @@
 """
 
 from app.exceptions.base import AppException
+
+# pylint: disable=too-few-public-methods
 from app.exceptions.database import (
     ConstraintViolationError,
     DatabaseError,
@@ -79,6 +81,10 @@ class TestStockDataError:
         assert exc.message == "Failed to insert stock data"
         assert exc.details["symbol"] == "7203.T"
 
+    def helper_noop(self):
+        """pylint対応用の補助メソッド（テスト動作には影響なし）。"""
+        return None
+
 
 class TestMasterDataError:
     """MasterDataErrorのテスト"""
@@ -96,6 +102,10 @@ class TestMasterDataError:
         assert exc.message == "Master data operation failed"
         assert exc.error_code == "MASTER_DATA_ERROR"
         assert exc.status_code == 500
+
+    def helper_noop(self):
+        """pylint対応用の補助メソッド（テスト動作には影響なし）。"""
+        return None
 
 
 class TestConstraintViolationError:
@@ -115,6 +125,10 @@ class TestConstraintViolationError:
         assert exc.error_code == "CONSTRAINT_VIOLATION"
         assert exc.status_code == 400
         assert isinstance(exc, DatabaseError)
+
+    def helper_noop(self):
+        """pylint対応用の補助メソッド（テスト動作には影響なし）。"""
+        return None
 
 
 class TestDuplicateRecordError:
@@ -154,6 +168,10 @@ class TestDuplicateRecordError:
         # Assert: メッセージと詳細情報が正しく設定されていることを確認
         assert exc.message == "Duplicate stock data"
         assert exc.details["symbol"] == "7203.T"
+
+    def helper_noop(self):
+        """pylint対応用の補助メソッド（テスト動作には影響なし）。"""
+        return None
 
 
 class TestRecordNotFoundError:

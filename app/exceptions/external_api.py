@@ -15,6 +15,7 @@ class ExternalAPIError(AppException):
 
     def __init__(
         self,
+        *,
         message: str = "External API request failed",
         error_code: str = "EXTERNAL_API_ERROR",
         status_code: int = 502,
@@ -35,6 +36,7 @@ class YahooFinanceError(ExternalAPIError):
 
     def __init__(
         self,
+        *,
         message: str = "Yahoo Finance API request failed",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,
@@ -53,6 +55,7 @@ class JPXAPIError(ExternalAPIError):
 
     def __init__(
         self,
+        *,
         message: str = "JPX API request failed",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,
@@ -71,6 +74,7 @@ class APITimeoutError(ExternalAPIError):
 
     def __init__(
         self,
+        *,
         message: str = "API request timeout",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,
@@ -89,6 +93,7 @@ class APIRateLimitError(ExternalAPIError):
 
     def __init__(
         self,
+        *,
         message: str = "API rate limit exceeded",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,

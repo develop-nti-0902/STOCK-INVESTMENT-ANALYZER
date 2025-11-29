@@ -2,6 +2,8 @@
 例外処理モジュールのテスト - ハンドラ
 """
 
+from types import SimpleNamespace
+
 import pytest
 from fastapi.exceptions import HTTPException, RequestValidationError
 from pydantic import BaseModel, ValidationError
@@ -15,6 +17,15 @@ from app.exceptions.handlers import (
     http_exception_handler,
     validation_exception_handler,
 )
+
+
+def create_mock_request(path: str, method: str, app: object | None = None):
+    """軽量なモックRequestを生成する（クラス定義を避けてpylint対応）。"""
+    url = SimpleNamespace(path=path)
+    ns = SimpleNamespace(url=url, method=method)
+    if app is not None:
+        ns.app = app
+    return ns
 
 
 class TestGenerateRequestId:
@@ -112,11 +123,7 @@ class TestAppExceptionHandler:
         """AppExceptionを処理できることを確認"""
 
         # Arrange: モックリクエストとAppExceptionを準備
-        class MockRequest:
-            url = type("obj", (object,), {"path": "/test"})()
-            method = "GET"
-
-        request = MockRequest()
+        request = create_mock_request("/test", "GET")
 
         exc = AppException(
             message="Test app exception",
@@ -143,11 +150,7 @@ class TestHttpExceptionHandler:
         """HTTPExceptionを処理できることを確認"""
 
         # Arrange: モックリクエストとHTTPExceptionを準備
-        class MockRequest:
-            url = type("obj", (object,), {"path": "/test"})()
-            method = "GET"
-
-        request = MockRequest()
+        request = create_mock_request("/test", "GET")
 
         exc = HTTPException(
             status_code=404,
@@ -173,11 +176,7 @@ class TestGeneralExceptionHandler:
         """
 
         # Arrange: モックリクエストと一般例外を準備
-        class MockRequest:
-            url = type("obj", (object,), {"path": "/test"})()
-            method = "GET"
-
-        request = MockRequest()
+        request = create_mock_request("/test", "GET")
 
         exc = ValueError("Unexpected error")
 
@@ -204,12 +203,7 @@ class TestGeneralExceptionHandler:
         class MockApp:
             state = MockState()
 
-        class MockRequest:
-            url = type("obj", (object,), {"path": "/test"})()
-            method = "GET"
-            app = MockApp()
-
-        request = MockRequest()
+        request = create_mock_request("/test", "GET", app=MockApp())
         exc = ValueError("Test error with debug")
 
         # Act: ハンドラーを呼び出し
@@ -237,12 +231,7 @@ class TestGeneralExceptionHandler:
         class MockApp:
             state = MockState()
 
-        class MockRequest:
-            url = type("obj", (object,), {"path": "/test"})()
-            method = "GET"
-            app = MockApp()
-
-        request = MockRequest()
+        request = create_mock_request("/test", "GET", app=MockApp())
         exc = ValueError("Sensitive error info")
 
         # Act: ハンドラーを呼び出し
@@ -266,11 +255,7 @@ class TestValidationExceptionHandler:
         """
 
         # Arrange: モックリクエストとバリデーションエラーを準備
-        class MockRequest:
-            url = type("obj", (object,), {"path": "/test"})()
-            method = "POST"
-
-        request = MockRequest()
+        request = create_mock_request("/test", "POST")
 
         # Pydantic v2のバリデーションエラーを作成
         class TestModel(BaseModel):
@@ -304,11 +289,7 @@ class TestValidationExceptionHandler:
         """
 
         # Arrange: モックリクエストと一般例外を準備
-        class MockRequest:
-            url = type("obj", (object,), {"path": "/test"})()
-            method = "POST"
-
-        request = MockRequest()
+        request = create_mock_request("/test", "POST")
         exc = ValueError("Not a validation error")
 
         # Act: ハンドラーを呼び出し
@@ -330,11 +311,7 @@ class TestHttpExceptionHandlerExtended:
         """
 
         # Arrange: dict形式のdetailを持つHTTPExceptionを準備
-        class MockRequest:
-            url = type("obj", (object,), {"path": "/test"})()
-            method = "GET"
-
-        request = MockRequest()
+        request = create_mock_request("/test", "GET")
 
         exc = HTTPException(
             status_code=400,
@@ -361,11 +338,7 @@ class TestHttpExceptionHandlerExtended:
         """
 
         # Arrange: モックリクエストと一般例外を準備
-        class MockRequest:
-            url = type("obj", (object,), {"path": "/test"})()
-            method = "GET"
-
-        request = MockRequest()
+        request = create_mock_request("/test", "GET")
         exc = ValueError("Not an HTTP exception")
 
         # Act: ハンドラーを呼び出し
@@ -387,11 +360,7 @@ class TestAppExceptionHandlerExtended:
         """
 
         # Arrange: original_errorを持つAppExceptionを準備
-        class MockRequest:
-            url = type("obj", (object,), {"path": "/test"})()
-            method = "GET"
-
-        request = MockRequest()
+        request = create_mock_request("/test", "GET")
 
         original = ValueError("Original error")
         exc = AppException(
@@ -416,11 +385,7 @@ class TestAppExceptionHandlerExtended:
         """
 
         # Arrange: モックリクエストと一般例外を準備
-        class MockRequest:
-            url = type("obj", (object,), {"path": "/test"})()
-            method = "GET"
-
-        request = MockRequest()
+        request = create_mock_request("/test", "GET")
         exc = ValueError("Not an app exception")
 
         # Act: ハンドラーを呼び出し

@@ -15,6 +15,7 @@ class DatabaseError(AppException):
 
     def __init__(
         self,
+        *,
         message: str = "Database operation failed",
         error_code: str = "DB_ERROR",
         status_code: int = 500,
@@ -35,6 +36,7 @@ class StockDataError(DatabaseError):
 
     def __init__(
         self,
+        *,
         message: str = "Stock data operation failed",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,
@@ -53,6 +55,7 @@ class MasterDataError(DatabaseError):
 
     def __init__(
         self,
+        *,
         message: str = "Master data operation failed",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,
@@ -71,6 +74,7 @@ class ConstraintViolationError(DatabaseError):
 
     def __init__(
         self,
+        *,
         message: str = "Database constraint violation",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,
@@ -89,6 +93,7 @@ class DuplicateRecordError(ConstraintViolationError):
 
     def __init__(
         self,
+        *,
         message: str = "Duplicate record detected",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,
@@ -107,6 +112,7 @@ class RecordNotFoundError(DatabaseError):
 
     def __init__(
         self,
+        *,
         message: str = "Record not found",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,

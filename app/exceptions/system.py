@@ -14,6 +14,7 @@ class ConfigurationError(AppException):
 
     def __init__(
         self,
+        *,
         message: str = "Configuration error occurred",
         error_code: str = "CONFIG_ERROR",
         status_code: int = 500,
@@ -34,6 +35,7 @@ class SettingsValidationError(ConfigurationError):
 
     def __init__(
         self,
+        *,
         message: str = "Settings validation failed",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,
@@ -52,6 +54,7 @@ class EnvironmentVariableError(ConfigurationError):
 
     def __init__(
         self,
+        *,
         message: str = "Required environment variable is missing or invalid",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,
@@ -70,6 +73,7 @@ class FileSystemError(AppException):
 
     def __init__(
         self,
+        *,
         message: str = "File system operation failed",
         error_code: str = "FILESYSTEM_ERROR",
         status_code: int = 500,
@@ -90,6 +94,7 @@ class LoggingError(AppException):
 
     def __init__(
         self,
+        *,
         message: str = "Logging operation failed",
         error_code: str = "LOGGING_ERROR",
         status_code: int = 500,

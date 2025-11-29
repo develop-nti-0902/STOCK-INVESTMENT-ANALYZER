@@ -15,6 +15,7 @@ class ValidationError(AppException):
 
     def __init__(
         self,
+        *,
         message: str = "Validation failed",
         error_code: str = "VALIDATION_ERROR",
         status_code: int = 400,
@@ -35,6 +36,7 @@ class SchemaValidationError(ValidationError):
 
     def __init__(
         self,
+        *,
         message: str = "Schema validation failed",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,
@@ -53,6 +55,7 @@ class FieldValidationError(ValidationError):
 
     def __init__(
         self,
+        *,
         message: str = "Field validation failed",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,

@@ -15,6 +15,7 @@ class BusinessError(AppException):
 
     def __init__(
         self,
+        *,
         message: str = "Business logic error occurred",
         error_code: str = "BUSINESS_ERROR",
         status_code: int = 400,
@@ -35,6 +36,7 @@ class InsufficientDataError(BusinessError):
 
     def __init__(
         self,
+        *,
         message: str = "Insufficient data for processing",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,
@@ -53,6 +55,7 @@ class CalculationError(BusinessError):
 
     def __init__(
         self,
+        *,
         message: str = "Calculation error occurred",
         details: Optional[dict] = None,
         original_error: Optional[Exception] = None,
