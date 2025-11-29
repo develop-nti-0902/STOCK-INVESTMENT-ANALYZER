@@ -3,6 +3,8 @@ from __future__ import annotations
 from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.exceptions.system import SettingsValidationError
+
 
 class Settings(BaseSettings):
     """アプリケーション設定（環境変数管理）
@@ -64,9 +66,35 @@ class Settings(BaseSettings):
 
 
 def get_settings() -> Settings:
-    """設定インスタンスを返す（必要に応じて例外を標準化）"""
+    """設定インスタンスを返す（カスタム例外でラップ）
+
+    Returns:
+        Settings: アプリケーション設定インスタンス
+
+    Raises:
+        SettingsValidationError: 設定値のバリデーションに失敗した場合
+    """
     try:
         return Settings()  # type: ignore[call-arg]
     except ValidationError as exc:
-        # ここで例外をそのまま上げる。例外モジュール統合時にラップ可能。
-        raise exc
+        # Pydantic ValidationErrorをカスタム例外でラップ
+        # エラー詳細を抽出
+        error_details = {
+            "errors": [
+                {
+                    "field": ".".join(str(loc) for loc in error["loc"]),
+                    "message": error["msg"],
+                    "type": error["type"],
+                }
+                for error in exc.errors()
+            ]
+        }
+
+        raise SettingsValidationError(
+            message=(
+                "Failed to load application settings. "
+                "Please check your .env file and environment variables."
+            ),
+            details=error_details,
+            original_error=exc,
+        ) from exc

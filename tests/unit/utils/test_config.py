@@ -132,12 +132,17 @@ def test_settings_is_test_returns_true_when_env_is_test(monkeypatch):
 
 def test_get_settings_raises_validation_error_when_required_env_missing(
     monkeypatch,
+    tmp_path,
 ):
     """
-    get_settings()関数が必須環境変数未設定時にValidationErrorを送出することを検証する
+    get_settings()関数が必須環境変数未設定時にSettingsValidationErrorを送出することを検証する
     （exceptブロックのカバレッジ向上）
     """
-    # Arrange: 必須環境変数を削除
+    # Arrange: キャッシュをクリアして環境変数を削除
+    sys.modules.pop("app.utils.config", None)
+    sys.modules.pop("app.exceptions.system", None)
+
+    # 必須環境変数を削除
     monkeypatch.delenv("APP_NAME", raising=False)
     monkeypatch.delenv("APP_VERSION", raising=False)
     monkeypatch.delenv("DB_HOST", raising=False)
@@ -146,25 +151,19 @@ def test_get_settings_raises_validation_error_when_required_env_missing(
     monkeypatch.delenv("DB_USER", raising=False)
     monkeypatch.delenv("DB_PASSWORD", raising=False)
 
-    # Act & Assert: get_settings()がValidationErrorを送出することを確認
-    # 注意: モジュールキャッシュをクリアして環境変数の変更を反映
-    sys.modules.pop("app.utils.config", None)
+    # .envファイルを読み込まないように一時ディレクトリに移動
+    monkeypatch.chdir(tmp_path)
 
-    # get_settings()を直接呼び出し、exceptブロックを通過させる
-    # monkeypatchでget_settingsをモック化してexceptパスをカバー
+    # Act & Assert: get_settings()がSettingsValidationErrorを送出することを確認
     # pylint: disable=import-outside-toplevel
-    from unittest.mock import patch
+    from app.exceptions.system import SettingsValidationError
+    from app.utils.config import get_settings
 
-    from app.utils.config import Settings
+    with pytest.raises(SettingsValidationError) as exc_info:
+        get_settings()
 
-    with patch.object(
-        Settings,
-        "__init__",
-        side_effect=ValidationError.from_exception_data(
-            "test", [{"type": "missing", "loc": ("APP_NAME",), "input": {}}]
-        ),
-    ):
-        with pytest.raises(ValidationError):
-            from app.utils.config import get_settings  # noqa: F401
-
-            get_settings()
+    # カスタム例外の属性を検証
+    assert exc_info.value.error_code == "SETTINGS_VALIDATION_ERROR"
+    assert "errors" in exc_info.value.details
+    assert len(exc_info.value.details["errors"]) > 0
+    assert isinstance(exc_info.value.original_error, ValidationError)
