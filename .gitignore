@@ -29,5 +29,12 @@ dist/
 # Pytest cache
 .pytest_cache/
 
+# Coverage reports
+.coverage
+.coverage.*
+htmlcov/
+*.cover
+.hypothesis/
+
 # Environment variables file
 .env
