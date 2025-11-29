@@ -19,15 +19,13 @@ class DatabaseError(AppException):
         message: str = "Database operation failed",
         error_code: str = "DB_ERROR",
         status_code: int = 500,
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code=error_code,
             status_code=status_code,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -38,15 +36,13 @@ class StockDataError(DatabaseError):
         self,
         *,
         message: str = "Stock data operation failed",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code="STOCK_DATA_ERROR",
             status_code=500,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -57,15 +53,13 @@ class MasterDataError(DatabaseError):
         self,
         *,
         message: str = "Master data operation failed",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code="MASTER_DATA_ERROR",
             status_code=500,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -76,15 +70,13 @@ class ConstraintViolationError(DatabaseError):
         self,
         *,
         message: str = "Database constraint violation",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code="CONSTRAINT_VIOLATION",
             status_code=400,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -95,13 +87,11 @@ class DuplicateRecordError(ConstraintViolationError):
         self,
         *,
         message: str = "Duplicate record detected",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
         self.error_code = "DUPLICATE_RECORD"
         self.status_code = 409
@@ -114,13 +104,11 @@ class RecordNotFoundError(DatabaseError):
         self,
         *,
         message: str = "Record not found",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code="RECORD_NOT_FOUND",
             status_code=404,
-            details=details,
-            original_error=original_error,
+            context=context,
         )

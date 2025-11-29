@@ -18,15 +18,13 @@ class ConfigurationError(AppException):
         message: str = "Configuration error occurred",
         error_code: str = "CONFIG_ERROR",
         status_code: int = 500,
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code=error_code,
             status_code=status_code,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -37,15 +35,13 @@ class SettingsValidationError(ConfigurationError):
         self,
         *,
         message: str = "Settings validation failed",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code="SETTINGS_VALIDATION_ERROR",
             status_code=500,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -56,15 +52,13 @@ class EnvironmentVariableError(ConfigurationError):
         self,
         *,
         message: str = "Required environment variable is missing or invalid",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code="ENV_VARIABLE_ERROR",
             status_code=500,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -77,15 +71,13 @@ class FileSystemError(AppException):
         message: str = "File system operation failed",
         error_code: str = "FILESYSTEM_ERROR",
         status_code: int = 500,
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code=error_code,
             status_code=status_code,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -98,13 +90,11 @@ class LoggingError(AppException):
         message: str = "Logging operation failed",
         error_code: str = "LOGGING_ERROR",
         status_code: int = 500,
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code=error_code,
             status_code=status_code,
-            details=details,
-            original_error=original_error,
+            context=context,
         )

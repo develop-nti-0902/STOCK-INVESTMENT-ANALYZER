@@ -19,15 +19,13 @@ class BusinessError(AppException):
         message: str = "Business logic error occurred",
         error_code: str = "BUSINESS_ERROR",
         status_code: int = 400,
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code=error_code,
             status_code=status_code,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -38,15 +36,13 @@ class InsufficientDataError(BusinessError):
         self,
         *,
         message: str = "Insufficient data for processing",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code="INSUFFICIENT_DATA",
             status_code=422,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -57,13 +53,11 @@ class CalculationError(BusinessError):
         self,
         *,
         message: str = "Calculation error occurred",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code="CALCULATION_ERROR",
             status_code=500,
-            details=details,
-            original_error=original_error,
+            context=context,
         )

@@ -19,15 +19,13 @@ class ExternalAPIError(AppException):
         message: str = "External API request failed",
         error_code: str = "EXTERNAL_API_ERROR",
         status_code: int = 502,
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code=error_code,
             status_code=status_code,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -38,15 +36,13 @@ class YahooFinanceError(ExternalAPIError):
         self,
         *,
         message: str = "Yahoo Finance API request failed",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code="YAHOO_FINANCE_ERROR",
             status_code=502,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -57,15 +53,13 @@ class JPXAPIError(ExternalAPIError):
         self,
         *,
         message: str = "JPX API request failed",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code="JPX_API_ERROR",
             status_code=502,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -76,15 +70,13 @@ class APITimeoutError(ExternalAPIError):
         self,
         *,
         message: str = "API request timeout",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code="API_TIMEOUT",
             status_code=504,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -95,13 +87,11 @@ class APIRateLimitError(ExternalAPIError):
         self,
         *,
         message: str = "API rate limit exceeded",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code="API_RATE_LIMIT",
             status_code=429,
-            details=details,
-            original_error=original_error,
+            context=context,
         )

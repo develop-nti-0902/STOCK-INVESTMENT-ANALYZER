@@ -25,8 +25,7 @@ class AppException(Exception):
         message: str,
         error_code: str,
         status_code: int = 500,
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         """
         Args:
@@ -40,8 +39,9 @@ class AppException(Exception):
         self.message = message
         self.error_code = error_code
         self.status_code = status_code
-        self.details = details or {}
-        self.original_error = original_error
+        ctx = context or {}
+        self.details = ctx.get("details", {})
+        self.original_error = ctx.get("original_error")
 
     def to_dict(self) -> dict:
         """

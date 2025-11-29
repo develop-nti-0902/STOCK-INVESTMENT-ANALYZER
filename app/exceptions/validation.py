@@ -19,15 +19,13 @@ class ValidationError(AppException):
         message: str = "Validation failed",
         error_code: str = "VALIDATION_ERROR",
         status_code: int = 400,
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code=error_code,
             status_code=status_code,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -38,15 +36,13 @@ class SchemaValidationError(ValidationError):
         self,
         *,
         message: str = "Schema validation failed",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code="SCHEMA_VALIDATION_ERROR",
             status_code=400,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
 
 
@@ -57,13 +53,11 @@ class FieldValidationError(ValidationError):
         self,
         *,
         message: str = "Field validation failed",
-        details: Optional[dict] = None,
-        original_error: Optional[Exception] = None,
+        context: Optional[dict] = None,
     ):
         super().__init__(
             message=message,
             error_code="FIELD_VALIDATION_ERROR",
             status_code=400,
-            details=details,
-            original_error=original_error,
+            context=context,
         )
