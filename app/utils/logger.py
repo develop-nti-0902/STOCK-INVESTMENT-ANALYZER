@@ -135,6 +135,7 @@ def setup_logger(
     backup_count: int = 5,
 ) -> logging.Logger:
     # pylint: disable=too-many-arguments,too-many-locals
+    # pylint: disable=too-many-positional-arguments
     """ロガーをセットアップ
 
     Args:
