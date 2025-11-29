@@ -30,6 +30,19 @@ class Settings(BaseSettings):
     # ロギング設定
     LOG_LEVEL: str = Field("INFO", description="Log level")
     LOG_FILE: str = Field("app.log", description="Log file name/path")
+    LOG_DIR: str = Field("logs", description="Log directory path")
+    LOG_FORMAT: str = Field(
+        "text",
+        description="Log format: text or json",
+    )
+    LOG_MAX_BYTES: int = Field(
+        10 * 1024 * 1024,
+        description="Max log file size in bytes (default: 10MB)",
+    )
+    LOG_BACKUP_COUNT: int = Field(
+        5,
+        description="Number of backup log files to keep",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
