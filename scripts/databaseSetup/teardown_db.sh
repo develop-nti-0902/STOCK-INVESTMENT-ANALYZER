@@ -9,7 +9,7 @@ set -euo pipefail
 
 # This script uses the local psql client to drop the database, user, and tablespace,
 # and optionally removes the data directory created during setup.
-# NOTE: The teardown removes the entire database specified by NEW_DB.
+# NOTE: The teardown removes the entire database specified by DB_NAME.
 #       Because the database is dropped, deleting individual tables is unnecessary
 #       and this script does not attempt to drop tables inside the database.
 
@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Configuration priority (highest to lowest):
-# 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD NEW_DB NEW_DB_USER
+# 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER
 # 2) Environment variables
 # 3) .env file at repository root (if present)
 
@@ -48,8 +48,8 @@ if [[ -f "${REPO_ROOT}/.env" ]]; then
             PGPORT) [[ -z "${PGPORT:-}" ]] && export PGPORT="$value" ;;
             PGUSER) [[ -z "${PGUSER:-}" ]] && export PGUSER="$value" ;;
             PGPASSWORD) [[ -z "${PGPASSWORD:-}" ]] && export PGPASSWORD="$value" ;;
-            NEW_DB) [[ -z "${NEW_DB:-}" ]] && export NEW_DB="$value" ;;
-            NEW_DB_USER) [[ -z "${NEW_DB_USER:-}" ]] && export NEW_DB_USER="$value" ;;
+            DB_NAME) [[ -z "${DB_NAME:-}" ]] && export DB_NAME="$value" ;;
+            DB_USER) [[ -z "${DB_USER:-}" ]] && export DB_USER="$value" ;;
             DB_DATA_DIR) [[ -z "${DB_DATA_DIR:-}" ]] && export DB_DATA_DIR="$value" ;;
             SKIP_TABLESPACE) [[ -z "${SKIP_TABLESPACE:-}" ]] && export SKIP_TABLESPACE="$value" ;;
         esac
@@ -57,13 +57,13 @@ if [[ -f "${REPO_ROOT}/.env" ]]; then
 fi
 
 # Positional arguments override other settings (highest priority). Example usage:
-# teardown_db.sh PGHOST PGPORT PGUSER PGPASSWORD NEW_DB NEW_DB_USER
+# teardown_db.sh PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER
 [[ -n "$ARG1" ]] && export PGHOST="$ARG1"
 [[ -n "$ARG2" ]] && export PGPORT="$ARG2"
 [[ -n "$ARG3" ]] && export PGUSER="$ARG3"
 [[ -n "$ARG4" ]] && export PGPASSWORD="$ARG4"
-[[ -n "$ARG5" ]] && export NEW_DB="$ARG5"
-[[ -n "$ARG6" ]] && export NEW_DB_USER="$ARG6"
+[[ -n "$ARG5" ]] && export DB_NAME="$ARG5"
+[[ -n "$ARG6" ]] && export DB_USER="$ARG6"
 
 # 7th argument: DB_DATA_DIR (or boolean to indicate SKIP_TABLESPACE).
 # If the 7th arg is 1/true/yes then SKIP_TABLESPACE is set and DB_DATA_DIR is cleared.
@@ -113,12 +113,12 @@ if [[ -z "${PGUSER:-}" ]]; then
     echo "[ERROR] PGUSER not set. Provide via .env, environment, or third positional argument."
     exit 1
 fi
-if [[ -z "${NEW_DB:-}" ]]; then
-    echo "[ERROR] NEW_DB not set. Provide via .env, environment, or fifth positional argument."
+if [[ -z "${DB_NAME:-}" ]]; then
+    echo "[ERROR] DB_NAME not set. Provide via .env, environment, or fifth positional argument."
     exit 1
 fi
-if [[ -z "${NEW_DB_USER:-}" ]]; then
-    echo "[ERROR] NEW_DB_USER not set. Provide via .env, environment, or sixth positional argument."
+if [[ -z "${DB_USER:-}" ]]; then
+    echo "[ERROR] DB_USER not set. Provide via .env, environment, or sixth positional argument."
     exit 1
 fi
 if [[ -z "${PGPASSWORD:-}" ]]; then
@@ -139,18 +139,18 @@ fi
 # Drop database if exists
 echo "[3/6] Dropping database if exists..."
 
-DB_EXISTS=$(psql -U "${PGUSER}" -h "${PGHOST}" -t -c "SELECT 1 FROM pg_database WHERE datname='${NEW_DB}';" 2>&1 | tr -d '[:space:]')
+DB_EXISTS=$(psql -U "${PGUSER}" -h "${PGHOST}" -t -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}';" 2>&1 | tr -d '[:space:]')
 if [[ "$DB_EXISTS" == "1" ]]; then
     # Disconnect existing connections before dropping
-    psql -U "${PGUSER}" -h "${PGHOST}" -c "REVOKE CONNECT ON DATABASE \"${NEW_DB}\" FROM public;" 2>/dev/null || echo "[WARN] Could not revoke connects"
-    psql -U "${PGUSER}" -h "${PGHOST}" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${NEW_DB}' AND pid <> pg_backend_pid();" 2>/dev/null || echo "[WARN] Could not terminate connections"
-    psql -U "${PGUSER}" -h "${PGHOST}" -c "DROP DATABASE IF EXISTS \"${NEW_DB}\";" 2>/dev/null || {
-        echo "[ERROR] Failed to drop database ${NEW_DB}"
+    psql -U "${PGUSER}" -h "${PGHOST}" -c "REVOKE CONNECT ON DATABASE \"${DB_NAME}\" FROM public;" 2>/dev/null || echo "[WARN] Could not revoke connects"
+    psql -U "${PGUSER}" -h "${PGHOST}" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}' AND pid <> pg_backend_pid();" 2>/dev/null || echo "[WARN] Could not terminate connections"
+    psql -U "${PGUSER}" -h "${PGHOST}" -c "DROP DATABASE IF EXISTS \"${DB_NAME}\";" 2>/dev/null || {
+        echo "[ERROR] Failed to drop database ${DB_NAME}"
         exit 1
     }
-    echo "Database ${NEW_DB} dropped successfully"
+    echo "Database ${DB_NAME} dropped successfully"
 else
-    echo "Database ${NEW_DB} does not exist; skipping drop"
+    echo "Database ${DB_NAME} does not exist; skipping drop"
 fi
 
 echo "[4/6] Dropping tablespace (unless skipped)..."
@@ -170,7 +170,7 @@ echo "[5/6] Removing tablespace directory (if specified)..."
 if [[ -n "${SKIP_TABLESPACE:-}" ]]; then
     echo "[INFO] SKIP_TABLESPACE is set; skipping directory removal"
 elif [[ -n "${DB_DATA_DIR:-}" ]]; then
-    DB_FULL_PATH="${DB_DATA_DIR}/${NEW_DB}"
+    DB_FULL_PATH="${DB_DATA_DIR}/${DB_NAME}"
     if [[ -d "$DB_FULL_PATH" ]]; then
         echo "[INFO] DB_DATA_DIR specified: $DB_FULL_PATH"
         echo "[INFO] Automatic directory removal is disabled for safety. Remove the directory manually if desired."
@@ -185,8 +185,8 @@ fi
 # Drop user if exists
 echo "[6/6] Dropping user (if exists) and finishing..."
 
-echo "Attempting to drop user ${NEW_DB_USER}..."
-psql -U "${PGUSER}" -h "${PGHOST}" -c "DO \$\$ BEGIN IF EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '${NEW_DB_USER}') THEN ALTER ROLE ${NEW_DB_USER} WITH NOLOGIN; DROP OWNED BY ${NEW_DB_USER} CASCADE; DROP ROLE IF EXISTS ${NEW_DB_USER}; RAISE NOTICE 'User dropped'; ELSE RAISE NOTICE 'User does not exist'; END IF; END\$\$;" 2>/dev/null && {
+echo "Attempting to drop user ${DB_USER}..."
+psql -U "${PGUSER}" -h "${PGHOST}" -c "DO \$\$ BEGIN IF EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '${DB_USER}') THEN ALTER ROLE ${DB_USER} WITH NOLOGIN; DROP OWNED BY ${DB_USER} CASCADE; DROP ROLE IF EXISTS ${DB_USER}; RAISE NOTICE 'User dropped'; ELSE RAISE NOTICE 'User does not exist'; END IF; END\$\$;" 2>/dev/null && {
     echo "User dropped or did not exist"
 } || {
     echo "[WARN] Could not drop user (may need superuser privileges)"

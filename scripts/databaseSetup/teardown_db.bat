@@ -11,7 +11,7 @@ setlocal enabledelayedexpansion
 
 REM This script uses the local psql client to drop the database, user, and tablespace,
 REM and optionally removes the data directory created during setup.
-REM NOTE: The teardown removes the entire database specified by NEW_DB.
+REM NOTE: The teardown removes the entire database specified by DB_NAME.
 REM       Because the database is dropped, deleting individual tables is unnecessary
 REM       and this script does not attempt to drop tables inside the database.
 
@@ -19,7 +19,7 @@ set SCRIPT_DIR=%~dp0
 for %%I in ("%SCRIPT_DIR%..\\..") do set REPO_ROOT=%%~fI\
 
 REM Configuration priority (highest to lowest):
-REM 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD NEW_DB NEW_DB_USER
+REM 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER
 REM 2) Environment variables (set or PowerShell $Env:)
 REM 3) .env file at repository root (if present)
 
@@ -43,8 +43,8 @@ if exist "%REPO_ROOT%.env" (
             if /I "%%~A"=="PGPORT" if not defined PGPORT set "PGPORT=%%~B"
             if /I "%%~A"=="PGUSER" if not defined PGUSER set "PGUSER=%%~B"
             if /I "%%~A"=="PGPASSWORD" if not defined PGPASSWORD set "PGPASSWORD=%%~B"
-            if /I "%%~A"=="NEW_DB" if not defined NEW_DB set "NEW_DB=%%~B"
-            if /I "%%~A"=="NEW_DB_USER" if not defined NEW_DB_USER set "NEW_DB_USER=%%~B"
+            if /I "%%~A"=="DB_NAME" if not defined DB_NAME set "DB_NAME=%%~B"
+            if /I "%%~A"=="DB_USER" if not defined DB_USER set "DB_USER=%%~B"
             if /I "%%~A"=="DB_DATA_DIR" if not defined DB_DATA_DIR set "DB_DATA_DIR=%%~B"
             if /I "%%~A"=="SKIP_TABLESPACE" if not defined SKIP_TABLESPACE set "SKIP_TABLESPACE=%%~B"
         )
@@ -52,13 +52,13 @@ if exist "%REPO_ROOT%.env" (
 )
 
 REM Positional arguments override other settings (highest priority). Example usage:
-REM teardown_db.bat PGHOST PGPORT PGUSER PGPASSWORD NEW_DB NEW_DB_USER
+REM teardown_db.bat PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER
 if not "%ARG1%"=="" set PGHOST=%ARG1%
 if not "%ARG2%"=="" set PGPORT=%ARG2%
 if not "%ARG3%"=="" set PGUSER=%ARG3%
 if not "%ARG4%"=="" set PGPASSWORD=%ARG4%
-if not "%ARG5%"=="" set NEW_DB=%ARG5%
-if not "%ARG6%"=="" set NEW_DB_USER=%ARG6%
+if not "%ARG5%"=="" set DB_NAME=%ARG5%
+if not "%ARG6%"=="" set DB_USER=%ARG6%
 REM 7th argument: DB_DATA_DIR (or boolean to indicate SKIP_TABLESPACE).
 REM If the 7th arg is 1/TRUE/YES then SKIP_TABLESPACE is set and DB_DATA_DIR is cleared.
 if not "%ARG7%"=="" (
@@ -115,12 +115,12 @@ if not defined PGUSER (
     echo [ERROR] PGUSER not set. Provide via .env, environment, or third positional argument.
     exit /b 1
 )
-if not defined NEW_DB (
-    echo [ERROR] NEW_DB not set. Provide via .env, environment, or fifth positional argument.
+if not defined DB_NAME (
+    echo [ERROR] DB_NAME not set. Provide via .env, environment, or fifth positional argument.
     exit /b 1
 )
-if not defined NEW_DB_USER (
-    echo [ERROR] NEW_DB_USER not set. Provide via .env, environment, or sixth positional argument.
+if not defined DB_USER (
+    echo [ERROR] DB_USER not set. Provide via .env, environment, or sixth positional argument.
     exit /b 1
 )
 if not defined PGPASSWORD (
@@ -146,21 +146,21 @@ if NOT "%DB_DATA_DIR%"=="" (
 REM Drop database if exists
 echo [3/6] Dropping database if exists...
 
-psql -U %PGUSER% -h %PGHOST% -t -c "SELECT 1 FROM pg_database WHERE datname='!NEW_DB!';" > "%TEMP%\db_check.txt" 2>&1
+psql -U %PGUSER% -h %PGHOST% -t -c "SELECT 1 FROM pg_database WHERE datname='!DB_NAME!';" > "%TEMP%\db_check.txt" 2>&1
 set /p DB_EXISTS=<"%TEMP%\db_check.txt"
 set "DB_EXISTS=%DB_EXISTS: =%"
 if "%DB_EXISTS%"=="1" (
     REM Disconnect existing connections before dropping
-    psql -U %PGUSER% -h %PGHOST% -c "REVOKE CONNECT ON DATABASE \"!NEW_DB!\" FROM public;" 2>NUL || echo [WARN] Could not revoke connects
-    psql -U %PGUSER% -h %PGHOST% -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '!NEW_DB!' AND pid <> pg_backend_pid();" 2>NUL || echo [WARN] Could not terminate connections
-    psql -U %PGUSER% -h %PGHOST% -c "DROP DATABASE IF EXISTS \"!NEW_DB!\";" 2>"%TEMP%\db_drop_err.txt"
+    psql -U %PGUSER% -h %PGHOST% -c "REVOKE CONNECT ON DATABASE \"!DB_NAME!\" FROM public;" 2>NUL || echo [WARN] Could not revoke connects
+    psql -U %PGUSER% -h %PGHOST% -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '!DB_NAME!' AND pid <> pg_backend_pid();" 2>NUL || echo [WARN] Could not terminate connections
+    psql -U %PGUSER% -h %PGHOST% -c "DROP DATABASE IF EXISTS \"!DB_NAME!\";" 2>"%TEMP%\db_drop_err.txt"
     if errorlevel 1 (
-        echo [ERROR] Failed to drop database !NEW_DB!
+        echo [ERROR] Failed to drop database !DB_NAME!
         exit /b 1
     )
-    echo Database !NEW_DB! dropped successfully
+    echo Database !DB_NAME! dropped successfully
 ) else (
-    echo Database !NEW_DB! does not exist; skipping drop
+    echo Database !DB_NAME! does not exist; skipping drop
 )
 
 echo [4/6] Dropping tablespace (unless skipped)...
@@ -184,7 +184,7 @@ if not "%SKIP_TABLESPACE%"=="" (
     goto :AFTER_DIR_REMOVAL
 )
 if not "%DB_DATA_DIR%"=="" (
-    set "DB_FULL_PATH=!DB_DATA_DIR!\!NEW_DB!"
+    set "DB_FULL_PATH=!DB_DATA_DIR!\!DB_NAME!"
     if exist "!DB_FULL_PATH!" (
         echo [INFO] DB_DATA_DIR specified: !DB_FULL_PATH!
         echo [INFO] Automatic directory removal is disabled for safety. Remove the directory manually if desired.
@@ -200,8 +200,8 @@ if not "%DB_DATA_DIR%"=="" (
 REM Drop user if exists
 echo [6/6] Dropping user (if exists) and finishing...
 
-echo Attempting to drop user %NEW_DB_USER%...
-psql -U %PGUSER% -h %PGHOST% -c "DO $$ BEGIN IF EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '%NEW_DB_USER%') THEN ALTER ROLE %NEW_DB_USER% WITH NOLOGIN; DROP OWNED BY %NEW_DB_USER% CASCADE; DROP ROLE IF EXISTS %NEW_DB_USER%; RAISE NOTICE 'User dropped'; ELSE RAISE NOTICE 'User does not exist'; END IF; END$$;" 2>nul
+echo Attempting to drop user %DB_USER%...
+psql -U %PGUSER% -h %PGHOST% -c "DO $$ BEGIN IF EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '%DB_USER%') THEN ALTER ROLE %DB_USER% WITH NOLOGIN; DROP OWNED BY %DB_USER% CASCADE; DROP ROLE IF EXISTS %DB_USER%; RAISE NOTICE 'User dropped'; ELSE RAISE NOTICE 'User does not exist'; END IF; END$$;" 2>nul
 if not errorlevel 1 (
     echo User dropped or did not exist
 ) else (
