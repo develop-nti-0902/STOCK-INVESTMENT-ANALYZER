@@ -34,25 +34,25 @@ def cleanup_logging():
     # リクエストID をクリア
     try:
         clear_request_id()
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         pass
 
     # 全ての Logger のハンドラを閉じて削除（テスト間の干渉を防止）
-    for name, logger_obj in list(logging.Logger.manager.loggerDict.items()):
+    for _name, logger_obj in list(logging.Logger.manager.loggerDict.items()):
         if isinstance(logger_obj, logging.Logger):
             for handler in getattr(logger_obj, "handlers", [])[:]:
                 try:
                     handler.close()
-                except Exception:
+                except Exception:  # pylint: disable=broad-exception-caught
                     pass
                 try:
                     logger_obj.removeHandler(handler)
-                except Exception:
+                except Exception:  # pylint: disable=broad-exception-caught
                     pass
             try:
                 logger_obj.setLevel(logging.NOTSET)
                 logger_obj.propagate = True
-            except Exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 pass
 
 
@@ -237,7 +237,7 @@ class TestSetupLogger:
             assert log_data["level"] == "INFO"
 
 
-class TestGetLogger:
+class TestGetLogger:  # pylint: disable=too-few-public-methods
     """get_logger関数のテスト"""
 
     def test_get_logger(self) -> None:

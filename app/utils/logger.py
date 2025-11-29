@@ -61,8 +61,8 @@ class StructuredFormatter(logging.Formatter):
         """
         if self.use_json:
             return self._format_json(record)
-        else:
-            return self._format_text(record)
+
+        return self._format_text(record)
 
     def _format_json(self, record: logging.LogRecord) -> str:
         """JSON形式でログレコードをフォーマット
@@ -134,6 +134,7 @@ def setup_logger(
     max_bytes: int = 10 * 1024 * 1024,  # 10MB
     backup_count: int = 5,
 ) -> logging.Logger:
+    # pylint: disable=too-many-arguments,too-many-locals
     """ロガーをセットアップ
 
     Args:
