@@ -2,6 +2,7 @@
 .claude/
 AI_INSTRUCTIONS.md
 .serena/
+prompt.md
 
 # vscode settings
 .vscode/
@@ -28,5 +29,15 @@ dist/
 # Pytest cache
 .pytest_cache/
 
+# Coverage reports
+.coverage
+.coverage.*
+htmlcov/
+*.cover
+.hypothesis/
+
 # Environment variables file
 .env
+
+# Ignore runtime log file
+app.log
