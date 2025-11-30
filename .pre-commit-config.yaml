@@ -40,6 +40,8 @@ repos:
         language: system
         files: \.py$
         stages: [push]
+        pass_filenames: false
+        args: ["app"]
 
       - id: pylint
         name: pylint (project)
@@ -47,6 +49,8 @@ repos:
         language: system
         files: \.py$
         stages: [push]
+        pass_filenames: false
+        args: ["--rcfile=.pylintrc", "app"]
 
       - id: pytest
         name: pytest (project)
@@ -54,6 +58,8 @@ repos:
         language: system
         pass_filenames: false
         stages: [push]
+        # Run tests across the tests/ directory on push
+        args: ["tests"]
 
       - id: final-status
         name: final commit status summary

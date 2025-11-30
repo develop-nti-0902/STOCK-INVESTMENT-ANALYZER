@@ -47,7 +47,7 @@ jobs:
           poetry run isort --check-only .
           poetry run flake8
           poetry run mypy app tests
-          poetry run pylint app
+          poetry run pylint --rcfile=.pylintrc app
 
   # Test ジョブ: pytest を走らせ、coverage と JUnit レポートを生成します。
   # PostgreSQL サービスを起動してデータベースを利用するテストを想定しています。
