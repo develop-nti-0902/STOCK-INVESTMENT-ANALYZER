@@ -154,6 +154,19 @@ class _DefaultLogger:
             cls._instance = setup_logger("app")
         return cls._instance
 
+    @classmethod
+    def set(cls, logger: logging.Logger) -> None:
+        """デフォルトロガーを明示的に設定する
+
+        テストや外部からカスタムロガーを注入する際に利用します。
+        pylint の `too-few-public-methods` 指摘を解消するためにも
+        公開メソッドを追加しています。
+
+        Args:
+            logger: 設定するロガーインスタンス
+        """
+        cls._instance = logger
+
 
 # =============================================================================
 # ロガーセットアップ関数
