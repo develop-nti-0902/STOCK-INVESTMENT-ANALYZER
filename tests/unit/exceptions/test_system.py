@@ -71,14 +71,16 @@ class TestSettingsValidationError:
         # Act: 詳細情報を含めてSettingsValidationErrorを初期化
         exc = SettingsValidationError(
             message="Environment variable validation failed",
-            details={
-                "errors": [
-                    {
-                        "field": "DB_HOST",
-                        "message": "Field required",
-                        "type": "missing",
-                    }
-                ]
+            context={
+                "details": {
+                    "errors": [
+                        {
+                            "field": "DB_HOST",
+                            "message": "Field required",
+                            "type": "missing",
+                        }
+                    ]
+                }
             },
         )
 
@@ -118,7 +120,7 @@ class TestEnvironmentVariableError:
         # Act: 詳細情報を含めてEnvironmentVariableErrorを初期化
         exc = EnvironmentVariableError(
             message="Missing required environment variables",
-            details={"missing_vars": ["DB_HOST", "DB_PORT"]},
+            context={"details": {"missing_vars": ["DB_HOST", "DB_PORT"]}},
         )
 
         # Assert: メッセージと詳細情報が正しく設定されていることを確認
@@ -153,7 +155,12 @@ class TestFileSystemError:
         # Act: 詳細情報を含めてFileSystemErrorを初期化
         exc = FileSystemError(
             message="Failed to create log directory",
-            details={"path": "/var/log/app", "operation": "mkdir"},
+            context={
+                "details": {
+                    "path": "/var/log/app",
+                    "operation": "mkdir",
+                }
+            },
         )
 
         # Assert: メッセージと詳細情報が正しく設定されていることを確認
@@ -188,9 +195,11 @@ class TestLoggingError:
         # Act: 詳細情報を含めてLoggingErrorを初期化
         exc = LoggingError(
             message="Failed to initialize logger",
-            details={
-                "logger_name": "app.main",
-                "handler": "RotatingFileHandler",
+            context={
+                "details": {
+                    "logger_name": "app.main",
+                    "handler": "RotatingFileHandler",
+                }
             },
         )
 

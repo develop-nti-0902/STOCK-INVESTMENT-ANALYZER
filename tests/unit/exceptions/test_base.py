@@ -41,8 +41,7 @@ class TestAppException:
             message="Test error",
             error_code="TEST_ERROR",
             status_code=400,
-            details={"field": "test"},
-            original_error=original,
+            context={"details": {"field": "test"}, "original_error": original},
         )
 
         # Assert: 全パラメータが正しく設定されていることを確認
@@ -61,7 +60,7 @@ class TestAppException:
             message="Test error",
             error_code="TEST_ERROR",
             status_code=400,
-            details={"field": "test", "value": "invalid"},
+            context={"details": {"field": "test", "value": "invalid"}},
         )
 
         # Act: to_dict()を呼び出し
@@ -83,7 +82,7 @@ class TestAppException:
             message="Test error",
             error_code="TEST_ERROR",
             status_code=400,
-            details={"field": "test"},
+            context={"details": {"field": "test"}},
         )
 
         # Act: to_http_exception()を呼び出し
@@ -120,7 +119,7 @@ class TestAppException:
             message="Test error",
             error_code="TEST_ERROR",
             status_code=400,
-            details={"field": "test"},
+            context={"details": {"field": "test"}},
         )
 
         # Act: repr()を呼び出し

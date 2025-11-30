@@ -95,6 +95,5 @@ def get_settings() -> Settings:
                 "Failed to load application settings. "
                 "Please check your .env file and environment variables."
             ),
-            details=error_details,
-            original_error=exc,
+            context={"details": error_details, "original_error": exc},
         ) from exc

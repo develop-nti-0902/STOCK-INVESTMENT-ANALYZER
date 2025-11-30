@@ -129,7 +129,7 @@ class TestAppExceptionHandler:
             message="Test app exception",
             error_code="APP_ERROR",
             status_code=400,
-            details={"key": "value"},
+            context={"details": {"key": "value"}},
         )
 
         # Act: ハンドラーを呼び出し
@@ -367,7 +367,7 @@ class TestAppExceptionHandlerExtended:
             message="Wrapped exception",
             error_code="WRAPPED_ERROR",
             status_code=400,
-            original_error=original,
+            context={"original_error": original},
         )
 
         # Act: ハンドラーを呼び出し

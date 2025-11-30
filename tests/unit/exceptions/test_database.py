@@ -74,7 +74,7 @@ class TestStockDataError:
         # Act: 詳細情報を含めてStockDataErrorを初期化
         exc = StockDataError(
             message="Failed to insert stock data",
-            details={"symbol": "7203.T", "table": "stocks_daily"},
+            context={"details": {"symbol": "7203.T", "table": "stocks_daily"}},
         )
 
         # Assert: メッセージと詳細情報が正しく設定されていることを確認
@@ -158,10 +158,12 @@ class TestDuplicateRecordError:
         # Act: 詳細情報を含めてDuplicateRecordErrorを初期化
         exc = DuplicateRecordError(
             message="Duplicate stock data",
-            details={
-                "symbol": "7203.T",
-                "date": "2025-11-29",
-                "constraint": "unique_symbol_date",
+            context={
+                "details": {
+                    "symbol": "7203.T",
+                    "date": "2025-11-29",
+                    "constraint": "unique_symbol_date",
+                }
             },
         )
 
@@ -201,7 +203,7 @@ class TestRecordNotFoundError:
         # Act: 詳細情報を含めてRecordNotFoundErrorを初期化
         exc = RecordNotFoundError(
             message="Stock not found",
-            details={"symbol": "9999.T"},
+            context={"details": {"symbol": "9999.T"}},
         )
 
         # Assert: メッセージと詳細情報が正しく設定されていることを確認
