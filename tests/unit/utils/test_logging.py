@@ -34,7 +34,8 @@ def cleanup_logging():
     # リクエストID をクリア
     try:
         clear_request_id()
-    except Exception:  # pylint: disable=broad-exception-caught
+    except (RuntimeError, ValueError):
+        # ContextVarの操作エラーを無視
         pass
 
     # 全ての Logger のハンドラを閉じて削除（テスト間の干渉を防止）
@@ -43,16 +44,19 @@ def cleanup_logging():
             for handler in getattr(logger_obj, "handlers", [])[:]:
                 try:
                     handler.close()
-                except Exception:  # pylint: disable=broad-exception-caught
+                except (OSError, ValueError, RuntimeError):
+                    # ファイルハンドラのクローズエラーを無視
                     pass
                 try:
                     logger_obj.removeHandler(handler)
-                except Exception:  # pylint: disable=broad-exception-caught
+                except (ValueError, RuntimeError):
+                    # ハンドラの削除エラーを無視
                     pass
             try:
                 logger_obj.setLevel(logging.NOTSET)
                 logger_obj.propagate = True
-            except Exception:  # pylint: disable=broad-exception-caught
+            except (ValueError, RuntimeError):
+                # ロガー設定のリセットエラーを無視
                 pass
 
 

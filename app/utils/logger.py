@@ -20,12 +20,22 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Optional
 
+from app.exceptions.system import SettingsValidationError
 from app.utils.config import get_settings
+
+# =============================================================================
+# モジュールレベル変数
+# =============================================================================
 
 # リクエストIDを格納するコンテキスト変数
 request_id_var: ContextVar[Optional[str]] = ContextVar(
     "request_id", default=None
 )
+
+
+# =============================================================================
+# クラス定義
+# =============================================================================
 
 
 class StructuredFormatter(logging.Formatter):
@@ -125,6 +135,31 @@ class StructuredFormatter(logging.Formatter):
         return log_line
 
 
+class _DefaultLogger:
+    """デフォルトロガーのシングルトンホルダー
+
+    グローバル変数を使わずに遅延初期化を実現します。
+    """
+
+    _instance: Optional[logging.Logger] = None
+
+    @classmethod
+    def get(cls) -> logging.Logger:
+        """デフォルトロガーを取得（遅延初期化）
+
+        Returns:
+            デフォルトロガー
+        """
+        if cls._instance is None:
+            cls._instance = setup_logger("app")
+        return cls._instance
+
+
+# =============================================================================
+# ロガーセットアップ関数
+# =============================================================================
+
+
 def setup_logger(
     name: str = __name__,
     log_level: Optional[str] = None,
@@ -150,10 +185,19 @@ def setup_logger(
     Returns:
         設定済みのロガー
     """
-    settings = get_settings()
+    # 設定を取得（失敗時はデフォルト値を使用）
+    try:
+        settings = get_settings()
+        level = log_level or settings.LOG_LEVEL
+        log_file_name = log_file or settings.LOG_FILE
+    except (SettingsValidationError, OSError, IOError):
+        # 設定が読み込めない場合やファイルI/Oエラーの場合はデフォルト値を使用
+        # - SettingsValidationError: 環境変数が不足している場合
+        # - OSError/IOError: .envファイルの読み込みエラー
+        level = log_level or "INFO"
+        log_file_name = log_file or "app.log"
 
     # ログレベルの決定
-    level = log_level or settings.LOG_LEVEL
     log_level_num = getattr(logging, level.upper(), logging.INFO)
 
     # ロガー取得
@@ -173,7 +217,6 @@ def setup_logger(
     logger.addHandler(console_handler)
 
     # ファイルハンドラの追加
-    log_file_name = log_file or settings.LOG_FILE
     if log_file_name:
         # ログディレクトリの作成
         if log_dir:
@@ -212,6 +255,20 @@ def get_logger(name: str = __name__) -> logging.Logger:
     return setup_logger(name)
 
 
+def get_default_logger() -> logging.Logger:
+    """デフォルトロガーを取得
+
+    Returns:
+        デフォルトロガー
+    """
+    return _DefaultLogger.get()
+
+
+# =============================================================================
+# リクエストID管理関数
+# =============================================================================
+
+
 def set_request_id(request_id: str) -> None:
     """リクエストIDを設定
 
@@ -233,7 +290,3 @@ def get_request_id() -> Optional[str]:
 def clear_request_id() -> None:
     """リクエストIDをクリア"""
     request_id_var.set(None)
-
-
-# デフォルトロガーのインスタンス
-default_logger = get_logger("app")
