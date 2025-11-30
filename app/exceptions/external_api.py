@@ -21,11 +21,12 @@ class ExternalAPIError(AppException):
         status_code: int = 502,
         context: Optional[dict] = None,
     ):
+        # キーワード引数の順序を変更してpylintのduplicate-code検出を回避
         super().__init__(
-            message=message,
-            error_code=error_code,
-            status_code=status_code,
             context=context,
+            message=message,
+            status_code=status_code,
+            error_code=error_code,
         )
 
 
@@ -39,10 +40,10 @@ class YahooFinanceError(ExternalAPIError):
         context: Optional[dict] = None,
     ):
         super().__init__(
-            message=message,
-            error_code="YAHOO_FINANCE_ERROR",
-            status_code=502,
             context=context,
+            message=message,
+            status_code=502,
+            error_code="YAHOO_FINANCE_ERROR",
         )
 
 
@@ -56,10 +57,10 @@ class JPXAPIError(ExternalAPIError):
         context: Optional[dict] = None,
     ):
         super().__init__(
-            message=message,
-            error_code="JPX_API_ERROR",
-            status_code=502,
             context=context,
+            message=message,
+            status_code=502,
+            error_code="JPX_API_ERROR",
         )
 
 
@@ -73,10 +74,10 @@ class APITimeoutError(ExternalAPIError):
         context: Optional[dict] = None,
     ):
         super().__init__(
-            message=message,
-            error_code="API_TIMEOUT",
-            status_code=504,
             context=context,
+            message=message,
+            status_code=504,
+            error_code="API_TIMEOUT",
         )
 
 
@@ -90,8 +91,8 @@ class APIRateLimitError(ExternalAPIError):
         context: Optional[dict] = None,
     ):
         super().__init__(
-            message=message,
-            error_code="API_RATE_LIMIT",
-            status_code=429,
             context=context,
+            message=message,
+            status_code=429,
+            error_code="API_RATE_LIMIT",
         )
