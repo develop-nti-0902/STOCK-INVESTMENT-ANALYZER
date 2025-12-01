@@ -11,6 +11,10 @@ from typing import Any, Callable
 
 from app.exceptions import ServiceError
 
+# モジュール全体で広義の Exception 捕捉、TODO 指摘、重複コード検出を抑止
+# （設計上サービス境界での全例外ラップを意図しているため）
+# pylint: disable=broad-exception-caught, fixme, duplicate-code
+
 
 def handle_service_error(
     error_message: str = "Service operation failed",
@@ -65,9 +69,8 @@ def handle_service_error(
                 )
                 if reraise:
                     raise service_error from e
-                else:
-                    # TODO: エラーログ出力
-                    return None  # type: ignore
+                # TODO: エラーログ出力を追加（後で実装）
+                return None  # type: ignore
 
         @functools.wraps(func)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -93,14 +96,14 @@ def handle_service_error(
                 )
                 if reraise:
                     raise service_error from e
-                else:
-                    # TODO: エラーログ出力
-                    return None  # type: ignore
+                # TODO: エラーログ出力を追加（後で実装）
+                return None  # type: ignore
 
         # 関数が非同期かどうかで切り替え
-        if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore
-        else:
-            return sync_wrapper  # type: ignore
+        return (
+            async_wrapper
+            if asyncio.iscoroutinefunction(func)
+            else sync_wrapper
+        )  # type: ignore
 
     return decorator

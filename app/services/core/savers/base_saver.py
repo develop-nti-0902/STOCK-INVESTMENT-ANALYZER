@@ -103,11 +103,10 @@ class BaseSaver(ABC, Generic[T]):
         if hasattr(data, "model_dump"):
             # Pydantic v2
             return data.model_dump()
-        elif hasattr(data, "dict"):
+        if hasattr(data, "dict"):
             # Pydantic v1
             return data.dict()
-        else:
-            return {}
+        return {}
 
     async def handle_save_error(self, data: T, error: Exception) -> None:
         """

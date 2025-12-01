@@ -80,9 +80,8 @@ def retry_on_error(
             # 全てのリトライが失敗した場合
             if last_exception:
                 raise last_exception
-            else:
-                # 理論的にはここには到達しない
-                raise RuntimeError("Retry logic error: no exception recorded")
+            # 理論的にはここには到達しない
+            raise RuntimeError("Retry logic error: no exception recorded")
 
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
@@ -109,14 +108,14 @@ def retry_on_error(
             # 全てのリトライが失敗した場合
             if last_exception:
                 raise last_exception
-            else:
-                # 理論的にはここには到達しない
-                raise RuntimeError("Retry logic error: no exception recorded")
+            # 理論的にはここには到達しない
+            raise RuntimeError("Retry logic error: no exception recorded")
 
         # 関数が非同期かどうかで切り替え
-        if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore
-        else:
-            return sync_wrapper  # type: ignore
+        return (
+            async_wrapper
+            if asyncio.iscoroutinefunction(func)
+            else sync_wrapper
+        )  # type: ignore
 
     return decorator
