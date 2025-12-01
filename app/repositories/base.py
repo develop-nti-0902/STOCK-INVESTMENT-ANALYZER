@@ -7,7 +7,7 @@ Repository層 - 基底クラス
 """
 
 from abc import ABC
-from typing import Generic, List, Optional, TypeVar
+from typing import Any, Generic, List, Optional, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +33,7 @@ class BaseRepository(ABC, Generic[T]):
         T: SQLAlchemyモデルの型（将来的にはapp.models.base.Baseにbound）
     """
 
-    def __init__(self, model: type[T], session: AsyncSession):
+    def __init__(self, model: Any, session: AsyncSession):
         """
         初期化
 
@@ -41,7 +41,9 @@ class BaseRepository(ABC, Generic[T]):
             model: SQLAlchemyモデルクラス
             session: 非同期DBセッション
         """
-        self.model = model
+        # 型安全性は将来的に SQLAlchemy Base に束縛した TypeVar に変更する
+        # 現状は任意のモデルクラスを受け取るため `Any` として扱う
+        self.model: Any = model
         self.session = session
 
     async def create(self, **kwargs) -> T:
