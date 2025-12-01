@@ -13,6 +13,7 @@ from app.exceptions.business import (
     BusinessError,
     CalculationError,
     InsufficientDataError,
+    ServiceError,
 )
 
 # データベース関連例外
@@ -82,6 +83,7 @@ __all__ = [
     "BusinessError",
     "InsufficientDataError",
     "CalculationError",
+    "ServiceError",
     # システム・設定関連
     "ConfigurationError",
     "SettingsValidationError",

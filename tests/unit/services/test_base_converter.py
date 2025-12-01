@@ -1,0 +1,94 @@
+"""
+BaseConverterの単体テスト
+"""
+
+import pytest
+
+from app.services.core.converters.base_converter import BaseConverter
+
+
+class TestData:
+    """テスト用のPydanticモデル風クラス"""
+
+    def __init__(self, id_: int, value: str):
+        self.id = id_
+        self.value = value
+
+    def model_dump(self) -> dict:
+        """Pydantic v2のmodel_dump互換"""
+        return {"id": self.id, "value": self.value}
+
+
+class ConcreteConverter(BaseConverter[TestData]):
+    """テスト用の具体的なConverter実装"""
+
+    def to_pydantic(self, data: dict) -> TestData:
+        """辞書からTestDataへの変換"""
+        return TestData(id_=data["id"], value=data["value"])
+
+    def from_pydantic(self, model: TestData) -> dict:
+        """TestDataから辞書への変換"""
+        return model.model_dump()
+
+
+class TestBaseConverter:
+    """BaseConverterの単体テスト"""
+
+    def test_to_pydantic(self):
+        """辞書からモデルへの変換テスト"""
+        converter = ConcreteConverter()
+        data = {"id": 1, "value": "test"}
+        model = converter.to_pydantic(data)
+        assert isinstance(model, TestData)
+        assert model.id == 1
+        assert model.value == "test"
+
+    def test_from_pydantic(self):
+        """モデルから辞書への変換テスト"""
+        converter = ConcreteConverter()
+        model = TestData(id_=1, value="test")
+        data = converter.from_pydantic(model)
+        assert isinstance(data, dict)
+        assert data["id"] == 1
+        assert data["value"] == "test"
+
+    def test_to_pydantic_batch(self):
+        """一括変換（辞書→モデル）のテスト"""
+        converter = ConcreteConverter()
+        data_list = [
+            {"id": 1, "value": "a"},
+            {"id": 2, "value": "b"},
+            {"id": 3, "value": "c"},
+        ]
+        models = converter.to_pydantic_batch(data_list)
+        assert len(models) == 3
+        assert all(isinstance(m, TestData) for m in models)
+        assert models[0].id == 1
+        assert models[1].value == "b"
+
+    def test_from_pydantic_batch(self):
+        """一括変換（モデル→辞書）のテスト"""
+        converter = ConcreteConverter()
+        models = [
+            TestData(id_=1, value="a"),
+            TestData(id_=2, value="b"),
+            TestData(id_=3, value="c"),
+        ]
+        data_list = converter.from_pydantic_batch(models)
+        assert len(data_list) == 3
+        assert all(isinstance(d, dict) for d in data_list)
+        assert data_list[0]["id"] == 1
+        assert data_list[1]["value"] == "b"
+
+    def test_to_dataframe_not_implemented(self):
+        """to_dataframeがNotImplementedErrorを発生させることを確認"""
+        converter = ConcreteConverter()
+        models = [TestData(id_=1, value="a")]
+        with pytest.raises(NotImplementedError):
+            converter.to_dataframe(models)
+
+    def test_from_dataframe_not_implemented(self):
+        """from_dataframeがNotImplementedErrorを発生させることを確認"""
+        converter = ConcreteConverter()
+        with pytest.raises(NotImplementedError):
+            converter.from_dataframe(None)
