@@ -88,7 +88,6 @@ class BaseResponseSchema(BaseSchema):
 
     # BaseSchemaの設定を継承
     # 必要に応じてレスポンス固有の設定を追加可能
-    pass
 
 
 class PaginationRequestSchema(BaseRequestSchema):
