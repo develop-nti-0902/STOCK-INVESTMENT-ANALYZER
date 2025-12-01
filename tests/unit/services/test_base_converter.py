@@ -36,31 +36,46 @@ class TestBaseConverter:
 
     def test_to_pydantic(self):
         """辞書からモデルへの変換テスト"""
+        # Arrange: テスト用のConverterと入力データを準備
         converter = ConcreteConverter()
         data = {"id": 1, "value": "test"}
+
+        # Act: 辞書をモデルに変換
         model = converter.to_pydantic(data)
+
+        # Assert: 変換結果が期待通りであることを検証
         assert isinstance(model, TestData)
         assert model.id == 1
         assert model.value == "test"
 
     def test_from_pydantic(self):
         """モデルから辞書への変換テスト"""
+        # Arrange: Converterとテスト用モデルを準備
         converter = ConcreteConverter()
         model = TestData(id_=1, value="test")
+
+        # Act: モデルを辞書に変換
         data = converter.from_pydantic(model)
+
+        # Assert: 変換後の辞書が期待通りであることを検証
         assert isinstance(data, dict)
         assert data["id"] == 1
         assert data["value"] == "test"
 
     def test_to_pydantic_batch(self):
         """一括変換（辞書→モデル）のテスト"""
+        # Arrange: Converterと複数の入力辞書を準備
         converter = ConcreteConverter()
         data_list = [
             {"id": 1, "value": "a"},
             {"id": 2, "value": "b"},
             {"id": 3, "value": "c"},
         ]
+
+        # Act: 一括変換を実行
         models = converter.to_pydantic_batch(data_list)
+
+        # Assert: すべての要素が変換されていることを検証
         assert len(models) == 3
         assert all(isinstance(m, TestData) for m in models)
         assert models[0].id == 1
@@ -68,13 +83,18 @@ class TestBaseConverter:
 
     def test_from_pydantic_batch(self):
         """一括変換（モデル→辞書）のテスト"""
+        # Arrange: Converterと複数のモデルを準備
         converter = ConcreteConverter()
         models = [
             TestData(id_=1, value="a"),
             TestData(id_=2, value="b"),
             TestData(id_=3, value="c"),
         ]
+
+        # Act: 一括変換を実行
         data_list = converter.from_pydantic_batch(models)
+
+        # Assert: 期待通りの辞書リストが返ることを検証
         assert len(data_list) == 3
         assert all(isinstance(d, dict) for d in data_list)
         assert data_list[0]["id"] == 1
@@ -82,13 +102,19 @@ class TestBaseConverter:
 
     def test_to_dataframe_not_implemented(self):
         """to_dataframeがNotImplementedErrorを発生させることを確認"""
+        # Arrange: Converterとダミーモデルリストを準備
         converter = ConcreteConverter()
         models = [TestData(id_=1, value="a")]
+
+        # Act / Assert: to_dataframeは未実装のためNotImplementedErrorを送出
         with pytest.raises(NotImplementedError):
             converter.to_dataframe(models)
 
     def test_from_dataframe_not_implemented(self):
         """from_dataframeがNotImplementedErrorを発生させることを確認"""
+        # Arrange: Converterを準備
         converter = ConcreteConverter()
+
+        # Act / Assert: from_dataframeは未実装のためNotImplementedErrorを送出
         with pytest.raises(NotImplementedError):
             converter.from_dataframe(None)
