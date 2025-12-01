@@ -29,6 +29,7 @@
 - [layers/api_layer.md](layers/api_layer.md) — API 層の設計（外部/内部 API、エンドポイント方針など）。
 - [layers/common_modules.md](layers/common_modules.md) — 共通モジュールやユーティリティのガイドライン。
 - [layers/data_access_layer.md](layers/data_access_layer.md) — データアクセス層（リポジトリ、ORM、クエリ設計）。
+- [layers/repository_di_usage.md](layers/repository_di_usage.md) — Repository依存性注入（DI）の使用例とパターン集。
 - [layers/data_storage_layer.md](layers/data_storage_layer.md) — 永続化・ストレージ設計（DB、スキーマ方針、バックアップ）。
 - [layers/presentation_layer.md](layers/presentation_layer.md) — プレゼンテーション層（フロントエンド/ビューに関する方針）。
 - [layers/service_layer.md](layers/service_layer.md) — ビジネスロジック層（サービスの責務、トランザクション方針）。

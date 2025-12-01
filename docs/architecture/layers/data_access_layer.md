@@ -424,6 +424,8 @@ async def get_stock_data(
 
 **Note**: `get_db()`関数の詳細な実装とトランザクション管理については、[共通モジュール仕様書](./common_modules.md#55-データベース接続管理apputilsdatabasepy)を参照してください。
 
+**詳細な使用例**: Repository DIの詳細な使用例とパターンについては、[Repository DI使用例ドキュメント](./repository_di_usage.md)を参照してください。
+
 ---
 
 ## 4. モデル定義
