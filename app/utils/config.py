@@ -28,6 +28,15 @@ class Settings(BaseSettings):
     DB_NAME: str = Field(..., description="Database name")
     DB_USER: str = Field(..., description="Database user")
     DB_PASSWORD: str = Field(..., description="Database password")
+    # 接続プール設定（環境変数で上書き可能）
+    DB_POOL_SIZE: int = Field(
+        5,
+        description="SQLAlchemy engine pool size (default: 5)",
+    )
+    DB_MAX_OVERFLOW: int = Field(
+        10,
+        description="SQLAlchemy engine max overflow (default: 10)",
+    )
 
     # ロギング設定
     LOG_LEVEL: str = Field("INFO", description="Log level")

@@ -6,6 +6,7 @@
   - [概要](#概要)
   - [ディレクトリ構成](#ディレクトリ構成)
     - [architecture/](#architecture)
+    - [examples/](#examples)
     - [develop-guide/](#develop-guide)
     - [frontend/](#frontend)
     - [tasks/](#tasks)
@@ -29,6 +30,15 @@
   - アーキテクチャ全体概要
   - レイヤ別詳細設計（API層、サービス層、データアクセス層、データストレージ層、プレゼンテーション層、共通モジュール）
 - **詳細**: [architecture/README.md](architecture/README.md) を参照してください。
+
+### examples/
+各機能・パターンの具体的な実装例と使用例を提供します。
+
+- **概要**: アーキテクチャ仕様を実際のコードでどう実装するかの実践例を示します。
+- **主な内容**:
+  - Repository依存性注入（DI）の使用例
+  - その他のデザインパターン実装例
+- **詳細**: [examples/README.md](examples/README.md) を参照してください。
 
 ### develop-guide/
 開発規約とワークフローに関するガイドライン集です。

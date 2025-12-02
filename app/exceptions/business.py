@@ -16,6 +16,18 @@ class BusinessError(AppException):
     default_status_code = 400
 
 
+class ServiceError(BusinessError):
+    """サービス層で発生する例外を表すクラス
+
+    補助的に `ServiceError` を定義しておくことで、サービス層の
+    エラーハンドリング（デコレータ等）で一貫して利用できます。
+    """
+
+    default_message = "Service error occurred"
+    default_error_code = "SERVICE_ERROR"
+    default_status_code = 500
+
+
 class InsufficientDataError(BusinessError):
     """データ不足エラー"""
 
