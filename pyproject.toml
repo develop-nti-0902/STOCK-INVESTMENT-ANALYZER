@@ -51,3 +51,37 @@ line_length = 79
 python_version = "3.14"
 ignore_missing_imports = true
 warn_unused_configs = false
+
+# ------------------------------------------------------------
+# - minversion: pytest の最小バージョン
+# - addopts: pytest 実行時に追加で渡すオプション（ここではカバレッジ測定を有効にしています）
+# - testpaths: テストを検索するディレクトリ
+# - python_files: テストファイル名のパターン
+# - markers: カスタムマーカーの定義（例: integration）
+# ------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --cov=app --cov-report=term-missing"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+markers = [
+    "integration: mark a test as integration",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+omit = ["tests/*", "docs/*", "*/__init__.py"]
+
+# ------------------------------------------------------------
+# - exclude_lines: レポートから除外する行パターン（デバッグ用や実行ブロック等）
+# - fail_under: 最低カバレッジ率（この値を下回ると失敗とみなす閾値）
+# ------------------------------------------------------------
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == '__main__':",
+    "if self.debug",
+    "# pragma: no cover - pragma comment",
+]
+fail_under = 80
