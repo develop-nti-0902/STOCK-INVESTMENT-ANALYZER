@@ -7,18 +7,13 @@ FastAPIのDependsパターンによるRepository提供の動作を検証する�
 
 from unittest.mock import AsyncMock
 
-import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.repositories import get_base_repository
 from app.repositories.base import BaseRepository
 
-
-@pytest.fixture(name="mock_db_session")
-def _mock_db_session():
-    """モックDBセッションを提供するフィクスチャ"""
-    mock_session = AsyncMock(spec=AsyncSession)
-    return mock_session
+# このファイルでは共通の `tests/conftest.py` に定義された
+# `mock_db_session` フィクスチャを利用します。ローカル定義は削除しました。
 
 
 class TestGetBaseRepository:
