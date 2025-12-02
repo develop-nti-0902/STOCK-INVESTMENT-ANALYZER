@@ -1,6 +1,6 @@
 category: architecture
 ai_context: high
-last_updated: 2025-11-16
+last_updated: 2025-12-02
 related_docs:
   - ../architecture_overview.md
   - ./service_layer.md
@@ -129,95 +129,17 @@ app/
 
 **主要メソッド**:
 
-| メソッド                  | 説明                             | 戻り値型                  |
-| ------------------------- | -------------------------------- | ------------------------- |
-| `async def create()`      | 新規レコード作成                 | `T`（モデルインスタンス） |
-| `async def get_by_id()`   | ID検索                           | `Optional[T]`             |
-| `async def get_all()`     | 全件取得（ページネーション対応） | `List[T]`                 |
-| `async def update()`      | レコード更新                     | `Optional[T]`             |
-| `async def delete()`      | レコード削除                     | `bool`                    |
-| `async def bulk_create()` | 一括作成                         | `List[T]`                 |
-| `async def count_all()`   | 全件数取得                       | `int`                     |
-
-**実装例**:
-
-```python
-from typing import TypeVar, Generic, List, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-
-from app.models.base import Base
-
-T = TypeVar('T', bound=Base)
+| メソッド                  | 説明                             | 戻り値型                  | 実装状況 |
+| ------------------------- | -------------------------------- | ------------------------- | -------- |
+| `async def create()`      | 新規レコード作成                 | `T`（モデルインスタンス） | ✅        |
+| `async def get_by_id()`   | ID検索                           | `Optional[T]`             | ✅        |
+| `async def get_all()`     | 全件取得（ページネーション対応） | `List[T]`                 | ✅        |
+| `async def update()`      | レコード更新                     | `Optional[T]`             | ✅        |
+| `async def delete()`      | レコード削除                     | `bool`                    | ✅        |
+| `async def bulk_create()` | 一括作成                         | `List[T]`                 | ✅        |
+| `async def count_all()`   | 全件数取得                       | `int`                     | ✅        |
 
 
-class BaseRepository(Generic[T]):
-    """Repository基底クラス（汎用CRUD操作提供）."""
-
-    def __init__(self, model: type[T], session: AsyncSession):
-        """初期化.
-
-        Args:
-            model: SQLAlchemyモデルクラス
-            session: 非同期DBセッション
-        """
-        self.model = model
-        self.session = session
-
-    async def create(self, **kwargs) -> T:
-        """新規レコード作成.
-
-        Args:
-            **kwargs: モデルのフィールド値
-
-        Returns:
-            作成されたモデルインスタンス
-        """
-        instance = self.model(**kwargs)
-        self.session.add(instance)
-        await self.session.flush()
-        return instance
-
-    async def get_by_id(self, record_id: int) -> Optional[T]:
-        """ID検索.
-
-        Args:
-            record_id: レコードID
-
-        Returns:
-            モデルインスタンス、見つからない場合はNone
-        """
-        result = await self.session.execute(
-            select(self.model).where(self.model.id == record_id)
-        )
-        return result.scalar_one_or_none()
-
-    async def get_all(self, limit: int = 100, offset: int = 0) -> List[T]:
-        """全件取得（ページネーション対応）.
-
-        Args:
-            limit: 取得件数（デフォルト: 100）
-            offset: オフセット（デフォルト: 0）
-
-        Returns:
-            モデルインスタンスのリスト
-        """
-        result = await self.session.execute(
-            select(self.model).limit(limit).offset(offset)
-        )
-        return list(result.scalars().all())
-
-    async def count_all(self) -> int:
-        """全件数取得.
-
-        Returns:
-            レコード数
-        """
-        result = await self.session.execute(
-            select(func.count()).select_from(self.model)
-        )
-        return result.scalar_one()
-```
 
 ### 3.2 StockRepository（株価データ専用）
 
@@ -424,7 +346,7 @@ async def get_stock_data(
 
 **Note**: `get_db()`関数の詳細な実装とトランザクション管理については、[共通モジュール仕様書](./common_modules.md#55-データベース接続管理apputilsdatabasepy)を参照してください。
 
-**詳細な使用例**: Repository DIの詳細な使用例とパターンについては、[Repository DI使用例ドキュメント](./repository_di_usage.md)を参照してください。
+**詳細な使用例**: Repository DIの詳細な使用例とパターンについては、[Repository DI使用例ドキュメント](../../examples/repository_di_usage.md)を参照してください。
 
 ---
 

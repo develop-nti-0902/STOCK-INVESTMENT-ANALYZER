@@ -1,6 +1,6 @@
 category: architecture
 ai_context: high
-last_updated: 2025-11-16
+last_updated: 2025-12-02
 related_docs:
   - ../architecture_overview.md
   - ./api_layer.md
@@ -255,24 +255,25 @@ graph TB
 
 **役割**: 全ドメインで共有される抽象基底クラスと共通処理
 
-| モジュール              | クラス/関数     | 責務                             | 実装方式          | 型定義                |
-| ----------------------- | --------------- | -------------------------------- | ----------------- | --------------------- |
-| **base_fetcher.py**     | BaseFetcher     | データ取得の抽象基底クラス       | ABC, Generic[T]   | TypeVar T             |
-| **http_fetcher.py**     | HttpFetcher     | HTTP通信共通処理(aiohttp)        | BaseFetcherの実装 | aiohttp ClientSession |
-| **retry_mixin.py**      | RetryMixin      | リトライロジック                 | Mixin             | -                     |
-| **base_saver.py**       | BaseSaver       | データ保存の抽象基底クラス       | ABC, Generic[T]   | TypeVar T             |
-| **bulk_saver_mixin.py** | BulkSaverMixin  | 一括保存共通ロジック             | Mixin             | -                     |
-| **base_validator.py**   | BaseValidator   | データ検証の抽象基底クラス       | ABC               | -                     |
-| **base_converter.py**   | BaseConverter   | データ変換の抽象基底クラス       | ABC, Generic[T]   | TypeVar T             |
-| **error_handler.py**    | @handle_error   | エラーハンドリング統一デコレータ | デコレータ        | -                     |
-| **retry.py**            | @retry_on_error | リトライ制御デコレータ           | デコレータ        | -                     |
+**実装状況**: ✅ **実装済み(Issue #5 サブIssue #12にて完了)**
+
+| モジュール              | クラス/関数           | 責務                             | 実装方式          | 型定義                | 実装状況 |
+| ----------------------- | --------------------- | -------------------------------- | ----------------- | --------------------- | -------- |
+| **base_fetcher.py**     | BaseFetcher           | データ取得の抽象基底クラス       | ABC, Generic[T]   | TypeVar T             | ✅        |
+| **http_fetcher.py**     | HttpFetcher           | HTTP通信共通処理(aiohttp)        | BaseFetcherの実装 | aiohttp ClientSession | 🔜        |
+| **retry_mixin.py**      | RetryMixin            | リトライロジック                 | Mixin             | -                     | 🔜        |
+| **base_saver.py**       | BaseSaver             | データ保存の抽象基底クラス       | ABC, Generic[T]   | TypeVar T             | ✅        |
+| **bulk_saver_mixin.py** | BulkSaverMixin        | 一括保存共通ロジック             | Mixin             | -                     | 🔜        |
+| **base_validator.py**   | BaseValidator         | データ検証の抽象基底クラス       | ABC               | ValidationResult      | ✅        |
+| **base_converter.py**   | BaseConverter         | データ変換の抽象基底クラス       | ABC, Generic[T]   | TypeVar T             | ✅        |
+| **error_handler.py**    | @handle_service_error | エラーハンドリング統一デコレータ | デコレータ        | -                     | ✅        |
+| **retry.py**            | @retry_on_error       | リトライ制御デコレータ           | デコレータ        | -                     | ✅        |
 
 **設計ポイント**:
 - ✅ **抽象基底クラス(ABC)による型安全性**
 - ✅ **ジェネリクス(Generic[T])で型パラメータ化**
 - ✅ **Mixinパターンで機能の水平展開**
 - ✅ **デコレータで横断的関心事を分離**
-
 ---
 
 ### 3.2 市場データドメイン (Market Data)
