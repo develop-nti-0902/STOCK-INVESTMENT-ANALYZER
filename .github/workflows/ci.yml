@@ -65,6 +65,15 @@ jobs:
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
       DATABASE_URL: postgresql://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@localhost:5432/test_db
+      # 以下はアプリが期待する環境変数名（Pydantic Settings の DB_* 等）
+      APP_NAME: stock-investment-analyzer
+      APP_VERSION: 0.0.0-ci
+      ENV: test
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: test_db
+      DB_USER: ${{ secrets.CI_APP_DB_USER }}
+      DB_PASSWORD: ${{ secrets.CI_APP_DB_PASSWORD }}
     # services: テスト用のコンテナを定義（ここでは PostgreSQL）
     # 注意: コンテナに渡すパスワードは Secrets を利用してください。
     services:
