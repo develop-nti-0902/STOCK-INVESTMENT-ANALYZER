@@ -9,7 +9,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class BaseSchema(BaseModel):
@@ -28,8 +28,6 @@ class BaseSchema(BaseModel):
     model_config = ConfigDict(
         # SQLAlchemyモデルからの変換を許可
         from_attributes=True,
-        # JSON出力時にdatetimeをISO 8601形式で出力
-        json_encoders={datetime: lambda v: v.isoformat()},
         # 任意フィールドの型チェックを厳密に
         validate_assignment=True,
         # 不明なフィールドを禁止
@@ -50,6 +48,13 @@ class BaseSchema(BaseModel):
         description="更新日時（タイムゾーン対応）",
     )
 
+    @field_serializer("created_at", "updated_at")
+    def _serialize_datetimes(self, v: datetime | None, _info) -> str | None:
+        """JSON出力用に datetime を ISO-8601 形式にシリアライズします。"""
+        if v is None:
+            return None
+        return v.isoformat()
+
 
 class BaseRequestSchema(BaseModel):
     """
@@ -64,8 +69,6 @@ class BaseRequestSchema(BaseModel):
     """
 
     model_config = ConfigDict(
-        # JSON出力時にdatetimeをISO 8601形式で出力
-        json_encoders={datetime: lambda v: v.isoformat()},
         # 任意フィールドの型チェックを厳密に
         validate_assignment=True,
         # 不明なフィールドを禁止

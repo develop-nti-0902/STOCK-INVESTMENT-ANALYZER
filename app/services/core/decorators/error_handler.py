@@ -5,8 +5,8 @@
 仕様書: docs/architecture/layers/service_layer.md 6.1章
 """
 
-import asyncio
 import functools
+import inspect
 from typing import Any, Callable
 
 from app.exceptions import ServiceError
@@ -102,7 +102,7 @@ def handle_service_error(
         # 関数が非同期かどうかで切り替え
         return (
             async_wrapper
-            if asyncio.iscoroutinefunction(func)
+            if inspect.iscoroutinefunction(func)
             else sync_wrapper
         )  # type: ignore
 

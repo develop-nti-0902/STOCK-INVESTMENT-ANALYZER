@@ -7,6 +7,7 @@
 
 import asyncio
 import functools
+import inspect
 import time
 from typing import Any, Callable, ParamSpec, TypeVar
 
@@ -114,7 +115,7 @@ def retry_on_error(
         # 関数が非同期かどうかで切り替え
         return (
             async_wrapper
-            if asyncio.iscoroutinefunction(func)
+            if inspect.iscoroutinefunction(func)
             else sync_wrapper
         )  # type: ignore
 
