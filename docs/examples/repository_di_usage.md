@@ -8,6 +8,9 @@
 依存性プロバイダを提供します。共通モジュール（`app.utils.database`）の`get_db()`を使用してDBセッションを
 取得し、各Repositoryインスタンスを作成します。
 
+**注意（名前の統一）**: プロジェクト内でのセッション依存性プロバイダ名は `get_db` に統一してください。
+既存で `get_async_session` が使われている箇所は `get_db` に置換し、今後の実装では `get_db` を使用してください。
+
 参照仕様書: `docs/architecture/layers/data_access_layer.md` 3.3章
 
 ## 基本的な使用方法
