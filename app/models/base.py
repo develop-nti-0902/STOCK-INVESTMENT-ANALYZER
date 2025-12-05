@@ -15,7 +15,7 @@ def _camel_to_snake(name: str) -> str:
     return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
 
-class Base(DeclarativeBase):
+class Base(DeclarativeBase):  # pylint: disable=too-few-public-methods
     """プロジェクト共通のDeclarative base。
 
     - 自動でテーブル名をスネークケースに変換して設定する
@@ -32,7 +32,7 @@ class Base(DeclarativeBase):
         super().__init_subclass__(**kwargs)
 
 
-class SerialPKMixin:
+class SerialPKMixin:  # pylint: disable=too-few-public-methods
     """整数の自動増分ID（既存SQLスクリプトの `SERIAL` に対応）。"""
 
     id: Mapped[int] = mapped_column(
@@ -40,7 +40,7 @@ class SerialPKMixin:
     )
 
 
-class UUIDPKMixin:
+class UUIDPKMixin:  # pylint: disable=too-few-public-methods
     """UUIDプライマリキーを使いたいモデル向けの mixin。"""
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -48,7 +48,7 @@ class UUIDPKMixin:
     )
 
 
-class TimestampMixin:
+class TimestampMixin:  # pylint: disable=too-few-public-methods
     """created_at / updated_at を提供する mixin。
 
     - client-side default を __init__ で埋める。
