@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Optional
 
 from sqlalchemy import Index, Integer, String
+
+# pylint: disable=too-few-public-methods
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, SerialPKMixin, TimestampMixin

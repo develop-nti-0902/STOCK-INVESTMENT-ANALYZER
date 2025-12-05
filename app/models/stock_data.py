@@ -18,6 +18,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, SerialPKMixin, TimestampMixin
 
+# pylint: disable=too-few-public-methods
+
 
 class _CommonPriceColumns:
     open: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
@@ -180,13 +182,4 @@ class Stocks1mo(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     )
 
 
-__all__ = [
-    "Stocks1m",
-    "Stocks5m",
-    "Stocks15m",
-    "Stocks30m",
-    "Stocks1h",
-    "Stocks1d",
-    "Stocks1wk",
-    "Stocks1mo",
-]
+# Exported names are managed in `app/models/__init__.py`
