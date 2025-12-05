@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import DateTime, Integer, text
@@ -58,19 +58,19 @@ class TimestampMixin:  # pylint: disable=too-few-public-methods
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         server_default=text("now()"),
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         server_default=text("now()"),
     )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if "created_at" not in kwargs or kwargs.get("created_at") is None:
             kwargs["created_at"] = now
         if "updated_at" not in kwargs or kwargs.get("updated_at") is None:

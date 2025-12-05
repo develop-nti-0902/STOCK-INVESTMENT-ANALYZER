@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.models import base
 
@@ -53,9 +53,9 @@ def test_timestamp_mixin_sets_defaults_and_respects_kwargs():
         pass
 
     # Act: 何も渡さずにインスタンス化
-    before = datetime.utcnow()
+    before = datetime.now(timezone.utc)
     inst = TimeModel()
-    after = datetime.utcnow()
+    after = datetime.now(timezone.utc)
 
     # Assert: created_at / updated_at が設定されていること
     assert hasattr(inst, "created_at")
@@ -93,7 +93,7 @@ def test_timestamp_mixin_updated_at_on_init_is_recent():
 
     # Act: インスタンス生成
     inst = TimeModel2()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # Assert: 更新時刻が最近であること
     delta = now - inst.updated_at
