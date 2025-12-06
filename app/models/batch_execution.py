@@ -6,10 +6,11 @@ from typing import Optional
 from sqlalchemy import DateTime, Index, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base, SerialPKMixin
+from .base import Base, SerialPKMixin, TimestampMixin
 
 
-class BatchExecution(SerialPKMixin, Base):
+# pylint: disable=too-few-public-methods
+class BatchExecution(SerialPKMixin, TimestampMixin, Base):
     """バッチ処理の実行サマリを記録するモデル。
 
     - テーブル名は `batch_executions` に固定している（既存スキーマとの整合性維持）。
@@ -45,13 +46,6 @@ class BatchExecution(SerialPKMixin, Base):
     )
 
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-        server_default=text("now()"),
-    )
 
     __table_args__ = (
         Index("idx_batch_executions_status", "status"),
