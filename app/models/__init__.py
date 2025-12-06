@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .base import Base, TimestampMixin
+from .batch_execution import BatchExecution
 from .stock_data import (
     Stocks1d,
     Stocks1h,
@@ -25,4 +26,5 @@ __all__ = [
     "Stocks1d",
     "Stocks1wk",
     "Stocks1mo",
+    "BatchExecution",
 ]
