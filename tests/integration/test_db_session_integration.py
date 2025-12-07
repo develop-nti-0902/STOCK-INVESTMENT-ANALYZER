@@ -24,7 +24,7 @@ async def test_engine_warmup_and_get_db(monkeypatch):
         DATABASE_URL = db_mod.get_database_url()
     except Exception as exc:  # pylint: disable=broad-except
         pytest.fail(
-            "Failed to obtain DATABASE URL via get_database_url(): %s" % exc
+            f"Failed to obtain DATABASE URL via get_database_url(): {exc}"
         )
 
     # Act: テスト対象の操作を実行
