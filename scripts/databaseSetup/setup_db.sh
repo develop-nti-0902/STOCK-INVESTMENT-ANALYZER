@@ -205,11 +205,16 @@ echo "[6/6] Applying schema via Alembic (migrations)"
 # construct DATABASE_URL from PG* and DB_* env vars.
 export PGHOST PGPORT DB_NAME DB_USER DB_PASSWORD PGPASSWORD
 
-# Call migrate wrapper in same directory
+# Call migrate wrapper in same directory. Some environments (Windows->Git->Linux CI)
+# may omit the executable bit on checked-out files. If the file exists but is not
+# executable, still invoke it with `bash` so migrations run.
 if [[ -x "${SCRIPT_DIR}/migrate.sh" ]]; then
     bash "${SCRIPT_DIR}/migrate.sh" upgrade head || echo "[WARN] Alembic upgrade failed"
+elif [[ -f "${SCRIPT_DIR}/migrate.sh" ]]; then
+    echo "[INFO] migrate.sh exists but is not executable; invoking with bash"
+    bash "${SCRIPT_DIR}/migrate.sh" upgrade head || echo "[WARN] Alembic upgrade failed (ran non-executable script with bash)"
 else
-    echo "[WARN] migrate.sh not found or not executable; skipping alembic apply"
+    echo "[WARN] migrate.sh not found; skipping alembic apply"
 fi
 
 echo ""
