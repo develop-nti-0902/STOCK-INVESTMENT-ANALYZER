@@ -51,11 +51,24 @@ if not defined DATABASE_URL (
 where poetry >nul 2>&1
 if errorlevel 1 (
   echo [WARN] poetry not found in PATH; attempting to run alembic directly
+  REM Ensure the repository root is on PYTHONPATH so Alembic can resolve
+  REM the package-style script_location (e.g. "alembic"). This helps when
+  REM alembic is executed from a system-wide install instead of the
+  REM project's virtualenv/poetry environment.
+  if defined PYTHONPATH (
+    set "PYTHONPATH=%REPO_ROOT%;%PYTHONPATH%"
+  ) else (
+    set "PYTHONPATH=%REPO_ROOT%"
+  )
   set ALEMBIC_CMD=alembic -c "%REPO_ROOT%alembic.ini" %CMD% %TARGET% %SQL_FLAG%
   echo [INFO] %ALEMBIC_CMD%
+  pushd "%REPO_ROOT%"
   %ALEMBIC_CMD%
+  popd
 ) else (
+  pushd "%REPO_ROOT%"
   poetry run alembic -c "%REPO_ROOT%alembic.ini" %CMD% %TARGET% %SQL_FLAG%
+  popd
 )
 
 endlocal

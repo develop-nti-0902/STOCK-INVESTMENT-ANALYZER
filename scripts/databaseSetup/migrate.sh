@@ -56,11 +56,17 @@ fi
 
 if ! command -v poetry &> /dev/null; then
   echo "[WARN] poetry not found in PATH; attempting to run alembic directly"
-  ALEMBIC_CMD="alembic -c ${REPO_ROOT}/alembic.ini ${CMD} ${TARGET} ${SQL_FLAG}"
-  echo "[INFO] $ALEMBIC_CMD"
-  eval "$ALEMBIC_CMD"
+  # Ensure REPO_ROOT is on PYTHONPATH so alembic can resolve script_location 'alembic'
+  if [[ -n "${PYTHONPATH:-}" ]]; then
+    export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH}"
+  else
+    export PYTHONPATH="${REPO_ROOT}"
+  fi
+  ALEMBIC_CMD=(alembic -c "${REPO_ROOT}/alembic.ini" "${CMD}" "${TARGET}" ${SQL_FLAG})
+  echo "[INFO] ${ALEMBIC_CMD[*]}"
+  (cd "${REPO_ROOT}" && "${ALEMBIC_CMD[@]}")
 else
-  poetry run alembic -c "${REPO_ROOT}/alembic.ini" ${CMD} ${TARGET} ${SQL_FLAG}
+  (cd "${REPO_ROOT}" && poetry run alembic -c "${REPO_ROOT}/alembic.ini" ${CMD} ${TARGET} ${SQL_FLAG})
 fi
 
 echo "[SUCCESS] alembic command finished"
