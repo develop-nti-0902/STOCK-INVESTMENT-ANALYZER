@@ -13,7 +13,9 @@ import pytest
 
 from app.exceptions.external_api import JPXAPIError
 from app.schemas.market_data.stock_master import StockMasterNormalized
-from app.services.core.fetchers.jpx_fetcher import JPXFetcher
+from app.services.market_data.stock_master.fetcher import (
+    StockMasterFetcher as JPXFetcher,
+)
 
 # テスト用のモックデータ
 MOCK_EXCEL_DATA = {

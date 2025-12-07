@@ -24,31 +24,27 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-class JPXFetcher(BaseFetcher[StockMasterNormalized]):
+class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
     """
-    JPX銘柄マスタフェッチャー
+    銘柄マスタフェッチャー（JPX用実装）
 
     JPXの銘柄一覧エクセルファイルをダウンロードし、
-    銘柄マスタデータを取得・正規化します。
+    銘柄マスタデータを取得・正規化します。Market Data ドメイン側の
+    `StockMasterFetcher` として実装します。
 
     Attributes:
         url: JPXのデータダウンロードURL
-        timeout: タイムアウト時間（秒）
-        max_retries: 最大リトライ回数
-        retry_delay: リトライ待機時間（秒）
     """
 
     DEFAULT_URL = (
         "https://www.jpx.co.jp/markets/statistics-equities/"
         "misc/tvdivq0000001vg2-att/data_j.xls"
     )
-    # シンプル化: タイムアウトやリトライは行わない
 
     def __init__(self, url: Optional[str] = None):
         """
         Args:
             url: JPXデータURL（Noneの場合デフォルトURL使用）
-            (シンプル化) タイムアウト・リトライは行わない
         """
         self.url = url or self.DEFAULT_URL
 
@@ -56,34 +52,30 @@ class JPXFetcher(BaseFetcher[StockMasterNormalized]):
         self, identifier: str, **kwargs: Any
     ) -> StockMasterNormalized:
         """
-        単一銘柄の取得（このフェッチャーでは未使用）
+        単一銘柄の取得（JPXでは未サポート）
 
-        JPXからは全銘柄を一括取得するため、このメソッドは使用しません。
-        fetch_batch()を使用してください。
-
-        Raises:
-            NotImplementedError: 常に発生
+        JPXからは全銘柄を一括取得するため、このメソッドは未実装です。
         """
         raise NotImplementedError(
-            "JPXFetcher does not support single fetch. Use fetch_batch() "
-            "or fetch_all() instead."
+            """
+            StockMasterFetcher does not support single fetch.
+            Use fetch_all() instead.
+            """
         )
 
     async def fetch_batch(
         self, identifiers: list[str], **kwargs: Any
     ) -> list[StockMasterNormalized]:
         """
-        複数銘柄の取得（このフェッチャーでは未使用）
+        複数銘柄の取得（JPXでは未サポート）
 
-        JPXからは全銘柄を一括取得するため、このメソッドは使用しません。
-        fetch_all()を使用してください。
-
-        Raises:
-            NotImplementedError: 常に発生
+        JPXからは全銘柄を一括取得するため、このメソッドは未実装です。
         """
         raise NotImplementedError(
-            "JPXFetcher does not support batch fetch with identifiers. "
-            "Use fetch_all() instead."
+            """
+            StockMasterFetcher does not support batch fetch with identifiers.
+            Use fetch_all() instead.
+            """
         )
 
     async def fetch_all(self) -> list[StockMasterNormalized]:
@@ -92,26 +84,14 @@ class JPXFetcher(BaseFetcher[StockMasterNormalized]):
 
         JPXからエクセルファイルをダウンロードし、全銘柄のマスタデータを
         正規化して返します。
-
-        Returns:
-            list[StockMasterNormalized]: 正規化された銘柄マスタデータのリスト
-
-        Raises:
-            JPXAPIError: データ取得に失敗した場合
-            APITimeoutError: タイムアウトした場合
         """
         logger.info(
             "Starting JPX stock master data fetch", extra={"url": self.url}
         )
 
         try:
-            # エクセルファイルをダウンロード（1回のみ）
             excel_data = await self._download_excel()
-
-            # DataFrameに変換
             df = await self._parse_excel(excel_data)
-
-            # 正規化して返却
             normalized_data = await self._normalize_data(df)
 
             logger.info(
@@ -141,11 +121,7 @@ class JPXFetcher(BaseFetcher[StockMasterNormalized]):
 
         Returns:
             bytes: エクセルファイルのバイトデータ
-
-        Raises:
-            aiohttp.ClientError: ダウンロードに失敗した場合
         """
-        # シンプル化: セッションに明示的なタイムアウトを与えずに1回だけ取得を試みる
         async with aiohttp.ClientSession() as session:
             async with session.get(self.url) as response:
                 response.raise_for_status()
@@ -154,19 +130,8 @@ class JPXFetcher(BaseFetcher[StockMasterNormalized]):
     async def _parse_excel(self, excel_data: bytes) -> pd.DataFrame:
         """
         エクセルファイルをDataFrameに変換
-
-        Args:
-            excel_data: エクセルファイルのバイトデータ
-
-        Returns:
-            pd.DataFrame: 変換されたDataFrame
-
-        Raises:
-            ValueError: パースに失敗した場合
         """
         try:
-            # BytesIOに変換してpandasで読み込み
-            # xlrdライブラリを使用（.xlsファイル対応）
             df = pd.read_excel(BytesIO(excel_data), engine="xlrd")
 
             logger.info(
@@ -188,27 +153,16 @@ class JPXFetcher(BaseFetcher[StockMasterNormalized]):
     ) -> list[StockMasterNormalized]:
         """
         DataFrameを正規化されたPydanticモデルに変換
-
-        Args:
-            df: パースされたDataFrame
-
-        Returns:
-            list[StockMasterNormalized]: 正規化された銘柄マスタデータ
-
-        Raises:
-            ValueError: 正規化に失敗した場合
         """
         normalized_data = []
         errors = []
 
         for idx, row in df.iterrows():
             try:
-                # まず生データとしてパース（aliasを使用）
                 raw_data = StockMasterRaw.model_validate(
                     row.to_dict(), from_attributes=True
                 )
 
-                # 正規化されたデータに変換
                 normalized = StockMasterNormalized(
                     stock_code=self._normalize_stock_code(raw_data.code),
                     stock_name=self._normalize_stock_name(raw_data.name),
@@ -262,7 +216,6 @@ class JPXFetcher(BaseFetcher[StockMasterNormalized]):
                     },
                 )
 
-        # エラーがあればログ出力（全てエラーの場合は例外を投げる）
         if errors:
             logger.warning(
                 "Encountered %d errors during normalization",
@@ -278,22 +231,9 @@ class JPXFetcher(BaseFetcher[StockMasterNormalized]):
         return normalized_data
 
     def _normalize_stock_code(self, code: Optional[str]) -> str:
-        """
-        銘柄コードを正規化
-
-        Args:
-            code: 銘柄コード
-
-        Returns:
-            str: 正規化された銘柄コード
-
-        Raises:
-            ValueError: コードが不正な場合
-        """
         if not code:
             raise ValueError("Stock code is required")
 
-        # 文字列に変換して前後の空白を除去
         normalized = str(code).strip()
 
         if not normalized:
@@ -302,22 +242,9 @@ class JPXFetcher(BaseFetcher[StockMasterNormalized]):
         return normalized
 
     def _normalize_stock_name(self, name: Optional[str]) -> str:
-        """
-        銘柄名を正規化
-
-        Args:
-            name: 銘柄名
-
-        Returns:
-            str: 正規化された銘柄名
-
-        Raises:
-            ValueError: 銘柄名が不正な場合
-        """
         if not name:
             raise ValueError("Stock name is required")
 
-        # 文字列に変換して前後の空白を除去
         normalized = str(name).strip()
 
         if not normalized:
@@ -326,39 +253,25 @@ class JPXFetcher(BaseFetcher[StockMasterNormalized]):
         return normalized
 
     def _normalize_date(self, date: Optional[str]) -> Optional[str]:
-        """
-        日付を正規化（YYYYMMDD形式）
-
-        Args:
-            date: 日付文字列
-
-        Returns:
-            Optional[str]: 正規化された日付（YYYYMMDD形式）
-        """
         if not date:
             return None
 
-        # 文字列に変換して前後の空白を除去
         normalized = str(date).strip()
 
-        # 空の場合はNoneを返す
         if not normalized:
             return None
 
-        # YYYY/MM/DD形式の場合はYYYYMMDDに変換
         if "/" in normalized:
             parts = normalized.split("/")
             if len(parts) == 3:
                 return f"{parts[0]}{parts[1].zfill(2)}{parts[2].zfill(2)}"
 
-        # YYYY-MM-DD形式の場合はYYYYMMDDに変換
         if "-" in normalized:
             parts = normalized.split("-")
             if len(parts) == 3:
                 return f"{parts[0]}{parts[1].zfill(2)}{parts[2].zfill(2)}"
 
-        # すでにYYYYMMDD形式の場合はそのまま返す
         return normalized
 
 
-__all__ = ["JPXFetcher"]
+__all__ = ["StockMasterFetcher"]

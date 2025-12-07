@@ -6,6 +6,5 @@
 """
 
 from app.services.core.fetchers.base_fetcher import BaseFetcher
-from app.services.core.fetchers.jpx_fetcher import JPXFetcher
 
-__all__ = ["BaseFetcher", "JPXFetcher"]
+__all__ = ["BaseFetcher"]
