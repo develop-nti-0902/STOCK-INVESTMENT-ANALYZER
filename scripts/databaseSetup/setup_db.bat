@@ -189,13 +189,14 @@ echo [5/6] Creating database if not exists...
 psql -U %PGUSER% -h %PGHOST% -t -c "SELECT 1 FROM pg_database WHERE datname='!DB_NAME!';" > "%TEMP%\db_check.txt" 2>&1
 set /p DB_EXISTS=<"%TEMP%\db_check.txt"
 set "DB_EXISTS=%DB_EXISTS: =%"
-if not "%DB_EXISTS%"=="1" (
+    if not "%DB_EXISTS%"=="1" (
     if not "%SKIP_TABLESPACE%"=="" (
         REM Create database without tablespace (use default)
-        psql -U %PGUSER% -h %PGHOST% -c "CREATE DATABASE !DB_NAME! WITH OWNER = %PGUSER% ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>"%TEMP%\db_create_err.txt"
+        REM NOTE: set OWNER to application DB user so migrations can be applied by that user
+        psql -U %PGUSER% -h %PGHOST% -c "CREATE DATABASE !DB_NAME! WITH OWNER = %DB_USER% ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>"%TEMP%\db_create_err.txt"
     ) else (
         REM Create database with custom tablespace
-        psql -U %PGUSER% -h %PGHOST% -c "CREATE DATABASE !DB_NAME! WITH OWNER = %PGUSER% ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TABLESPACE = stock_data_space TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>"%TEMP%\db_create_err.txt"
+        psql -U %PGUSER% -h %PGHOST% -c "CREATE DATABASE !DB_NAME! WITH OWNER = %DB_USER% ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TABLESPACE = stock_data_space TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>"%TEMP%\db_create_err.txt"
     )
     if errorlevel 1 (
         echo [ERROR] Failed to create database
@@ -208,24 +209,23 @@ if not "%DB_EXISTS%"=="1" (
 REM Grant privileges
 psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -c "GRANT ALL PRIVILEGES ON DATABASE %DB_NAME% TO %DB_USER%;" 2>NUL || echo [WARN] Could not grant privileges
 
-REM Apply initial schema if present
-echo [6/6] Applying initial schema (if present) and finishing...
+REM Apply schema via Alembic migrations
+echo [6/6] Applying schema via Alembic (migrations)
 
-REM Apply stock tables then management tables if present
-if not exist "%STOCK_SQL%" (
-    echo [WARN] %STOCK_SQL% not found; skipping stock tables apply
-) else (
-    echo Applying stock tables schema: %STOCK_SQL%
-    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -f "%STOCK_SQL%"
-    if errorlevel 1 echo [WARN] Failed to apply %STOCK_SQL% (check SQL file and permissions)
-)
+REM Ensure DB connection variables for migrations are available. migrate.bat will
+REM construct DATABASE_URL from DB_* and PG* environment variables.
+set PGHOST=%PGHOST%
+set PGPORT=%PGPORT%
+set DB_NAME=%DB_NAME%
+set DB_USER=%DB_USER%
+set DB_PASSWORD=%DB_PASSWORD%
+set PGPASSWORD=%PGPASSWORD%
 
-if not exist "%MGMT_SQL%" (
-    echo [WARN] %MGMT_SQL% not found; skipping management tables apply
+if exist "%SCRIPT_DIR%migrate.bat" (
+    echo [INFO] Calling migrate.bat upgrade head
+    call "%SCRIPT_DIR%migrate.bat" upgrade head || echo [WARN] Alembic upgrade failed
 ) else (
-    echo Applying management tables schema: %MGMT_SQL%
-    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -f "%MGMT_SQL%"
-    if errorlevel 1 echo [WARN] Failed to apply %MGMT_SQL% (check SQL file and permissions)
+    echo [WARN] migrate.bat not found; skipping alembic apply
 )
 
 endlocal

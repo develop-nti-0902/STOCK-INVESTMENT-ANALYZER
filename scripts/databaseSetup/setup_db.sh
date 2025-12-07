@@ -178,13 +178,14 @@ DB_EXISTS=$(psql -U "${PGUSER}" -h "${PGHOST}" -t -c "SELECT 1 FROM pg_database 
 if [[ "$DB_EXISTS" != "1" ]]; then
     if [[ -n "${SKIP_TABLESPACE:-}" ]]; then
         # Create database without tablespace (use default)
-        psql -U "${PGUSER}" -h "${PGHOST}" -c "CREATE DATABASE ${DB_NAME} WITH OWNER = ${PGUSER} ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>/dev/null || {
+        # NOTE: set OWNER to application DB user so migrations can be applied by that user
+        psql -U ${PGUSER} -h ${PGHOST} -c "CREATE DATABASE ${DB_NAME} WITH OWNER = ${DB_USER} ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>/dev/null || {
             echo "[ERROR] Failed to create database"
             exit 1
         }
     else
         # Create database with custom tablespace
-        psql -U "${PGUSER}" -h "${PGHOST}" -c "CREATE DATABASE ${DB_NAME} WITH OWNER = ${PGUSER} ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TABLESPACE = stock_data_space TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>/dev/null || {
+        psql -U ${PGUSER} -h ${PGHOST} -c "CREATE DATABASE ${DB_NAME} WITH OWNER = ${DB_USER} ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TABLESPACE = stock_data_space TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>/dev/null || {
             echo "[ERROR] Failed to create database"
             exit 1
         }
@@ -196,21 +197,19 @@ fi
 # Grant privileges
 psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};" 2>/dev/null || echo "[WARN] Could not grant privileges"
 
-# Apply initial schema if present
-echo "[6/6] Applying initial schema (if present) and finishing..."
+# Apply schema via Alembic
+echo "[6/6] Applying schema via Alembic (migrations)"
 
-if [[ -f "$STOCK_SQL" ]]; then
-    echo "Applying stock tables schema: $STOCK_SQL"
-    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -f "$STOCK_SQL" || echo "[WARN] Failed to apply $STOCK_SQL (check SQL file and permissions)"
-else
-    echo "[WARN] $STOCK_SQL not found; skipping stock tables apply"
-fi
+# Ensure DB connection variables for migrations are available. Alembic wrapper
+# will use DB_USER/DB_PASSWORD (application user) if present; otherwise it will
+# construct DATABASE_URL from PG* and DB_* env vars.
+export PGHOST PGPORT DB_NAME DB_USER DB_PASSWORD PGPASSWORD
 
-if [[ -f "$MGMT_SQL" ]]; then
-    echo "Applying management tables schema: $MGMT_SQL"
-    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -f "$MGMT_SQL" || echo "[WARN] Failed to apply $MGMT_SQL (check SQL file and permissions)"
+# Call migrate wrapper in same directory
+if [[ -x "${SCRIPT_DIR}/migrate.sh" ]]; then
+    bash "${SCRIPT_DIR}/migrate.sh" upgrade head || echo "[WARN] Alembic upgrade failed"
 else
-    echo "[WARN] $MGMT_SQL not found; skipping management tables apply"
+    echo "[WARN] migrate.sh not found or not executable; skipping alembic apply"
 fi
 
 echo ""
