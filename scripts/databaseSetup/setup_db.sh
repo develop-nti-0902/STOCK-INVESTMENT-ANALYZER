@@ -199,16 +199,19 @@ psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -c "GRANT ALL 
 # Apply initial schema if present
 echo "[6/6] Applying initial schema (if present) and finishing..."
 
+# Set client encoding to UTF8 for psql
+export PGCLIENTENCODING=UTF8
+
 if [[ -f "$STOCK_SQL" ]]; then
     echo "Applying stock tables schema: $STOCK_SQL"
-    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -f "$STOCK_SQL" || echo "[WARN] Failed to apply $STOCK_SQL (check SQL file and permissions)"
+    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -v db_user="${DB_USER}" -f "$STOCK_SQL" || echo "[WARN] Failed to apply $STOCK_SQL (check SQL file and permissions)"
 else
     echo "[WARN] $STOCK_SQL not found; skipping stock tables apply"
 fi
 
 if [[ -f "$MGMT_SQL" ]]; then
     echo "Applying management tables schema: $MGMT_SQL"
-    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -f "$MGMT_SQL" || echo "[WARN] Failed to apply $MGMT_SQL (check SQL file and permissions)"
+    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -v db_user="${DB_USER}" -f "$MGMT_SQL" || echo "[WARN] Failed to apply $MGMT_SQL (check SQL file and permissions)"
 else
     echo "[WARN] $MGMT_SQL not found; skipping management tables apply"
 fi

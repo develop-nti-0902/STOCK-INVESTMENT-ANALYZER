@@ -73,6 +73,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 markers = [
     "integration: mark a test as integration",
+    "e2e: mark a test as end-to-end",
 ]
 
 [tool.coverage.run]

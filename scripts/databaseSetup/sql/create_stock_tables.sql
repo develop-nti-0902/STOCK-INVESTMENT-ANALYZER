@@ -170,6 +170,43 @@ CREATE INDEX IF NOT EXISTS idx_stocks_1mo_symbol ON stocks_1mo (symbol);
 CREATE INDEX IF NOT EXISTS idx_stocks_1mo_date ON stocks_1mo (date);
 CREATE INDEX IF NOT EXISTS idx_stocks_1mo_symbol_date_desc ON stocks_1mo (symbol, date DESC);
 
+-- テーブルの所有者を stock_user に変更し、権限を付与
+-- これにより、アプリケーションユーザーがテーブルにアクセスできるようになります
+DO $$
+DECLARE
+    db_user TEXT := current_setting('db_user', TRUE);
+BEGIN
+    IF db_user IS NULL OR db_user = '' THEN
+        -- 環境変数が設定されていない場合はデフォルト値を使用
+        db_user := 'stock_user';
+    END IF;
+
+    -- テーブルの所有者を変更
+    EXECUTE format('ALTER TABLE stocks_1m OWNER TO %I', db_user);
+    EXECUTE format('ALTER TABLE stocks_5m OWNER TO %I', db_user);
+    EXECUTE format('ALTER TABLE stocks_15m OWNER TO %I', db_user);
+    EXECUTE format('ALTER TABLE stocks_30m OWNER TO %I', db_user);
+    EXECUTE format('ALTER TABLE stocks_1h OWNER TO %I', db_user);
+    EXECUTE format('ALTER TABLE stocks_1d OWNER TO %I', db_user);
+    EXECUTE format('ALTER TABLE stocks_1wk OWNER TO %I', db_user);
+    EXECUTE format('ALTER TABLE stocks_1mo OWNER TO %I', db_user);
+
+    -- シーケンスの所有者も変更
+    EXECUTE format('ALTER SEQUENCE stocks_1m_id_seq OWNER TO %I', db_user);
+    EXECUTE format('ALTER SEQUENCE stocks_5m_id_seq OWNER TO %I', db_user);
+    EXECUTE format('ALTER SEQUENCE stocks_15m_id_seq OWNER TO %I', db_user);
+    EXECUTE format('ALTER SEQUENCE stocks_30m_id_seq OWNER TO %I', db_user);
+    EXECUTE format('ALTER SEQUENCE stocks_1h_id_seq OWNER TO %I', db_user);
+    EXECUTE format('ALTER SEQUENCE stocks_1d_id_seq OWNER TO %I', db_user);
+    EXECUTE format('ALTER SEQUENCE stocks_1wk_id_seq OWNER TO %I', db_user);
+    EXECUTE format('ALTER SEQUENCE stocks_1mo_id_seq OWNER TO %I', db_user);
+
+    -- 明示的に権限を付与
+    EXECUTE format('GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO %I', db_user);
+    EXECUTE format('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO %I', db_user);
+END
+$$;
+
 COMMIT;
 
 -- 補足:

@@ -5,7 +5,7 @@ JPXから取得する銘柄マスタデータのPydanticスキーマを定義し
 仕様書: docs/architecture/layers/service_layer.md 3.2.2章
 """
 
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -23,37 +23,40 @@ class StockMasterRaw(BaseModel):
         validate_assignment=True,
         # 不明なフィールドを許可（データソースの変化に対応）
         extra="allow",
+        # フィールド名とエイリアスの両方を受け入れる
+        populate_by_name=True,
     )
 
     # 日本語カラム名（JPXエクセルファイルの実際のカラム名）
     # Pydanticではフィールド名をPythonの識別子として定義し、aliasで元のカラム名を指定
-    date: Optional[str] = Field(
+    # Excel読み込み時に数値型として読み込まれる可能性があるため、Union[str, int]で定義
+    date: Optional[Union[str, int]] = Field(
         default=None, alias="日付", description="データ取得日"
     )
-    code: Optional[str] = Field(
+    code: Optional[Union[str, int]] = Field(
         default=None, alias="コード", description="銘柄コード"
     )
     name: Optional[str] = Field(
         default=None, alias="銘柄名", description="銘柄名"
     )
     market: Optional[str] = Field(
-        default=None, alias="市場区分", description="市場区分"
+        default=None, alias="市場・商品区分", description="市場・商品区分"
     )
     # 33業種コード・33業種区分
-    sector_code_33: Optional[str] = Field(
+    sector_code_33: Optional[Union[str, int]] = Field(
         default=None, alias="33業種コード", description="33業種コード"
     )
     sector_name_33: Optional[str] = Field(
         default=None, alias="33業種区分", description="33業種区分名"
     )
     # 17業種コード・17業種区分
-    sector_code_17: Optional[str] = Field(
+    sector_code_17: Optional[Union[str, int]] = Field(
         default=None, alias="17業種コード", description="17業種コード"
     )
     sector_name_17: Optional[str] = Field(
         default=None, alias="17業種区分", description="17業種区分名"
     )
-    scale_code: Optional[str] = Field(
+    scale_code: Optional[Union[str, int]] = Field(
         default=None, alias="規模コード", description="規模コード"
     )
     scale_category: Optional[str] = Field(

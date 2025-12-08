@@ -7,7 +7,7 @@ Issue: #68
 """
 
 from io import BytesIO
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import aiohttp
 import pandas as pd
@@ -159,19 +159,29 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
 
         for idx, row in df.iterrows():
             try:
-                raw_data = StockMasterRaw.model_validate(
-                    row.to_dict(), from_attributes=True
-                )
+                raw_data = StockMasterRaw.model_validate(row.to_dict())
 
                 normalized = StockMasterNormalized(
                     stock_code=self._normalize_stock_code(raw_data.code),
                     stock_name=self._normalize_stock_name(raw_data.name),
                     market_category=raw_data.market,
-                    sector_code_33=raw_data.sector_code_33,
+                    sector_code_33=(
+                        str(raw_data.sector_code_33)
+                        if raw_data.sector_code_33 is not None
+                        else None
+                    ),
                     sector_name_33=raw_data.sector_name_33,
-                    sector_code_17=raw_data.sector_code_17,
+                    sector_code_17=(
+                        str(raw_data.sector_code_17)
+                        if raw_data.sector_code_17 is not None
+                        else None
+                    ),
                     sector_name_17=raw_data.sector_name_17,
-                    scale_code=raw_data.scale_code,
+                    scale_code=(
+                        str(raw_data.scale_code)
+                        if raw_data.scale_code is not None
+                        else None
+                    ),
                     scale_category=raw_data.scale_category,
                     data_date=self._normalize_date(raw_data.date),
                     is_active=1,
@@ -230,8 +240,8 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
 
         return normalized_data
 
-    def _normalize_stock_code(self, code: Optional[str]) -> str:
-        if not code:
+    def _normalize_stock_code(self, code: Optional[Union[str, int]]) -> str:
+        if not code and code != 0:
             raise ValueError("Stock code is required")
 
         normalized = str(code).strip()
@@ -252,8 +262,10 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
 
         return normalized
 
-    def _normalize_date(self, date: Optional[str]) -> Optional[str]:
-        if not date:
+    def _normalize_date(
+        self, date: Optional[Union[str, int]]
+    ) -> Optional[str]:
+        if not date and date != 0:
             return None
 
         normalized = str(date).strip()

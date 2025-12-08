@@ -1,0 +1,150 @@
+import pytest
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import create_async_engine
+
+import app.utils.database as db_mod
+from app.models.base import Base
+from app.models.stock_master import StockMaster
+from app.repositories.stock_master_repository import StockMasterRepository
+from app.services.market_data.stock_master.service import StockMasterService
+from app.utils.logger import get_logger
+
+pytestmark = pytest.mark.e2e
+
+logger = get_logger(__name__)
+
+
+@pytest.mark.anyio
+async def test_fetch_and_store_integration(monkeypatch):
+    """
+    統合テスト: `StockMasterService.fetch_and_store` がフェッチャーからの取得、
+    正規化、リポジトリを通じた永続化まで正しく実行されることを検証する。
+
+    前提:
+    - `app.utils.database.get_database_url()` がテスト用Postgresの接続文字列を返すこと
+    - テストは実ネットワーク（JPXサイト）へアクセスし、DBへ書き込みを行うため
+      テスト用の分離された環境で実行すること
+    """
+
+    # Arrange（準備）: DB エンジン準備
+    try:
+        DATABASE_URL = db_mod.get_database_url()
+    except (
+        Exception
+    ) as exc:  # pragma: no cover - 環境変数未設定時は明示的に失敗させる
+        pytest.skip(f"Skipping integration test: missing DB config ({exc})")
+
+    engine = create_async_engine(DATABASE_URL, echo=False)
+
+    # モジュールの `get_engine` をテスト用エンジンに差し替える
+    monkeypatch.setattr(db_mod, "get_engine", lambda: engine)
+
+    # キャッシュクリア（既存のキャッシュが残っている可能性があるため）
+    try:
+        db_mod.get_session_maker.cache_clear()
+    except Exception:
+        pass
+    try:
+        db_mod.get_engine.cache_clear()
+    except Exception:
+        pass
+
+    # Arrange（準備）: テーブル作成
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    # Arrange（準備）:
+    # モックを使わずにエンドツーエンドで実行する（JPXからダウンロード → 正規化 → 永続化）
+
+    # Act（実行）: セッションを作成してサービスを実行（スクリプト動作を模倣）
+    session_maker = db_mod.get_session_maker()
+    async with session_maker() as session:
+        repo = StockMasterRepository(session=session)
+        service = StockMasterService(repo=repo)
+
+        processed = await service.fetch_and_store(source="jpx", batch_size=2)
+
+        # service.fetch_and_store は flush を行うが commit は行わないため、
+        # ここで明示的に commit して永続化を確定する
+        await session.commit()
+
+        # Assert（検証）: 処理件数が 0 より大きいこと（少なくとも何かが処理された）
+        assert processed > 0
+
+    # Assert（検証）: 新しいセッションで永続化が完了していることを確認する
+    async with session_maker() as verify_session:
+        result = await verify_session.execute(select(StockMaster))
+        rows = result.scalars().all()
+
+        # 永続化された行数が service が返した processed と一致すること
+        assert len(rows) == processed
+
+        # 生産物: 全件ダンプを CSV で出力（tests/e2e/artifacts/ に保存）
+        import csv
+        import os
+        from datetime import datetime
+
+        artifacts_dir = os.path.join(os.path.dirname(__file__), "artifacts")
+        os.makedirs(artifacts_dir, exist_ok=True)
+        ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        out_path = os.path.join(artifacts_dir, f"stock_master_dump_{ts}.csv")
+
+        fieldnames = [
+            "id",
+            "stock_code",
+            "stock_name",
+            "market_category",
+            "sector_code_33",
+            "sector_name_33",
+            "sector_code_17",
+            "sector_name_17",
+            "scale_code",
+            "scale_category",
+            "data_date",
+            "is_active",
+        ]
+
+        try:
+            with open(out_path, "w", encoding="utf-8", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                for r in rows:
+                    writer.writerow(
+                        {
+                            "id": getattr(r, "id", None),
+                            "stock_code": getattr(r, "stock_code", None),
+                            "stock_name": getattr(r, "stock_name", None),
+                            "market_category": getattr(
+                                r, "market_category", None
+                            ),
+                            "sector_code_33": getattr(
+                                r, "sector_code_33", None
+                            ),
+                            "sector_name_33": getattr(
+                                r, "sector_name_33", None
+                            ),
+                            "sector_code_17": getattr(
+                                r, "sector_code_17", None
+                            ),
+                            "sector_name_17": getattr(
+                                r, "sector_name_17", None
+                            ),
+                            "scale_code": getattr(r, "scale_code", None),
+                            "scale_category": getattr(
+                                r, "scale_category", None
+                            ),
+                            "data_date": getattr(r, "data_date", None),
+                            "is_active": getattr(r, "is_active", None),
+                        }
+                    )
+            logger.info("Wrote full dump to %s", out_path)
+        except Exception as e:  # pragma: no cover - artifact write
+            logger.error("Failed to write artifact: %s", e)
+
+    # Cleanup: drop tables (best-effort)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+    except Exception:
+        # テーブル削除失敗は無視（テスト自体は成功している）
+        pass
