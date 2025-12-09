@@ -6,5 +6,6 @@ Repository Patternを採用し、データベース操作の抽象化を行う�
 """
 
 from app.repositories.base import BaseRepository
+from app.repositories.stock_master_repository import StockMasterRepository
 
-__all__ = ["BaseRepository"]
+__all__ = ["BaseRepository", "StockMasterRepository"]

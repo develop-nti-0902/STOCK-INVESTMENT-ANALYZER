@@ -56,6 +56,18 @@ def get_base_repository(
     return BaseRepository(session=db)  # type: ignore
 
 
+def get_stock_master_repository(
+    db: AsyncSession = Depends(get_db),
+) -> BaseRepository[Any]:
+    """StockMasterRepository を提供する DI プロバイダ
+
+    遅延インポートにより循環依存を回避します。
+    """
+    from app.repositories.stock_master_repository import StockMasterRepository
+
+    return StockMasterRepository(session=db)
+
+
 # 以下は、各エンティティ専用のRepositoryプロバイダの例
 # 実際のモデルとRepositoryクラスが実装された後に追加する
 

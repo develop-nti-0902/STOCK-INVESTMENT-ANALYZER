@@ -3,7 +3,7 @@
 テストは AAA パターン（Arrange / Act / Assert）で記述します。
 """
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
@@ -111,3 +111,53 @@ async def test_bulk_upsert_rolls_back_and_raises_on_sqlalchemy_error():
         await repo.bulk_upsert(records)
 
     mock_session.rollback.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_by_symbol_calls_execute_and_returns_instance():
+    mock_session = AsyncMock()
+    repo = StockMasterRepository(session=mock_session)
+
+    # Arrange: 期待インスタンスを用意
+    expected = object()
+    fake_result = Mock()
+    # scalar_one_or_none は同期的に呼ばれるため属性で用意
+    fake_result.scalar_one_or_none = lambda: expected
+    mock_session.execute.return_value = fake_result
+
+    # Act
+    res = await repo.get_by_symbol("AAA")
+
+    # Assert
+    mock_session.execute.assert_awaited()
+    assert res is expected
+
+
+@pytest.mark.asyncio
+async def test_get_by_market_and_search_return_list():
+    mock_session = AsyncMock()
+    repo = StockMasterRepository(session=mock_session)
+
+    expected1 = object()
+    expected2 = object()
+
+    fake_result = Mock()
+    fake_result.scalars.return_value.all.return_value = [expected1, expected2]
+    mock_session.execute.return_value = fake_result
+
+    res_market = await repo.get_by_market("Prime")
+    res_search = await repo.search("Test")
+
+    assert res_market == [expected1, expected2]
+    assert res_search == [expected1, expected2]
+
+
+@pytest.mark.asyncio
+async def test_upsert_is_not_supported():
+    mock_session = AsyncMock()
+    repo = StockMasterRepository(session=mock_session)
+
+    data = {"stock_code": "ZZZ", "stock_name": "Z"}
+
+    with pytest.raises(NotImplementedError):
+        await repo.upsert(data)
