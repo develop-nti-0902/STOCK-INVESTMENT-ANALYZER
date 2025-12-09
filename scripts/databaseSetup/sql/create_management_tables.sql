@@ -83,6 +83,35 @@ CREATE INDEX IF NOT EXISTS idx_batch_execution_details_stock_code
 CREATE INDEX IF NOT EXISTS idx_batch_execution_details_batch_stock
     ON batch_execution_details (batch_execution_id, stock_code);
 
+-- テーブルの所有者を stock_user に変更し、権限を付与
+-- これにより、アプリケーションユーザーがテーブルにアクセスできるようになります
+DO $$
+DECLARE
+    db_user TEXT := current_setting('db_user', TRUE);
+BEGIN
+    IF db_user IS NULL OR db_user = '' THEN
+        -- 環境変数が設定されていない場合はデフォルト値を使用
+        db_user := 'stock_user';
+    END IF;
+
+    -- テーブルの所有者を変更
+    EXECUTE format('ALTER TABLE stock_master OWNER TO %I', db_user);
+    EXECUTE format('ALTER TABLE stock_master_updates OWNER TO %I', db_user);
+    EXECUTE format('ALTER TABLE batch_executions OWNER TO %I', db_user);
+    EXECUTE format('ALTER TABLE batch_execution_details OWNER TO %I', db_user);
+
+    -- シーケンスの所有者も変更
+    EXECUTE format('ALTER SEQUENCE stock_master_id_seq OWNER TO %I', db_user);
+    EXECUTE format('ALTER SEQUENCE stock_master_updates_id_seq OWNER TO %I', db_user);
+    EXECUTE format('ALTER SEQUENCE batch_executions_id_seq OWNER TO %I', db_user);
+    EXECUTE format('ALTER SEQUENCE batch_execution_details_id_seq OWNER TO %I', db_user);
+
+    -- 明示的に権限を付与
+    EXECUTE format('GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO %I', db_user);
+    EXECUTE format('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO %I', db_user);
+END
+$$;
+
 COMMIT;
 
 -- 補足:

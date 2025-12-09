@@ -211,12 +211,15 @@ psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -c "GRANT ALL PRIVILEGES O
 REM Apply initial schema if present
 echo [6/6] Applying initial schema (if present) and finishing...
 
+REM Set client encoding to UTF8 for psql
+set PGCLIENTENCODING=UTF8
+
 REM Apply stock tables then management tables if present
 if not exist "%STOCK_SQL%" (
     echo [WARN] %STOCK_SQL% not found; skipping stock tables apply
 ) else (
     echo Applying stock tables schema: %STOCK_SQL%
-    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -f "%STOCK_SQL%"
+    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -v db_user=%DB_USER% -f "%STOCK_SQL%"
     if errorlevel 1 echo [WARN] Failed to apply %STOCK_SQL% (check SQL file and permissions)
 )
 
@@ -224,7 +227,7 @@ if not exist "%MGMT_SQL%" (
     echo [WARN] %MGMT_SQL% not found; skipping management tables apply
 ) else (
     echo Applying management tables schema: %MGMT_SQL%
-    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -f "%MGMT_SQL%"
+    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -v db_user=%DB_USER% -f "%MGMT_SQL%"
     if errorlevel 1 echo [WARN] Failed to apply %MGMT_SQL% (check SQL file and permissions)
 )
 

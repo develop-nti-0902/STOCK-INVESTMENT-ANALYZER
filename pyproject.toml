@@ -18,6 +18,11 @@ pydantic-settings = "^2.5.0"
 sqlalchemy = { version = "2.0.44", extras = ["asyncio"] }
 asyncpg = "0.31.0"
 anyio = ">=4.11.0,<5.0"
+pandas = "^2.3.3"
+xlrd = "^2.0.2"
+openpyxl = "^3.1.5"
+requests = "^2.32.5"
+aiohttp = "^3.13"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4"
@@ -69,6 +74,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 markers = [
     "integration: mark a test as integration",
+    "e2e: mark a test as end-to-end",
 ]
 
 [tool.coverage.run]
