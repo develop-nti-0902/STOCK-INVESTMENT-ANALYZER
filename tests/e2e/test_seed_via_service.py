@@ -62,11 +62,9 @@ async def test_fetch_and_store_integration(monkeypatch):
         repo = StockMasterRepository(session=session)
         service = StockMasterService(repo=repo)
 
+        # bulk_upsert に自動 commit を追加したため、ここでの明示的な
+        # commit は不要になりました。
         processed = await service.fetch_and_store(source="jpx", batch_size=2)
-
-        # service.fetch_and_store は flush を行うが commit は行わないため、
-        # ここで明示的に commit して永続化を確定する
-        await session.commit()
 
         # Assert（検証）: 処理件数が 0 より大きいこと（少なくとも何かが処理された）
         assert processed > 0
@@ -82,11 +80,11 @@ async def test_fetch_and_store_integration(monkeypatch):
         # 生産物: 全件ダンプを CSV で出力（tests/e2e/artifacts/ に保存）
         import csv
         import os
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         artifacts_dir = os.path.join(os.path.dirname(__file__), "artifacts")
         os.makedirs(artifacts_dir, exist_ok=True)
-        ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         out_path = os.path.join(artifacts_dir, f"stock_master_dump_{ts}.csv")
 
         fieldnames = [

@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from sqlalchemy.engine import Result
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.base import BaseRepository
@@ -30,20 +31,21 @@ class ConcreteRepository(BaseRepository[MockModel]):
     """テスト用の具体的なRepository実装"""
 
     def __init__(self, session: AsyncSession):
-        super().__init__(MockModel, session)
+        super().__init__(session)
+        self.model = MockModel
 
-    async def get_by_id(self, record_id: int):
-        """SQLAlchemyのselectをモック化したget_by_id"""
+    async def get(self, record_id: int):
+        """SQLAlchemyのselectをモック化したget"""
         result: Result = await self.session.execute(MagicMock())
         return result.scalar_one_or_none()
 
-    async def get_all(self, limit: int = 100, offset: int = 0):
-        """SQLAlchemyのselectをモック化したget_all"""
+    async def get_multi(self, skip: int = 0, limit: int = 100):
+        """SQLAlchemyのselectをモック化したget_multi"""
         result: Result = await self.session.execute(MagicMock())
         return list(result.scalars().all())
 
-    async def count_all(self) -> int:
-        """SQLAlchemyのselectをモック化したcount_all"""
+    async def count(self) -> int:
+        """SQLAlchemyのselectをモック化したcount"""
         result: Result = await self.session.execute(MagicMock())
         return result.scalar_one()
 
@@ -68,9 +70,10 @@ class TestBaseRepository:
         # Arrange
         test_data = {"id": 1, "name": "Test"}
         mock_session.flush = AsyncMock()
+        mock_session.commit = AsyncMock()
 
         # Act
-        result = await repository.create(**test_data)
+        result = await repository.create(test_data)
 
         # Assert
         assert isinstance(result, MockModel)
@@ -78,6 +81,18 @@ class TestBaseRepository:
         assert result.name == "Test"
         mock_session.add.assert_called_once()
         mock_session.flush.assert_awaited_once()
+        mock_session.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_create_rollback_on_error(self, repository, mock_session):
+        """create で例外が発生したら rollback されることを確認"""
+        mock_session.flush = AsyncMock(side_effect=SQLAlchemyError("boom"))
+        mock_session.rollback = AsyncMock()
+
+        with pytest.raises(SQLAlchemyError):
+            await repository.create({"id": 1})
+
+        mock_session.rollback.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_get_by_id_found(self, repository, mock_session):
@@ -89,7 +104,7 @@ class TestBaseRepository:
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         # Act
-        result = await repository.get_by_id(1)
+        result = await repository.get(1)
 
         # Assert
         assert result == expected_model
@@ -105,7 +120,7 @@ class TestBaseRepository:
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         # Act
-        result = await repository.get_by_id(999)
+        result = await repository.get(999)
 
         # Assert
         assert result is None
@@ -127,7 +142,7 @@ class TestBaseRepository:
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         # Act
-        result = await repository.get_all(limit=10, offset=0)
+        result = await repository.get_multi(skip=0, limit=10)
 
         # Assert
         assert len(result) == 3
@@ -143,14 +158,16 @@ class TestBaseRepository:
         mock_result.scalar_one_or_none.return_value = existing_model
         mock_session.execute = AsyncMock(return_value=mock_result)
         mock_session.flush = AsyncMock()
+        mock_session.commit = AsyncMock()
 
         # Act
-        result = await repository.update(1, name="New Name")
+        result = await repository.update(1, {"name": "New Name"})
 
         # Assert
         assert result is not None
         assert result.name == "New Name"
         mock_session.flush.assert_awaited_once()
+        mock_session.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_update_not_found(self, repository, mock_session):
@@ -161,10 +178,25 @@ class TestBaseRepository:
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         # Act
-        result = await repository.update(999, name="New Name")
+        result = await repository.update(999, {"name": "New Name"})
 
         # Assert
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_update_rollback_on_error(self, repository, mock_session):
+        """update が失敗した場合に rollback されることを確認"""
+        existing_model = MockModel(id=1, name="Old Name")
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = existing_model
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.flush = AsyncMock(side_effect=SQLAlchemyError("boom"))
+        mock_session.rollback = AsyncMock()
+
+        with pytest.raises(SQLAlchemyError):
+            await repository.update(1, {"name": "X"})
+
+        mock_session.rollback.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_delete_found(self, repository, mock_session):
@@ -176,6 +208,7 @@ class TestBaseRepository:
         mock_session.execute = AsyncMock(return_value=mock_result)
         mock_session.delete = AsyncMock()
         mock_session.flush = AsyncMock()
+        mock_session.commit = AsyncMock()
 
         # Act
         result = await repository.delete(1)
@@ -184,6 +217,22 @@ class TestBaseRepository:
         assert result is True
         mock_session.delete.assert_awaited_once()
         mock_session.flush.assert_awaited_once()
+        mock_session.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_delete_rollback_on_error(self, repository, mock_session):
+        """delete が失敗した場合に rollback されることを確認"""
+        existing_model = MockModel(id=1, name="Test")
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = existing_model
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.delete = AsyncMock(side_effect=SQLAlchemyError("boom"))
+        mock_session.rollback = AsyncMock()
+
+        with pytest.raises(SQLAlchemyError):
+            await repository.delete(1)
+
+        mock_session.rollback.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_delete_not_found(self, repository, mock_session):
@@ -202,22 +251,36 @@ class TestBaseRepository:
     @pytest.mark.asyncio
     async def test_bulk_create(self, repository, mock_session):
         """一括作成のテスト"""
-        # Arrange
+        # 準備
         records = [
             {"id": 1, "name": "Test1"},
             {"id": 2, "name": "Test2"},
             {"id": 3, "name": "Test3"},
         ]
         mock_session.flush = AsyncMock()
+        mock_session.commit = AsyncMock()
 
-        # Act
+        # 実行
         result = await repository.bulk_create(records)
 
-        # Assert
+        # 検証
         assert len(result) == 3
         assert all(isinstance(model, MockModel) for model in result)
         mock_session.add_all.assert_called_once()
         mock_session.flush.assert_awaited_once()
+        mock_session.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_bulk_create_rollback(self, repository, mock_session):
+        """bulk_create で失敗した場合に rollback されることを確認"""
+        records = [{"id": 1}, {"id": 2}]
+        mock_session.flush = AsyncMock(side_effect=SQLAlchemyError("boom"))
+        mock_session.rollback = AsyncMock()
+
+        with pytest.raises(SQLAlchemyError):
+            await repository.bulk_create(records)
+
+        mock_session.rollback.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_count_all(self, repository, mock_session):
@@ -228,18 +291,47 @@ class TestBaseRepository:
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         # Act
-        result = await repository.count_all()
+        result = await repository.count()
 
         # Assert
         assert result == 42
         mock_session.execute.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_exists_true_false(self, repository, mock_session):
+        """exists が True/False を返すことを確認"""
+        # BaseRepository.exists はモジュールレベルの select() を使用し、
+        # SQLAlchemy のマップ済みクラスを期待します。
+        # 型変換（coercion）エラーを回避するため select を差し替えます。
+        import app.repositories.base as base_module
+
+        original_select = base_module.select
+
+        class DummyStmt:
+            def where(self, *a, **k):
+                return self
+
+        base_module.select = lambda *a, **k: DummyStmt()
+
+        try:
+            mock_result = MagicMock()
+            mock_result.scalar_one_or_none.return_value = MockModel(id=1)
+            mock_session.execute = AsyncMock(return_value=mock_result)
+
+            assert await repository.exists(1) is True
+
+            mock_result.scalar_one_or_none.return_value = None
+            assert await repository.exists(999) is False
+        finally:
+            base_module.select = original_select
 
 
 class RealRepository(BaseRepository[MockModel]):
     """Baseクラス実装そのままを使うリポジトリ（テスト用）"""
 
     def __init__(self, session: AsyncSession):
-        super().__init__(MockModel, session)
+        super().__init__(session)
+        self.model = MockModel
 
 
 class TestBaseRepositoryImplementation:
@@ -286,7 +378,7 @@ class TestBaseRepositoryImplementation:
         repository_real.session.execute = AsyncMock(return_value=mock_result)
 
         # Act
-        result = await repository_real.get_by_id(10)
+        result = await repository_real.get(10)
 
         # Assert
         assert result is expected
@@ -307,7 +399,7 @@ class TestBaseRepositoryImplementation:
         repository_real.session.execute = AsyncMock(return_value=mock_result)
 
         # Act
-        result = await repository_real.get_all(limit=2, offset=1)
+        result = await repository_real.get_multi(skip=1, limit=2)
 
         # Assert
         assert result == models
@@ -325,7 +417,7 @@ class TestBaseRepositoryImplementation:
 
         # Act
         result = await repository_real.update(
-            5, name="New", does_not_exist="X"
+            5, {"name": "New", "does_not_exist": "X"}
         )
 
         # Assert
@@ -358,7 +450,7 @@ class TestBaseRepositoryImplementation:
         repository_real.session.execute = AsyncMock(return_value=mock_result)
 
         # Act
-        result = await repository_real.count_all()
+        result = await repository_real.count()
 
         # Assert
         assert result == 7

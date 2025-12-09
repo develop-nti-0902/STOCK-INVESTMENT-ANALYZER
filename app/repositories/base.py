@@ -6,16 +6,20 @@ Repository層 - 基底クラス
 仕様書: docs/architecture/layers/data_access_layer.md 3.1章
 """
 
+import logging
 from abc import ABC
-from typing import Any, Generic, List, Optional, TypeVar
+from typing import Any, Dict, Generic, List, Optional, TypeVar
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import count as sql_count
 
-# SQLAlchemyのBaseモデルを想定した型変数
-# 実際のBaseクラスが定義されたら、bound=Baseに変更予定
+# 型パラメータ: モデルの型
 T = TypeVar("T")
+
+
+logger = logging.getLogger(__name__)
 
 
 class BaseRepository(ABC, Generic[T]):
@@ -33,25 +37,24 @@ class BaseRepository(ABC, Generic[T]):
         T: SQLAlchemyモデルの型（将来的にはapp.models.base.Baseにbound）
     """
 
-    def __init__(self, model: Any, session: AsyncSession):
+    def __init__(self, session: AsyncSession):
         """
         初期化
 
         Args:
-            model: SQLAlchemyモデルクラス
             session: 非同期DBセッション
         """
         # 型安全性は将来的に SQLAlchemy Base に束縛した TypeVar に変更する
         # 現状は任意のモデルクラスを受け取るため `Any` として扱う
-        self.model: Any = model
+        self.model: Any = getattr(self, "model", None)
         self.session = session
 
-    async def create(self, **kwargs) -> T:
+    async def create(self, data: Dict) -> T:
         """
         新規レコード作成
 
         Args:
-            **kwargs: モデルのフィールド値
+            data: モデルのフィールド値を含む辞書
 
         Returns:
             T: 作成されたモデルインスタンス
@@ -60,12 +63,21 @@ class BaseRepository(ABC, Generic[T]):
             DatabaseError: データベース操作に失敗した場合
             ConstraintViolationError: 制約違反の場合
         """
-        instance = self.model(**kwargs)
-        self.session.add(instance)
-        await self.session.flush()
-        return instance
+        if self.model is None:
+            raise ValueError("Repository model is not set")
 
-    async def get_by_id(self, record_id: int) -> Optional[T]:
+        instance = self.model(**data)
+        try:
+            self.session.add(instance)
+            await self.session.flush()
+            await self.session.commit()
+            return instance
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            logger.exception("Failed to create instance: %s", e)
+            raise
+
+    async def get(self, record_id: int) -> Optional[T]:
         """
         ID検索
 
@@ -78,14 +90,15 @@ class BaseRepository(ABC, Generic[T]):
         Raises:
             DatabaseError: データベース操作に失敗した場合
         """
+        if self.model is None:
+            raise ValueError("Repository model is not set")
+
         result = await self.session.execute(
-            select(self.model).where(
-                self.model.id == record_id
-            )  # type: ignore
+            select(self.model).where(self.model.id == record_id)
         )
         return result.scalar_one_or_none()
 
-    async def get_all(self, limit: int = 100, offset: int = 0) -> List[T]:
+    async def get_multi(self, skip: int = 0, limit: int = 100) -> List[T]:
         """
         全件取得（ページネーション対応）
 
@@ -99,12 +112,15 @@ class BaseRepository(ABC, Generic[T]):
         Raises:
             DatabaseError: データベース操作に失敗した場合
         """
+        if self.model is None:
+            raise ValueError("Repository model is not set")
+
         result = await self.session.execute(
-            select(self.model).limit(limit).offset(offset)
+            select(self.model).limit(limit).offset(skip)
         )
         return list(result.scalars().all())
 
-    async def update(self, record_id: int, **kwargs) -> Optional[T]:
+    async def update(self, record_id: int, data: Dict) -> Optional[T]:
         """
         レコード更新
 
@@ -119,16 +135,23 @@ class BaseRepository(ABC, Generic[T]):
             DatabaseError: データベース操作に失敗した場合
             ConstraintViolationError: 制約違反の場合
         """
-        instance = await self.get_by_id(record_id)
+        instance = await self.get(record_id)
         if instance is None:
             return None
-
-        for key, value in kwargs.items():
+        for key, value in data.items():
             if hasattr(instance, key):
                 setattr(instance, key, value)
 
-        await self.session.flush()
-        return instance
+        try:
+            await self.session.flush()
+            await self.session.commit()
+            return instance
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            logger.exception(
+                "Failed to update instance id=%s: %s", record_id, e
+            )
+            raise
 
     async def delete(self, record_id: int) -> bool:
         """
@@ -143,13 +166,20 @@ class BaseRepository(ABC, Generic[T]):
         Raises:
             DatabaseError: データベース操作に失敗した場合
         """
-        instance = await self.get_by_id(record_id)
+        instance = await self.get(record_id)
         if instance is None:
             return False
-
-        await self.session.delete(instance)
-        await self.session.flush()
-        return True
+        try:
+            await self.session.delete(instance)
+            await self.session.flush()
+            await self.session.commit()
+            return True
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            logger.exception(
+                "Failed to delete instance id=%s: %s", record_id, e
+            )
+            raise
 
     async def bulk_create(self, records: List[dict]) -> List[T]:
         """
@@ -165,12 +195,21 @@ class BaseRepository(ABC, Generic[T]):
             DatabaseError: データベース操作に失敗した場合
             ConstraintViolationError: 制約違反の場合
         """
-        instances = [self.model(**record) for record in records]
-        self.session.add_all(instances)
-        await self.session.flush()
-        return instances
+        if self.model is None:
+            raise ValueError("Repository model is not set")
 
-    async def count_all(self) -> int:
+        instances = [self.model(**record) for record in records]
+        try:
+            self.session.add_all(instances)
+            await self.session.flush()
+            await self.session.commit()
+            return instances
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            logger.exception("Failed to bulk create instances: %s", e)
+            raise
+
+    async def count(self) -> int:
         """
         全件数取得
 
@@ -180,6 +219,19 @@ class BaseRepository(ABC, Generic[T]):
         Raises:
             DatabaseError: データベース操作に失敗した場合
         """
+        if self.model is None:
+            raise ValueError("Repository model is not set")
+
         stmt = select(sql_count()).select_from(self.model)
         result = await self.session.execute(stmt)
         return result.scalar_one()
+
+    async def exists(self, record_id: int) -> bool:
+        """指定IDのレコードが存在するかを判定する"""
+        if self.model is None:
+            raise ValueError("Repository model is not set")
+
+        result = await self.session.execute(
+            select(self.model).where(self.model.id == record_id)
+        )
+        return result.scalar_one_or_none() is not None

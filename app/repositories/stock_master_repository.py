@@ -1,10 +1,14 @@
+import logging
 from typing import List, Optional, Type
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.stock_master import StockMaster
 from app.repositories.base import BaseRepository
+
+logger = logging.getLogger(__name__)
 
 
 class StockMasterRepository(BaseRepository[StockMaster]):
@@ -19,10 +23,10 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         model: Type[StockMaster] = StockMaster,
         session: Optional[AsyncSession] = None,
     ):
-        # BaseRepository は非 None の AsyncSession を想定しているため、
-        # 静的解析器向けに型チェック無視を残しています
-        kwargs = {"model": model, "session": session}
-        super().__init__(**kwargs)  # type: ignore[arg-type]
+        # BaseRepository は session のみを受け取る設計に変更
+        super().__init__(session=session)  # type: ignore[arg-type]
+        # 使用するモデルを明示的に設定
+        self.model = model
 
     async def bulk_upsert(self, records: List[dict]) -> int:
         """
@@ -52,13 +56,20 @@ class StockMasterRepository(BaseRepository[StockMaster]):
             index_elements=["stock_code"], set_=update_dict
         )
 
-        await self.session.execute(stmt)
-        # flushしてDB側に反映（get_db()がcommitを担当）
-        await self.session.flush()
+        try:
+            await self.session.execute(stmt)
+            # flushしてDB側に反映
+            await self.session.flush()
+            # 自動コミット（リポジトリ側で永続化を確定）
+            await self.session.commit()
 
-        # SQLAlchemyの非同期結果から正確な件数取得は環境依存のため
-        # 入力件数を返す。呼び出し側で差分確認する場合は別実装。
-        return len(records)
+            # SQLAlchemyの非同期結果から正確な件数取得は環境依存のため
+            # 入力件数を返す。呼び出し側で差分確認する場合は別実装。
+            return len(records)
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            logger.exception("bulk_upsert failed: %s", e)
+            raise
 
 
 __all__ = ["StockMasterRepository"]

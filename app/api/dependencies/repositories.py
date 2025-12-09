@@ -51,9 +51,9 @@ def get_base_repository(
         - このプロバイダはテストや一時的な用途に使用
     """
     # 注意: BaseRepositoryはABCなので、実際には具象クラスを使用する必要がある
-    # ここでは、プレースホルダとして汎用的な型を返すが、
-    # 実運用では具象Repositoryクラス（StockRepository等）を使用すること
-    return BaseRepository(model=None, session=db)  # type: ignore
+    # ここではプレースホルダとして汎用的なリポジトリを返します。
+    # 実運用では特定モデル向けの具象Repository（例: StockRepository）を使用してください。
+    return BaseRepository(session=db)  # type: ignore
 
 
 # 以下は、各エンティティ専用のRepositoryプロバイダの例
