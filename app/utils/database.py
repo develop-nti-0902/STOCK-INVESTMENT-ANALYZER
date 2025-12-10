@@ -208,3 +208,28 @@ async def flush_commit_return(session: AsyncSession, return_value: Any) -> Any:
         await session.rollback()
         logger.exception("DB transaction failed: %s", e)
         raise
+
+
+async def flush_commit_return_with_log(
+    session: AsyncSession, return_value: Any, log, msg: str, *args: Any
+) -> Any:
+    """`flush_commit_return` を呼び出し、失敗時に共通的なログ出力を行うヘルパー。
+
+    Args:
+        session: 非同期セッション
+        return_value: 成功時に返す値
+        log: 呼び出し元のロガーインスタンス
+        msg: 失敗時にログ出力するメッセージ（書式文字列）
+        *args: メッセージのフォーマット引数
+
+    Returns:
+        指定された `return_value`
+
+    Raises:
+        発生した例外をそのまま再送出します。
+    """
+    try:
+        return await flush_commit_return(session, return_value)
+    except Exception:
+        log.exception(msg, *args)
+        raise

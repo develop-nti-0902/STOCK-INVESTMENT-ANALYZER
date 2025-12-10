@@ -16,7 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import count as sql_count
 
-from app.utils.database import flush_commit_return
+from app.utils.database import flush_commit_return_with_log
 
 # 型パラメータ: モデルの型
 T = TypeVar("T")
@@ -52,6 +52,42 @@ class BaseRepository(ABC, Generic[T]):
         self.model: Any = getattr(self, "model", None)
         self.session = session
 
+    async def _add_and_commit(self, instance: T) -> T:
+        """インスタンスをセッションに追加してコミットする共通処理。
+
+        テスト環境で session.add が awaitable を返す可能性に対応します。
+        """
+        try:
+            maybe_res = cast(Any, self.session.add(instance))
+            await self._maybe_await(maybe_res)
+        except SQLAlchemyError as e:
+            # add が失敗した場合はロールバックして再送出する
+            await self.session.rollback()
+            logger.exception("Failed to add instance: %s", e)
+            raise
+
+        return await flush_commit_return_with_log(
+            self.session, instance, logger, "Failed to add and commit instance"
+        )
+
+    async def _add_all_and_commit(self, instances: List[T]) -> List[T]:
+        """複数インスタンスを追加してコミットする共通処理。"""
+        try:
+            maybe_res = cast(Any, self.session.add_all(instances))
+            await self._maybe_await(maybe_res)
+        except SQLAlchemyError as e:
+            # add_all が失敗した場合はロールバックして再送出する
+            await self.session.rollback()
+            logger.exception("Failed to add_all instances: %s", e)
+            raise
+
+        return await flush_commit_return_with_log(
+            self.session,
+            instances,
+            logger,
+            "Failed to add_all and commit instances",
+        )
+
     async def _maybe_await(self, value):
         """値が awaitable（例えば AsyncMock）であれば await するヘルパー。
 
@@ -79,17 +115,7 @@ class BaseRepository(ABC, Generic[T]):
             raise ValueError("Repository model is not set")
 
         instance = self.model(**data)
-        try:
-            # AsyncSession.add は通常 None を返します。
-            # ただしテスト環境では awaitable を返すモックが使われる場合があるため、Any にキャストします。
-            maybe_res = cast(Any, self.session.add(instance))
-            await self._maybe_await(maybe_res)
-            return await flush_commit_return(self.session, instance)
-        except SQLAlchemyError as e:
-            # flush_commit_return は失敗時に rollback して例外を再送出しますが、
-            # ここでも念のためログを残します。
-            logger.exception("Failed to create instance: %s", e)
-            raise
+        return await self._add_and_commit(instance)
 
     async def get(self, record_id: int) -> Optional[T]:
         """IDで単一レコードを取得する。
@@ -146,13 +172,13 @@ class BaseRepository(ABC, Generic[T]):
             if hasattr(instance, key):
                 setattr(instance, key, value)
 
-        try:
-            return await flush_commit_return(self.session, instance)
-        except SQLAlchemyError as e:
-            logger.exception(
-                "Failed to update instance id=%s: %s", record_id, e
-            )
-            raise
+        return await flush_commit_return_with_log(
+            self.session,
+            instance,
+            logger,
+            "Failed to update instance id=%s",
+            record_id,
+        )
 
     async def delete(self, record_id: int) -> bool:
         """指定 ID のレコードを削除する。
@@ -172,15 +198,20 @@ class BaseRepository(ABC, Generic[T]):
         try:
             maybe_res = cast(Any, self.session.delete(instance))
             await self._maybe_await(maybe_res)
-            await flush_commit_return(self.session, True)
-            return True
         except SQLAlchemyError as e:
-            # 削除処理で例外が発生した場合はロールバックを行う
+            # delete が失敗した場合はロールバックして再送出する
             await self.session.rollback()
-            logger.exception(
-                "Failed to delete instance id=%s: %s", record_id, e
-            )
+            logger.exception("Failed to delete instance: %s", e)
             raise
+
+        await flush_commit_return_with_log(
+            self.session,
+            True,
+            logger,
+            "Failed to delete instance id=%s",
+            record_id,
+        )
+        return True
 
     async def bulk_create(self, records: List[dict]) -> List[T]:
         """複数レコードを一括作成する。
@@ -198,13 +229,7 @@ class BaseRepository(ABC, Generic[T]):
             raise ValueError("Repository model is not set")
 
         instances = [self.model(**record) for record in records]
-        try:
-            maybe_res = cast(Any, self.session.add_all(instances))
-            await self._maybe_await(maybe_res)
-            return await flush_commit_return(self.session, instances)
-        except SQLAlchemyError as e:
-            logger.exception("Failed to bulk create instances: %s", e)
-            raise
+        return await self._add_all_and_commit(instances)
 
     async def count(self) -> int:
         """モデルテーブルの総件数を返す。"""

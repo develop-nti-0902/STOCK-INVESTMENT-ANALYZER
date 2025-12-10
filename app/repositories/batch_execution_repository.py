@@ -7,15 +7,14 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, List, Optional, cast
+from typing import List, Optional
 
 from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.batch_execution import BatchExecution
 from app.repositories.base import BaseRepository
-from app.utils.database import flush_commit_return
+from app.utils.database import flush_commit_return_with_log
 
 logger = logging.getLogger(__name__)
 
@@ -44,14 +43,7 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
             status="pending",
             total_stocks=0,
         )
-        try:
-            maybe_res = cast(Any, self.session.add(instance))
-            await self._maybe_await(maybe_res)
-            return await flush_commit_return(self.session, instance)
-        except SQLAlchemyError as e:
-            await self.session.rollback()
-            logger.exception("Failed to create batch job: %s", e)
-            raise
+        return await self._add_and_commit(instance)
 
     async def update_status(
         self, record_id: int, status: str
@@ -62,11 +54,13 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
             return None
         instance.status = status
 
-        try:
-            return await flush_commit_return(self.session, instance)
-        except SQLAlchemyError as e:
-            logger.exception("Failed to update status id=%s: %s", record_id, e)
-            raise
+        return await flush_commit_return_with_log(
+            self.session,
+            instance,
+            logger,
+            "Failed to update status id=%s",
+            record_id,
+        )
 
     async def mark_completed(
         self,
@@ -85,13 +79,13 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         instance.processed_stocks = success_count + failed_count
         instance.end_time = datetime.now(timezone.utc)
 
-        try:
-            return await flush_commit_return(self.session, instance)
-        except SQLAlchemyError as e:
-            logger.exception(
-                "Failed to mark completed id=%s: %s", record_id, e
-            )
-            raise
+        return await flush_commit_return_with_log(
+            self.session,
+            instance,
+            logger,
+            "Failed to mark completed id=%s",
+            record_id,
+        )
 
     async def get_by_job_type(self, job_type: str) -> List[BatchExecution]:
         """ジョブ種別で取得"""
