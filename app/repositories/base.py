@@ -9,7 +9,7 @@ Repository層 - 基底クラス
 import inspect
 import logging
 from abc import ABC
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Dict, Generic, List, Optional, TypeVar, cast
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -76,15 +76,18 @@ class BaseRepository(ABC, Generic[T]):
         if self.model is None:
             raise ValueError("Repository model is not set")
 
+        from app.utils.database import flush_commit_return
+
         instance = self.model(**data)
         try:
-            res = self.session.add(instance)
-            await self._maybe_await(res)
-            await self.session.flush()
-            await self.session.commit()
-            return instance
+            # AsyncSession.add は通常 None を返します。
+            # ただしテスト環境では awaitable を返すモックが使われる場合があるため、Any にキャストします。
+            maybe_res = cast(Any, self.session.add(instance))
+            await self._maybe_await(maybe_res)
+            return await flush_commit_return(self.session, instance)
         except SQLAlchemyError as e:
-            await self.session.rollback()
+            # flush_commit_return は失敗時に rollback して例外を再送出しますが、
+            # ここでも念のためログを残します。
             logger.exception("Failed to create instance: %s", e)
             raise
 
@@ -143,12 +146,11 @@ class BaseRepository(ABC, Generic[T]):
             if hasattr(instance, key):
                 setattr(instance, key, value)
 
+        from app.utils.database import flush_commit_return
+
         try:
-            await self.session.flush()
-            await self.session.commit()
-            return instance
+            return await flush_commit_return(self.session, instance)
         except SQLAlchemyError as e:
-            await self.session.rollback()
             logger.exception(
                 "Failed to update instance id=%s: %s", record_id, e
             )
@@ -169,13 +171,15 @@ class BaseRepository(ABC, Generic[T]):
         instance = await self.get(record_id)
         if instance is None:
             return False
+        from app.utils.database import flush_commit_return
+
         try:
-            res = self.session.delete(instance)
-            await self._maybe_await(res)
-            await self.session.flush()
-            await self.session.commit()
+            maybe_res = cast(Any, self.session.delete(instance))
+            await self._maybe_await(maybe_res)
+            await flush_commit_return(self.session, True)
             return True
         except SQLAlchemyError as e:
+            # 削除処理で例外が発生した場合はロールバックを行う
             await self.session.rollback()
             logger.exception(
                 "Failed to delete instance id=%s: %s", record_id, e
@@ -197,15 +201,14 @@ class BaseRepository(ABC, Generic[T]):
         if self.model is None:
             raise ValueError("Repository model is not set")
 
+        from app.utils.database import flush_commit_return
+
         instances = [self.model(**record) for record in records]
         try:
-            res = self.session.add_all(instances)
-            await self._maybe_await(res)
-            await self.session.flush()
-            await self.session.commit()
-            return instances
+            maybe_res = cast(Any, self.session.add_all(instances))
+            await self._maybe_await(maybe_res)
+            return await flush_commit_return(self.session, instances)
         except SQLAlchemyError as e:
-            await self.session.rollback()
             logger.exception("Failed to bulk create instances: %s", e)
             raise
 

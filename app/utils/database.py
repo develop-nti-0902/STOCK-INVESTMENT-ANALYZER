@@ -9,6 +9,7 @@ FastAPIのDependsパターンを通じて、アプリケーション全体でDB�
 
 from collections.abc import AsyncGenerator
 from functools import lru_cache
+from typing import Any
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -191,3 +192,19 @@ async def close_db() -> None:
         get_engine.cache_clear()
     except AttributeError:
         pass
+
+
+async def flush_commit_return(session: AsyncSession, return_value: Any) -> Any:
+    """Session の flush -> commit を実行して指定値を返すヘルパー。
+
+    既存の `get_db` と同様に、例外発生時は rollback して例外を再送出します。
+    リポジトリ層でトランザクションの成否に応じて値を返す用途に使います。
+    """
+    try:
+        await session.flush()
+        await session.commit()
+        return return_value
+    except Exception as e:
+        await session.rollback()
+        logger.exception("DB transaction failed: %s", e)
+        raise

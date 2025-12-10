@@ -5,10 +5,9 @@
 ヘルパーを活用して awaitable な戻り値にも耐性を持たせています。
 """
 
-import inspect
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, List, Optional, cast
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -45,18 +44,11 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
             total_stocks=0,
         )
         try:
-            res = self.session.add(instance)
-            # テスト環境では session.add が AsyncMock の awaitable を返す
-            # 可能性があるため、BaseRepository のヘルパーで await 対応する
-            maybe_await = getattr(self, "_maybe_await", None)
-            if maybe_await is not None:
-                await maybe_await(res)
-            else:
-                if inspect.isawaitable(res):
-                    await res
-            await self.session.flush()
-            await self.session.commit()
-            return instance
+            from app.utils.database import flush_commit_return
+
+            maybe_res = cast(Any, self.session.add(instance))
+            await self._maybe_await(maybe_res)
+            return await flush_commit_return(self.session, instance)
         except SQLAlchemyError as e:
             await self.session.rollback()
             logger.exception("Failed to create batch job: %s", e)
@@ -70,12 +62,11 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         if instance is None:
             return None
         instance.status = status
+        from app.utils.database import flush_commit_return
+
         try:
-            await self.session.flush()
-            await self.session.commit()
-            return instance
+            return await flush_commit_return(self.session, instance)
         except SQLAlchemyError as e:
-            await self.session.rollback()
             logger.exception("Failed to update status id=%s: %s", record_id, e)
             raise
 
@@ -96,12 +87,11 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         instance.processed_stocks = success_count + failed_count
         instance.end_time = datetime.now(timezone.utc)
 
+        from app.utils.database import flush_commit_return
+
         try:
-            await self.session.flush()
-            await self.session.commit()
-            return instance
+            return await flush_commit_return(self.session, instance)
         except SQLAlchemyError as e:
-            await self.session.rollback()
             logger.exception(
                 "Failed to mark completed id=%s: %s", record_id, e
             )
