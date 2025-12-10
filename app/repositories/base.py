@@ -16,6 +16,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import count as sql_count
 
+from app.utils.database import flush_commit_return
+
 # 型パラメータ: モデルの型
 T = TypeVar("T")
 
@@ -75,8 +77,6 @@ class BaseRepository(ABC, Generic[T]):
         """
         if self.model is None:
             raise ValueError("Repository model is not set")
-
-        from app.utils.database import flush_commit_return
 
         instance = self.model(**data)
         try:
@@ -146,8 +146,6 @@ class BaseRepository(ABC, Generic[T]):
             if hasattr(instance, key):
                 setattr(instance, key, value)
 
-        from app.utils.database import flush_commit_return
-
         try:
             return await flush_commit_return(self.session, instance)
         except SQLAlchemyError as e:
@@ -171,8 +169,6 @@ class BaseRepository(ABC, Generic[T]):
         instance = await self.get(record_id)
         if instance is None:
             return False
-        from app.utils.database import flush_commit_return
-
         try:
             maybe_res = cast(Any, self.session.delete(instance))
             await self._maybe_await(maybe_res)
@@ -200,8 +196,6 @@ class BaseRepository(ABC, Generic[T]):
         """
         if self.model is None:
             raise ValueError("Repository model is not set")
-
-        from app.utils.database import flush_commit_return
 
         instances = [self.model(**record) for record in records]
         try:

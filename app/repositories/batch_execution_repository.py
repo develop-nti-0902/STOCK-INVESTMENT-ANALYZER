@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.batch_execution import BatchExecution
 from app.repositories.base import BaseRepository
+from app.utils.database import flush_commit_return
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +45,6 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
             total_stocks=0,
         )
         try:
-            from app.utils.database import flush_commit_return
-
             maybe_res = cast(Any, self.session.add(instance))
             await self._maybe_await(maybe_res)
             return await flush_commit_return(self.session, instance)
@@ -62,7 +61,6 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         if instance is None:
             return None
         instance.status = status
-        from app.utils.database import flush_commit_return
 
         try:
             return await flush_commit_return(self.session, instance)
@@ -86,8 +84,6 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         instance.failed_stocks = failed_count
         instance.processed_stocks = success_count + failed_count
         instance.end_time = datetime.now(timezone.utc)
-
-        from app.utils.database import flush_commit_return
 
         try:
             return await flush_commit_return(self.session, instance)
