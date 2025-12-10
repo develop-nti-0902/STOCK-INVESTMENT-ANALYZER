@@ -70,6 +70,38 @@ def get_stock_master_repository(
     return StockMasterRepository(session=db)
 
 
+def get_batch_execution_repository(
+    db: AsyncSession = Depends(get_db),
+) -> BaseRepository[Any]:
+    """BatchExecutionRepository を提供する DI プロバイダ
+
+    遅延インポートにより循環依存を回避します。
+
+    使用例:
+        ```python
+            from fastapi import APIRouter, Depends
+            from app.api.dependencies import (
+                get_batch_execution_repository,
+            )
+
+            router = APIRouter()
+
+        @router.post("/batch/start")
+        async def start_batch(
+            repo = Depends(get_batch_execution_repository),
+        ):
+            job = await repo.create_job("daily_fetch")
+            return {"job_id": job.id}
+        ```
+    """
+    # pylint: disable=import-outside-toplevel
+    from app.repositories.batch_execution_repository import (
+        BatchExecutionRepository,
+    )
+
+    return BatchExecutionRepository(session=db)
+
+
 # 以下は、各エンティティ専用のRepositoryプロバイダの例
 # 実際のモデルとRepositoryクラスが実装された後に追加する
 
