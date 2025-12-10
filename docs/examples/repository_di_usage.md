@@ -65,70 +65,50 @@ async def list_items(
 将来的に各エンティティ専用のRepository（例: `StockRepository`）が実装された後は、
 以下のように使用します。
 
-### 株価データRepository（StockRepository）の例
+### 株価データ / マスタ系Repositoryの例（実装に合わせたimport例）
+
+実際の実装ファイル名は `app/repositories/stock_master_repository.py` や
+`app/repositories/batch_execution_repository.py` のようになっています。パッケージの
+`app.repositories.__init__.py` で主要なクラスをエクスポートしているため、エンドユーザー
+コードではパッケージ側からのインポートを推奨します。例:
 
 ```python
 # app/api/dependencies/repositories.py に追加する依存性プロバイダ
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.repositories.stock import StockRepository
-from app.models.stock_data import Stocks1d
+from app.repositories import StockMasterRepository
+from app.models.stock_master import StockMaster
 from app.utils.database import get_db
 
-def get_stock_repository(
+def get_stock_master_repository(
     db: AsyncSession = Depends(get_db)
-) -> StockRepository:
-    """StockRepositoryを提供（株価データ専用）"""
-    return StockRepository(model=Stocks1d, session=db)
+) -> StockMasterRepository:
+    """StockMasterRepositoryを提供（銘柄マスタ専用）"""
+    return StockMasterRepository(session=db)
 ```
 
 ```python
-# app/api/v1/stock_data.py での使用例
+# app/api/v1/stock_data.py での使用例（銘柄マスタ取得のサンプル）
 from fastapi import APIRouter, Depends, HTTPException
-from datetime import date
-from app.repositories.stock import StockRepository
-from app.api.dependencies.repositories import get_stock_repository
+from app.repositories import StockMasterRepository
+from app.api.dependencies.repositories import get_stock_master_repository
 
 router = APIRouter()
 
-@router.get("/stocks/{symbol}")
-async def get_stock_data(
+@router.get("/masters/{symbol}")
+async def get_master(
     symbol: str,
-    start_date: date | None = None,
-    end_date: date | None = None,
-    repo: StockRepository = Depends(get_stock_repository)
+    repo: StockMasterRepository = Depends(get_stock_master_repository)
 ):
-    """銘柄コードで株価データを取得"""
-    data = await repo.get_by_symbol_range(
-        symbol=symbol,
-        start_date=start_date,
-        end_date=end_date,
-        limit=100
-    )
-
-    if not data:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Stock data not found for symbol: {symbol}"
-        )
-
-    return {
-        "symbol": symbol,
-        "data": [item.to_dict() for item in data]
-    }
-
-@router.post("/stocks/bulk")
-async def bulk_upsert_stock_data(
-    records: list[dict],
-    repo: StockRepository = Depends(get_stock_repository)
-):
-    """株価データを一括登録・更新"""
-    count = await repo.bulk_upsert(records)
-    return {
-        "message": "Bulk upsert completed",
-        "affected_rows": count
-    }
+    """銘柄マスタ情報を取得"""
+    master = await repo.get_by_symbol(symbol)
+    if master is None:
+        raise HTTPException(status_code=404, detail="Stock master not found")
+    return master
 ```
+
+バルクUPSERTや株価時系列専用のRepositoryが追加された場合も同様に、
+`from app.repositories import <RepositoryClass>` 形式でのインポートを推奨します。
 
 ## 複数のRepositoryを同時に使用する例
 
