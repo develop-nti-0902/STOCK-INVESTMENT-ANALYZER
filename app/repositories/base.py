@@ -6,6 +6,7 @@ Repository層 - 基底クラス
 仕様書: docs/architecture/layers/data_access_layer.md 3.1章
 """
 
+import inspect
 import logging
 from abc import ABC
 from typing import Any, Dict, Generic, List, Optional, TypeVar
@@ -49,26 +50,36 @@ class BaseRepository(ABC, Generic[T]):
         self.model: Any = getattr(self, "model", None)
         self.session = session
 
-    async def create(self, data: Dict) -> T:
-        """
-        新規レコード作成
+    async def _maybe_await(self, value):
+        """値が awaitable（例えば AsyncMock）であれば await するヘルパー。
 
-        Args:
+        実運用では AsyncSession のメソッドは通常同期的に None を返しますが、
+        テスト環境ではモックが awaitable を返す場合があります。
+        このヘルパーは両者に対応するためのものです。
+        """
+        if inspect.isawaitable(value):
+            return await value
+        return value
+
+    async def create(self, data: Dict) -> T:
+        """新規レコードを作成して返す。
+
+        引数:
             data: モデルのフィールド値を含む辞書
 
-        Returns:
-            T: 作成されたモデルインスタンス
+        戻り値:
+            作成されたモデルインスタンス
 
-        Raises:
-            DatabaseError: データベース操作に失敗した場合
-            ConstraintViolationError: 制約違反の場合
+        例外:
+            データベース操作や制約違反時に SQLAlchemy の例外が発生する可能性があります。
         """
         if self.model is None:
             raise ValueError("Repository model is not set")
 
         instance = self.model(**data)
         try:
-            self.session.add(instance)
+            res = self.session.add(instance)
+            await self._maybe_await(res)
             await self.session.flush()
             await self.session.commit()
             return instance
@@ -78,17 +89,13 @@ class BaseRepository(ABC, Generic[T]):
             raise
 
     async def get(self, record_id: int) -> Optional[T]:
-        """
-        ID検索
+        """IDで単一レコードを取得する。
 
-        Args:
-            record_id: レコードID
+        引数:
+            record_id: レコードの ID
 
-        Returns:
-            Optional[T]: モデルインスタンス、見つからない場合はNone
-
-        Raises:
-            DatabaseError: データベース操作に失敗した場合
+        戻り値:
+            見つかったモデルインスタンス、存在しない場合は None
         """
         if self.model is None:
             raise ValueError("Repository model is not set")
@@ -99,18 +106,14 @@ class BaseRepository(ABC, Generic[T]):
         return result.scalar_one_or_none()
 
     async def get_multi(self, skip: int = 0, limit: int = 100) -> List[T]:
-        """
-        全件取得（ページネーション対応）
+        """ページネーション対応で複数レコードを取得する。
 
-        Args:
+        引数:
+            skip: 取得開始のオフセット（デフォルト: 0）
             limit: 取得件数（デフォルト: 100）
-            offset: オフセット（デフォルト: 0）
 
-        Returns:
-            List[T]: モデルインスタンスのリスト
-
-        Raises:
-            DatabaseError: データベース操作に失敗した場合
+        戻り値:
+            モデルインスタンスのリスト
         """
         if self.model is None:
             raise ValueError("Repository model is not set")
@@ -121,19 +124,17 @@ class BaseRepository(ABC, Generic[T]):
         return list(result.scalars().all())
 
     async def update(self, record_id: int, data: Dict) -> Optional[T]:
-        """
-        レコード更新
+        """レコードを更新して更新後のインスタンスを返す。
 
-        Args:
-            record_id: レコードID
-            **kwargs: 更新するフィールド値
+        引数:
+            record_id: 更新対象のレコード ID
+            data: 更新するフィールドの辞書
 
-        Returns:
-            Optional[T]: 更新後のモデルインスタンス、見つからない場合はNone
+        戻り値:
+            更新後のモデルインスタンス、存在しない場合は None
 
-        Raises:
-            DatabaseError: データベース操作に失敗した場合
-            ConstraintViolationError: 制約違反の場合
+        例外:
+            データベース操作や制約違反時に SQLAlchemy の例外が発生します。
         """
         instance = await self.get(record_id)
         if instance is None:
@@ -154,23 +155,23 @@ class BaseRepository(ABC, Generic[T]):
             raise
 
     async def delete(self, record_id: int) -> bool:
-        """
-        レコード削除
+        """指定 ID のレコードを削除する。
 
-        Args:
-            record_id: レコードID
+        引数:
+            record_id: 削除対象のレコード ID
 
-        Returns:
-            bool: 削除成功時True、レコードが見つからない場合False
+        戻り値:
+            削除に成功した場合は True、対象が存在しない場合は False
 
-        Raises:
-            DatabaseError: データベース操作に失敗した場合
+        例外:
+            データベース操作に失敗した場合は SQLAlchemy の例外が発生します。
         """
         instance = await self.get(record_id)
         if instance is None:
             return False
         try:
-            await self.session.delete(instance)
+            res = self.session.delete(instance)
+            await self._maybe_await(res)
             await self.session.flush()
             await self.session.commit()
             return True
@@ -182,25 +183,24 @@ class BaseRepository(ABC, Generic[T]):
             raise
 
     async def bulk_create(self, records: List[dict]) -> List[T]:
-        """
-        一括作成
+        """複数レコードを一括作成する。
 
-        Args:
-            records: レコードのリスト（辞書形式）
+        引数:
+            records: レコードの辞書リスト
 
-        Returns:
-            List[T]: 作成されたモデルインスタンスのリスト
+        戻り値:
+            作成されたモデルインスタンスのリスト
 
-        Raises:
-            DatabaseError: データベース操作に失敗した場合
-            ConstraintViolationError: 制約違反の場合
+        例外:
+            データベース操作や制約違反時に SQLAlchemy の例外が発生します。
         """
         if self.model is None:
             raise ValueError("Repository model is not set")
 
         instances = [self.model(**record) for record in records]
         try:
-            self.session.add_all(instances)
+            res = self.session.add_all(instances)
+            await self._maybe_await(res)
             await self.session.flush()
             await self.session.commit()
             return instances
@@ -210,15 +210,7 @@ class BaseRepository(ABC, Generic[T]):
             raise
 
     async def count(self) -> int:
-        """
-        全件数取得
-
-        Returns:
-            int: レコード数
-
-        Raises:
-            DatabaseError: データベース操作に失敗した場合
-        """
+        """モデルテーブルの総件数を返す。"""
         if self.model is None:
             raise ValueError("Repository model is not set")
 
@@ -227,7 +219,7 @@ class BaseRepository(ABC, Generic[T]):
         return result.scalar_one()
 
     async def exists(self, record_id: int) -> bool:
-        """指定IDのレコードが存在するかを判定する"""
+        """指定 ID のレコードが存在するかを判定する。"""
         if self.model is None:
             raise ValueError("Repository model is not set")
 

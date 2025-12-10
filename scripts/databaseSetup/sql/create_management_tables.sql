@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS batch_executions (
   start_time TIMESTAMP WITH TIME ZONE DEFAULT now(),
   end_time TIMESTAMP WITH TIME ZONE,
   error_message TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_batch_executions_status ON batch_executions (status);
