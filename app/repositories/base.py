@@ -51,10 +51,13 @@ class BaseRepository(ABC, Generic[T]):
         # 型安全性は将来的に SQLAlchemy Base に束縛した TypeVar に変更する
         # 現状は任意のモデルクラスを受け取るため `Any` として扱う
         # 明示的に model を渡すか、サブクラスがクラス属性として `model` を定義していることを期待する
+        # model の型注釈はここで1回だけ行い、再定義を避ける
+        self.model: Any = None
         if model is not None:
-            self.model: Any = model
+            self.model = model
         else:
-            self.model: Any = getattr(self, "model", None)
+            # サブクラスがクラス属性として model を定義している場合はそれを参照する
+            self.model = getattr(self, "model", None)
 
         self.session = session
 
@@ -174,9 +177,9 @@ class BaseRepository(ABC, Generic[T]):
         if limit <= 0:
             raise ValueError("limit must be positive")
         settings = get_settings()
-        MAX_LIMIT = settings.MAX_RECENT_LIMIT
-        if limit > MAX_LIMIT:
-            raise ValueError(f"limit too large; max={MAX_LIMIT}")
+        max_limit = settings.MAX_RECENT_LIMIT
+        if limit > max_limit:
+            raise ValueError(f"limit too large; max={max_limit}")
 
         result = await self.session.execute(
             select(self.model).limit(limit).offset(skip)

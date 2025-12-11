@@ -101,9 +101,9 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
             raise ValueError("limit must be positive")
         # 設定から上限を取得（環境や運用で調整可能）
         settings = get_settings()
-        MAX_LIMIT = settings.MAX_RECENT_LIMIT
-        if limit > MAX_LIMIT:
-            raise ValueError(f"limit too large; max={MAX_LIMIT}")
+        max_limit = settings.MAX_RECENT_LIMIT
+        if limit > max_limit:
+            raise ValueError(f"limit too large; max={max_limit}")
         result = await self.session.execute(
             select(self.model)
             .order_by(self.model.start_time.desc())
