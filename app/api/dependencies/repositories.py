@@ -63,7 +63,6 @@ def get_stock_master_repository(
 
     遅延インポートにより循環依存を回避します。
     """
-    # 遅延インポートにより循環依存を回避します。
     # pylint: disable=import-outside-toplevel
     from app.repositories.stock_master_repository import StockMasterRepository
 

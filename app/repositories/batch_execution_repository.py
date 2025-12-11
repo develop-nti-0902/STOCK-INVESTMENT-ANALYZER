@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.batch_execution import BatchExecution
 from app.repositories.base import BaseRepository
+from app.utils.config import get_settings
 from app.utils.database import flush_commit_return_with_log
 
 logger = logging.getLogger(__name__)
@@ -32,14 +33,13 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
     """
 
     def __init__(self, session: AsyncSession):
-        super().__init__(session)
-        self.model = BatchExecution
+        super().__init__(session, model=BatchExecution)
 
-    async def create_job(self, job_type: str) -> BatchExecution:
+    async def create_job(self, batch_type: str) -> BatchExecution:
         """新しいバッチ実行レコードを作成して返す"""
         # total_stocks は NULL 不可のため 0 で初期化する
         instance = self.model(
-            batch_type=job_type,
+            batch_type=batch_type,
             status="pending",
             total_stocks=0,
         )
@@ -87,15 +87,23 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
             record_id,
         )
 
-    async def get_by_job_type(self, job_type: str) -> List[BatchExecution]:
-        """ジョブ種別で取得"""
+    async def get_by_job_type(self, batch_type: str) -> List[BatchExecution]:
+        """ジョブ種別（batch_type）で取得"""
         result = await self.session.execute(
-            select(self.model).where(self.model.batch_type == job_type)
+            select(self.model).where(self.model.batch_type == batch_type)
         )
         return list(result.scalars().all())
 
     async def get_recent(self, limit: int = 10) -> List[BatchExecution]:
         """開始時間で降順に最近の実行履歴を取得"""
+        # パラメータ検証: 負の値や過剰な値を許容しない
+        if limit <= 0:
+            raise ValueError("limit must be positive")
+        # 設定から上限を取得（環境や運用で調整可能）
+        settings = get_settings()
+        MAX_LIMIT = settings.MAX_RECENT_LIMIT
+        if limit > MAX_LIMIT:
+            raise ValueError(f"limit too large; max={MAX_LIMIT}")
         result = await self.session.execute(
             select(self.model)
             .order_by(self.model.start_time.desc())

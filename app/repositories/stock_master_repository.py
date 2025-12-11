@@ -12,6 +12,21 @@ from app.repositories.base import BaseRepository
 logger = logging.getLogger(__name__)
 
 
+def _escape_like(query: str, escape_char: str = "\\") -> str:
+    """Escape SQL LIKE wildcards in `query` so they are treated literally.
+
+    Replaces backslashes first, then '%' and '_' with escaped forms.
+    Returns the escaped string (do not add surrounding '%' here).
+    """
+    if query is None:
+        return ""
+    # escape the escape char itself first
+    esc = query.replace(escape_char, escape_char * 2)
+    esc = esc.replace("%", escape_char + "%")
+    esc = esc.replace("_", escape_char + "_")
+    return esc
+
+
 class StockMasterRepository(BaseRepository[StockMaster]):
     """
     StockMaster専用のRepository
@@ -24,8 +39,7 @@ class StockMasterRepository(BaseRepository[StockMaster]):
     """
 
     def __init__(self, session: AsyncSession):
-        super().__init__(session)
-        self.model = StockMaster
+        super().__init__(session, model=StockMaster)
 
     async def get_by_symbol(self, symbol: str) -> Optional[StockMaster]:
         """銘柄コードで単一取得"""
@@ -42,12 +56,24 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         return list(result.scalars().all())
 
     async def search(self, query: str) -> List[StockMaster]:
-        """`stock_code` または `stock_name` に対する部分一致検索"""
-        like_expr = f"%{query}%"
+        """`stock_code` または `stock_name` に対する部分一致検索
+
+        入力文字列に SQL LIKE ワイルドカード (`%`, `_`) を含んでいた場合、
+        ユーザ入力をリテラルとして扱うためにそれらを自動的にエスケープします。
+        ワイルドカードとして意図的に使いたい場合は、呼び出し元で明示的に
+        エスケープ処理や直接 `select(...).where(...)` の使用を行ってください。
+        """
+        if not query:
+            return []
+
+        # ユーザー入力をエスケープしてリテラル検索にする
+        escaped = _escape_like(query)
+        like_expr = f"%{escaped}%"
+
         stmt = select(self.model).where(
             or_(
-                self.model.stock_code.ilike(like_expr),
-                self.model.stock_name.ilike(like_expr),
+                self.model.stock_code.ilike(like_expr, escape="\\"),
+                self.model.stock_name.ilike(like_expr, escape="\\"),
             )
         )
         result = await self.session.execute(stmt)

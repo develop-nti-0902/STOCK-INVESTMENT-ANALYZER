@@ -200,6 +200,14 @@ async def flush_commit_return(session: AsyncSession, return_value: Any) -> Any:
     既存の `get_db` と同様に、例外発生時は rollback して例外を再送出します。
     リポジトリ層でトランザクションの成否に応じて値を返す用途に使います。
     """
+    # NOTE:
+    # - SQLAlchemy の `Session.commit()` は内部で flush() を呼び出しますが、
+    #   アプリケーション側で `autoflush=False` を採用している場合や、
+    #   明示的に flush の成功/失敗を切り分けてログを取りたい場合には
+    #   `flush()` を先に呼ぶ実装が有用です。
+    # - テストコードでは `session.flush` をモックして動作検証している箇所が
+    #   あるため、明示的な `flush()` 呼び出しを取り除くとテストが壊れる
+    #   可能性があります。設計上の理由がない限り、この順序は維持します。
     try:
         await session.flush()
         await session.commit()
@@ -231,5 +239,7 @@ async def flush_commit_return_with_log(
     try:
         return await flush_commit_return(session, return_value)
     except Exception:
+        # flush_commit_return が例外を発生させた場合は、既に rollback
+        # とログが行われています。ここでは呼び出し元固有のログを追記します。
         log.exception(msg, *args)
         raise

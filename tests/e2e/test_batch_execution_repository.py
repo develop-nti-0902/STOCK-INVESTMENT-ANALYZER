@@ -51,7 +51,7 @@ async def test_create_and_persist_batch_execution(monkeypatch):
     async with session_maker() as session:
         repo = BatchExecutionRepository(session=session)
 
-        created = await repo.create_job(job_type="e2e_test_job")
+        created = await repo.create_job(batch_type="e2e_test_job")
         assert created is not None
 
         # mark_completed を呼び出して集計・終了時刻をセット

@@ -16,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import count as sql_count
 
+from app.utils.config import get_settings
 from app.utils.database import flush_commit_return_with_log
 
 # 型パラメータ: モデルの型
@@ -40,7 +41,7 @@ class BaseRepository(ABC, Generic[T]):
         T: SQLAlchemyモデルの型（将来的にはapp.models.base.Baseにbound）
     """
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, model: Optional[type] = None):
         """
         初期化
 
@@ -49,8 +50,18 @@ class BaseRepository(ABC, Generic[T]):
         """
         # 型安全性は将来的に SQLAlchemy Base に束縛した TypeVar に変更する
         # 現状は任意のモデルクラスを受け取るため `Any` として扱う
-        self.model: Any = getattr(self, "model", None)
+        # 明示的に model を渡すか、サブクラスがクラス属性として `model` を定義していることを期待する
+        if model is not None:
+            self.model: Any = model
+        else:
+            self.model: Any = getattr(self, "model", None)
+
         self.session = session
+
+        # 注意: サブクラスやテストが `super().__init__(session)` の後で
+        # `self.model` を設定できるよう、ここでは例外を投げません。
+        # 各メソッドは必要時に `self.model` の存在を検証し、
+        # 未設定の場合は明確な `ValueError` を発生させます。
 
     async def _add_and_commit(self, instance: T) -> T:
         """インスタンスをセッションに追加してコミットする共通処理。
@@ -88,7 +99,7 @@ class BaseRepository(ABC, Generic[T]):
             "Failed to add_all and commit instances",
         )
 
-    async def _maybe_await(self, value):
+    async def _maybe_await(self, value) -> Any:
         """値が awaitable（例えば AsyncMock）であれば await するヘルパー。
 
         実運用では AsyncSession のメソッドは通常同期的に None を返しますが、
@@ -116,6 +127,16 @@ class BaseRepository(ABC, Generic[T]):
 
         instance = self.model(**data)
         return await self._add_and_commit(instance)
+
+    async def upsert(self, data: Dict) -> T:
+        """単一レコードの upsert を行うためのインターフェース。
+
+        デフォルト実装は未サポートとして `NotImplementedError` を投げます。
+        サブクラスでサポートする場合はこのメソッドをオーバーライドしてください。
+        """
+        raise NotImplementedError(
+            "upsert is not implemented for this repository"
+        )
 
     async def get(self, record_id: int) -> Optional[T]:
         """IDで単一レコードを取得する。
@@ -146,6 +167,16 @@ class BaseRepository(ABC, Generic[T]):
         """
         if self.model is None:
             raise ValueError("Repository model is not set")
+
+        # 引数検証: skip は 0 以上、limit は正の値かつ上限を超えないこと
+        if skip < 0:
+            raise ValueError("skip must be >= 0")
+        if limit <= 0:
+            raise ValueError("limit must be positive")
+        settings = get_settings()
+        MAX_LIMIT = settings.MAX_RECENT_LIMIT
+        if limit > MAX_LIMIT:
+            raise ValueError(f"limit too large; max={MAX_LIMIT}")
 
         result = await self.session.execute(
             select(self.model).limit(limit).offset(skip)
@@ -204,14 +235,13 @@ class BaseRepository(ABC, Generic[T]):
             logger.exception("Failed to delete instance: %s", e)
             raise
 
-        await flush_commit_return_with_log(
+        return await flush_commit_return_with_log(
             self.session,
             True,
             logger,
             "Failed to delete instance id=%s",
             record_id,
         )
-        return True
 
     async def bulk_create(self, records: List[dict]) -> List[T]:
         """複数レコードを一括作成する。

@@ -54,6 +54,14 @@ class Settings(BaseSettings):
         5,
         description="Number of backup log files to keep",
     )
+    # Repository / API limits
+    # 最大取得件数の上限値（例: get_recent やページネーションで使用）
+    MAX_RECENT_LIMIT: int = Field(
+        1000,
+        description=(
+            "Maximum number of records returned by get_recent-style " "queries"
+        ),
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
