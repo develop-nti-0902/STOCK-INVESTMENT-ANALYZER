@@ -8,6 +8,7 @@
 """
 
 import asyncio
+import random
 from typing import Any, Callable, Optional, TypeVar
 
 from app.utils.config import get_settings
@@ -18,7 +19,7 @@ logger = get_logger(__name__)
 T = TypeVar("T")
 
 
-class RetryMixin:
+class RetryMixin:  # pylint: disable=too-few-public-methods
     """
     リトライロジックを提供するMixinクラス
 
@@ -97,7 +98,8 @@ class RetryMixin:
                 # 関数実行
                 return await func(*args, **kwargs)
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError) as e:
+                # リトライ可能なネットワーク関連エラーをキャッチ
                 last_exception = e
 
                 if attempt < self.max_retries and self._is_retryable_error(e):
@@ -109,15 +111,39 @@ class RetryMixin:
                         e,
                     )
                     continue
-                else:
-                    # 最大リトライ回数に達した、またはリトライ不可エラー
-                    logger.error(
-                        "Final attempt failed for %s after %d retries: %s",
+
+                # 最大リトライ回数に達した、またはリトライ不可エラー
+                logger.error(
+                    "Final attempt failed for %s after %d retries: %s",
+                    operation_name,
+                    attempt,
+                    e,
+                )
+                raise
+
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                # 予期せぬ例外もキャッチして適切に処理
+                # リトライロジックとして、外部API等の未知のエラーを処理するため
+                last_exception = e
+
+                if attempt < self.max_retries and self._is_retryable_error(e):
+                    logger.warning(
+                        "Attempt %d/%d failed for %s: %s",
+                        attempt + 1,
+                        self.max_retries + 1,
                         operation_name,
-                        attempt,
                         e,
                     )
-                    raise
+                    continue
+
+                # 最大リトライ回数に達した、またはリトライ不可エラー
+                logger.error(
+                    "Final attempt failed for %s after %d retries: %s",
+                    operation_name,
+                    attempt,
+                    e,
+                )
+                raise
 
         # ここには到達しないはずだが、念のため
         if last_exception:
@@ -139,8 +165,6 @@ class RetryMixin:
         exponential_delay = base_delay * (self.backoff_factor ** (attempt - 1))
 
         # ジッターを追加（±25%のランダム変動）
-        import random
-
         jitter = random.uniform(0.75, 1.25)
         delay = exponential_delay * jitter
 
