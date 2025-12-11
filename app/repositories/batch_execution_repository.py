@@ -14,8 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.batch_execution import BatchExecution
 from app.repositories.base import BaseRepository
-from app.utils.config import get_settings
 from app.utils.database import flush_commit_return_with_log
+from app.utils.validation import validate_pagination
 
 logger = logging.getLogger(__name__)
 
@@ -96,14 +96,8 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
 
     async def get_recent(self, limit: int = 10) -> List[BatchExecution]:
         """開始時間で降順に最近の実行履歴を取得"""
-        # パラメータ検証: 負の値や過剰な値を許容しない
-        if limit <= 0:
-            raise ValueError("limit must be positive")
-        # 設定から上限を取得（環境や運用で調整可能）
-        settings = get_settings()
-        max_limit = settings.MAX_RECENT_LIMIT
-        if limit > max_limit:
-            raise ValueError(f"limit too large; max={max_limit}")
+        # パラメータ検証: 共通ユーティリティへ移譲
+        validate_pagination(0, limit)
         result = await self.session.execute(
             select(self.model)
             .order_by(self.model.start_time.desc())

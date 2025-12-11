@@ -16,8 +16,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import count as sql_count
 
-from app.utils.config import get_settings
 from app.utils.database import flush_commit_return_with_log
+from app.utils.validation import validate_pagination
 
 # 型パラメータ: モデルの型
 T = TypeVar("T")
@@ -171,15 +171,8 @@ class BaseRepository(ABC, Generic[T]):
         if self.model is None:
             raise ValueError("Repository model is not set")
 
-        # 引数検証: skip は 0 以上、limit は正の値かつ上限を超えないこと
-        if skip < 0:
-            raise ValueError("skip must be >= 0")
-        if limit <= 0:
-            raise ValueError("limit must be positive")
-        settings = get_settings()
-        max_limit = settings.MAX_RECENT_LIMIT
-        if limit > max_limit:
-            raise ValueError(f"limit too large; max={max_limit}")
+        # 引数検証: 共通ユーティリティへ移譲
+        validate_pagination(skip, limit)
 
         result = await self.session.execute(
             select(self.model).limit(limit).offset(skip)
