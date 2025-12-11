@@ -63,6 +63,24 @@ class Settings(BaseSettings):
         ),
     )
 
+    # Yahoo Finance API設定
+    YAHOO_FINANCE_TIMEOUT: int = Field(
+        30,
+        description="Yahoo Finance API timeout in seconds (default: 30)",
+    )
+    YAHOO_FINANCE_MAX_RETRIES: int = Field(
+        3,
+        description="Max retries for Yahoo Finance API calls (default: 3)",
+    )
+    YAHOO_FINANCE_RETRY_BACKOFF: float = Field(
+        1.0,
+        description="Backoff factor for retries (default: 1.0)",
+    )
+    YAHOO_FINANCE_CONCURRENCY_LIMIT: int = Field(
+        10,
+        description="Max concurrent requests (default: 10)",
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

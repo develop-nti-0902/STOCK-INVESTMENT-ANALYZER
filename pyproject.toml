@@ -23,6 +23,7 @@ xlrd = "^2.0.2"
 openpyxl = "^3.1.5"
 requests = "^2.32.5"
 aiohttp = "^3.13"
+yfinance = ">=0.2.54"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4"
