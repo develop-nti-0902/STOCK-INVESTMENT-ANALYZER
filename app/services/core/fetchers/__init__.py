@@ -6,5 +6,7 @@
 """
 
 from app.services.core.fetchers.base_fetcher import BaseFetcher
+from app.services.core.fetchers.http_fetcher import HttpFetcher
+from app.services.core.fetchers.retry_mixin import RetryMixin
 
-__all__ = ["BaseFetcher"]
+__all__ = ["BaseFetcher", "HttpFetcher", "RetryMixin"]
