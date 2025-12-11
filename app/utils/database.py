@@ -9,6 +9,7 @@ FastAPIのDependsパターンを通じて、アプリケーション全体でDB�
 
 from collections.abc import AsyncGenerator
 from functools import lru_cache
+from typing import Any
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -191,3 +192,54 @@ async def close_db() -> None:
         get_engine.cache_clear()
     except AttributeError:
         pass
+
+
+async def flush_commit_return(session: AsyncSession, return_value: Any) -> Any:
+    """Session の flush -> commit を実行して指定値を返すヘルパー。
+
+    既存の `get_db` と同様に、例外発生時は rollback して例外を再送出します。
+    リポジトリ層でトランザクションの成否に応じて値を返す用途に使います。
+    """
+    # NOTE:
+    # - SQLAlchemy の `Session.commit()` は内部で flush() を呼び出しますが、
+    #   アプリケーション側で `autoflush=False` を採用している場合や、
+    #   明示的に flush の成功/失敗を切り分けてログを取りたい場合には
+    #   `flush()` を先に呼ぶ実装が有用です。
+    # - テストコードでは `session.flush` をモックして動作検証している箇所が
+    #   あるため、明示的な `flush()` 呼び出しを取り除くとテストが壊れる
+    #   可能性があります。設計上の理由がない限り、この順序は維持します。
+    try:
+        await session.flush()
+        await session.commit()
+        return return_value
+    except Exception as e:
+        await session.rollback()
+        logger.exception("DB transaction failed: %s", e)
+        raise
+
+
+async def flush_commit_return_with_log(
+    session: AsyncSession, return_value: Any, log, msg: str, *args: Any
+) -> Any:
+    """`flush_commit_return` を呼び出し、失敗時に共通的なログ出力を行うヘルパー。
+
+    Args:
+        session: 非同期セッション
+        return_value: 成功時に返す値
+        log: 呼び出し元のロガーインスタンス
+        msg: 失敗時にログ出力するメッセージ（書式文字列）
+        *args: メッセージのフォーマット引数
+
+    Returns:
+        指定された `return_value`
+
+    Raises:
+        発生した例外をそのまま再送出します。
+    """
+    try:
+        return await flush_commit_return(session, return_value)
+    except Exception:
+        # flush_commit_return が例外を発生させた場合は、既に rollback
+        # とログが行われています。ここでは呼び出し元固有のログを追記します。
+        log.exception(msg, *args)
+        raise

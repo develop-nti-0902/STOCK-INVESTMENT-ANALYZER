@@ -51,9 +51,54 @@ def get_base_repository(
         - このプロバイダはテストや一時的な用途に使用
     """
     # 注意: BaseRepositoryはABCなので、実際には具象クラスを使用する必要がある
-    # ここでは、プレースホルダとして汎用的な型を返すが、
-    # 実運用では具象Repositoryクラス（StockRepository等）を使用すること
-    return BaseRepository(model=None, session=db)  # type: ignore
+    # ここではプレースホルダとして汎用的なリポジトリを返します。
+    # 実運用では特定モデル向けの具象Repository（例: StockRepository）を使用してください。
+    return BaseRepository(session=db)  # type: ignore
+
+
+def get_stock_master_repository(
+    db: AsyncSession = Depends(get_db),
+) -> BaseRepository[Any]:
+    """StockMasterRepository を提供する DI プロバイダ
+
+    遅延インポートにより循環依存を回避します。
+    """
+    # pylint: disable=import-outside-toplevel
+    from app.repositories.stock_master_repository import StockMasterRepository
+
+    return StockMasterRepository(session=db)
+
+
+def get_batch_execution_repository(
+    db: AsyncSession = Depends(get_db),
+) -> BaseRepository[Any]:
+    """BatchExecutionRepository を提供する DI プロバイダ
+
+    遅延インポートにより循環依存を回避します。
+
+    使用例:
+        ```python
+            from fastapi import APIRouter, Depends
+            from app.api.dependencies import (
+                get_batch_execution_repository,
+            )
+
+            router = APIRouter()
+
+        @router.post("/batch/start")
+        async def start_batch(
+            repo = Depends(get_batch_execution_repository),
+        ):
+            job = await repo.create_job("daily_fetch")
+            return {"job_id": job.id}
+        ```
+    """
+    # pylint: disable=import-outside-toplevel
+    from app.repositories.batch_execution_repository import (
+        BatchExecutionRepository,
+    )
+
+    return BatchExecutionRepository(session=db)
 
 
 # 以下は、各エンティティ専用のRepositoryプロバイダの例

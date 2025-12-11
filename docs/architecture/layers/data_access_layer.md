@@ -348,6 +348,25 @@ async def get_stock_data(
 
 **詳細な使用例**: Repository DIの詳細な使用例とパターンについては、[Repository DI使用例ドキュメント](../../examples/repository_di_usage.md)を参照してください。
 
+<!-- 実装に関する注記 -->
+
+## 実装上の注意
+
+- 実際のリポジトリモジュール名は `app/repositories/stock_master_repository.py`,
+    `app/repositories/batch_execution_repository.py` のようにファイル名に `_repository` を付けた形式で管理しています。
+- パッケージの公開インターフェースとして `app/repositories/__init__.py` で主要な
+    Repositoryクラスを `__all__` 経由でエクスポートしています。アプリケーション側では
+    個別ファイルを直接参照するよりも以下のようにパッケージからインポートすることを推奨します:
+
+```python
+from app.repositories import StockMasterRepository, BatchExecutionRepository
+
+def get_stock_master_repository(db: AsyncSession = Depends(get_db)) -> StockMasterRepository:
+        return StockMasterRepository(session=db)
+```
+
+これにより、将来的なファイル名変更や実装差分の影響を受けにくくなります。
+
 ---
 
 ## 4. モデル定義
