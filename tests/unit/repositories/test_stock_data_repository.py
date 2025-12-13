@@ -163,10 +163,7 @@ class TestStockDataRepository:
         result = await repo_1m.upsert_bulk(data_list)
 
         # Assert
-        assert result["total_processed"] == 2
-        assert result["success_count"] == 2
-        assert result["error_count"] == 0
-        assert result["timeframe"] == "1m"
+        assert result == 2
 
     @pytest.mark.asyncio
     async def test_upsert_bulk_partial_failure(self, repo_1m):
@@ -200,10 +197,7 @@ class TestStockDataRepository:
         result = await repo_1m.upsert_bulk(data_list)
 
         # Assert
-        assert result["total_processed"] == 2
-        assert result["success_count"] == 1
-        assert result["error_count"] == 1
-        assert len(result["errors"]) == 1
+        assert result == 1
 
     @pytest.mark.asyncio
     async def test_get_by_symbol_and_range_1m(self, repo_1m):

@@ -79,9 +79,65 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
 
         # Repositoryインスタンスの初期化
         for timeframe, repo_class in self.TIMEFRAME_REPOSITORIES.items():
-            self.repositories[timeframe] = repo_class(session)
+            self.repositories[timeframe] = repo_class(self.session)
 
-    async def save_stock_data(
+    async def save(self, data: Dict[str, Any], **kwargs: Any) -> bool:
+        """
+        単一データ保存（BaseSaverの実装）
+
+        Args:
+            data: 保存するデータ（symbol, timeframe, recordsを含むDict）
+            **kwargs: 追加パラメータ
+
+        Returns:
+            bool: 保存成功の場合True
+        """
+        symbol = data.get("symbol")
+        timeframe = data.get("timeframe")
+        records = data.get("records", [])
+
+        if not symbol or not timeframe or not records:
+            return False
+
+        # recordsをDataFrameに変換
+        df = pd.DataFrame(records)
+        return await self.save_single_stock_data(
+            symbol, timeframe, df, **kwargs
+        )
+
+    async def save_batch(
+        self, data_list: List[Dict[str, Any]], **kwargs: Any
+    ) -> int:
+        """
+        一括データ保存（BaseSaverの実装）
+
+        Args:
+            data_list: 保存するデータのリスト
+            **kwargs: 追加パラメータ
+
+        Returns:
+            int: 保存成功したレコード数
+        """
+        # data_listをsave_multiple_stocksの形式に変換
+        grouped_data: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+        for data in data_list:
+            symbol = data.get("symbol")
+            timeframe = data.get("timeframe")
+            records = data.get("records", [])
+
+            if not symbol or not timeframe or not records:
+                continue
+
+            if symbol not in grouped_data:
+                grouped_data[symbol] = {}
+            if timeframe not in grouped_data[symbol]:
+                grouped_data[symbol][timeframe] = []
+            grouped_data[symbol][timeframe].extend(records)
+
+        result = await self.save_batch_stocks(grouped_data, **kwargs)
+        return sum(result.values())
+
+    async def save_single_stock_data(
         self,
         symbol: str,
         timeframe: str,
@@ -137,7 +193,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
             )
             raise
 
-    async def save_multiple_stocks(
+    async def save_batch_stocks(
         self,
         data_dict: Dict[
             str, Dict[str, Union[pd.DataFrame, List[Dict[str, Any]]]]
@@ -354,69 +410,3 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 continue
 
         return records
-
-    # BaseSaverの抽象メソッド実装
-    async def save(self, data: Dict[str, Any], **kwargs: Any) -> bool:
-        """
-        単一データ保存（BaseSaverの実装）
-
-        Args:
-            data: 保存データ（symbol, timeframe, recordsを含む辞書）
-            **kwargs: 追加パラメータ
-
-        Returns:
-            bool: 保存成功の場合True
-        """
-        symbol = data.get("symbol")
-        timeframe = data.get("timeframe")
-        records = data.get("records", [])
-
-        if not symbol or not timeframe:
-            raise ValueError("symbol and timeframe are required in data")
-
-        return await self.save_stock_data(symbol, timeframe, records, **kwargs)
-
-    async def save_batch(
-        self, data_list: List[Dict[str, Any]], **kwargs: Any
-    ) -> int:
-        """
-        一括保存（BaseSaverの実装）
-
-        Args:
-            data_list: 保存データのリスト
-            **kwargs: 追加パラメータ
-
-        Returns:
-            int: 保存成功件数
-        """
-        total_saved = 0
-
-        # データをグループ化（symbol + timeframe）
-        grouped_data = {}
-        for data in data_list:
-            symbol = data.get("symbol")
-            timeframe = data.get("timeframe")
-            records = data.get("records", [])
-
-            if not symbol or not timeframe:
-                continue
-
-            key = f"{symbol}_{timeframe}"
-            if key not in grouped_data:
-                grouped_data[key] = {
-                    "symbol": symbol,
-                    "timeframe": timeframe,
-                    "records": [],
-                }
-            grouped_data[key]["records"].extend(records)
-
-        # 各グループを保存
-        for key, group_data in grouped_data.items():
-            try:
-                success = await self.save(group_data, **kwargs)
-                if success:
-                    total_saved += len(group_data["records"])
-            except Exception as e:
-                logger.error(f"Failed to save batch group {key}: {e}")
-
-        return total_saved
