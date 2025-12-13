@@ -7,7 +7,7 @@ Yahoo Finance API (yfinance) を使用して株価データを取得します。
 
 import asyncio
 from datetime import date, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 import yfinance as yf
@@ -38,7 +38,7 @@ class TimeframeMapping:
 
     # 各タイムフレームの最大取得期間（日数）
     # maxの場合は全期間を意味する
-    MAX_PERIODS = {
+    MAX_PERIODS: Dict[str, Union[int, str]] = {
         "1m": 7,  # 過去7日間
         "5m": 30,  # 過去30日間（Yahoo Financeの制限に合わせて短く設定）
         "15m": 30,  # 過去30日間（Yahoo Financeの制限に合わせて短く設定）
@@ -115,7 +115,7 @@ class TimeframeMapping:
         else:
             # 指定日数分の期間
             end_date = date.today()
-            start_date = end_date - timedelta(days=max_period)
+            start_date = end_date - timedelta(days=int(max_period))
             return start_date, None
 
 
