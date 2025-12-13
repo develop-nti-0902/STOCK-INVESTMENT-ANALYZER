@@ -14,6 +14,7 @@ from typing import List, Optional, Union
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.engine import Result as SAResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.stock_data import (
@@ -119,17 +120,16 @@ class StockDataRepository(BaseRepository, ABC):
             )
 
             # 実行
-            result = await self.session.execute(stmt)
+            result: SAResult = await self.session.execute(stmt)
             await self.session.commit()
 
             # 結果判定 (ON CONFLICTでは常に1行影響を受ける)
-            operation = "upsert" if result.rowcount == 1 else "unknown"
-            # type: ignore[attr-defined]
+            rowcount = getattr(result, "rowcount", None)
+            operation = "upsert" if rowcount == 1 else "unknown"
 
             result_info = {
                 "operation": operation,
-                "rowcount": result.rowcount,
-                # type: ignore[attr-defined]
+                "rowcount": rowcount,
                 "timeframe": self.timeframe,
                 "symbol": data["symbol"],
             }
@@ -238,7 +238,7 @@ class StockDataRepository(BaseRepository, ABC):
 
         query = query.order_by(desc(time_col)).limit(limit).offset(offset)
 
-        result = await self.session.execute(query)
+        result: SAResult = await self.session.execute(query)
         return list(result.scalars().all())
 
     async def get_latest(self, symbol: str, limit: int = 1) -> List:
@@ -261,7 +261,7 @@ class StockDataRepository(BaseRepository, ABC):
             .limit(limit)
         )
 
-        result = await self.session.execute(query)
+        result: SAResult = await self.session.execute(query)
         return list(result.scalars().all())
 
 
