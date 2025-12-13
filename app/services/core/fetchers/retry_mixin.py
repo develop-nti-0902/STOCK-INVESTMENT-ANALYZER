@@ -100,50 +100,22 @@ class RetryMixin:  # pylint: disable=too-few-public-methods
 
             except (ConnectionError, TimeoutError, OSError) as e:
                 # リトライ可能なネットワーク関連エラーをキャッチ
-                last_exception = e
-
-                if attempt < self.max_retries and self._is_retryable_error(e):
-                    logger.warning(
-                        "Attempt %d/%d failed for %s: %s",
-                        attempt + 1,
-                        self.max_retries + 1,
-                        operation_name,
-                        e,
-                    )
-                    continue
-
-                # 最大リトライ回数に達した、またはリトライ不可エラー
-                logger.error(
-                    "Final attempt failed for %s after %d retries: %s",
-                    operation_name,
-                    attempt,
-                    e,
+                last_exception = self._handle_retry_exception(
+                    e, attempt, operation_name
                 )
-                raise
+                if last_exception is None:
+                    continue
+                raise last_exception
 
             except Exception as e:  # pylint: disable=broad-exception-caught
                 # 予期せぬ例外もキャッチして適切に処理
                 # リトライロジックとして、外部API等の未知のエラーを処理するため
-                last_exception = e
-
-                if attempt < self.max_retries and self._is_retryable_error(e):
-                    logger.warning(
-                        "Attempt %d/%d failed for %s: %s",
-                        attempt + 1,
-                        self.max_retries + 1,
-                        operation_name,
-                        e,
-                    )
-                    continue
-
-                # 最大リトライ回数に達した、またはリトライ不可エラー
-                logger.error(
-                    "Final attempt failed for %s after %d retries: %s",
-                    operation_name,
-                    attempt,
-                    e,
+                last_exception = self._handle_retry_exception(
+                    e, attempt, operation_name
                 )
-                raise
+                if last_exception is None:
+                    continue
+                raise last_exception
 
         # ここには到達しないはずだが、念のため
         if last_exception:
@@ -229,3 +201,28 @@ class RetryMixin:  # pylint: disable=too-few-public-methods
             self.max_retries = max_retries
         if backoff_factor is not None:
             self.backoff_factor = backoff_factor
+
+    def _handle_retry_exception(
+        self, e: Exception, attempt: int, operation_name: str
+    ) -> Optional[Exception]:
+        """
+        _retry_async内の例外に対するリトライロジックを処理します。
+
+        リトライする場合はNoneを返し、そうでない場合は発生させる例外を返します。
+        """
+        if attempt < self.max_retries and self._is_retryable_error(e):
+            logger.warning(
+                "Attempt %d/%d failed for %s: %s",
+                attempt + 1,
+                self.max_retries + 1,
+                operation_name,
+                e,
+            )
+            return None
+        logger.error(
+            "Final attempt failed for %s after %d retries: %s",
+            operation_name,
+            attempt,
+            e,
+        )
+        return e

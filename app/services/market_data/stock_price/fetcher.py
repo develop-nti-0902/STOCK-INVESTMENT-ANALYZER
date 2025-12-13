@@ -167,18 +167,21 @@ class StockPriceFetcher(RetryMixin):
             raise ValueError("Identifier must be a non-empty string")
 
         try:
-            yfinance_interval = TimeframeMapping.get_yfinance_interval(
-                timeframe
-            )
+            TimeframeMapping.get_yfinance_interval(timeframe)
         except ValueError as e:
             raise ValueError(f"Invalid timeframe: {timeframe}") from e
 
-        # リトライ付きでデータ取得
-        return await self._retry_async(
-            lambda: self._fetch_single_symbol(
-                identifier, yfinance_interval, start_date, end_date, timeframe
-            ),
-            "fetch_single",
+        # fetch_single を呼び出して重複を避ける
+        remaining_kwargs = kwargs.copy()
+        remaining_kwargs.pop("timeframe", None)
+        remaining_kwargs.pop("start_date", None)
+        remaining_kwargs.pop("end_date", None)
+        return await self.fetch_single(
+            symbol=identifier,
+            timeframe=timeframe,
+            start_date=start_date,
+            end_date=end_date,
+            **remaining_kwargs,
         )
 
     async def fetch_single(
@@ -377,9 +380,14 @@ class StockPriceFetcher(RetryMixin):
                 return self._parse_yfinance_data(hist, symbol)
 
             except Exception as e:
-                error_msg = f"Failed to fetch data for {symbol}: {str(e)}"
-                logger.error(error_msg)
-                raise YahooFinanceError(message=error_msg) from e
+                logger.exception(
+                    f"Failed to fetch data for {symbol} due to an "
+                    "internal error."
+                )
+                raise YahooFinanceError(
+                    message=f"Failed to fetch data for {symbol} due to an "
+                    "internal error."
+                ) from e
 
     def _parse_yfinance_data(
         self, data: pd.DataFrame, symbol: str
@@ -431,22 +439,26 @@ class StockPriceFetcher(RetryMixin):
 
         return stock_data_list
 
-    async def validate_identifier(self, symbol: str) -> bool:
+    async def is_valid_symbol_format(self, symbol: str) -> bool:
         """
-        銘柄コードの検証を行います。
+        銘柄コードのフォーマット検証を行います。
 
         Args:
             symbol: 検証対象の銘柄コード
 
         Returns:
-            bool: 銘柄コードが有効な場合True
+            bool: 銘柄コードが有効なフォーマットの場合True
         """
+        import re
+
         if not symbol or not isinstance(symbol, str):
             return False
 
-        # 基本的なフォーマットチェック（例: 7203.T, AAPL）
-        # より詳細な検証は必要に応じて追加
-        return len(symbol.strip()) > 0
+        # 銘柄コードのフォーマットチェック
+        # 例: 7203.T, AAPL, 0001.HK など
+        # 英数字で始まり、オプションでドットと取引所接尾辞
+        pattern = r"^[A-Z0-9]+(\.[A-Z]+)?$"
+        return bool(re.match(pattern, symbol.strip()))
 
     async def handle_fetch_error(self, symbol: str, error: Exception) -> None:
         """

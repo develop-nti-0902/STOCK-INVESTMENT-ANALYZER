@@ -1,4 +1,4 @@
-﻿"""StockPriceFetcherのユニットテスト
+"""StockPriceFetcherのユニットテスト
 
 StockPriceFetcherの機能をテストします。
 """
@@ -461,14 +461,26 @@ class TestStockPriceFetcherAdditional:
         assert result[1].volume == 1100
 
     @pytest.mark.asyncio
-    async def test_validate_identifier(self, fetcher):
-        """validate_identifierメソッドをテスト"""
+    async def test_is_valid_symbol_format(self, fetcher):
+        """is_valid_symbol_formatメソッドをテスト"""
         # Arrange - 準備
         # Act & Assert - 実行と検証
-        assert await fetcher.validate_identifier("AAPL") is True
-        assert await fetcher.validate_identifier("7203.T") is True
-        assert await fetcher.validate_identifier("") is False
-        assert await fetcher.validate_identifier(None) is False
+        # 有効なフォーマット
+        assert await fetcher.is_valid_symbol_format("AAPL") is True
+        assert await fetcher.is_valid_symbol_format("7203.T") is True
+        assert await fetcher.is_valid_symbol_format("0001.HK") is True
+        assert await fetcher.is_valid_symbol_format("123") is True
+
+        # 無効なフォーマット
+        assert await fetcher.is_valid_symbol_format("aapl") is False  # 小文字
+        assert (
+            await fetcher.is_valid_symbol_format("AAPL$") is False
+        )  # 特殊文字
+        assert (
+            await fetcher.is_valid_symbol_format("AAPL.") is False
+        )  # ドットのみ
+        assert await fetcher.is_valid_symbol_format("") is False  # 空文字列
+        assert await fetcher.is_valid_symbol_format(None) is False  # None
 
     @pytest.mark.asyncio
     async def test_handle_fetch_error(self, fetcher):
