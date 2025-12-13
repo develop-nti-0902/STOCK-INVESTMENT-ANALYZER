@@ -147,7 +147,7 @@ class StockDataRepository(BaseRepository, ABC):
             logger.error("UPSERT failed for %s: %s", self.timeframe, e)
             raise RuntimeError(f"Failed to upsert data: {e}") from e
 
-    async def upsert_bulk(self, data_list: List[dict]) -> dict:
+    async def upsert_bulk(self, data_list: List[dict]) -> int:
         """
         一括UPSERT
 
@@ -155,18 +155,16 @@ class StockDataRepository(BaseRepository, ABC):
             data_list: UPSERTするデータのリスト
 
         Returns:
-            dict: UPSERT結果情報
+            int: 成功した件数
 
         Raises:
             ValueError: データリストが不正な場合
             RuntimeError: UPSERT処理に失敗した場合
         """
         if not data_list:
-            return {"total_processed": 0, "success_count": 0, "errors": []}
+            return 0
 
-        total_processed = len(data_list)
         success_count = 0
-        errors = []
 
         try:
             # 全データをUPSERT
@@ -180,25 +178,16 @@ class StockDataRepository(BaseRepository, ABC):
                         "error": str(e),
                         "timeframe": self.timeframe,
                     }
-                    errors.append(error_info)
                     logger.warning("Failed to upsert data: %s", error_info)
-
-            result_info = {
-                "total_processed": total_processed,
-                "success_count": success_count,
-                "error_count": len(errors),
-                "errors": errors,
-                "timeframe": self.timeframe,
-            }
 
             logger.info(
                 "Bulk UPSERT completed: %s/%s succeeded for %s",
                 success_count,
-                total_processed,
+                len(data_list),
                 self.timeframe,
             )
 
-            return result_info
+            return success_count
 
         except Exception as e:
             await self.session.rollback()

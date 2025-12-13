@@ -23,7 +23,6 @@ from app.repositories.stock_data_repository import (
     StockData5mRepository,
     StockData15mRepository,
     StockData30mRepository,
-    StockDataRepository,
 )
 from app.services.core.savers.bulk_saver_mixin import BulkSaverMixin
 
@@ -39,7 +38,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
 
     Attributes:
         session (AsyncSession): 非同期DBセッション
-        repositories (Dict[str, StockDataRepository]): タイムフレーム別Repositoryマップ
+        repositories (Dict[str, Any]): タイムフレーム別Repositoryマップ
     """
 
     # タイムフレームとRepositoryクラスのマッピング
@@ -76,7 +75,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
             max_concurrent_batches=max_concurrent_batches,
         )
         self.session = session
-        self.repositories: Dict[str, StockDataRepository] = {}
+        self.repositories: Dict[str, Any] = {}
 
         # Repositoryインスタンスの初期化
         for timeframe, repo_class in self.TIMEFRAME_REPOSITORIES.items():
@@ -185,6 +184,8 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                         f"Failed to save {symbol} ({timeframe}): {result}"
                     )
                     results[f"{symbol}_{timeframe}"] = 0
+                elif isinstance(result, bool):
+                    results[f"{symbol}_{timeframe}"] = 1 if result else 0
                 else:
                     results[f"{symbol}_{timeframe}"] = result
                 idx += 1
@@ -224,9 +225,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
             )
             raise
 
-    def _select_repository(
-        self, timeframe: str
-    ) -> Optional[StockDataRepository]:
+    def _select_repository(self, timeframe: str) -> Optional[Any]:
         """
         タイムフレームに応じたRepositoryを選択
 
@@ -234,7 +233,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
             timeframe: タイムフレーム識別子
 
         Returns:
-            StockDataRepository: 対応するRepositoryインスタンス、存在しない場合はNone
+            Any: 対応するRepositoryインスタンス、存在しない場合はNone
         """
         return self.repositories.get(timeframe)
 
