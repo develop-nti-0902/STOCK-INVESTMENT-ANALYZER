@@ -10,10 +10,11 @@ UPSERT処理と時系列データ取得を提供します。
 import logging
 from abc import ABC, abstractmethod
 from datetime import date, datetime
-from typing import List, Optional, Union
+from typing import List, Optional, Union, cast
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.stock_data import (
@@ -119,17 +120,15 @@ class StockDataRepository(BaseRepository, ABC):
             )
 
             # 実行
-            result = await self.session.execute(stmt)
+            result = cast(CursorResult, await self.session.execute(stmt))
             await self.session.commit()
 
             # 結果判定 (ON CONFLICTでは常に1行影響を受ける)
             operation = "upsert" if result.rowcount == 1 else "unknown"
-            # type: ignore[attr-defined]
 
             result_info = {
                 "operation": operation,
                 "rowcount": result.rowcount,
-                # type: ignore[attr-defined]
                 "timeframe": self.timeframe,
                 "symbol": data["symbol"],
             }
