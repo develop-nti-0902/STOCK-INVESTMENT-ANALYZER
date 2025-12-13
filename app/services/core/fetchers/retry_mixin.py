@@ -105,7 +105,7 @@ class RetryMixin:  # pylint: disable=too-few-public-methods
                 )
                 if last_exception is None:
                     continue
-                raise last_exception
+                raise last_exception from e
 
             except Exception as e:  # pylint: disable=broad-exception-caught
                 # 予期せぬ例外もキャッチして適切に処理
@@ -115,7 +115,7 @@ class RetryMixin:  # pylint: disable=too-few-public-methods
                 )
                 if last_exception is None:
                     continue
-                raise last_exception
+                raise last_exception from e
 
         # ここには到達しないはずだが、念のため
         if last_exception:
