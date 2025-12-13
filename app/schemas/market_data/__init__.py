@@ -9,9 +9,11 @@ from .stock_master import (
     StockMasterRaw,
     StockMasterResponse,
 )
+from .stock_price import StockData
 
 __all__ = [
     "StockMasterRaw",
     "StockMasterNormalized",
     "StockMasterResponse",
+    "StockData",
 ]

@@ -282,13 +282,21 @@ graph TB
 
 #### 3.2.1 株価データサブドメイン (Stock Price)
 
-| モジュール       | クラス              | 責務                            | 非同期対応    | 継承元        | 型定義                              |
-| ---------------- | ------------------- | ------------------------------- | ------------- | ------------- | ----------------------------------- |
-| **service.py**   | StockPriceService   | 株価データ取得・保存統括        | ✅ async/await | -             | Pydantic FetchRequest/FetchResponse |
-| **fetcher.py**   | StockPriceFetcher   | Yahoo Finance APIからデータ取得 | ✅ aiohttp     | BaseFetcher   | Pydantic StockData                  |
-| **saver.py**     | StockPriceSaver     | データベースへの株価保存        | ✅ asyncpg     | BaseSaver     | Pydantic SaveResult                 |
-| **validator.py** | StockPriceValidator | 株価データ検証                  | -             | BaseValidator | Pydantic Field validation           |
-| **converter.py** | StockPriceConverter | DataFrame⇔Pydantic変換          | -             | BaseConverter | Pydantic型変換                      |
+| モジュール       | クラス              | 責務                            | 非同期対応    | 継承元        | 型定義                              | 実装状況 |
+| ---------------- | ------------------- | ------------------------------- | ------------- | ------------- | ----------------------------------- | -------- |
+| **service.py**   | StockPriceService   | 株価データ取得・保存統括        | ✅ async/await | -             | Pydantic FetchRequest/FetchResponse | 未実装   |
+| **fetcher.py**   | StockPriceFetcher   | Yahoo Finance APIからデータ取得 | ✅ aiohttp     | RetryMixin    | Pydantic StockData                  | ✅ 実装済 |
+| **saver.py**     | StockPriceSaver     | データベースへの株価保存        | ✅ asyncpg     | BaseSaver     | Pydantic SaveResult                 | 未実装   |
+| **validator.py** | StockPriceValidator | 株価データ検証                  | -             | BaseValidator | Pydantic Field validation           | 未実装   |
+| **converter.py** | StockPriceConverter | DataFrame⇔Pydantic変換          | -             | BaseConverter | Pydantic型変換                      | 未実装   |
+
+**実装済み機能**:
+- ✅ **StockPriceFetcher**: Yahoo Finance API統合、単一/複数銘柄取得
+- ✅ **タイムフレーム対応**: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
+- ✅ **リトライ機構**: RetryMixinによる自動リトライ
+- ✅ **並列処理制御**: asyncio.Semaphoreによる同時リクエスト制限
+- ✅ **エラーハンドリング**: YahooFinanceError例外クラス
+- ✅ **データ検証**: Pydantic StockDataモデル
 
 #### 3.2.2 銘柄マスタサブドメイン (Stock Master / JPX)
 
