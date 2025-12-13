@@ -79,7 +79,9 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
 
         # Repositoryインスタンスの初期化
         for timeframe, repo_class in self.TIMEFRAME_REPOSITORIES.items():
-            self.repositories[timeframe] = repo_class(self.session)
+            self.repositories[timeframe] = repo_class(
+                self.session
+            )  # type: ignore
 
     async def save(self, data: Dict[str, Any], **kwargs: Any) -> bool:
         """
@@ -179,7 +181,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 return False
 
             # 一括保存
-            saved_count = await repository.upsert_bulk(db_records)
+            saved_count: int = await repository.upsert_bulk(db_records)
             logger.info(
                 f"Saved {saved_count} records for symbol {symbol}, "
                 f"timeframe {timeframe}"

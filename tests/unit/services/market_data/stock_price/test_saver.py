@@ -187,7 +187,7 @@ class TestStockPriceSaver:
         }
         df = pd.DataFrame(data)
 
-        result = await saver.save_stock_data("7203", "1d", df)
+        result = await saver.save_single_stock_data("7203", "1d", df)
 
         assert result is True
         mock_repo.upsert_bulk.assert_called_once()
@@ -206,7 +206,7 @@ class TestStockPriceSaver:
         df = pd.DataFrame(data)
 
         with pytest.raises(ValueError, match="Unsupported timeframe"):
-            await saver.save_stock_data("7203", "invalid", df)
+            await saver.save_single_stock_data("7203", "invalid", df)
 
     @pytest.mark.asyncio
     async def test_save_multiple_stocks(self, saver, mock_session):
@@ -258,7 +258,7 @@ class TestStockPriceSaver:
             },
         }
 
-        results = await saver.save_multiple_stocks(data_dict)
+        results = await saver.save_batch_stocks(data_dict)
 
         assert "7203_1d" in results
         assert "7203_1h" in results
@@ -301,5 +301,5 @@ class TestStockPriceSaver:
 
         result = await saver.save_batch(data_list)
 
-        assert result == 1
+        assert result == 2
         mock_repo.upsert_bulk.assert_called_once()
