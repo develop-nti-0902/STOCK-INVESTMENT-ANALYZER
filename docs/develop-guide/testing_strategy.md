@@ -68,7 +68,7 @@ related_docs:
 - API層とServices層の連携
 - Services層とRepositories層の連携
 - データベーススキーマの整合性
-- 外部APIとの連携（必要に応じて）
+- 外部APIとの連携（Yahoo Finance API等）
 
 **特徴**:
 - テスト用DBを使用
@@ -77,6 +77,13 @@ related_docs:
 - カバレッジ目標: 主要フロー70%以上
 
 **実装ディレクトリ**: `tests/integration/`
+
+**具体例**:
+- `test_yahoo_finance_integration.py`: Yahoo Finance APIとの実際の連携テスト
+  - 実銘柄（AAPL等）でのデータ取得確認
+  - 複数銘柄並列取得の動作検証
+  - 異なるタイムフレームでのデータ取得テスト
+  - エラーハンドリング（無効な銘柄シンボル等）の確認
 
 ### 2.3 E2Eテスト（End-to-End Test）
 **目的**: ユーザーの実際の操作フローをシミュレートし、システム全体の動作を確認する。
