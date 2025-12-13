@@ -30,6 +30,13 @@ related_docs:
   - [8. モックとスタブの使用方針](#8-モックとスタブの使用方針)
   - [9. テストコード品質の維持](#9-テストコード品質の維持)
   - [10. ベストプラクティス](#10-ベストプラクティス)
+  - [11. テスト検出エラーの一般的な原因](#11-テスト検出エラーの一般的な原因)
+    - [11.1 Pydanticモデルのフィールド名衝突](#111-pydanticモデルのフィールド名衝突)
+    - [11.2 Pydantic v2のField使用方法の誤り](#112-pydantic-v2のfield使用方法の誤り)
+    - [11.3 ファイルエンコーディング問題](#113-ファイルエンコーディング問題)
+    - [11.4 テストメソッドの実装との不一致](#114-テストメソッドの実装との不一致)
+    - [11.5 importエラー](#115-importエラー)
+    - [11.6 一般的なデバッグ手順](#116-一般的なデバッグ手順)
 
 
 ## 1. 概要
@@ -61,7 +68,7 @@ related_docs:
 - API層とServices層の連携
 - Services層とRepositories層の連携
 - データベーススキーマの整合性
-- 外部APIとの連携（必要に応じて）
+- 外部APIとの連携（Yahoo Finance API等）
 
 **特徴**:
 - テスト用DBを使用
@@ -70,6 +77,13 @@ related_docs:
 - カバレッジ目標: 主要フロー70%以上
 
 **実装ディレクトリ**: `tests/integration/`
+
+**具体例**:
+- `test_yahoo_finance_integration.py`: Yahoo Finance APIとの実際の連携テスト
+  - 実銘柄（AAPL等）でのデータ取得確認
+  - 複数銘柄並列取得の動作検証
+  - 異なるタイムフレームでのデータ取得テスト
+  - エラーハンドリング（無効な銘柄シンボル等）の確認
 
 ### 2.3 E2Eテスト（End-to-End Test）
 **目的**: ユーザーの実際の操作フローをシミュレートし、システム全体の動作を確認する。
@@ -371,5 +385,141 @@ def test_<機能>_<条件>_<期待結果>():
 7. **ドキュメント化**
    - 複雑なテストはコメントで説明
    - セットアップ手順をREADMEに記載
+
+## 11. テスト検出エラーの一般的な原因
+
+pytestがテストファイルを検出できない場合の主な原因と対処法を記載します。これらの問題は開発中に頻発するため、事前知識として把握しておくことが重要です。
+
+### 11.1 Pydanticモデルのフィールド名衝突
+
+**現象**: `pydantic.errors.PydanticUserError: Error when building FieldInfo from annotated attribute`
+
+**原因**: Pydanticモデルのフィールド名がPythonの組み込み関数や型名と衝突する場合。
+
+**具体例**:
+```python
+# ❌ 問題のあるコード
+class StockData(BaseModel):
+    date: date = Field(..., description="日付")  # datetime.dateと衝突
+    open: Optional[float] = Field(None, description="始値")  # 組み込み関数openと衝突
+
+# ✅ 修正後のコード
+class StockData(BaseModel):
+    trade_date: date = Field(description="日付")  # フィールド名を変更
+    open_price: Optional[float] = Field(None, description="始値")  # フィールド名を変更
+```
+
+**対処法**:
+- フィールド名がPythonの組み込み関数（`open`, `close`, `type`など）と衝突しないよう命名
+- 型名（`date`, `time`, `str`など）と衝突しないよう命名
+- 必要に応じてフィールド名を変更し、APIやデータベースのカラム名とは別に管理
+
+### 11.2 Pydantic v2のField使用方法の誤り
+
+**現象**: `pydantic.errors.PydanticUserError: Error when building FieldInfo from annotated attribute`
+
+**原因**: Pydantic v2では`Field(...)`の使用方法が変更されており、`Field(description=...)`形式を使用する必要がある。
+
+**具体例**:
+```python
+# ❌ Pydantic v1形式（使用不可）
+class StockData(BaseModel):
+    symbol: str = Field(..., description="銘柄コード")
+
+# ✅ Pydantic v2形式（正しい）
+class StockData(BaseModel):
+    symbol: str = Field(description="銘柄コード")
+```
+
+**対処法**:
+- `Field(...)`を使用せず、`Field(description="...")`形式を使用
+- デフォルト値が必要な場合は`Field(None, description="...")`形式を使用
+
+### 11.3 ファイルエンコーディング問題
+
+**現象**: `SyntaxError: source code string cannot contain null bytes`
+
+**原因**: テストファイルにUTF-8 BOM（Byte Order Mark）やnull bytesが含まれている場合。
+
+**対処法**:
+- ファイルをUTF-8エンコーディング（BOMなし）で保存
+- PowerShellを使用する場合は`-Encoding UTF8`オプションを明示的に指定
+- ファイルにnull bytesが含まれていないか確認
+
+**確認コマンド**:
+```powershell
+# PowerShellでnull bytesを確認
+python -c "with open('test_file.py', 'rb') as f: content = f.read(); print('Null bytes found:', b'\x00' in content)"
+```
+
+### 11.4 テストメソッドの実装との不一致
+
+**現象**: `AttributeError: type object 'Xxx' has no attribute 'method_name'`
+
+**原因**: テストコードで呼び出すメソッド名が実際の実装と異なる場合。
+
+**具体例**:
+```python
+# ❌ テストコード
+def test_convert_timeframe():
+    result = TimeframeMapping.convert("1d")  # convertメソッドは存在しない
+
+# ✅ 実際の実装
+class TimeframeMapping:
+    @classmethod
+    def get_yfinance_interval(cls, timeframe: str) -> str:
+        # 実装内容
+        pass
+
+# ✅ 修正後のテスト
+def test_convert_timeframe():
+    result = TimeframeMapping.get_yfinance_interval("1d")
+```
+
+**対処法**:
+- テスト作成前に実際のクラス/メソッド定義を確認
+- IDEのコード補完機能を活用してメソッド名を検証
+- テスト実行前に`--collect-only`オプションでテスト検出を確認
+
+### 11.5 importエラー
+
+**現象**: `ModuleNotFoundError` または `ImportError`
+
+**原因**: テスト対象モジュールのimportに失敗する場合。
+
+**対処法**:
+- Pythonパスが正しく設定されているか確認
+- 仮想環境がアクティベートされているか確認
+- 相対importのパスが正しいか確認
+- 依存関係がインストールされているか確認
+
+### 11.6 一般的なデバッグ手順
+
+テスト検出エラーが発生した場合のデバッグ手順：
+
+1. **ファイル単体のimportテスト**:
+   ```bash
+   python -c "from app.services.module import ClassName; print('Import successful')"
+   ```
+
+2. **pytest収集テスト**:
+   ```bash
+   poetry run pytest --collect-only tests/unit/path/test_file.py
+   ```
+
+3. **エンコーディング確認**:
+   ```python
+   with open('test_file.py', 'rb') as f:
+       content = f.read()
+       print('BOM present:', content.startswith(b'\xef\xbb\xbf'))
+       print('Null bytes:', b'\x00' in content)
+   ```
+
+4. **仮想環境確認**:
+   ```bash
+   which python  # 仮想環境のPythonが使用されているか確認
+   ```
+
+これらの問題は主にPython/Pydanticのバージョンアップや環境固有の問題によって発生します。テスト作成時は常に実装コードを確認し、小さなステップでテストを実行することを推奨します。
 
 ---
