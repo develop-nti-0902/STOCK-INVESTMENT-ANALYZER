@@ -6,5 +6,6 @@
 """
 
 from app.services.core.savers.base_saver import BaseSaver
+from app.services.core.savers.bulk_saver_mixin import BulkSaverMixin
 
-__all__ = ["BaseSaver"]
+__all__ = ["BaseSaver", "BulkSaverMixin"]

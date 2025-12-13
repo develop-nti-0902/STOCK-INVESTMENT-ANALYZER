@@ -10,7 +10,8 @@ ignore=tests
 
 [MESSAGES CONTROL]
 # 無関係な docstring の警告は抑制（プロジェクトポリシーで許容）
-disable=C0114,C0115,C0116
+# broad-exception-caught は bulk save などで意図的に使用する場合に許容
+disable=C0114,C0115,C0116,W0718
 
 [FORMAT]
 max-line-length=79
