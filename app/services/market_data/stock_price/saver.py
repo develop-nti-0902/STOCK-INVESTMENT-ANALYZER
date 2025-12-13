@@ -9,7 +9,7 @@ DataFrameからDB形式への変換と一括保存をサポートします。
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -245,7 +245,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 elif isinstance(result, bool):
                     results[f"{symbol}_{timeframe}"] = 1 if result else 0
                 else:
-                    results[f"{symbol}_{timeframe}"] = result
+                    results[f"{symbol}_{timeframe}"] = cast(int, result)
                 idx += 1
 
         return results
