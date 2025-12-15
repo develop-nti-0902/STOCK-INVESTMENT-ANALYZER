@@ -11,119 +11,137 @@ BEGIN;
 -- 分・時間足テーブル（日時は TIMESTAMP 型を使用）
 CREATE TABLE IF NOT EXISTS stocks_1m (
   id SERIAL PRIMARY KEY,
-  symbol VARCHAR(20) NOT NULL,
-  datetime TIMESTAMP WITH TIME ZONE NOT NULL,
-  open NUMERIC NOT NULL,
-  high NUMERIC NOT NULL,
-  low NUMERIC NOT NULL,
-  close NUMERIC NOT NULL,
+  symbol VARCHAR(10) NOT NULL,
+  timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+  open NUMERIC(14,4) NOT NULL,
+  high NUMERIC(14,4) NOT NULL,
+  low NUMERIC(14,4) NOT NULL,
+  close NUMERIC(14,4) NOT NULL,
+  adj_close NUMERIC(14,4),
   volume BIGINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  CONSTRAINT uq_stocks_1m_symbol_datetime UNIQUE (symbol, datetime),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT uq_stocks_1m_symbol_timestamp UNIQUE (symbol, timestamp),
   CONSTRAINT chk_stocks_1m_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
   CONSTRAINT chk_stocks_1m_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
-  CONSTRAINT chk_stocks_1m_volume_non_negative CHECK (volume >= 0)
+  CONSTRAINT chk_stocks_1m_volume_non_negative CHECK (volume >= 0),
+  CONSTRAINT fk_stocks_1m_symbol_master FOREIGN KEY (symbol) REFERENCES stock_master(stock_code) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_stocks_1m_symbol ON stocks_1m (symbol);
-CREATE INDEX IF NOT EXISTS idx_stocks_1m_datetime ON stocks_1m (datetime);
-CREATE INDEX IF NOT EXISTS idx_stocks_1m_symbol_datetime_desc ON stocks_1m (symbol, datetime DESC);
+CREATE INDEX IF NOT EXISTS idx_stocks_1m_timestamp ON stocks_1m (timestamp);
+CREATE INDEX IF NOT EXISTS idx_stocks_1m_symbol_timestamp_desc ON stocks_1m (symbol, timestamp DESC);
 
 CREATE TABLE IF NOT EXISTS stocks_5m (
   id SERIAL PRIMARY KEY,
-  symbol VARCHAR(20) NOT NULL,
-  datetime TIMESTAMP WITH TIME ZONE NOT NULL,
-  open NUMERIC NOT NULL,
-  high NUMERIC NOT NULL,
-  low NUMERIC NOT NULL,
-  close NUMERIC NOT NULL,
+  symbol VARCHAR(10) NOT NULL,
+  timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+  open NUMERIC(14,4) NOT NULL,
+  high NUMERIC(14,4) NOT NULL,
+  low NUMERIC(14,4) NOT NULL,
+  close NUMERIC(14,4) NOT NULL,
+  adj_close NUMERIC(14,4),
   volume BIGINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  CONSTRAINT uq_stocks_5m_symbol_datetime UNIQUE (symbol, datetime),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT uq_stocks_5m_symbol_timestamp UNIQUE (symbol, timestamp),
   CONSTRAINT chk_stocks_5m_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
   CONSTRAINT chk_stocks_5m_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
-  CONSTRAINT chk_stocks_5m_volume_non_negative CHECK (volume >= 0)
+  CONSTRAINT chk_stocks_5m_volume_non_negative CHECK (volume >= 0),
+  CONSTRAINT fk_stocks_5m_symbol_master FOREIGN KEY (symbol) REFERENCES stock_master(stock_code) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_stocks_5m_symbol ON stocks_5m (symbol);
-CREATE INDEX IF NOT EXISTS idx_stocks_5m_datetime ON stocks_5m (datetime);
-CREATE INDEX IF NOT EXISTS idx_stocks_5m_symbol_datetime_desc ON stocks_5m (symbol, datetime DESC);
+CREATE INDEX IF NOT EXISTS idx_stocks_5m_timestamp ON stocks_5m (timestamp);
+CREATE INDEX IF NOT EXISTS idx_stocks_5m_symbol_timestamp_desc ON stocks_5m (symbol, timestamp DESC);
 
 CREATE TABLE IF NOT EXISTS stocks_15m (
   id SERIAL PRIMARY KEY,
-  symbol VARCHAR(20) NOT NULL,
-  datetime TIMESTAMP WITH TIME ZONE NOT NULL,
-  open NUMERIC NOT NULL,
-  high NUMERIC NOT NULL,
-  low NUMERIC NOT NULL,
-  close NUMERIC NOT NULL,
+  symbol VARCHAR(10) NOT NULL,
+  timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+  open NUMERIC(14,4) NOT NULL,
+  high NUMERIC(14,4) NOT NULL,
+  low NUMERIC(14,4) NOT NULL,
+  close NUMERIC(14,4) NOT NULL,
+  adj_close NUMERIC(14,4),
   volume BIGINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  CONSTRAINT uq_stocks_15m_symbol_datetime UNIQUE (symbol, datetime),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT uq_stocks_15m_symbol_timestamp UNIQUE (symbol, timestamp),
   CONSTRAINT chk_stocks_15m_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
   CONSTRAINT chk_stocks_15m_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
-  CONSTRAINT chk_stocks_15m_volume_non_negative CHECK (volume >= 0)
+  CONSTRAINT chk_stocks_15m_volume_non_negative CHECK (volume >= 0),
+  CONSTRAINT fk_stocks_15m_symbol_master FOREIGN KEY (symbol) REFERENCES stock_master(stock_code) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_stocks_15m_symbol ON stocks_15m (symbol);
-CREATE INDEX IF NOT EXISTS idx_stocks_15m_datetime ON stocks_15m (datetime);
-CREATE INDEX IF NOT EXISTS idx_stocks_15m_symbol_datetime_desc ON stocks_15m (symbol, datetime DESC);
+CREATE INDEX IF NOT EXISTS idx_stocks_15m_timestamp ON stocks_15m (timestamp);
+CREATE INDEX IF NOT EXISTS idx_stocks_15m_symbol_timestamp_desc ON stocks_15m (symbol, timestamp DESC);
 
 CREATE TABLE IF NOT EXISTS stocks_30m (
   id SERIAL PRIMARY KEY,
-  symbol VARCHAR(20) NOT NULL,
-  datetime TIMESTAMP WITH TIME ZONE NOT NULL,
-  open NUMERIC NOT NULL,
-  high NUMERIC NOT NULL,
-  low NUMERIC NOT NULL,
-  close NUMERIC NOT NULL,
+  symbol VARCHAR(10) NOT NULL,
+  timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+  open NUMERIC(14,4) NOT NULL,
+  high NUMERIC(14,4) NOT NULL,
+  low NUMERIC(14,4) NOT NULL,
+  close NUMERIC(14,4) NOT NULL,
+  adj_close NUMERIC(14,4),
   volume BIGINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  CONSTRAINT uq_stocks_30m_symbol_datetime UNIQUE (symbol, datetime),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT uq_stocks_30m_symbol_timestamp UNIQUE (symbol, timestamp),
   CONSTRAINT chk_stocks_30m_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
   CONSTRAINT chk_stocks_30m_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
-  CONSTRAINT chk_stocks_30m_volume_non_negative CHECK (volume >= 0)
+  CONSTRAINT chk_stocks_30m_volume_non_negative CHECK (volume >= 0),
+  CONSTRAINT fk_stocks_30m_symbol_master FOREIGN KEY (symbol) REFERENCES stock_master(stock_code) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_stocks_30m_symbol ON stocks_30m (symbol);
-CREATE INDEX IF NOT EXISTS idx_stocks_30m_datetime ON stocks_30m (datetime);
-CREATE INDEX IF NOT EXISTS idx_stocks_30m_symbol_datetime_desc ON stocks_30m (symbol, datetime DESC);
+CREATE INDEX IF NOT EXISTS idx_stocks_30m_timestamp ON stocks_30m (timestamp);
+CREATE INDEX IF NOT EXISTS idx_stocks_30m_symbol_timestamp_desc ON stocks_30m (symbol, timestamp DESC);
 
 CREATE TABLE IF NOT EXISTS stocks_1h (
   id SERIAL PRIMARY KEY,
-  symbol VARCHAR(20) NOT NULL,
-  datetime TIMESTAMP WITH TIME ZONE NOT NULL,
-  open NUMERIC NOT NULL,
-  high NUMERIC NOT NULL,
-  low NUMERIC NOT NULL,
-  close NUMERIC NOT NULL,
+  symbol VARCHAR(10) NOT NULL,
+  timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+  open NUMERIC(14,4) NOT NULL,
+  high NUMERIC(14,4) NOT NULL,
+  low NUMERIC(14,4) NOT NULL,
+  close NUMERIC(14,4) NOT NULL,
+  adj_close NUMERIC(14,4),
   volume BIGINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  CONSTRAINT uq_stocks_1h_symbol_datetime UNIQUE (symbol, datetime),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT uq_stocks_1h_symbol_timestamp UNIQUE (symbol, timestamp),
   CONSTRAINT chk_stocks_1h_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
   CONSTRAINT chk_stocks_1h_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
-  CONSTRAINT chk_stocks_1h_volume_non_negative CHECK (volume >= 0)
+  CONSTRAINT chk_stocks_1h_volume_non_negative CHECK (volume >= 0),
+  CONSTRAINT fk_stocks_1h_symbol_master FOREIGN KEY (symbol) REFERENCES stock_master(stock_code) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_stocks_1h_symbol ON stocks_1h (symbol);
-CREATE INDEX IF NOT EXISTS idx_stocks_1h_datetime ON stocks_1h (datetime);
-CREATE INDEX IF NOT EXISTS idx_stocks_1h_symbol_datetime_desc ON stocks_1h (symbol, datetime DESC);
+CREATE INDEX IF NOT EXISTS idx_stocks_1h_timestamp ON stocks_1h (timestamp);
+CREATE INDEX IF NOT EXISTS idx_stocks_1h_symbol_timestamp_desc ON stocks_1h (symbol, timestamp DESC);
 
 -- 日足・週足・月足テーブル（日付ベースの間隔には `DATE` 型を使用）
 CREATE TABLE IF NOT EXISTS stocks_1d (
   id SERIAL PRIMARY KEY,
-  symbol VARCHAR(20) NOT NULL,
+  symbol VARCHAR(10) NOT NULL,
   date DATE NOT NULL,
-  open NUMERIC NOT NULL,
-  high NUMERIC NOT NULL,
-  low NUMERIC NOT NULL,
-  close NUMERIC NOT NULL,
+  open NUMERIC(14,4) NOT NULL,
+  high NUMERIC(14,4) NOT NULL,
+  low NUMERIC(14,4) NOT NULL,
+  close NUMERIC(14,4) NOT NULL,
+  adj_close NUMERIC(14,4),
   volume BIGINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   CONSTRAINT uq_stocks_1d_symbol_date UNIQUE (symbol, date),
   CONSTRAINT chk_stocks_1d_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
   CONSTRAINT chk_stocks_1d_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
-  CONSTRAINT chk_stocks_1d_volume_non_negative CHECK (volume >= 0)
+  CONSTRAINT chk_stocks_1d_volume_non_negative CHECK (volume >= 0),
+  CONSTRAINT fk_stocks_1d_symbol_master FOREIGN KEY (symbol) REFERENCES stock_master(stock_code) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_stocks_1d_symbol ON stocks_1d (symbol);
@@ -132,18 +150,21 @@ CREATE INDEX IF NOT EXISTS idx_stocks_1d_symbol_date_desc ON stocks_1d (symbol, 
 
 CREATE TABLE IF NOT EXISTS stocks_1wk (
   id SERIAL PRIMARY KEY,
-  symbol VARCHAR(20) NOT NULL,
+  symbol VARCHAR(10) NOT NULL,
   date DATE NOT NULL,
-  open NUMERIC NOT NULL,
-  high NUMERIC NOT NULL,
-  low NUMERIC NOT NULL,
-  close NUMERIC NOT NULL,
+  open NUMERIC(14,4) NOT NULL,
+  high NUMERIC(14,4) NOT NULL,
+  low NUMERIC(14,4) NOT NULL,
+  close NUMERIC(14,4) NOT NULL,
+  adj_close NUMERIC(14,4),
   volume BIGINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   CONSTRAINT uq_stocks_1wk_symbol_date UNIQUE (symbol, date),
   CONSTRAINT chk_stocks_1wk_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
   CONSTRAINT chk_stocks_1wk_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
-  CONSTRAINT chk_stocks_1wk_volume_non_negative CHECK (volume >= 0)
+  CONSTRAINT chk_stocks_1wk_volume_non_negative CHECK (volume >= 0),
+  CONSTRAINT fk_stocks_1wk_symbol_master FOREIGN KEY (symbol) REFERENCES stock_master(stock_code) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_stocks_1wk_symbol ON stocks_1wk (symbol);
@@ -152,18 +173,21 @@ CREATE INDEX IF NOT EXISTS idx_stocks_1wk_symbol_date_desc ON stocks_1wk (symbol
 
 CREATE TABLE IF NOT EXISTS stocks_1mo (
   id SERIAL PRIMARY KEY,
-  symbol VARCHAR(20) NOT NULL,
+  symbol VARCHAR(10) NOT NULL,
   date DATE NOT NULL,
-  open NUMERIC NOT NULL,
-  high NUMERIC NOT NULL,
-  low NUMERIC NOT NULL,
-  close NUMERIC NOT NULL,
+  open NUMERIC(14,4) NOT NULL,
+  high NUMERIC(14,4) NOT NULL,
+  low NUMERIC(14,4) NOT NULL,
+  close NUMERIC(14,4) NOT NULL,
+  adj_close NUMERIC(14,4),
   volume BIGINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   CONSTRAINT uq_stocks_1mo_symbol_date UNIQUE (symbol, date),
   CONSTRAINT chk_stocks_1mo_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
   CONSTRAINT chk_stocks_1mo_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
-  CONSTRAINT chk_stocks_1mo_volume_non_negative CHECK (volume >= 0)
+  CONSTRAINT chk_stocks_1mo_volume_non_negative CHECK (volume >= 0),
+  CONSTRAINT fk_stocks_1mo_symbol_master FOREIGN KEY (symbol) REFERENCES stock_master(stock_code) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_stocks_1mo_symbol ON stocks_1mo (symbol);
