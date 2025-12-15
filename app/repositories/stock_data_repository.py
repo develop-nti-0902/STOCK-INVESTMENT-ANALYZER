@@ -29,6 +29,18 @@ from app.models.stock_data import (
 )
 from app.repositories.base import BaseRepository
 
+# すべての株価データモデルの型
+StockDataModel = Union[
+    Stocks1m,
+    Stocks5m,
+    Stocks15m,
+    Stocks30m,
+    Stocks1h,
+    Stocks1d,
+    Stocks1wk,
+    Stocks1mo,
+]
+
 logger = logging.getLogger(__name__)
 
 
@@ -113,7 +125,7 @@ class StockDataRepository(BaseRepository, ABC):
                 "close": stmt.excluded.close,
                 "adj_close": stmt.excluded.adj_close,
                 "volume": stmt.excluded.volume,
-                "updated_at": func.now(),
+                "updated_at": func.now(),  # pylint: disable=not-callable
             }
 
             stmt = stmt.on_conflict_do_update(
@@ -263,15 +275,17 @@ class StockDataRepository(BaseRepository, ABC):
         Returns:
             レコード数
         """
-        query = select(func.count()).where(self.model.symbol == symbol)
+        query = select(func.count()).where(
+            self.model.symbol == symbol
+        )  # pylint: disable=not-callable
         result = await self.session.execute(query)
         return result.scalar_one()
 
     async def get_by_symbol_and_timestamp(
         self, symbol: str, timestamp: datetime
-    ) -> Optional:
+    ) -> Optional[StockDataModel]:
         """
-        銘柄コード + タイムスタンプでデータを取得（分足・時間足用）
+        銘柄コード + タイムスタンプでデータを取得(分足・時間足用)
 
         Args:
             symbol: 銘柄コード
@@ -296,9 +310,9 @@ class StockDataRepository(BaseRepository, ABC):
 
     async def get_by_symbol_and_date(
         self, symbol: str, target_date: date
-    ) -> Optional:
+    ) -> Optional[StockDataModel]:
         """
-        銘柄コード + 日付でデータを取得（日足以上用）
+        銘柄コード + 日付でデータを取得(日足以上用)
 
         Args:
             symbol: 銘柄コード
