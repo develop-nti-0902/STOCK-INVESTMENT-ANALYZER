@@ -111,8 +111,9 @@ class StockDataRepository(BaseRepository, ABC):
                 "high": stmt.excluded.high,
                 "low": stmt.excluded.low,
                 "close": stmt.excluded.close,
+                "adj_close": stmt.excluded.adj_close,
                 "volume": stmt.excluded.volume,
-                "updated_at": func.now,
+                "updated_at": func.now(),
             }
 
             stmt = stmt.on_conflict_do_update(
@@ -251,6 +252,74 @@ class StockDataRepository(BaseRepository, ABC):
 
         result = await self.session.execute(query)
         return list(result.scalars().all())
+
+    async def count_by_symbol(self, symbol: str) -> int:
+        """
+        銘柄のレコード数を取得
+
+        Args:
+            symbol: 銘柄コード
+
+        Returns:
+            レコード数
+        """
+        query = select(func.count()).where(self.model.symbol == symbol)
+        result = await self.session.execute(query)
+        return result.scalar_one()
+
+    async def get_by_symbol_and_timestamp(
+        self, symbol: str, timestamp: datetime
+    ) -> Optional:
+        """
+        銘柄コード + タイムスタンプでデータを取得（分足・時間足用）
+
+        Args:
+            symbol: 銘柄コード
+            timestamp: タイムスタンプ
+
+        Returns:
+            モデルインスタンス、見つからない場合はNone
+        """
+        if self.time_column != "timestamp":
+            raise ValueError(
+                f"This method is for timestamp-based data. "
+                f"Use get_by_symbol_and_date for {self.timeframe}"
+            )
+
+        query = select(self.model).where(
+            self.model.symbol == symbol,
+            self.model.timestamp == timestamp,
+        )
+
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+
+    async def get_by_symbol_and_date(
+        self, symbol: str, target_date: date
+    ) -> Optional:
+        """
+        銘柄コード + 日付でデータを取得（日足以上用）
+
+        Args:
+            symbol: 銘柄コード
+            target_date: 対象日付
+
+        Returns:
+            モデルインスタンス、見つからない場合はNone
+        """
+        if self.time_column != "date":
+            raise ValueError(
+                f"This method is for date-based data. "
+                f"Use get_by_symbol_and_timestamp for {self.timeframe}"
+            )
+
+        query = select(self.model).where(
+            self.model.symbol == symbol,
+            self.model.date == target_date,
+        )
+
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
 
 
 # 具体的なRepositoryクラス実装

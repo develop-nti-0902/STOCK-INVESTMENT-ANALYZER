@@ -411,7 +411,8 @@ class StockPriceFetcher(RetryMixin):
             try:
                 stock_data = StockData(
                     symbol=symbol,
-                    trade_date=index.date(),  # Timestampをdateに変換
+                    # intraday の場合は時刻情報を保持する
+                    trade_date=index.to_pydatetime(),
                     open_price=(
                         float(row["Open"]) if pd.notna(row["Open"]) else None
                     ),

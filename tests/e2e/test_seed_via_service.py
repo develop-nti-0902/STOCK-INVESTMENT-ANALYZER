@@ -49,33 +49,59 @@ async def test_fetch_and_store_integration(monkeypatch):
     except Exception:
         pass
 
-    # Arrange（準備）: テーブル作成
+    # Arrange（準備）: テーブル作成とクリーンアップ
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # E2Eテストは毎回クリーンな状態から開始するため、既存データを削除
+        from sqlalchemy import delete
+
+        await conn.execute(delete(StockMaster))
 
     # Arrange（準備）:
     # モックを使わずにエンドツーエンドで実行する（JPXからダウンロード → 正規化 → 永続化）
+
+    # Act（実行）: まずフェッチャーで期待データ件数を取得
+    from app.services.market_data.stock_master.fetcher import (
+        StockMasterFetcher,
+    )
+
+    fetcher = StockMasterFetcher()
+    expected_data = await fetcher.fetch_all()
+    expected_count = len(expected_data)
+
+    # Assert（事前検証）: JPXから何かしらのデータが取得できていること
+    assert expected_count > 0, "JPX data should be fetched"
 
     # Act（実行）: セッションを作成してサービスを実行（スクリプト動作を模倣）
     session_maker = db_mod.get_session_maker()
     async with session_maker() as session:
         repo = StockMasterRepository(session=session)
-        service = StockMasterService(repo=repo)
+        # 上で取得した `fetcher` インスタンスを再利用します。
+        # これによりサービスが同一データセットで動作し、JPXへ二度アクセスして
+        # データが変化することによるテストの不安定さ（期待件数とDBの差分）を防ぎます。
+        service = StockMasterService(repo=repo, fetcher=fetcher)
 
         # bulk_upsert に自動 commit を追加したため、ここでの明示的な
         # commit は不要になりました。
         processed = await service.fetch_and_store(source="jpx", batch_size=2)
 
-        # Assert（検証）: 処理件数が 0 より大きいこと（少なくとも何かが処理された）
-        assert processed > 0
+        # Assert（検証）: 処理件数がJPXから取得したデータ件数と一致すること
+        processed_msg = (
+            f"Expected {expected_count} records to be processed, "
+            f"but got {processed}"
+        )
+        assert processed == expected_count, processed_msg
 
     # Assert（検証）: 新しいセッションで永続化が完了していることを確認する
     async with session_maker() as verify_session:
         result = await verify_session.execute(select(StockMaster))
         rows = result.scalars().all()
 
-        # 永続化された行数が service が返した processed と一致すること
-        assert len(rows) == processed
+        # 永続化された行数がJPXから取得したデータ件数と一致すること
+        rows_msg = (
+            f"Expected {expected_count} rows in DB, " f"but got {len(rows)}"
+        )
+        assert len(rows) == expected_count, rows_msg
 
         # 生産物: 全件ダンプを CSV で出力（tests/e2e/artifacts/ に保存）
         import csv

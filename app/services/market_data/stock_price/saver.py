@@ -360,13 +360,22 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
 
                 record = {
                     "symbol": symbol,
+                    # 保存時は timestamp (datetime) を保持し、日次等のRepository向けに
+                    # date も同時に保持する（repository が必要とするキーが存在するようにするため）
                     "timestamp": timestamp.to_pydatetime(),
+                    "date": timestamp.date(),
                     "open": float(row["open"]),
                     "high": float(row["high"]),
                     "low": float(row["low"]),
                     "close": float(row["close"]),
                     "volume": int(row["volume"]),
                 }
+                # 調整後終値があれば追加
+                if "adj_close" in row and not pd.isna(row["adj_close"]):
+                    try:
+                        record["adj_close"] = float(row["adj_close"])
+                    except Exception:
+                        pass
                 records.append(record)
 
             except (ValueError, TypeError) as e:
@@ -399,12 +408,19 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 record = {
                     "symbol": symbol,
                     "timestamp": timestamp.to_pydatetime(),
+                    "date": timestamp.date(),
                     "open": float(item["open"]),
                     "high": float(item["high"]),
                     "low": float(item["low"]),
                     "close": float(item["close"]),
                     "volume": int(item["volume"]),
                 }
+                # 辞書から adj_close が来ていれば追加
+                if "adj_close" in item and item["adj_close"] is not None:
+                    try:
+                        record["adj_close"] = float(item["adj_close"])
+                    except Exception:
+                        pass
                 records.append(record)
 
             except (KeyError, ValueError, TypeError) as e:
