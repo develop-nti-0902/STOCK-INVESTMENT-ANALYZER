@@ -275,9 +275,8 @@ class StockDataRepository(BaseRepository, ABC):
         Returns:
             レコード数
         """
-        query = select(func.count()).where(
-            self.model.symbol == symbol
-        )  # pylint: disable=not-callable
+        # pylint: disable=not-callable
+        query = select(func.count()).where(self.model.symbol == symbol)
         result = await self.session.execute(query)
         return result.scalar_one()
 
