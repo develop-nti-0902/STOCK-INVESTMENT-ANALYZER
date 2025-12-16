@@ -12,7 +12,7 @@ from app.repositories.stock_data_repository import StockData1mRepository
 from app.services.market_data.stock_price.fetcher import StockPriceFetcher
 from app.utils.logger import get_logger
 
-pytestmark = pytest.mark.e2e
+pytestmark = pytest.mark.integration
 
 logger = get_logger(__name__)
 
@@ -61,7 +61,7 @@ async def test_fetch_and_save_1m_stock_data(monkeypatch):
     # Arrange（準備）: テーブル作成とクリーンアップ
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # E2Eテストは毎回クリーンな状態から開始するため、既存データを削除
+        # integrationテストは毎回クリーンな状態から開始するため、既存データを削除
         from sqlalchemy import delete
 
         from app.models.stock_master import StockMaster
@@ -234,7 +234,7 @@ async def test_fetch_and_save_1m_stock_data(monkeypatch):
 
         rows = all_rows  # CSV出力用に変数を設定
 
-        # 生産物: 全件ダンプを CSV で出力（tests/e2e/artifacts/ に保存）
+        # 生産物: 全件ダンプを CSV で出力（tests/integration/artifacts/ に保存）
         import csv
 
         artifacts_dir = os.path.join(os.path.dirname(__file__), "artifacts")
