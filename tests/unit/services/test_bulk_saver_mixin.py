@@ -1,4 +1,4 @@
-﻿"""
+"""
 BulkSaverMixinの単体テスト
 """
 
