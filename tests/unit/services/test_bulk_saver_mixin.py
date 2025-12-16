@@ -17,7 +17,7 @@ class ConcreteBulkSaver(BulkSaverMixin[dict]):
             batch_size=batch_size,
             max_concurrent_batches=max_concurrent_batches,
         )
-        self.executed_chunks = []
+        self.executed_chunks: list[list[dict]] = []
 
     async def save(self, data: dict, **kwargs) -> bool:
         """単一保存の実装（テスト用）"""
