@@ -482,4 +482,3 @@ async def test_concurrent_batch_processing(monkeypatch, artifacts_dir):
     filename = f"performance_concurrent_batches_{ts}.csv"
     filepath = os.path.join(artifacts_dir, filename)
     export_performance_results(performance_results, filepath)
-
