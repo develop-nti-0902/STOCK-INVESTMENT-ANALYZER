@@ -76,6 +76,7 @@ python_files = ["test_*.py"]
 markers = [
     "integration: mark a test as integration",
     "e2e: mark a test as end-to-end",
+    "slow: mark a test as slow (e.g., performance tests)",
 ]
 
 [tool.coverage.run]

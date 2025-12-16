@@ -57,21 +57,23 @@ class StockDataRepository(BaseRepository, ABC):
         time_column (str): 時間カラム名（'timestamp' または 'date'）
     """
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, model):
         """
         初期化
 
         Args:
             session: 非同期DBセッション
+            model: SQLAlchemyモデルクラス
         """
-        super().__init__(session, self.model)
+        super().__init__(session, model)
+        self._model = model
         self.timeframe = self._get_timeframe()
         self.time_column = self._get_time_column()
 
     @property
-    @abstractmethod
     def model(self):
-        """SQLAlchemyモデルクラス（サブクラスで実装）"""
+        """SQLAlchemyモデルクラス"""
+        return self._model
 
     @abstractmethod
     def _get_timeframe(self) -> str:
@@ -341,7 +343,8 @@ class StockDataRepository(BaseRepository, ABC):
 class StockData1mRepository(StockDataRepository):
     """1-minute stock data Repository"""
 
-    model = Stocks1m
+    def __init__(self, session: AsyncSession):
+        super().__init__(session, Stocks1m)
 
     def _get_timeframe(self) -> str:
         return "1m"
@@ -353,7 +356,8 @@ class StockData1mRepository(StockDataRepository):
 class StockData5mRepository(StockDataRepository):
     """5-minute stock data Repository"""
 
-    model = Stocks5m
+    def __init__(self, session: AsyncSession):
+        super().__init__(session, Stocks5m)
 
     def _get_timeframe(self) -> str:
         return "5m"
@@ -365,7 +369,8 @@ class StockData5mRepository(StockDataRepository):
 class StockData15mRepository(StockDataRepository):
     """15-minute stock data Repository"""
 
-    model = Stocks15m
+    def __init__(self, session: AsyncSession):
+        super().__init__(session, Stocks15m)
 
     def _get_timeframe(self) -> str:
         return "15m"
@@ -377,7 +382,8 @@ class StockData15mRepository(StockDataRepository):
 class StockData30mRepository(StockDataRepository):
     """30-minute stock data Repository"""
 
-    model = Stocks30m
+    def __init__(self, session: AsyncSession):
+        super().__init__(session, Stocks30m)
 
     def _get_timeframe(self) -> str:
         return "30m"
@@ -389,7 +395,8 @@ class StockData30mRepository(StockDataRepository):
 class StockData1hRepository(StockDataRepository):
     """1-hour stock data Repository"""
 
-    model = Stocks1h
+    def __init__(self, session: AsyncSession):
+        super().__init__(session, Stocks1h)
 
     def _get_timeframe(self) -> str:
         return "1h"
@@ -401,7 +408,8 @@ class StockData1hRepository(StockDataRepository):
 class StockData1dRepository(StockDataRepository):
     """Daily stock data Repository"""
 
-    model = Stocks1d
+    def __init__(self, session: AsyncSession):
+        super().__init__(session, Stocks1d)
 
     def _get_timeframe(self) -> str:
         return "1d"
@@ -413,7 +421,8 @@ class StockData1dRepository(StockDataRepository):
 class StockData1wkRepository(StockDataRepository):
     """Weekly stock data Repository"""
 
-    model = Stocks1wk
+    def __init__(self, session: AsyncSession):
+        super().__init__(session, Stocks1wk)
 
     def _get_timeframe(self) -> str:
         return "1wk"
@@ -425,7 +434,8 @@ class StockData1wkRepository(StockDataRepository):
 class StockData1moRepository(StockDataRepository):
     """Monthly stock data Repository"""
 
-    model = Stocks1mo
+    def __init__(self, session: AsyncSession):
+        super().__init__(session, Stocks1mo)
 
     def _get_timeframe(self) -> str:
         return "1mo"

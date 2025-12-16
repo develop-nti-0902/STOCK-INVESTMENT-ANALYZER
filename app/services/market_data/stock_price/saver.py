@@ -374,8 +374,12 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 if "adj_close" in row and not pd.isna(row["adj_close"]):
                     try:
                         record["adj_close"] = float(row["adj_close"])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to convert adj_close for symbol '%s': %s",
+                            symbol,
+                            e,
+                        )
                 records.append(record)
 
             except (ValueError, TypeError) as e:
@@ -419,8 +423,12 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 if "adj_close" in item and item["adj_close"] is not None:
                     try:
                         record["adj_close"] = float(item["adj_close"])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to convert adj_close for symbol '%s': %s",
+                            symbol,
+                            e,
+                        )
                 records.append(record)
 
             except (KeyError, ValueError, TypeError) as e:
