@@ -483,5 +483,3 @@ async def test_concurrent_batch_processing(monkeypatch, artifacts_dir):
     filepath = os.path.join(artifacts_dir, filename)
     export_performance_results(performance_results, filepath)
 
-
-# bottom import removed (asyncio imported at top)
