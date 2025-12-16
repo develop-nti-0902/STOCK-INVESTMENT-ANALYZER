@@ -5,7 +5,7 @@ Yahoo Finance APIから取得する株価データのPydanticスキーマを定�
 仕様書: docs/architecture/layers/service_layer.md 3.2.1章
 """
 
-from datetime import date
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -28,7 +28,8 @@ class StockData(BaseModel):
     )
 
     symbol: str = Field(description="銘柄コード")
-    trade_date: date = Field(description="日付")
+    # intraday の場合は時刻情報を含むため datetime を受け取る
+    trade_date: datetime = Field(description="日時（日次は00:00:00）")
     open_price: Optional[float] = Field(None, description="始値")
     high: Optional[float] = Field(None, description="高値")
     low: Optional[float] = Field(None, description="安値")

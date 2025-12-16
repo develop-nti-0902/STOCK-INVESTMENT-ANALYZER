@@ -22,10 +22,12 @@ from .base import Base, SerialPKMixin, TimestampMixin
 
 
 class _CommonPriceColumns:
-    open: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    high: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    low: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    close: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    open: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    high: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    low: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    close: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    # 調整終値 (yfinance の `Adj Close`) を格納するためのカラム
+    adj_close: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=True)
     volume: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
 
 

@@ -214,21 +214,21 @@ echo [6/6] Applying initial schema (if present) and finishing...
 REM Set client encoding to UTF8 for psql
 set PGCLIENTENCODING=UTF8
 
-REM Apply stock tables then management tables if present
-if not exist "%STOCK_SQL%" (
-    echo [WARN] %STOCK_SQL% not found; skipping stock tables apply
-) else (
-    echo Applying stock tables schema: %STOCK_SQL%
-    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -v db_user=%DB_USER% -f "%STOCK_SQL%"
-    if errorlevel 1 echo [WARN] Failed to apply %STOCK_SQL% (check SQL file and permissions)
-)
-
+REM Apply management tables first (stock_master), then stock tables that reference it
 if not exist "%MGMT_SQL%" (
     echo [WARN] %MGMT_SQL% not found; skipping management tables apply
 ) else (
     echo Applying management tables schema: %MGMT_SQL%
     psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -v db_user=%DB_USER% -f "%MGMT_SQL%"
     if errorlevel 1 echo [WARN] Failed to apply %MGMT_SQL% (check SQL file and permissions)
+)
+
+if not exist "%STOCK_SQL%" (
+    echo [WARN] %STOCK_SQL% not found; skipping stock tables apply
+) else (
+    echo Applying stock tables schema: %STOCK_SQL%
+    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -v db_user=%DB_USER% -f "%STOCK_SQL%"
+    if errorlevel 1 echo [WARN] Failed to apply %STOCK_SQL% (check SQL file and permissions)
 )
 
 endlocal

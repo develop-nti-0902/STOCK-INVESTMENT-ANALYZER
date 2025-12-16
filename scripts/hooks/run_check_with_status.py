@@ -203,12 +203,17 @@ def run_pylint(
 def run_pytest(
     args: List[str], files: List[str], status: Dict[str, Any]
 ) -> int:
-    # pytest は通常テスト全体を回すため、ファイル指定が無ければツール引数のみで実行
-    # pre-commit 設定で pass_filenames: false にすることを推奨
-    cmd = [sys.executable, "-m", "pytest", *args]
-    if files:
-        # ファイルが渡されている場合はそれをテストターゲットとして渡す
-        cmd = [sys.executable, "-m", "pytest", *args, *files]
+    # シンプル化: pytest は常に全体実行し、integration/e2e を除外する。
+    # pre-commit 側で `pass_filenames: false` を推奨する。
+    cmd = [
+        sys.executable,
+        "-m",
+        "pytest",
+        "--ignore=tests/integration",
+        "--ignore=tests/e2e",
+        *args,
+    ]
+
     # 出力をキャプチャして "collected 0 items" を検出できるようにする
     proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
     # pytest の出力をそのまま表示

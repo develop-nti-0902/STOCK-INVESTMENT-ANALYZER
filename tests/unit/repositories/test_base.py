@@ -31,8 +31,7 @@ class ConcreteRepository(BaseRepository[MockModel]):
     """テスト用の具体的なRepository実装"""
 
     def __init__(self, session: AsyncSession):
-        super().__init__(session)
-        self.model = MockModel
+        super().__init__(session, MockModel)
 
     async def get(self, record_id: int):
         """SQLAlchemyのselectをモック化したget"""
@@ -330,8 +329,7 @@ class RealRepository(BaseRepository[MockModel]):
     """Baseクラス実装そのままを使うリポジトリ（テスト用）"""
 
     def __init__(self, session: AsyncSession):
-        super().__init__(session)
-        self.model = MockModel
+        super().__init__(session, MockModel)
 
 
 class TestBaseRepositoryImplementation:

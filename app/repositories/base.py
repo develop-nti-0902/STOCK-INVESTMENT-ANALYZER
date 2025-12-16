@@ -47,24 +47,37 @@ class BaseRepository(ABC, Generic[T]):
 
         Args:
             session: 非同期DBセッション
+            model: SQLAlchemyモデルクラス（オプション）
         """
         # 型安全性は将来的に SQLAlchemy Base に束縛した TypeVar に変更する
         # 現状は任意のモデルクラスを受け取るため `Any` として扱う
-        # 明示的に model を渡すか、サブクラスがクラス属性として `model` を定義していることを期待する
-        # model の型注釈はここで1回だけ行い、再定義を避ける
-        self.model: Any = None
+        # 明示的に model を渡すか、サブクラスがクラス属性/プロパティとして `model` を定義していることを期待する
+        # サブクラスが model をプロパティとして定義している場合があるため、
+        # 直接 self.model に代入せず、内部的に _model を使用する
         if model is not None:
-            self.model = model
+            self._model: Any = model
         else:
-            # サブクラスがクラス属性として model を定義している場合はそれを参照する
-            self.model = getattr(self, "model", None)
+            # サブクラスがクラス属性/プロパティとして model を定義している場合はそれを参照する
+            # プロパティの場合は getattr で取得できるが、設定はしない
+            self._model = getattr(type(self), "model", None)
+            if self._model is None:
+                self._model = getattr(self, "model", None)
 
         self.session = session
 
         # 注意: サブクラスやテストが `super().__init__(session)` の後で
-        # `self.model` を設定できるよう、ここでは例外を投げません。
+        # `self._model` を設定できるよう、ここでは例外を投げません。
         # 各メソッドは必要時に `self.model` の存在を検証し、
         # 未設定の場合は明確な `ValueError` を発生させます。
+
+    @property
+    def model(self) -> Any:
+        """
+        SQLAlchemyモデルクラスを取得
+
+        サブクラスでプロパティとしてオーバーライド可能。
+        """
+        return self._model
 
     async def _add_and_commit(self, instance: T) -> T:
         """インスタンスをセッションに追加してコミットする共通処理。

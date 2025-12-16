@@ -9,7 +9,7 @@ from app.repositories.batch_execution_repository import (
 )
 from app.utils.logger import get_logger
 
-pytestmark = pytest.mark.e2e
+pytestmark = pytest.mark.integration
 
 logger = get_logger(__name__)
 
@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 @pytest.mark.anyio
 async def test_create_and_persist_batch_execution(monkeypatch):
     """
-    E2E テスト: `BatchExecutionRepository` を使って実際の DB にレコードを作成、
+    Integration テスト: `BatchExecutionRepository` を使って実際の DB にレコードを作成、
     完了処理を行い、永続化された内容を artifacts にダンプする。
 
     前提:
@@ -28,7 +28,7 @@ async def test_create_and_persist_batch_execution(monkeypatch):
     try:
         DATABASE_URL = db_mod.get_database_url()
     except Exception as exc:  # pragma: no cover - 環境未設定ならスキップ
-        pytest.skip(f"Skipping e2e test: missing DB config ({exc})")
+        pytest.skip(f"Skipping integration test: missing DB config ({exc})")
 
     engine = create_async_engine(DATABASE_URL, echo=False)
 
@@ -51,7 +51,7 @@ async def test_create_and_persist_batch_execution(monkeypatch):
     async with session_maker() as session:
         repo = BatchExecutionRepository(session=session)
 
-        created = await repo.create_job(batch_type="e2e_test_job")
+        created = await repo.create_job(batch_type="integration_test_job")
         assert created is not None
 
         # mark_completed を呼び出して集計・終了時刻をセット
