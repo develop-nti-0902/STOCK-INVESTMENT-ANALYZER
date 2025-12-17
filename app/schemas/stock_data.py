@@ -98,40 +98,26 @@ class StockPriceBatch(BaseModel):
 class StockPrice1M(StockPriceBase):
     """1分足株価データスキーマ"""
 
-    pass
-
 
 class StockPrice5M(StockPriceBase):
     """5分足株価データスキーマ"""
-
-    pass
 
 
 class StockPrice15M(StockPriceBase):
     """15分足株価データスキーマ"""
 
-    pass
-
 
 class StockPrice1H(StockPriceBase):
     """1時間足株価データスキーマ"""
-
-    pass
 
 
 class StockPrice1D(StockPriceBase):
     """日次株価データスキーマ"""
 
-    pass
-
 
 class StockPrice1WK(StockPriceBase):
     """週次株価データスキーマ"""
 
-    pass
-
 
 class StockPrice1MO(StockPriceBase):
     """月次株価データスキーマ"""
-
-    pass
