@@ -2,6 +2,8 @@
 BaseConverterの単体テスト
 """
 
+from typing import Any
+
 import pytest
 
 from app.services.core.converters.base_converter import BaseConverter
@@ -29,6 +31,16 @@ class ConcreteConverter(BaseConverter[DummyData]):
     def from_pydantic(self, model: DummyData) -> dict:
         """DummyDataから辞書への変換"""
         return model.model_dump()
+
+    def from_dataframe(
+        self, df: Any, *args: Any, **kwargs: Any
+    ) -> list[DummyData]:
+        """DataFrameからモデルリストへの変換（テスト用未実装）"""
+        raise NotImplementedError("from_dataframe not implemented in test")
+
+    def to_dataframe(self, data: list[DummyData]) -> Any:
+        """モデルリストからDataFrameへの変換（テスト用未実装）"""
+        raise NotImplementedError("to_dataframe not implemented in test")
 
 
 class TestBaseConverter:
