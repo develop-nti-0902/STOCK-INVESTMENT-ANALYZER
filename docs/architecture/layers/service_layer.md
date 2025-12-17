@@ -1184,6 +1184,7 @@ async def get_batch_coordinator(
 ```
 app/schemas/
 ├── common.py                    # 共通型定義
+├── stock_data.py                # 株価データサービス用Pydanticスキーマ (StockPriceBase, StockPriceCreate, etc.)
 ├── market_data/                 # 市場データドメイン
 │   ├── stock_price.py           # FetchRequest, StockData等
 │   ├── stock_master.py          # StockMaster, UpdateResult等
