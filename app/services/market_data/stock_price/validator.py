@@ -39,8 +39,8 @@ class StockPriceValidator(BaseValidator):
         Returns:
             ValidationResult: 検証結果
         """
-        errors = []
-        warnings = []
+        errors: List[str] = []
+        warnings: List[str] = []
 
         try:
             # データ形式のチェック
@@ -126,7 +126,7 @@ class StockPriceValidator(BaseValidator):
 
     def _validate_symbol(self, symbol: Any) -> List[str]:
         """銘柄コードの検証"""
-        errors = []
+        errors: List[str] = []
 
         if symbol is None:
             errors.append("symbol is required")
@@ -142,7 +142,7 @@ class StockPriceValidator(BaseValidator):
 
     def _validate_trade_date(self, trade_date: Any) -> List[str]:
         """取引日時の検証"""
-        errors = []
+        errors: List[str] = []
 
         if trade_date is None:
             errors.append("trade_date is required")
@@ -164,7 +164,7 @@ class StockPriceValidator(BaseValidator):
         self, open_price: Any, high: Any, low: Any, close: Any
     ) -> List[str]:
         """OHLCデータの整合性検証"""
-        errors = []
+        errors: List[str] = []
 
         prices = [open_price, high, low, close]
 
@@ -187,7 +187,7 @@ class StockPriceValidator(BaseValidator):
 
     def _validate_volume(self, volume: Any) -> List[str]:
         """出来高の検証"""
-        errors = []
+        errors: List[str] = []
 
         if volume is None:
             return errors  # Noneは許容
@@ -201,7 +201,7 @@ class StockPriceValidator(BaseValidator):
         self, field_name: str, value: Any
     ) -> List[str]:
         """数値フィールドの範囲検証"""
-        errors = []
+        errors: List[str] = []
 
         if value is None:
             return errors

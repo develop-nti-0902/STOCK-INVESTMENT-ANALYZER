@@ -7,7 +7,7 @@
 
 import asyncio
 from datetime import date, datetime
-from typing import List, Optional, Union
+from typing import List, Optional, Union, cast
 
 import pandas as pd
 
@@ -95,6 +95,32 @@ class StockPriceService:
         self.max_concurrent = max_concurrent
         self._semaphore = asyncio.Semaphore(max_concurrent)
 
+    def _normalize_date_param(
+        self, d: Union[date, datetime, str, None]
+    ) -> Optional[date]:
+        """
+        start_date/end_date パラメータを Optional[date] に正規化します。
+        - datetime -> date
+        - date -> date
+        - ISO 形式の文字列 -> date (失敗時は None)
+        - None -> None
+        """
+        if d is None:
+            return None
+        if isinstance(d, datetime):
+            return d.date()
+        if isinstance(d, date):
+            return d
+        if isinstance(d, str):
+            try:
+                return date.fromisoformat(d)
+            except Exception:
+                try:
+                    return datetime.fromisoformat(d).date()
+                except Exception:
+                    return None
+        return None
+
     async def fetch_and_save_single(
         self,
         symbol: str,
@@ -120,11 +146,14 @@ class StockPriceService:
 
         try:
             # 1. データ取得
+            start_param = self._normalize_date_param(start_date)
+            end_param = self._normalize_date_param(end_date)
+
             stock_data_list = await self.fetcher.fetch_single(
                 symbol=symbol,
                 timeframe=timeframe,
-                start_date=start_date,
-                end_date=end_date,
+                start_date=start_param,
+                end_date=end_param,
             )
 
             if not stock_data_list:
@@ -170,9 +199,10 @@ class StockPriceService:
                 )
 
             # 4. データ保存
-            dict_data = [
-                self.converter.from_pydantic(item) for item in valid_data
-            ]
+            dict_data = []
+            for item in valid_data:
+                sp_create = self.converter.to_pydantic(item.model_dump())
+                dict_data.append(self.converter.from_pydantic(sp_create))
             saved_count = await self.saver.save_batch(dict_data)
 
             logger.info(
@@ -270,7 +300,7 @@ class StockPriceService:
                     )
                 )
             else:
-                processed_results.append(result)
+                processed_results.append(cast(StockPriceServiceResult, result))
 
         # 集計ログ
         successful = sum(1 for r in processed_results if r.success)
@@ -309,11 +339,14 @@ class StockPriceService:
         logger.info(f"Fetching stock data (read-only): {symbol}, {timeframe}")
 
         try:
+            start_param = self._normalize_date_param(start_date)
+            end_param = self._normalize_date_param(end_date)
+
             stock_data_list = await self.fetcher.fetch_single(
                 symbol=symbol,
                 timeframe=timeframe,
-                start_date=start_date,
-                end_date=end_date,
+                start_date=start_param,
+                end_date=end_param,
             )
 
             # List[StockData] を DataFrame に変換して返す
