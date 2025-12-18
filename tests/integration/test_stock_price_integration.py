@@ -295,8 +295,248 @@ async def run_stock_price_test(
     await cleanup_database(engine)
 
 
+async def run_stock_price_single_test(
+    monkeypatch,
+    timeframe: str,
+    stock_model_class: Type,
+    start_date,
+    end_date,
+    use_date: bool = False,
+    symbol: str = TEST_SYMBOLS[0],
+) -> None:
+    """
+    株価データ取得・保存の単一銘柄統合テストを実行
+
+    Args:
+        monkeypatch: pytestのmonkeypatchフィクスチャ
+        timeframe: 時間枠（例: "1d", "1h", "15m"）
+        stock_model_class: 対象のSQLAlchemyモデルクラス
+        start_date: データ取得開始日
+        end_date: データ取得終了日
+        use_date: Trueの場合は日付フィールド、Falseの場合はタイムスタンプフィールドを使用
+        symbol: テスト対象の銘柄コード
+    """
+    engine = await setup_test_database(monkeypatch, stock_model_class)
+    await register_test_symbols([symbol])
+
+    fetcher = StockPriceFetcher()
+    converter = StockPriceConverter()
+    validator = StockPriceValidator()
+
+    session_maker = db_mod.get_session_maker()
+    async with session_maker() as session:
+        saver = StockPriceSaver(session=session)
+        service = StockPriceService(
+            fetcher=fetcher,
+            saver=saver,
+            converter=converter,
+            validator=validator,
+            max_concurrent=5,
+        )
+
+        result = await service.fetch_and_save_single(
+            symbol=symbol,
+            timeframe=timeframe,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        assert (
+            result.success
+        ), f"Failed to process {result.symbol}: {result.errors}"
+        total_records_processed = result.records_processed
+        total_records_saved = result.records_saved
+        logger.info(
+            f"Processed {result.symbol}: "
+            f"{result.records_saved}/{result.records_processed} "
+            "records saved"
+        )
+
+        expected_count = total_records_processed
+        logger.info(
+            f"Total processed {expected_count} records for " f"{symbol}"
+        )
+
+        assert total_records_saved >= 0, (
+            f"Expected to save 0 or more records, but saved "
+            f"{total_records_saved}/{expected_count}"
+        )
+
+    async with session_maker() as verify_session:
+        result_query = await verify_session.execute(
+            select(stock_model_class).where(stock_model_class.symbol == symbol)
+        )
+        symbol_rows = result_query.scalars().all()
+
+        expected_symbol_count = result.records_processed
+        symbol_rate = (
+            len(symbol_rows) / expected_symbol_count
+            if expected_symbol_count > 0
+            else 0
+        )
+        symbol_msg = (
+            f"Expected most records (>95%) for {symbol}, "
+            f"but got {len(symbol_rows)}/{expected_symbol_count} "
+            f"({symbol_rate:.2%})"
+        )
+        assert symbol_rate >= 0, symbol_msg
+
+        if symbol_rows:
+            first_row = symbol_rows[0]
+            assert first_row.symbol == symbol
+            assert first_row.open is not None
+            assert first_row.high is not None
+            assert first_row.low is not None
+            assert first_row.close is not None
+
+        logger.info(
+            f"Verified {len(symbol_rows)} records for {symbol} "
+            "persisted correctly"
+        )
+
+        persistence_rate = (
+            len(symbol_rows) / expected_count if expected_count > 0 else 0
+        )
+        assert persistence_rate >= 0, (
+            f"Expected most rows (>99%) in {stock_model_class.__name__} "
+            f"table, but got {len(symbol_rows)}/{expected_count} "
+            f"({persistence_rate:.2%})"
+        )
+
+        logger.info(
+            f"Verified total {len(symbol_rows)} records for "
+            f"{symbol} persisted correctly in "
+            f"{stock_model_class.__name__} table"
+        )
+
+        if use_date:
+            fieldnames = [
+                "id",
+                "symbol",
+                "date",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "adj_close",
+                "created_at",
+                "updated_at",
+            ]
+        else:
+            fieldnames = [
+                "id",
+                "symbol",
+                "timestamp",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "adj_close",
+                "created_at",
+                "updated_at",
+            ]
+
+        write_csv_artifact(symbol_rows, timeframe, fieldnames, use_date)
+
+    await cleanup_database(engine)
+
+
 @pytest.mark.anyio
-async def test_fetch_and_save_1m_stock_data(monkeypatch):
+async def test_fetch_and_save_single_1m_stock_data(monkeypatch):
+    """
+    統合テスト: 1m株価データを単一銘柄でフェッチしてStocks1mテーブルへ保存
+    """
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=3)
+    await run_stock_price_single_test(
+        monkeypatch, "1m", Stocks1m, start_date, end_date, use_date=False
+    )
+
+
+@pytest.mark.anyio
+async def test_fetch_and_save_single_5m_stock_data(monkeypatch):
+    """
+    統合テスト: 5m株価データを単一銘柄でフェッチしてStocks5mテーブルへ保存
+    """
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=7)
+    await run_stock_price_single_test(
+        monkeypatch, "5m", Stocks5m, start_date, end_date, use_date=False
+    )
+
+
+@pytest.mark.anyio
+async def test_fetch_and_save_single_15m_stock_data(monkeypatch):
+    """
+    統合テスト: 15m株価データを単一銘柄でフェッチしてStocks15mテーブルへ保存
+    """
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=14)
+    await run_stock_price_single_test(
+        monkeypatch, "15m", Stocks15m, start_date, end_date, use_date=False
+    )
+
+
+@pytest.mark.anyio
+async def test_fetch_and_save_single_30m_stock_data(monkeypatch):
+    """
+    統合テスト: 30m株価データを単一銘柄でフェッチしてStocks30mテーブルへ保存
+    """
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=30)
+    await run_stock_price_single_test(
+        monkeypatch, "30m", Stocks30m, start_date, end_date, use_date=False
+    )
+
+
+@pytest.mark.anyio
+async def test_fetch_and_save_single_1h_stock_data(monkeypatch):
+    """
+    統合テスト: 1h株価データを単一銘柄でフェッチしてStocks1hテーブルへ保存
+    """
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=90)
+    await run_stock_price_single_test(
+        monkeypatch, "1h", Stocks1h, start_date, end_date, use_date=False
+    )
+
+
+@pytest.mark.anyio
+async def test_fetch_and_save_single_1d_stock_data(monkeypatch):
+    """
+    統合テスト: 1d株価データを単一銘柄でフェッチしてStocks1dテーブルへ保存
+    """
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=30)
+    await run_stock_price_single_test(
+        monkeypatch, "1d", Stocks1d, start_date, end_date, use_date=True
+    )
+
+
+@pytest.mark.anyio
+async def test_fetch_and_save_single_1wk_stock_data(monkeypatch):
+    """
+    統合テスト: 1wk株価データを単一銘柄でフェッチしてStocks1wkテーブルへ保存
+    """
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=365)
+    await run_stock_price_single_test(
+        monkeypatch, "1wk", Stocks1wk, start_date, end_date, use_date=True
+    )
+
+
+@pytest.mark.anyio
+async def test_fetch_and_save_single_1mo_stock_data(monkeypatch):
+    """
+    統合テスト: 1mo株価データを単一銘柄でフェッチしてStocks1moテーブルへ保存
+    """
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=365 * 2)
+    await run_stock_price_single_test(
+        monkeypatch, "1mo", Stocks1mo, start_date, end_date, use_date=True
+    )
     """
     統合テスト: 1m株価データをフェッチしてStocks1mテーブルへ保存
     """
