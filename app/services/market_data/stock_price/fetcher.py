@@ -373,16 +373,41 @@ class StockPriceFetcher(RetryMixin):
                     )
 
                 if hist.empty:
-                    logger.warning(f"No data found for symbol: {symbol}")
-                    return []
+                    logger.warning(
+                        f"No data found for symbol: {symbol} (initial request)"
+                    )
+                    # フォールバック: period を指定して再試行する（例: 5y -> 1y）
+                    try:
+                        logger.debug(
+                            "Attempting fallback fetch with period=5y"
+                        )
+                        hist = await loop.run_in_executor(
+                            None,
+                            lambda: ticker.history(
+                                period="5y",
+                                interval=interval,
+                                prepost=False,
+                                actions=False,
+                            ),
+                        )
+                    except Exception:
+                        # フォールバック失敗は無視して空結果を返す
+                        logger.debug("Fallback fetch failed for %s", symbol)
+
+                    if hist.empty:
+                        logger.warning(
+                            "No data found for symbol after fallback: %s",
+                            symbol,
+                        )
+                        return []
 
                 # DataFrameをStockDataリストに変換
                 return self._parse_yfinance_data(hist, symbol)
 
             except Exception as e:
                 logger.exception(
-                    f"Failed to fetch data for {symbol} due to an "
-                    "internal error."
+                    "Failed to fetch data for %s due to an internal error.",
+                    symbol,
                 )
                 raise YahooFinanceError(
                     message=f"Failed to fetch data for {symbol} due to an "
