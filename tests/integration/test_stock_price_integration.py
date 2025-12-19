@@ -1,7 +1,7 @@
 import csv
 import os
 from datetime import datetime, timedelta, timezone
-from typing import List, Type
+from typing import Any, List, Type
 
 import pytest
 from sqlalchemy import delete, select
@@ -209,7 +209,7 @@ async def run_stock_price_test(
         )
 
     async with session_maker() as verify_session:
-        all_rows = []
+        all_rows: List[Any] = []
         for result in results:
             symbol = result.symbol
             result_query = await verify_session.execute(
