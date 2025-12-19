@@ -7,7 +7,7 @@
 
 import asyncio
 from datetime import date, datetime
-from typing import List, Optional, Union, cast
+from typing import List, NamedTuple, Optional, Union, cast
 
 import pandas as pd
 
@@ -20,6 +20,21 @@ from app.services.market_data.stock_price.validator import StockPriceValidator
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+class StockDataWrapper(NamedTuple):
+    """
+    株価データラッパー
+
+    Attributes:
+        symbol: 銘柄コード
+        timeframe: タイムフレーム
+        data: DataFrame形式の株価データ
+    """
+
+    symbol: str
+    timeframe: str
+    data: pd.DataFrame
 
 
 class StockPriceServiceResult:
@@ -199,10 +214,7 @@ class StockPriceService:
                 )
 
             # 4. データ保存
-            dict_data = []
-            for item in valid_data:
-                sp_create = self.converter.to_pydantic(item.model_dump())
-                dict_data.append(self.converter.from_pydantic(sp_create))
+            dict_data = [item.model_dump() for item in valid_data]
             saved_count = await self.saver.save_batch(dict_data)
 
             logger.info(
@@ -323,7 +335,7 @@ class StockPriceService:
         timeframe: str,
         start_date: Union[date, datetime, str],
         end_date: Union[date, datetime, str],
-    ) -> Optional[object]:
+    ) -> Optional[StockDataWrapper]:
         """
         株価データを取得（読み取り専用）
 
@@ -334,7 +346,7 @@ class StockPriceService:
             end_date: 終了日
 
         Returns:
-            StockData or None: 取得した株価データ
+            StockDataWrapper or None: 取得した株価データ
         """
         logger.info(f"Fetching stock data (read-only): {symbol}, {timeframe}")
 
@@ -354,13 +366,6 @@ class StockPriceService:
                 df = pd.DataFrame(
                     [item.model_dump() for item in stock_data_list]
                 )
-
-                # 戻り値の型を合わせるために、data属性を持つオブジェクトを作成
-                class StockDataWrapper:
-                    def __init__(self, symbol, timeframe, data):
-                        self.symbol = symbol
-                        self.timeframe = timeframe
-                        self.data = data
 
                 return StockDataWrapper(
                     symbol=symbol, timeframe=timeframe, data=df

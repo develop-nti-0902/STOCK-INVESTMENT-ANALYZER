@@ -80,26 +80,12 @@ class TestStockPriceService:
 
         # mock_pydantic_data is not required in this test
 
-        mock_dict_data = [
-            {
-                "symbol": symbol,
-                "trade_date": datetime(2024, 1, 1, tzinfo=timezone.utc),
-            },
-            {
-                "symbol": symbol,
-                "trade_date": datetime(2024, 1, 2, tzinfo=timezone.utc),
-            },
-        ]
-
         # モック設定
         self.mock_fetcher.fetch_single = AsyncMock(
             return_value=mock_stock_data_list
         )
         self.mock_validator.validate = MagicMock(
             return_value=MagicMock(is_valid=True, errors=[], warnings=[])
-        )
-        self.mock_converter.from_pydantic = MagicMock(
-            side_effect=mock_dict_data
         )
         self.mock_saver.save_batch = AsyncMock(return_value=2)
 
@@ -124,8 +110,9 @@ class TestStockPriceService:
             end_date=end_date,
         )
         assert self.mock_validator.validate.call_count == 2
-        assert self.mock_converter.from_pydantic.call_count == 2
-        self.mock_saver.save_batch.assert_called_once_with(mock_dict_data)
+        self.mock_saver.save_batch.assert_called_once_with(
+            [item.model_dump.return_value for item in mock_stock_data_list]
+        )
 
     @pytest.mark.asyncio
     async def test_fetch_and_save_single_no_data(self):
