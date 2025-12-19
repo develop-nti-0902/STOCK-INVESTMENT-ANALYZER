@@ -109,12 +109,15 @@ class BaseConverter(ABC, Generic[T]):
             "to_dataframe requires pandas. Override in subclass if needed."
         )
 
-    def from_dataframe(self, df: Any) -> list[T]:
+    @abstractmethod
+    def from_dataframe(self, df: Any, *args, **kwargs) -> list[T]:
         """
-        DataFrame → Pydanticモデルリスト変換（オプション）
+        DataFrame → Pydanticモデルリスト変換（サブクラスで実装）
 
         Args:
             df: pandas DataFrame
+            *args: 追加の位置引数（サブクラス依存）
+            **kwargs: 追加のキーワード引数（サブクラス依存）
 
         Returns:
             list[T]: Pydanticモデルのリスト

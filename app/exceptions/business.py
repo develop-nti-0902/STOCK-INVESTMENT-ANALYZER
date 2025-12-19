@@ -42,3 +42,11 @@ class CalculationError(BusinessError):
     default_message = "Calculation error occurred"
     default_error_code = "CALCULATION_ERROR"
     default_status_code = 500
+
+
+class StockDataValidationError(BusinessError):
+    """株価データ検証エラー"""
+
+    default_message = "Stock data validation failed"
+    default_error_code = "STOCK_DATA_VALIDATION_ERROR"
+    default_status_code = 422
