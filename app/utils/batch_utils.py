@@ -7,6 +7,7 @@ JPX全銘柄一括取得機能のためのバッチ処理ユーティリティ�
 from __future__ import annotations
 
 import asyncio
+import inspect
 import time
 from typing import (
     Any,
@@ -48,7 +49,7 @@ async def parallel_execute(
     tasks: List[Awaitable[T]],
     max_concurrent: int = 20,
     return_exceptions: bool = True,
-) -> List[Union[T, Exception]]:
+) -> List[Union[T, Exception, BaseException]]:
     """
     タスクを並列実行（同時実行数制限付き）
 
@@ -161,8 +162,6 @@ class ProgressTracker:
         if self.callback:
             try:
                 # 同期的にコールバックを実行（実際の使用ではイベントループ内で呼び出される）
-                import asyncio
-                import inspect
 
                 if inspect.iscoroutinefunction(self.callback):
                     # 非同期コールバックの場合はタスクを作成
