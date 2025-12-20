@@ -18,6 +18,7 @@ from typing import (
     Optional,
     TypeVar,
     Union,
+    cast,
 )
 
 T = TypeVar("T")
@@ -74,9 +75,12 @@ async def parallel_execute(
                     return e
                 raise
 
-    return await asyncio.gather(
-        *(execute_with_semaphore(task) for task in tasks),
-        return_exceptions=return_exceptions,
+    return cast(
+        List[Union[T, Exception, BaseException]],
+        await asyncio.gather(
+            *(execute_with_semaphore(task) for task in tasks),
+            return_exceptions=return_exceptions,
+        ),
     )
 
 
