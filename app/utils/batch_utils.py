@@ -65,7 +65,7 @@ async def parallel_execute(
 
     async def execute_with_semaphore(
         task: Awaitable[T],
-    ) -> Union[T, Exception]:
+    ) -> Union[T, Exception, BaseException]:
         async with semaphore:
             try:
                 return await task
