@@ -161,3 +161,121 @@ async def test_upsert_is_not_supported():
 
     with pytest.raises(NotImplementedError):
         await repo.upsert(data)
+
+
+@pytest.mark.asyncio
+async def test_get_all_active_symbols_success():
+    """アクティブな全銘柄コード取得の成功ケース"""
+    # Arrange
+    mock_session = AsyncMock()
+    mock_result = Mock()
+    mock_result.all.return_value = [("7203",), ("8306",), ("9432",)]
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    repo = StockMasterRepository(session=mock_session)
+
+    # Act
+    result = await repo.get_all_active_symbols()
+
+    # Assert
+    assert result == ["7203", "8306", "9432"]
+    mock_session.execute.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_symbols_by_market_success():
+    """市場別銘柄コード取得の成功ケース"""
+    # Arrange
+    mock_session = AsyncMock()
+    mock_result = Mock()
+    mock_result.all.return_value = [("7203",), ("8306",)]
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    repo = StockMasterRepository(session=mock_session)
+    market = "プライム"
+
+    # Act
+    result = await repo.get_symbols_by_market(market)
+
+    # Assert
+    assert result == ["7203", "8306"]
+    mock_session.execute.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_symbols_by_sector_success():
+    """業種別銘柄コード取得の成功ケース"""
+    # Arrange
+    mock_session = AsyncMock()
+    mock_result = Mock()
+    mock_result.all.return_value = [("7203",), ("6501",)]
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    repo = StockMasterRepository(session=mock_session)
+    sector = "電気機器"
+
+    # Act
+    result = await repo.get_symbols_by_sector(sector)
+
+    # Assert
+    assert result == ["7203", "6501"]
+    mock_session.execute.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_all_active_symbols_empty_result():
+    """アクティブな全銘柄コード取得で空結果の場合"""
+    # Arrange
+    mock_session = AsyncMock()
+    mock_result = Mock()
+    mock_result.all.return_value = []
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    repo = StockMasterRepository(session=mock_session)
+
+    # Act
+    result = await repo.get_all_active_symbols()
+
+    # Assert
+    assert result == []
+    mock_session.execute.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_symbols_by_market_empty_result():
+    """市場別銘柄コード取得で空結果の場合"""
+    # Arrange
+    mock_session = AsyncMock()
+    mock_result = Mock()
+    mock_result.all.return_value = []
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    repo = StockMasterRepository(session=mock_session)
+    market = "スタンダード"
+
+    # Act
+    result = await repo.get_symbols_by_market(market)
+
+    # Assert
+    assert result == []
+    mock_session.execute.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_symbols_by_sector_empty_result():
+    """業種別銘柄コード取得で空結果の場合"""
+    # Arrange
+    mock_session = AsyncMock()
+    mock_result = Mock()
+    mock_result.all.return_value = []
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    repo = StockMasterRepository(session=mock_session)
+    sector = "銀行業"
+
+    # Act
+    result = await repo.get_symbols_by_sector(sector)
+
+    # Assert
+    assert result == []
+    mock_session.execute.assert_called_once()
