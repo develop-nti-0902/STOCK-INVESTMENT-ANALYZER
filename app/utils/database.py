@@ -138,9 +138,13 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         AsyncSession: 非同期DBセッション
 
     Note:
-        - コンテキストマネージャとして動作し、自動でセッションをクローズ
-        - トランザクションはエンドポイント内で明示的に管理
-        - 例外発生時は自動でロールバック
+        トランザクション管理:
+        - Repository層ではflush()のみを実行し、commit/rollbackは行いません
+        - Service層/API層でトランザクション境界を管理します
+        - このget_db()は、エンドポイント終了時に自動的にcommit/rollbackを実行します:
+          * 正常終了時: 自動でcommit()
+          * 例外発生時: 自動でrollback()
+        - コンテキストマネージャとして動作し、必ずセッションをクローズします
     """
     session_maker = get_session_maker()
     async with session_maker() as session:
@@ -194,34 +198,30 @@ async def close_db() -> None:
         pass
 
 
-async def flush_commit_return(session: AsyncSession, return_value: Any) -> Any:
-    """Session の flush -> commit を実行して指定値を返すヘルパー。
+async def flush_return(session: AsyncSession, return_value: Any) -> Any:
+    """Session の flush を実行して指定値を返すヘルパー。
 
-    既存の `get_db` と同様に、例外発生時は rollback して例外を再送出します。
-    リポジトリ層でトランザクションの成否に応じて値を返す用途に使います。
+    Repository層ではコミットを行わず、flush（DBへの変更反映）のみを実行します。
+    トランザクション管理（commit/rollback）はService層またはFastAPIのget_db()で行います。
     """
     # NOTE:
-    # - SQLAlchemy の `Session.commit()` は内部で flush() を呼び出しますが、
-    #   アプリケーション側で `autoflush=False` を採用している場合や、
-    #   明示的に flush の成功/失敗を切り分けてログを取りたい場合には
-    #   `flush()` を先に呼ぶ実装が有用です。
-    # - テストコードでは `session.flush` をモックして動作検証している箇所が
-    #   あるため、明示的な `flush()` 呼び出しを取り除くとテストが壊れる
-    #   可能性があります。設計上の理由がない限り、この順序は維持します。
+    # - Repository層はデータアクセスのみに専念し、トランザクション境界は
+    #   上位層（Service層またはAPI層）で管理する設計です。
+    # - flush()はDBに変更を反映しますが、トランザクションはコミットしません。
+    # - 例外が発生した場合は、そのまま上位層に伝播させます。
+    #   上位層でrollbackを実行してください。
     try:
         await session.flush()
-        await session.commit()
         return return_value
     except Exception as e:
-        await session.rollback()
-        logger.exception("DB transaction failed: %s", e)
+        logger.exception("DB flush failed: %s", e)
         raise
 
 
-async def flush_commit_return_with_log(
+async def flush_return_with_log(
     session: AsyncSession, return_value: Any, log, msg: str, *args: Any
 ) -> Any:
-    """`flush_commit_return` を呼び出し、失敗時に共通的なログ出力を行うヘルパー。
+    """`flush_return` を呼び出し、失敗時に共通的なログ出力を行うヘルパー。
 
     Args:
         session: 非同期セッション
@@ -237,9 +237,9 @@ async def flush_commit_return_with_log(
         発生した例外をそのまま再送出します。
     """
     try:
-        return await flush_commit_return(session, return_value)
+        return await flush_return(session, return_value)
     except Exception:
-        # flush_commit_return が例外を発生させた場合は、既に rollback
-        # とログが行われています。ここでは呼び出し元固有のログを追記します。
+        # flush_return が例外を発生させた場合、ここでは呼び出し元固有のログを追記します。
+        # rollbackは上位層（Service層またはFastAPIのget_db()）で実行されます。
         log.exception(msg, *args)
         raise

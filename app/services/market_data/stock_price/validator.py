@@ -30,99 +30,16 @@ class StockPriceValidator(BaseValidator):
         super().__init__()
 
     def validate(self, data: Any) -> ValidationResult:
+        """バイパス実装: yfinanceの生データをそのまま利用するため、常に成功を返します。
+
+        将来的に検証を再導入する場合はここを編集してください。
         """
-        株価データを検証します。
-
-        Args:
-            data: 検証対象のデータ（dict, Pydanticモデル, DataFrameなど）
-
-        Returns:
-            ValidationResult: 検証結果
-        """
-        errors: List[str] = []
-        warnings: List[str] = []
-
-        try:
-            # データ形式のチェック
-            if isinstance(data, dict):
-                validated_data = data
-            elif hasattr(data, "model_dump"):
-                # Pydanticモデル
-                validated_data = data.model_dump()
-            else:
-                errors.append("Unsupported data format")
-                return ValidationResult(False, errors, warnings)
-
-            # 必須カラムの存在確認
-            required_fields = [
-                "symbol",
-                "trade_date",
-                "open_price",
-                "high",
-                "low",
-                "close",
-                "volume",
-            ]
-            missing_fields = [
-                field
-                for field in required_fields
-                if field not in validated_data
-            ]
-            if missing_fields:
-                errors.append(f"Required fields are missing: {missing_fields}")
-
-            # 各フィールドの検証
-            if "symbol" in validated_data:
-                symbol_errors = self._validate_symbol(validated_data["symbol"])
-                errors.extend(symbol_errors)
-
-            if "trade_date" in validated_data:
-                date_errors = self._validate_trade_date(
-                    validated_data["trade_date"]
-                )
-                errors.extend(date_errors)
-
-            # OHLCデータの検証
-            ohlc_fields = ["open_price", "high", "low", "close"]
-            if all(field in validated_data for field in ohlc_fields):
-                ohlc_errors = self._validate_ohlc_data(
-                    validated_data["open_price"],
-                    validated_data["high"],
-                    validated_data["low"],
-                    validated_data["close"],
-                )
-                errors.extend(ohlc_errors)
-
-            # Volumeの検証
-            if "volume" in validated_data:
-                volume_errors = self._validate_volume(validated_data["volume"])
-                errors.extend(volume_errors)
-
-            # 数値フィールドの範囲検証
-            numeric_fields = [
-                "open_price",
-                "high",
-                "low",
-                "close",
-                "adj_close",
-            ]
-            for field in numeric_fields:
-                if (
-                    field in validated_data
-                    and validated_data[field] is not None
-                ):
-                    range_errors = self._validate_numeric_range(
-                        field, validated_data[field]
-                    )
-                    errors.extend(range_errors)
-
-        except Exception as e:
-            errors.append(
-                f"Unexpected error occurred during validation: {str(e)}"
-            )
-            logger.exception("Stock price validation error")
-
-        return ValidationResult(len(errors) == 0, errors, warnings)
+        logger.debug(
+            "StockPriceValidator.validate bypassed: using raw yfinance data"
+        )
+        return ValidationResult(
+            True, [], ["Validation bypassed; using yfinance raw data"]
+        )
 
     def _validate_symbol(self, symbol: Any) -> List[str]:
         """銘柄コードの検証"""

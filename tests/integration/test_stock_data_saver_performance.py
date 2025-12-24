@@ -28,6 +28,28 @@ pytestmark = pytest.mark.integration
 logger = get_logger(__name__)
 
 
+async def _seed_stock_master(session, symbols: List[str]) -> None:
+    """テスト用に `stock_master` テーブルへ銘柄を登録するユーティリティ
+
+    Args:
+        session: AsyncSession
+        symbols: 登録する銘柄コードのリスト
+    """
+    from app.models.stock_master import StockMaster
+
+    objs = [
+        StockMaster(stock_code=s, stock_name=s, is_active=1) for s in symbols
+    ]
+    session.add_all(objs)
+    try:
+        await session.commit()
+    except Exception:
+        try:
+            await session.rollback()
+        except Exception:
+            pass
+
+
 @pytest.fixture
 def artifacts_dir():
     """パフォーマンステスト成果物の出力先ディレクトリ"""
@@ -107,7 +129,7 @@ async def test_single_stock_save_performance(monkeypatch, artifacts_dir):
 
     session_maker = db_mod.get_session_maker()
 
-    test_symbol = "PERF_TEST_1"
+    test_symbol = "PERFTEST1"
     timeframe = "1m"
     start_date = datetime(2024, 1, 1, 9, 0, 0)
 
@@ -116,6 +138,8 @@ async def test_single_stock_save_performance(monkeypatch, artifacts_dir):
     # 異なるレコード数でテスト
     for num_records in [1000, 5000, 10000]:
         async with session_maker() as session:
+            # テスト用銘柄を stock_master に登録
+            await _seed_stock_master(session, [test_symbol])
             saver = StockPriceSaver(session, batch_size=1000)
 
             # テストデータ生成
@@ -204,7 +228,7 @@ async def test_batch_size_comparison(monkeypatch, artifacts_dir):
 
     session_maker = db_mod.get_session_maker()
 
-    test_symbol = "PERF_TEST_BATCH"
+    test_symbol = "PERFBATCH"
     timeframe = "1m"
     num_records = 5000
     start_date = datetime(2024, 2, 1, 9, 0, 0)
@@ -217,6 +241,8 @@ async def test_batch_size_comparison(monkeypatch, artifacts_dir):
     # 異なるバッチサイズでテスト
     for batch_size in [100, 500, 1000, 2000]:
         async with session_maker() as session:
+            # テスト用銘柄を stock_master に登録
+            await _seed_stock_master(session, [test_symbol])
             saver = StockPriceSaver(session, batch_size=batch_size)
 
             # 保存処理の実行と計測
@@ -317,19 +343,27 @@ async def test_multiple_stocks_save_performance(monkeypatch, artifacts_dir):
     # 複数銘柄のデータ準備
     stock_data_dict = {}
     for i in range(num_symbols):
-        symbol = f"PERF_MULTI_{i:03d}"
+        symbol = f"PMULTI_{i:03d}"
         df = generate_test_dataframe(symbol, records_per_symbol, start_date)
         stock_data_dict[symbol] = {timeframe: df}
 
     performance_results = []
 
     async with session_maker() as session:
+        # テスト用銘柄を stock_master に登録
+        await _seed_stock_master(
+            session, [f"PMULTI_{i:03d}" for i in range(num_symbols)]
+        )
         saver = StockPriceSaver(session, batch_size=1000)
 
         # 保存処理の実行と計測
         start_time = time.time()
         try:
             results = await saver.save_batch_stocks(stock_data_dict)
+            # 診断用：シンボル毎の保存件数を詳細にログ出力
+            logger.info("Per-symbol save results: %s", results)
+            for sym_k, saved_count in results.items():
+                logger.info("Symbol result - %s: %s", sym_k, saved_count)
             elapsed = time.time() - start_time
 
             total_records = num_symbols * records_per_symbol
@@ -418,7 +452,7 @@ async def test_concurrent_batch_processing(monkeypatch, artifacts_dir):
     # テストデータ準備
     stock_data_dict = {}
     for i in range(num_symbols):
-        symbol = f"PERF_CONCURRENT_{i:03d}"
+        symbol = f"PCONC_{i:03d}"
         df = generate_test_dataframe(symbol, records_per_symbol, start_date)
         stock_data_dict[symbol] = {timeframe: df}
 
@@ -427,6 +461,10 @@ async def test_concurrent_batch_processing(monkeypatch, artifacts_dir):
     # 異なる並行度でテスト
     for max_concurrent in [1, 3, 5]:
         async with session_maker() as session:
+            # テスト用銘柄を stock_master に登録
+            await _seed_stock_master(
+                session, [f"PCONC_{i:03d}" for i in range(num_symbols)]
+            )
             saver = StockPriceSaver(
                 session, batch_size=1000, max_concurrent_batches=max_concurrent
             )
@@ -434,6 +472,19 @@ async def test_concurrent_batch_processing(monkeypatch, artifacts_dir):
             start_time = time.time()
             try:
                 results = await saver.save_batch_stocks(stock_data_dict)
+                # 診断用：シンボル毎の保存件数を詳細にログ出力
+                logger.info(
+                    "Per-symbol save results (concurrent %s): %s",
+                    max_concurrent,
+                    results,
+                )
+                for sym_k, saved_count in results.items():
+                    logger.info(
+                        "Concurrent %s - %s: %s",
+                        max_concurrent,
+                        sym_k,
+                        saved_count,
+                    )
                 elapsed = time.time() - start_time
 
                 total_records = num_symbols * records_per_symbol

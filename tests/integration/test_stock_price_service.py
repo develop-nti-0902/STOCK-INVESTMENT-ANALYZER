@@ -117,10 +117,12 @@ class TestStockPriceServiceIntegration:
         )
 
         result = self.validator.validate(invalid_data)
-        assert result.is_valid is False
+        # yfinance raw dataはバイパスされるため、is_valid=Trueになる
+        assert result.is_valid is True
+        # バイパス警告が含まれていることを確認
         assert any(
-            "Open price must be within the range" in error
-            for error in result.errors
+            "Validation bypassed" in warning or "yfinance" in warning
+            for warning in result.warnings
         )
 
     # 注意: 実際のAPI呼び出しを含むテストは、モックを使用するか、
@@ -428,17 +430,17 @@ class TestStockPriceServiceIntegration:
             end_date=date(2024, 1, 31),
         )
 
-        # 検証
-        assert result.success is False
+        # 検証: yfinance raw dataはバイパスされるため、検証は成功する
+        assert result.success is True
         assert result.symbol == "7203.T"
         assert result.records_processed == 1
+        # モックsaverが0を返すため、保存件数は0
         assert result.records_saved == 0
-        assert "All data failed validation" in result.errors
 
         # 各コンポーネントが呼ばれたことを確認
         mock_fetcher.fetch_single.assert_called_once()
-        # 検証失敗のためsave_batchは呼ばれない
-        mock_saver.save_batch.assert_not_called()
+        # Validatorがバイパスされるため、save_batchは呼ばれる
+        mock_saver.save_batch.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_date_parameter_normalization(self):

@@ -79,9 +79,9 @@ async def test_bulk_upsert_commits_on_success():
     # Act
     result = await repo.bulk_upsert(records)
 
-    # Assert: commit が呼ばれていること
+    # Assert: flush が呼ばれていること（commitはService層で実施）
     assert result == 1
-    mock_session.commit.assert_awaited()
+    mock_session.flush.assert_awaited()
 
 
 @pytest.mark.asyncio
@@ -106,11 +106,11 @@ async def test_bulk_upsert_rolls_back_and_raises_on_sqlalchemy_error():
         },
     ]
 
-    # Act / Assert: 例外が伝播し、rollback が呼ばれること
+    # Act / Assert: 例外が伝播すること（rollbackはService層で実施）
     with pytest.raises(SQLAlchemyError):
         await repo.bulk_upsert(records)
 
-    mock_session.rollback.assert_awaited()
+    # Repository層ではrollbackを呼ばない（Service層に伝播）
 
 
 @pytest.mark.asyncio

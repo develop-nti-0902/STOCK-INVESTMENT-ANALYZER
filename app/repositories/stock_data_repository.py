@@ -136,7 +136,6 @@ class StockDataRepository(BaseRepository, ABC):
 
             # 実行
             result = cast(CursorResult, await self.session.execute(stmt))
-            await self.session.commit()
 
             # 結果判定 (ON CONFLICTでは常に1行影響を受ける)
             operation = "upsert" if result.rowcount == 1 else "unknown"
@@ -149,7 +148,7 @@ class StockDataRepository(BaseRepository, ABC):
             }
 
             logger.info(
-                "UPSERT completed: %s %s for %s",
+                "UPSERT executed (no commit): %s %s for %s",
                 result_info["operation"],
                 self.timeframe,
                 data["symbol"],
@@ -158,8 +157,13 @@ class StockDataRepository(BaseRepository, ABC):
             return result_info
 
         except Exception as e:
-            await self.session.rollback()
-            logger.error("UPSERT failed for %s: %s", self.timeframe, e)
+            # ログにトレースを残す。ロールバックはService層で実行されます。
+            logger.exception(
+                "UPSERT failed for %s: %s. data=%s",
+                self.timeframe,
+                e,
+                data,
+            )
             raise RuntimeError(f"Failed to upsert data: {e}") from e
 
     async def upsert_bulk(self, data_list: List[dict]) -> int:
@@ -175,6 +179,9 @@ class StockDataRepository(BaseRepository, ABC):
         Raises:
             ValueError: データリストが不正な場合
             RuntimeError: UPSERT処理に失敗した場合
+
+        注意:
+            トランザクションのコミット/ロールバックはService層で行ってください。
         """
         if not data_list:
             return 0
@@ -188,6 +195,7 @@ class StockDataRepository(BaseRepository, ABC):
                     await self.upsert_single(data)
                     success_count += 1
                 except Exception as e:
+                    # 単一レコードのUPSERTで例外が起きた場合はログを記録して次のレコードへ進む
                     error_info = {
                         "data": data,
                         "error": str(e),
@@ -196,7 +204,7 @@ class StockDataRepository(BaseRepository, ABC):
                     logger.warning("Failed to upsert data: %s", error_info)
 
             logger.info(
-                "Bulk UPSERT completed: %s/%s succeeded for %s",
+                "Bulk UPSERT executed (no commit): %s/%s succeeded for %s",
                 success_count,
                 len(data_list),
                 self.timeframe,
@@ -205,7 +213,6 @@ class StockDataRepository(BaseRepository, ABC):
             return success_count
 
         except Exception as e:
-            await self.session.rollback()
             logger.error("Bulk UPSERT failed for %s: %s", self.timeframe, e)
             raise RuntimeError(f"Failed to bulk upsert data: {e}") from e
 
@@ -415,7 +422,7 @@ class StockData1dRepository(StockDataRepository):
         return "1d"
 
     def _get_time_column(self) -> str:
-        return "date"
+        return "timestamp"
 
 
 class StockData1wkRepository(StockDataRepository):
@@ -428,7 +435,7 @@ class StockData1wkRepository(StockDataRepository):
         return "1wk"
 
     def _get_time_column(self) -> str:
-        return "date"
+        return "timestamp"
 
 
 class StockData1moRepository(StockDataRepository):
@@ -441,4 +448,4 @@ class StockData1moRepository(StockDataRepository):
         return "1mo"
 
     def _get_time_column(self) -> str:
-        return "date"
+        return "timestamp"

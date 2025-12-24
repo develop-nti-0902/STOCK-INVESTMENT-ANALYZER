@@ -65,11 +65,10 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_create(self, repository, mock_session):
-        """新規レコード作成のテスト"""
+        """新規レコード作成のテスト（Repository層はflushのみ）"""
         # Arrange
         test_data = {"id": 1, "name": "Test"}
         mock_session.flush = AsyncMock()
-        mock_session.commit = AsyncMock()
 
         # Act
         result = await repository.create(test_data)
@@ -80,18 +79,17 @@ class TestBaseRepository:
         assert result.name == "Test"
         mock_session.add.assert_called_once()
         mock_session.flush.assert_awaited_once()
-        mock_session.commit.assert_awaited_once()
+        # Repository層はコミットしない
 
     @pytest.mark.asyncio
     async def test_create_rollback_on_error(self, repository, mock_session):
-        """create で例外が発生したら rollback されることを確認"""
+        """create で例外が発生したらそのまま例外が伝播されることを確認"""
         mock_session.flush = AsyncMock(side_effect=SQLAlchemyError("boom"))
-        mock_session.rollback = AsyncMock()
 
         with pytest.raises(SQLAlchemyError):
             await repository.create({"id": 1})
 
-        mock_session.rollback.assert_awaited_once()
+        # Repository層はrollbackしない（Service層が実行）
 
     @pytest.mark.asyncio
     async def test_get_by_id_found(self, repository, mock_session):
@@ -157,7 +155,6 @@ class TestBaseRepository:
         mock_result.scalar_one_or_none.return_value = existing_model
         mock_session.execute = AsyncMock(return_value=mock_result)
         mock_session.flush = AsyncMock()
-        mock_session.commit = AsyncMock()
 
         # Act
         result = await repository.update(1, {"name": "New Name"})
@@ -166,7 +163,7 @@ class TestBaseRepository:
         assert result is not None
         assert result.name == "New Name"
         mock_session.flush.assert_awaited_once()
-        mock_session.commit.assert_awaited_once()
+        # Repository層はコミットしない
 
     @pytest.mark.asyncio
     async def test_update_not_found(self, repository, mock_session):
@@ -184,18 +181,17 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_update_rollback_on_error(self, repository, mock_session):
-        """update が失敗した場合に rollback されることを確認"""
+        """update が失敗した場合に例外が伝播されることを確認"""
         existing_model = MockModel(id=1, name="Old Name")
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = existing_model
         mock_session.execute = AsyncMock(return_value=mock_result)
         mock_session.flush = AsyncMock(side_effect=SQLAlchemyError("boom"))
-        mock_session.rollback = AsyncMock()
 
         with pytest.raises(SQLAlchemyError):
             await repository.update(1, {"name": "X"})
 
-        mock_session.rollback.assert_awaited_once()
+        # Repository層はrollbackしない（Service層が実行）
 
     @pytest.mark.asyncio
     async def test_delete_found(self, repository, mock_session):
@@ -207,7 +203,6 @@ class TestBaseRepository:
         mock_session.execute = AsyncMock(return_value=mock_result)
         mock_session.delete = AsyncMock()
         mock_session.flush = AsyncMock()
-        mock_session.commit = AsyncMock()
 
         # Act
         result = await repository.delete(1)
@@ -216,22 +211,21 @@ class TestBaseRepository:
         assert result is True
         mock_session.delete.assert_awaited_once()
         mock_session.flush.assert_awaited_once()
-        mock_session.commit.assert_awaited_once()
+        # Repository層はコミットしない
 
     @pytest.mark.asyncio
     async def test_delete_rollback_on_error(self, repository, mock_session):
-        """delete が失敗した場合に rollback されることを確認"""
+        """delete が失敗した場合に例外が伝播されることを確認"""
         existing_model = MockModel(id=1, name="Test")
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = existing_model
         mock_session.execute = AsyncMock(return_value=mock_result)
         mock_session.delete = AsyncMock(side_effect=SQLAlchemyError("boom"))
-        mock_session.rollback = AsyncMock()
 
         with pytest.raises(SQLAlchemyError):
             await repository.delete(1)
 
-        mock_session.rollback.assert_awaited_once()
+        # Repository層はrollbackしない（Service層が実行）
 
     @pytest.mark.asyncio
     async def test_delete_not_found(self, repository, mock_session):
@@ -257,7 +251,6 @@ class TestBaseRepository:
             {"id": 3, "name": "Test3"},
         ]
         mock_session.flush = AsyncMock()
-        mock_session.commit = AsyncMock()
 
         # 実行
         result = await repository.bulk_create(records)
@@ -267,19 +260,18 @@ class TestBaseRepository:
         assert all(isinstance(model, MockModel) for model in result)
         mock_session.add_all.assert_called_once()
         mock_session.flush.assert_awaited_once()
-        mock_session.commit.assert_awaited_once()
+        # Repository層はコミットしない
 
     @pytest.mark.asyncio
     async def test_bulk_create_rollback(self, repository, mock_session):
-        """bulk_create で失敗した場合に rollback されることを確認"""
+        """bulk_create で失敗した場合に例外が伝播されることを確認"""
         records = [{"id": 1}, {"id": 2}]
         mock_session.flush = AsyncMock(side_effect=SQLAlchemyError("boom"))
-        mock_session.rollback = AsyncMock()
 
         with pytest.raises(SQLAlchemyError):
             await repository.bulk_create(records)
 
-        mock_session.rollback.assert_awaited_once()
+        # Repository層はrollbackしない（Service層が実行）
 
     @pytest.mark.asyncio
     async def test_count_all(self, repository, mock_session):

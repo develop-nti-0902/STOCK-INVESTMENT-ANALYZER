@@ -79,8 +79,10 @@ class TestStockPriceConverter:
         assert first_item.volume == 1000
         assert first_item.adj_close == 102.0
 
-        # タイムゾーンがUTCであることを確認
-        assert first_item.trade_date.tzinfo == timezone.utc
+        # タイムゾーンがAsia/Tokyo（JST）であることを確認
+        assert (
+            str(pd.DatetimeIndex([first_item.trade_date]).tz) == "Asia/Tokyo"
+        )
 
     @pytest.mark.asyncio
     async def test_yfinance_to_pydantic_tz_naive(
@@ -95,8 +97,8 @@ class TestStockPriceConverter:
         )
 
         assert len(result) == 2
-        # タイムゾーンがUTCに変換されていることを確認
-        assert result[0].trade_date.tzinfo == timezone.utc
+        # タイムゾーンがAsia/Tokyo（JST）に変換されていることを確認
+        assert str(pd.DatetimeIndex([result[0].trade_date]).tz) == "Asia/Tokyo"
 
     @pytest.mark.asyncio
     async def test_yfinance_to_pydantic_empty_dataframe(self, converter):
@@ -222,7 +224,7 @@ class TestStockPriceConverter:
         result = converter._normalize_timestamps(sample_dataframe)
 
         assert isinstance(result.index, pd.DatetimeIndex)
-        assert str(result.index.tz) == "UTC"
+        assert str(result.index.tz) == "Asia/Tokyo"
 
     def test_normalize_timestamps_naive(
         self, converter, sample_dataframe_tz_naive
@@ -231,7 +233,7 @@ class TestStockPriceConverter:
         result = converter._normalize_timestamps(sample_dataframe_tz_naive)
 
         assert isinstance(result.index, pd.DatetimeIndex)
-        assert str(result.index.tz) == "UTC"
+        assert str(result.index.tz) == "Asia/Tokyo"
 
     def test_safe_float(self, converter):
         """_safe_floatのテスト"""

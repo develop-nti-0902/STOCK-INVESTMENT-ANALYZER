@@ -214,8 +214,27 @@ class StockPriceService:
                 )
 
             # 4. データ保存
-            dict_data = [item.model_dump() for item in valid_data]
-            saved_count = await self.saver.save_batch(dict_data)
+            # Pydanticモデルのフィールド名 (trade_date, open_price, ...) を
+            # Saver が期待する DB 形式 (timestamp, open, ...) にマッピングして渡す
+            records = []
+            for item in valid_data:
+                d = item.model_dump()
+                records.append(
+                    {
+                        "timestamp": d.get("trade_date"),
+                        "open": d.get("open_price"),
+                        "high": d.get("high"),
+                        "low": d.get("low"),
+                        "close": d.get("close"),
+                        "volume": d.get("volume"),
+                        "adj_close": d.get("adj_close"),
+                    }
+                )
+
+            payload = [
+                {"symbol": symbol, "timeframe": timeframe, "records": records}
+            ]
+            saved_count = await self.saver.save_batch(payload)
 
             logger.info(
                 "Successfully processed %s: %d/%d records saved",

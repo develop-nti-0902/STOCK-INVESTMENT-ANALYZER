@@ -6,7 +6,6 @@ yfinance DataFrameをPydanticモデルに変換し、さらにDB保存用の辞�
 """
 
 import logging
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -73,11 +72,8 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
             # Pydanticモデルを辞書に変換
             data_dict = model.model_dump()
 
-            # タイムスタンプをUTCに変換（DB保存用）
-            if isinstance(data_dict["trade_date"], datetime):
-                data_dict["trade_date"] = data_dict["trade_date"].astimezone(
-                    timezone.utc
-                )
+            # trade_date はそのまま保持（プロジェクトではJSTを前提とする）
+            # 変換は行わない
 
             # 不要なフィールドを除去（id, created_at, updated_atはDB側で管理）
             db_dict = {
@@ -200,15 +196,17 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
         try:
             # インデックスがDatetimeIndexの場合
             if isinstance(df.index, pd.DatetimeIndex):
-                # UTCに変換（タイムゾーン情報がない場合はUTCとみなす）
+                # JST (Asia/Tokyo) を前提とする
                 if df.index.tz is None:
                     df_normalized = df.copy()
                     df_normalized.index = df_normalized.index.tz_localize(
-                        "UTC"
+                        "Asia/Tokyo"
                     )
                 else:
                     df_normalized = df.copy()
-                    df_normalized.index = df_normalized.index.tz_convert("UTC")
+                    df_normalized.index = df_normalized.index.tz_convert(
+                        "Asia/Tokyo"
+                    )
             else:
                 raise ValueError("インデックスがDatetimeIndexではありません")
 

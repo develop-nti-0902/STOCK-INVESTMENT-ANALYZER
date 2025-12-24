@@ -130,7 +130,11 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         )
 
     async def bulk_upsert(self, records: List[dict]) -> int:
-        """既存のbulk_upsertも残す（入力件数を返す）"""
+        """既存のbulk_upsertも残す（入力件数を返す）
+
+        注意:
+            トランザクションのコミットはService層で行ってください。
+        """
         if not records:
             return 0
 
@@ -150,10 +154,8 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         try:
             await self.session.execute(stmt)
             await self.session.flush()
-            await self.session.commit()
             return len(records)
         except SQLAlchemyError as e:
-            await self.session.rollback()
             logger.exception("bulk_upsert failed: %s", e)
             raise
 

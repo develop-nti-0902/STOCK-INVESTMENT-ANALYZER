@@ -75,7 +75,6 @@ class TestStockDataRepository:
 
         # executeが呼ばれたことを確認
         repo_1m.session.execute.assert_called_once()
-        repo_1m.session.commit.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_upsert_single_success_update(self, repo_1m):
@@ -271,9 +270,10 @@ class TestTimeframeSpecificRepositories:
             (StockData15mRepository(mock_session), "15m", "timestamp"),
             (StockData30mRepository(mock_session), "30m", "timestamp"),
             (StockData1hRepository(mock_session), "1h", "timestamp"),
-            (StockData1dRepository(mock_session), "1d", "date"),
-            (StockData1wkRepository(mock_session), "1wk", "date"),
-            (StockData1moRepository(mock_session), "1mo", "date"),
+            # 日次/週次/月次は timestamp を使うようにモデルを変更しました
+            (StockData1dRepository(mock_session), "1d", "timestamp"),
+            (StockData1wkRepository(mock_session), "1wk", "timestamp"),
+            (StockData1moRepository(mock_session), "1mo", "timestamp"),
         ]
 
         # Act & Assert

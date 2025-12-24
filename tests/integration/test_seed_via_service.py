@@ -81,9 +81,9 @@ async def test_fetch_and_store_integration(monkeypatch):
         # データが変化することによるテストの不安定さ（期待件数とDBの差分）を防ぎます。
         service = StockMasterService(repo=repo, fetcher=fetcher)
 
-        # bulk_upsert に自動 commit を追加したため、ここでの明示的な
-        # commit は不要になりました。
+        # Repository層はflushのみ実施するため、Service層でcommitが必要
         processed = await service.fetch_and_store(source="jpx", batch_size=2)
+        await session.commit()
 
         # Assert（検証）: 処理件数がJPXから取得したデータ件数と一致すること
         processed_msg = (
