@@ -61,6 +61,9 @@ async def test_create_and_persist_batch_execution(monkeypatch):
         assert completed is not None
         assert completed.status == "completed"
 
+        # トランザクションをコミットして永続化
+        await session.commit()
+
     # 検証: 新しいセッションで永続化確認し、artifact に出力
     async with session_maker() as verify_session:
         result = await verify_session.execute(select(BatchExecution))
