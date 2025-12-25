@@ -67,32 +67,6 @@ def get_stock_price_saver(
     return StockPriceSaver(session=db)
 
 
-def get_stock_price_service(
-    fetcher: StockPriceFetcher = Depends(get_stock_price_fetcher),
-    saver: StockPriceSaver = Depends(get_stock_price_saver),
-    converter: StockPriceConverter = Depends(get_stock_price_converter),
-    validator: StockPriceValidator = Depends(get_stock_price_validator),
-) -> StockPriceService:
-    """
-    StockPriceServiceを提供（オーケストレーション層）
-
-    Args:
-        fetcher: 株価データ取得サービス
-        saver: 株価データ保存サービス
-        converter: データ変換サービス
-        validator: データ検証サービス
-
-    Returns:
-        StockPriceService: 株価データ収集サービス
-    """
-    return StockPriceService(
-        fetcher=fetcher,
-        saver=saver,
-        converter=converter,
-        validator=validator,
-    )
-
-
 def get_stock_master_repository(
     db: AsyncSession = Depends(get_db),
 ) -> StockMasterRepository:
@@ -121,3 +95,32 @@ def get_stock_master_service(
         StockMasterService: 銘柄マスタサービス
     """
     return StockMasterService(repo=repo)
+
+
+def get_stock_price_service(
+    fetcher: StockPriceFetcher = Depends(get_stock_price_fetcher),
+    saver: StockPriceSaver = Depends(get_stock_price_saver),
+    converter: StockPriceConverter = Depends(get_stock_price_converter),
+    validator: StockPriceValidator = Depends(get_stock_price_validator),
+    stock_master: StockMasterService = Depends(get_stock_master_service),
+) -> StockPriceService:
+    """
+    StockPriceServiceを提供（オーケストレーション層）
+
+    Args:
+        fetcher: 株価データ取得サービス
+        saver: 株価データ保存サービス
+        converter: データ変換サービス
+        validator: データ検証サービス
+
+    Returns:
+        StockPriceService: 株価データ収集サービス
+    """
+    # StockMasterService を注入して StockPriceService を生成
+    return StockPriceService(
+        fetcher=fetcher,
+        saver=saver,
+        converter=converter,
+        validator=validator,
+        stock_master_service=stock_master,
+    )

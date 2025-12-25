@@ -5,9 +5,22 @@
 仕様書: docs/architecture/layers/service_layer.md 3.2.4章
 """
 
+from __future__ import annotations
+
 import asyncio
 from datetime import date, datetime
-from typing import List, NamedTuple, Optional, Union, cast
+from time import perf_counter
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Union,
+    cast,
+)
 
 import pandas as pd
 
@@ -20,6 +33,11 @@ from app.services.market_data.stock_price.validator import StockPriceValidator
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+if TYPE_CHECKING:
+    from app.services.market_data.stock_master.service import (
+        StockMasterService,
+    )
 
 
 class StockDataWrapper(NamedTuple):
@@ -92,6 +110,7 @@ class StockPriceService:
         converter: StockPriceConverter,
         validator: StockPriceValidator,
         max_concurrent: int = 5,
+        stock_master_service: Optional["StockMasterService"] = None,
     ):
         """
         初期化
@@ -109,6 +128,8 @@ class StockPriceService:
         self.validator = validator
         self.max_concurrent = max_concurrent
         self._semaphore = asyncio.Semaphore(max_concurrent)
+        # 銘柄マスタサービス（オプション）。依存性注入によって渡される想定
+        self.stock_master_service = stock_master_service
 
     def _normalize_date_param(
         self, d: Union[date, datetime, str, None]
@@ -347,6 +368,106 @@ class StockPriceService:
         )
 
         return processed_results
+
+    async def fetch_all_jpx_stocks(
+        self,
+        timeframe: str,
+        start_date: Union[date, datetime, str],
+        end_date: Union[date, datetime, str],
+        market: Optional[str] = None,
+        max_concurrent: int = 20,
+        batch_size: int = 100,
+        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> Dict[str, Any]:
+        """
+        JPX全銘柄を対象に一括で株価データを収集する
+
+        Args:
+            timeframe: タイムフレーム
+            start_date: 開始日
+            end_date: 終了日
+            market: 市場フィルタ（省略可）
+            max_concurrent: 並列実行数（セマフォ）
+            batch_size: バッチ内の銘柄数
+            progress_callback: 進捗コールバック（辞書を受け取る）
+
+        Returns:
+            処理サマリ辞書
+        """
+        if not self.stock_master_service:
+            raise RuntimeError(
+                "StockMasterService is required for fetch_all_jpx_stocks"
+            )
+
+        start_time = perf_counter()
+
+        # 銘柄リスト取得
+        if market:
+            symbols = await self.stock_master_service.get_symbols_by_market(
+                market
+            )
+        else:
+            symbols = await self.stock_master_service.get_all_active_symbols()
+
+        total = len(symbols)
+        success = 0
+        failed = 0
+        errors: List[Dict[str, Any]] = []
+
+        # バッチ分割
+        for i in range(0, total, batch_size):
+            batch = symbols[i : i + batch_size]
+
+            sem = asyncio.Semaphore(max_concurrent)
+
+            async def _process(symbol: str) -> None:
+                nonlocal success, failed
+                try:
+                    async with sem:
+                        result = await self.fetch_and_save_single(
+                            symbol=symbol,
+                            timeframe=timeframe,
+                            start_date=start_date,
+                            end_date=end_date,
+                        )
+                        if result.success:
+                            success += 1
+                        else:
+                            failed += 1
+                            errors.append(
+                                {"symbol": symbol, "errors": result.errors}
+                            )
+                except Exception as exc:  # pylint: disable=broad-except
+                    failed += 1
+                    errors.append({"symbol": symbol, "errors": [str(exc)]})
+
+            tasks = [_process(s) for s in batch]
+            # 並列実行
+            await asyncio.gather(*tasks)
+
+            # 進捗通知
+            if progress_callback:
+                try:
+                    progress_callback(
+                        {
+                            "total": total,
+                            "processed": success + failed,
+                            "success": success,
+                            "failed": failed,
+                        }
+                    )
+                except Exception:
+                    logger.exception("Progress callback failed")
+
+        elapsed = perf_counter() - start_time
+
+        return {
+            "total": total,
+            "success": success,
+            "failed": failed,
+            "errors": errors,
+            "elapsed_time": elapsed,
+        }
 
     async def get_stock_data(
         self,

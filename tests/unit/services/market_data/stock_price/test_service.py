@@ -276,3 +276,158 @@ class TestStockPriceService:
         )
 
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_and_save_single_yahoo_error(self):
+        """YahooFinanceError発生時のハンドリング"""
+        from app.exceptions.external_api import YahooFinanceError
+
+        symbol = "7203.T"
+        timeframe = "1d"
+
+        self.mock_fetcher.fetch_single = AsyncMock(
+            side_effect=YahooFinanceError()
+        )
+
+        result = await self.service.fetch_and_save_single(
+            symbol, timeframe, date(2024, 1, 1), date(2024, 1, 31)
+        )
+
+        assert result.success is False
+        assert any("Yahoo Finance API error" in e for e in result.errors)
+
+    @pytest.mark.asyncio
+    async def test_fetch_and_save_single_validation_exception(self):
+        """Validatorが例外を投げた場合のハンドリング"""
+        from app.exceptions.business import StockDataValidationError
+
+        symbol = "7203.T"
+        timeframe = "1d"
+
+        mock_stock_data_list = [
+            MagicMock(
+                symbol=symbol,
+                trade_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                model_dump=MagicMock(return_value={"symbol": symbol}),
+            )
+        ]
+
+        self.mock_fetcher.fetch_single = AsyncMock(
+            return_value=mock_stock_data_list
+        )
+        self.mock_validator.validate = MagicMock(
+            side_effect=StockDataValidationError()
+        )
+
+        result = await self.service.fetch_and_save_single(
+            symbol, timeframe, date(2024, 1, 1), date(2024, 1, 31)
+        )
+
+        assert result.success is False
+        assert any("Data validation error" in e for e in result.errors)
+
+    @pytest.mark.asyncio
+    async def test_fetch_and_save_single_unexpected_exception(self):
+        """fetcherが予期せぬ例外を投げた場合のハンドリング"""
+        symbol = "7203.T"
+        timeframe = "1d"
+
+        self.mock_fetcher.fetch_single = AsyncMock(
+            side_effect=Exception("boom")
+        )
+
+        result = await self.service.fetch_and_save_single(
+            symbol, timeframe, date(2024, 1, 1), date(2024, 1, 31)
+        )
+
+        assert result.success is False
+        assert any("Unexpected error" in e for e in result.errors)
+
+    @pytest.mark.asyncio
+    async def test_fetch_and_save_single_iso_string_dates_normalization(self):
+        """文字列で渡した日付パラメータが正規化されることを確認する"""
+        symbol = "7203.T"
+        timeframe = "1d"
+
+        mock_stock_data_list = [
+            MagicMock(
+                symbol=symbol,
+                trade_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                model_dump=MagicMock(return_value={"symbol": symbol}),
+            )
+        ]
+
+        self.mock_fetcher.fetch_single = AsyncMock(
+            return_value=mock_stock_data_list
+        )
+        self.mock_validator.validate = MagicMock(
+            return_value=MagicMock(is_valid=True, errors=[], warnings=[])
+        )
+        self.mock_saver.save_batch = AsyncMock(return_value=1)
+
+        # 日付をISO形式の文字列で渡す
+        await self.service.fetch_and_save_single(
+            symbol, timeframe, "2024-01-01", "2024-01-31"
+        )
+
+        # fetch_single に渡された start_date/end_date が date 型に変換されていること
+        called_kwargs = self.mock_fetcher.fetch_single.call_args[1]
+        assert isinstance(called_kwargs.get("start_date"), date)
+        assert isinstance(called_kwargs.get("end_date"), date)
+
+    @pytest.mark.asyncio
+    async def test_fetch_all_jpx_stocks_success_and_progress_callback(self):
+        """fetch_all_jpx_stocks の基本フローと progress_callback 呼び出しを検証"""
+        # モックの銘柄リスト
+        symbols = ["AAA.T", "BBB.T", "CCC.T"]
+
+        # stock_master_service を注入
+        mock_master = MagicMock()
+        mock_master.get_all_active_symbols = AsyncMock(return_value=symbols)
+        self.service.stock_master_service = mock_master
+
+        # fetch_and_save_single をモックして成功/失敗を返す
+        res1 = StockPriceServiceResult(
+            success=True,
+            symbol="AAA.T",
+            timeframe="1d",
+            records_processed=1,
+            records_saved=1,
+        )
+        res2 = StockPriceServiceResult(
+            success=True,
+            symbol="BBB.T",
+            timeframe="1d",
+            records_processed=1,
+            records_saved=1,
+        )
+        res3 = StockPriceServiceResult(
+            success=False,
+            symbol="CCC.T",
+            timeframe="1d",
+            records_processed=1,
+            records_saved=0,
+            errors=["err"],
+        )
+
+        self.service.fetch_and_save_single = AsyncMock(
+            side_effect=[res1, res2, res3]
+        )
+
+        progress_cb = MagicMock()
+
+        summary = await self.service.fetch_all_jpx_stocks(
+            timeframe="1d",
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 1, 31),
+            progress_callback=progress_cb,
+            max_concurrent=2,
+            batch_size=100,
+        )
+
+        assert summary["total"] == 3
+        assert summary["success"] == 2
+        assert summary["failed"] == 1
+        assert isinstance(summary["elapsed_time"], float)
+        # progress_callback が呼ばれている
+        assert progress_cb.called

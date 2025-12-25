@@ -4,7 +4,7 @@ StockPriceValidator単体テスト
 株価データ検証クラスの機能をテストします。
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.services.market_data.stock_price.validator import StockPriceValidator
 
@@ -184,3 +184,81 @@ class TestStockPriceValidator:
         # バイパス実装のため文字列などもTrueを返す
         assert result.is_valid is True
         assert any("Validation bypassed" in w for w in result.warnings)
+
+    def test_internal_validate_symbol(self):
+        """内部の _validate_symbol を直接テストする"""
+        # None -> required
+        errs = self.validator._validate_symbol(None)
+        assert "symbol is required" in errs
+
+        # empty string -> cannot be empty
+        errs = self.validator._validate_symbol("")
+        assert "symbol cannot be an empty string" in errs
+
+        # whitespace -> cannot be empty
+        errs = self.validator._validate_symbol("   ")
+        assert "symbol cannot be an empty string" in errs
+
+        # valid symbol -> no errors
+        errs = self.validator._validate_symbol("7203.T")
+        assert errs == []
+
+    def test_internal_validate_trade_date(self):
+        """内部の _validate_trade_date を直接テストする"""
+        # None -> required
+        errs = self.validator._validate_trade_date(None)
+        assert "trade_date is required" in errs
+
+        # future date (tz-aware)
+        future = datetime.now(timezone.utc) + timedelta(days=2)
+        errs = self.validator._validate_trade_date(future)
+        assert "trade_date cannot be in the future" in errs
+
+        # past date -> no errors
+        past = datetime(2020, 1, 1, tzinfo=timezone.utc)
+        errs = self.validator._validate_trade_date(past)
+        assert errs == []
+
+    def test_internal_validate_ohlc_data(self):
+        """内部の _validate_ohlc_data を直接テストする"""
+        # None values allowed
+        errs = self.validator._validate_ohlc_data(None, None, None, None)
+        assert errs == []
+
+        # open out of range
+        errs = self.validator._validate_ohlc_data(110.0, 105.0, 95.0, 102.0)
+        assert any("Open price must be within" in e for e in errs)
+
+        # close out of range
+        errs = self.validator._validate_ohlc_data(100.0, 105.0, 95.0, 110.0)
+        assert any("Close price must be within" in e for e in errs)
+
+        # valid OHLC
+        errs = self.validator._validate_ohlc_data(100.0, 105.0, 95.0, 102.0)
+        assert errs == []
+
+    def test_internal_validate_volume(self):
+        """内部の _validate_volume を直接テストする"""
+        # None allowed
+        errs = self.validator._validate_volume(None)
+        assert errs == []
+
+        # negative volume
+        errs = self.validator._validate_volume(-1)
+        assert any(
+            "volume must be greater than or equal to 0" in e for e in errs
+        )
+
+        # zero or positive
+        assert self.validator._validate_volume(0) == []
+        assert self.validator._validate_volume(100) == []
+
+    def test_internal_validate_numeric_range(self):
+        """内部の _validate_numeric_range を直接テストする"""
+        # price field negative -> error
+        errs = self.validator._validate_numeric_range("open_price", -5)
+        assert any("must be greater than or equal to 0" in e for e in errs)
+
+        # non-price field negative -> no error
+        errs = self.validator._validate_numeric_range("volume", -5)
+        assert errs == []
