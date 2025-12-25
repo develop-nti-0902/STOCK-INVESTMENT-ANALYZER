@@ -9,7 +9,7 @@ DataFrameからDB形式への変換と一括保存をサポートします。
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional, Type, Union, cast
+from typing import Any, Callable, Dict, List, Optional, Union, cast
 
 import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,7 +44,9 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
     """
 
     # タイムフレームとRepositoryクラスのマッピング
-    TIMEFRAME_REPOSITORIES: Dict[str, Type[StockDataRepository]] = {
+    TIMEFRAME_REPOSITORIES: Dict[
+        str, Callable[[AsyncSession], StockDataRepository]
+    ] = {
         "1m": StockData1mRepository,
         "5m": StockData5mRepository,
         "15m": StockData15mRepository,
