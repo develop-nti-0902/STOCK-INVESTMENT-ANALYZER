@@ -26,6 +26,7 @@ import pandas as pd
 
 from app.exceptions.business import StockDataValidationError
 from app.exceptions.external_api import YahooFinanceError
+from app.schemas.stock_data import StockPriceCreate
 from app.services.market_data.stock_price.converter import StockPriceConverter
 from app.services.market_data.stock_price.fetcher import StockPriceFetcher
 from app.services.market_data.stock_price.saver import StockPriceSaver
@@ -239,7 +240,9 @@ class StockPriceService:
             # Saver が期待する DB 形式 (timestamp, open, ...) にマッピングして渡す
             # Pydanticモデル -> Saverが期待する辞書形式へ変換
             try:
-                records = self.converter.to_saver_records(valid_data)
+                records = self.converter.to_saver_records(
+                    cast(List[StockPriceCreate], valid_data)
+                )
             except Exception as e:
                 logger.exception("Failed to convert records for saving")
                 return StockPriceServiceResult(
@@ -449,13 +452,14 @@ class StockPriceService:
                     failed += 1
                     errors.append({"symbol": "unknown", "errors": [str(res)]})
                 else:
-                    # 型は StockPriceServiceResult
-                    if res.success:
+                    # 型は StockPriceServiceResult に絞る
+                    result = cast(StockPriceServiceResult, res)
+                    if result.success:
                         success += 1
                     else:
                         failed += 1
                         errors.append(
-                            {"symbol": res.symbol, "errors": res.errors}
+                            {"symbol": result.symbol, "errors": result.errors}
                         )
 
             # 進捗通知
