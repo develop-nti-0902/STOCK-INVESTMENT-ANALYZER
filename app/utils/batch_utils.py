@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import logging
 import time
 from typing import (
     Any,
@@ -22,6 +23,8 @@ from typing import (
 )
 
 T = TypeVar("T")
+
+logger = logging.getLogger(__name__)
 
 
 def chunk_list(items: List[T], chunk_size: int) -> List[List[T]]:
@@ -47,7 +50,7 @@ def chunk_list(items: List[T], chunk_size: int) -> List[List[T]]:
 
 
 async def parallel_execute(
-    tasks: List[Awaitable[T]],
+    tasks: List[Union[Awaitable[T], Callable[[], Awaitable[T]]]],
     max_concurrent: int = 20,
     return_exceptions: bool = True,
 ) -> List[Union[T, Exception, BaseException]]:
@@ -65,11 +68,18 @@ async def parallel_execute(
     semaphore = asyncio.Semaphore(max_concurrent)
 
     async def execute_with_semaphore(
-        task: Awaitable[T],
+        task_item: Union[Awaitable[T], Callable[[], Awaitable[T]]],
     ) -> Union[T, Exception, BaseException]:
         async with semaphore:
             try:
-                return await task
+                # すでに生成済みの awaitable か、実行時にコルーチンを生成する
+                # callable のいずれかを受け付けます。callable を使うと大規模な
+                # バッチでコルーチンの事前生成によるリソース確保を回避できます。
+                if callable(task_item):
+                    coro = task_item()
+                else:
+                    coro = task_item
+                return await coro
             except Exception as e:
                 if return_exceptions:
                     return e
@@ -177,5 +187,7 @@ class ProgressTracker:
                 else:
                     # 同期コールバックの場合は直接呼び出し
                     self.callback(self.get_summary())
-            except Exception:
-                pass
+            except Exception as e:
+                # 進捗コールバックの実行に失敗した場合は詳細をログに残す
+                # NULL にせず例外情報を記録することでデバッグしやすくする
+                logger.exception("Progress callback failed: %s", e)

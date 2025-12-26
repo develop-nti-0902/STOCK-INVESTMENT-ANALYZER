@@ -6,6 +6,7 @@ Yahoo Finance API (yfinance) を使用して株価データを取得します。
 """
 
 import asyncio
+import re
 from datetime import date, timedelta
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -328,8 +329,6 @@ class StockPriceFetcher(RetryMixin):
                 # 日本株はDBでは接尾辞なしで管理しているため、
                 # yfinance 呼び出し時のみ ".T" を付与する。
                 # 日本株判定は銘柄が数字のみで構成されている場合とする。
-                import re
-
                 if isinstance(symbol, str) and re.fullmatch(r"\d+", symbol):
                     # 数字のみ（日本株）: DBの値は ".T" なしを期待する
                     if "." in symbol:
@@ -496,8 +495,6 @@ class StockPriceFetcher(RetryMixin):
         Returns:
             bool: 銘柄コードが有効なフォーマットの場合True
         """
-        import re
-
         if not symbol or not isinstance(symbol, str):
             return False
 

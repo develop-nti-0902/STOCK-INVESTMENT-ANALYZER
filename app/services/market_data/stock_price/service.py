@@ -237,19 +237,18 @@ class StockPriceService:
             # 4. データ保存
             # Pydanticモデルのフィールド名 (trade_date, open_price, ...) を
             # Saver が期待する DB 形式 (timestamp, open, ...) にマッピングして渡す
-            records = []
-            for item in valid_data:
-                d = item.model_dump()
-                records.append(
-                    {
-                        "timestamp": d.get("trade_date"),
-                        "open": d.get("open_price"),
-                        "high": d.get("high"),
-                        "low": d.get("low"),
-                        "close": d.get("close"),
-                        "volume": d.get("volume"),
-                        "adj_close": d.get("adj_close"),
-                    }
+            # Pydanticモデル -> Saverが期待する辞書形式へ変換
+            try:
+                records = self.converter.to_saver_records(valid_data)
+            except Exception as e:
+                logger.exception("Failed to convert records for saving")
+                return StockPriceServiceResult(
+                    success=False,
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    records_processed=records_processed,
+                    records_saved=0,
+                    errors=[f"Conversion error: {e}"],
                 )
 
             payload = [
@@ -420,8 +419,7 @@ class StockPriceService:
 
             sem = asyncio.Semaphore(max_concurrent)
 
-            async def _process(symbol: str) -> None:
-                nonlocal success, failed
+            async def _process(symbol: str):
                 try:
                     async with sem:
                         result = await self.fetch_and_save_single(
@@ -430,20 +428,35 @@ class StockPriceService:
                             start_date=start_date,
                             end_date=end_date,
                         )
-                        if result.success:
-                            success += 1
-                        else:
-                            failed += 1
-                            errors.append(
-                                {"symbol": symbol, "errors": result.errors}
-                            )
+                        return result
                 except Exception as exc:  # pylint: disable=broad-except
-                    failed += 1
-                    errors.append({"symbol": symbol, "errors": [str(exc)]})
+                    return StockPriceServiceResult(
+                        success=False,
+                        symbol=symbol,
+                        timeframe=timeframe,
+                        errors=[str(exc)],
+                    )
 
             tasks = [_process(s) for s in batch]
-            # 並列実行
-            await asyncio.gather(*tasks)
+            # 並列実行して結果を収集
+            batch_results = await asyncio.gather(
+                *tasks, return_exceptions=True
+            )
+
+            # gather 後に集計して競合状態を回避
+            for res in batch_results:
+                if isinstance(res, Exception):
+                    failed += 1
+                    errors.append({"symbol": "unknown", "errors": [str(res)]})
+                else:
+                    # 型は StockPriceServiceResult
+                    if res.success:
+                        success += 1
+                    else:
+                        failed += 1
+                        errors.append(
+                            {"symbol": res.symbol, "errors": res.errors}
+                        )
 
             # 進捗通知
             if progress_callback:

@@ -184,16 +184,19 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
 
             if not db_records:
                 logger.warning(
-                    f"No valid data to save for symbol {symbol}, "
-                    f"timeframe {timeframe}"
+                    "No valid data to save for symbol %s, " "timeframe %s",
+                    symbol,
+                    timeframe,
                 )
                 return False
 
             # 一括保存
             saved_count: int = await repository.upsert_bulk(db_records)
             logger.info(
-                f"Saved {saved_count} records for symbol {symbol}, "
-                f"timeframe {timeframe}"
+                "Saved %s records for symbol %s, " "timeframe %s",
+                saved_count,
+                symbol,
+                timeframe,
             )
 
             return saved_count > 0
@@ -307,7 +310,21 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                         saved_count,
                     )
                 else:
-                    # 成功件数が0の場合でもトランザクションを明示的にロールバックしてクリーンにする
+                    # 診断: saved_count が 0 の場合、コミット/ロールバック前に代表レコードで
+                    # upsert_single を試して例外内容を取得する（セッションはまだ有効）
+                    if db_records:
+                        try:
+                            # upsert_single は例外を投げる設計なので、ここで捕まえてログを出す
+                            await repository.upsert_single(db_records[0])
+                        except Exception as ex_single:
+                            logger.exception(
+                                "Detailed upsert_single error for %s (%s): %s",
+                                symbol,
+                                timeframe,
+                                ex_single,
+                            )
+
+                    # 成功件数が0の場合はトランザクションを明示的にロールバックしてクリーンにする
                     await session.rollback()
                     logger.info(
                         "_save_single_stock_async: %s (%s) saved_count=0 "
@@ -315,30 +332,26 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                         symbol,
                         timeframe,
                     )
-
-                # 診断: saved_count が 0 の場合、代表レコードで upsert_single を試して例外内容を取得
-                if saved_count == 0 and db_records:
-                    try:
-                        # upsert_single は例外を投げる設計なので、ここで捕まえてログを出す
-                        await repository.upsert_single(db_records[0])
-                    except Exception as ex_single:
-                        logger.exception(
-                            "Detailed upsert_single error for %s (%s): %s",
-                            symbol,
-                            timeframe,
-                            ex_single,
-                        )
                 return saved_count
 
             except Exception as e:
                 # 詳細な診断ログを出し、例外を外に投げず 0 を返す
                 logger.exception(
-                    "Exception saving symbol %s (%s): %s", symbol, timeframe, e
+                    "Exception saving symbol %s (%s): %s",
+                    symbol,
+                    timeframe,
+                    e,
                 )
                 try:
                     await session.rollback()
-                except Exception:
-                    pass
+                except Exception as rollback_error:
+                    logger.exception(
+                        "Failed to rollback transaction for symbol %s "
+                        "(%s): %s",
+                        symbol,
+                        timeframe,
+                        rollback_error,
+                    )
                 return 0
 
     def _select_repository(self, timeframe: str) -> Optional[Any]:

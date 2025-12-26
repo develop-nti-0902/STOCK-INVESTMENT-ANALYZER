@@ -30,6 +30,12 @@ class TestStockPriceService:
         self.mock_converter = MagicMock(spec=StockPriceConverter)
         self.mock_validator = MagicMock(spec=StockPriceValidator)
 
+        # converter.to_saver_records が呼ばれたとき、渡されたモデル群の
+        # model_dump() を使ってレコード一覧を返すようにしておく（互換性維持）
+        self.mock_converter.to_saver_records = MagicMock(
+            side_effect=lambda models: [m.model_dump() for m in models]
+        )
+
         # Serviceインスタンス作成
         self.service = StockPriceService(
             fetcher=self.mock_fetcher,
