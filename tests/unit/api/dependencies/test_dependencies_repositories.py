@@ -12,9 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies.repositories import get_base_repository
 from app.repositories.base import BaseRepository
 
-# このファイルでは共通の `tests/conftest.py` に定義された
-# `mock_db_session` フィクスチャを利用します。ローカル定義は削除しました。
-
 
 class TestGetBaseRepository:
     """get_base_repository関数のテスト"""
