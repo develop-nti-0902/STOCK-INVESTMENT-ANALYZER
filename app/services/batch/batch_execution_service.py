@@ -101,41 +101,51 @@ class BatchExecutionContext:
         self.job_type = job_type
         self.params = params or {}
         self.job: Optional[BatchExecution] = None
+        self.job_id: Optional[int] = None
 
     async def __aenter__(self):
         self.job = await self.service.create_job(self.job_type, self.params)
         if self.job is None:
             raise RuntimeError("failed to create batch job")
-        await self.service.start_job(self.job.id)
+
+        # 安全に job_id を取り出して以降は int 型で扱う
+        self.job_id = int(getattr(self.job, "id"))
+
+        jid = self.job_id
+        await self.service.start_job(jid)
 
         class _Ctx:
-            def __init__(self, parent: "BatchExecutionContext"):
-                self._parent = parent
+            def __init__(self, service: BatchExecutionService, job_id: int):
+                self._service = service
+                self._job_id = job_id
 
             async def update_progress(self, **kwargs):
-                return await self._parent.service.update_progress(
-                    self._parent.job.id, **kwargs
+                return await self._service.update_progress(
+                    self._job_id, **kwargs
                 )
 
             @property
             def job_id(self) -> int:
-                return self._parent.job.id
+                return self._job_id
 
-        return _Ctx(self)
+        return _Ctx(self.service, jid)
 
     async def __aexit__(self, exc_type, exc, tb):
         if self.job is None:
             return
+        jid = self.job_id
+        if jid is None:
+            return
         if exc:
             try:
-                await self.service.fail_job(self.job.id, str(exc))
+                await self.service.fail_job(jid, str(exc))
             except Exception:
-                logger.exception("Failed to mark job failed: %s", self.job.id)
+                logger.exception("Failed to mark job failed: %s", jid)
             return False
 
         try:
             # 完了時: 既存の集計値を取得して mark_completed を呼ぶ
-            instance = await self.service.get_job_status(self.job.id)
+            instance = await self.service.get_job_status(jid)
             if instance is None:
                 return
             success_count = int(getattr(instance, "successful_stocks", 0) or 0)
@@ -146,12 +156,12 @@ class BatchExecutionContext:
                 success_count = processed
 
             await self.service.complete_job(
-                self.job.id,
+                jid,
                 success_count=success_count,
                 failed_count=failed_count,
             )
         except Exception:
-            logger.exception("Failed to mark job completed: %s", self.job.id)
+            logger.exception("Failed to mark job completed: %s", jid)
 
 
 __all__ = ["BatchExecutionService", "BatchExecutionContext"]
