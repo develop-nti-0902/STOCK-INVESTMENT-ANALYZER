@@ -10,7 +10,7 @@ UPSERT処理、データ取得、一括保存の動作を検証します。
 
 import csv
 import os
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from typing import List
 
 import pytest
@@ -121,6 +121,7 @@ async def test_stock_data_1m_upsert_and_retrieve(monkeypatch, artifacts_dir):
         }
 
         result_insert = await repo.upsert_single(data_insert)
+        await session.commit()
         logger.info(f"Insert result: {result_insert}")
 
         assert result_insert["operation"] == "upsert"
@@ -143,6 +144,7 @@ async def test_stock_data_1m_upsert_and_retrieve(monkeypatch, artifacts_dir):
         }
 
         result_update = await repo.upsert_single(data_update)
+        await session.commit()
         logger.info(f"Update result: {result_update}")
 
         assert result_update["operation"] == "upsert"
@@ -276,7 +278,7 @@ async def test_stock_data_1d_bulk_upsert(monkeypatch, artifacts_dir):
         bulk_data = [
             {
                 "symbol": test_symbol,
-                "date": date(2024, 1, 15),
+                "timestamp": datetime(2024, 1, 15, 0, 0, 0),
                 "open": 5000.0,
                 "high": 5100.0,
                 "low": 4950.0,
@@ -285,7 +287,7 @@ async def test_stock_data_1d_bulk_upsert(monkeypatch, artifacts_dir):
             },
             {
                 "symbol": test_symbol,
-                "date": date(2024, 1, 16),
+                "timestamp": datetime(2024, 1, 16, 0, 0, 0),
                 "open": 5050.0,
                 "high": 5150.0,
                 "low": 5000.0,
@@ -294,7 +296,7 @@ async def test_stock_data_1d_bulk_upsert(monkeypatch, artifacts_dir):
             },
             {
                 "symbol": test_symbol,
-                "date": date(2024, 1, 17),
+                "timestamp": datetime(2024, 1, 17, 0, 0, 0),
                 "open": 5100.0,
                 "high": 5200.0,
                 "low": 5050.0,
@@ -304,6 +306,7 @@ async def test_stock_data_1d_bulk_upsert(monkeypatch, artifacts_dir):
         ]
 
         result = await repo.upsert_bulk(bulk_data)
+        await session.commit()
         logger.info(f"Bulk insert result: {result}")
 
         assert result == 3  # 3件成功
@@ -316,7 +319,7 @@ async def test_stock_data_1d_bulk_upsert(monkeypatch, artifacts_dir):
         bulk_data_mixed = [
             {
                 "symbol": test_symbol,
-                "date": date(2024, 1, 16),  # 既存（更新）
+                "timestamp": datetime(2024, 1, 16, 0, 0, 0),  # 既存（更新）
                 "open": 5050.0,
                 "high": 5200.0,  # 変更
                 "low": 5000.0,
@@ -325,7 +328,7 @@ async def test_stock_data_1d_bulk_upsert(monkeypatch, artifacts_dir):
             },
             {
                 "symbol": test_symbol,
-                "date": date(2024, 1, 17),  # 既存（更新）
+                "timestamp": datetime(2024, 1, 17, 0, 0, 0),  # 既存（更新）
                 "open": 5100.0,
                 "high": 5250.0,  # 変更
                 "low": 5050.0,
@@ -334,7 +337,7 @@ async def test_stock_data_1d_bulk_upsert(monkeypatch, artifacts_dir):
             },
             {
                 "symbol": test_symbol,
-                "date": date(2024, 1, 18),  # 新規
+                "timestamp": datetime(2024, 1, 18, 0, 0, 0),  # 新規
                 "open": 5200.0,
                 "high": 5300.0,
                 "low": 5150.0,
@@ -344,6 +347,7 @@ async def test_stock_data_1d_bulk_upsert(monkeypatch, artifacts_dir):
         ]
 
         result = await repo.upsert_bulk(bulk_data_mixed)
+        await session.commit()
         logger.info(f"Bulk upsert (mixed) result: {result}")
 
         assert result == 3  # 3件成功
@@ -353,16 +357,16 @@ async def test_stock_data_1d_bulk_upsert(monkeypatch, artifacts_dir):
         repo = StockData1dRepository(session)
 
         # 1月16日のデータが更新されていることを確認
-        data_1_16 = await repo.get_by_symbol_and_date(
-            test_symbol, date(2024, 1, 16)
+        data_1_16 = await repo.get_by_symbol_and_timestamp(
+            test_symbol, datetime(2024, 1, 16, 0, 0, 0)
         )
         assert data_1_16 is not None
         assert data_1_16.high == 5200.0  # 更新された値
         assert data_1_16.close == 5180.0  # 更新された値
 
         # 1月18日の新規データが挿入されていることを確認
-        data_1_18 = await repo.get_by_symbol_and_date(
-            test_symbol, date(2024, 1, 18)
+        data_1_18 = await repo.get_by_symbol_and_timestamp(
+            test_symbol, datetime(2024, 1, 18, 0, 0, 0)
         )
         assert data_1_18 is not None
         assert data_1_18.close == 5250.0
@@ -450,7 +454,7 @@ async def test_stock_data_count_and_latest(monkeypatch):
         test_data = [
             {
                 "symbol": test_symbol,
-                "date": date(2024, 1, 10),
+                "timestamp": datetime(2024, 1, 10, 0, 0, 0),
                 "open": 12000.0,
                 "high": 12100.0,
                 "low": 11950.0,
@@ -459,7 +463,7 @@ async def test_stock_data_count_and_latest(monkeypatch):
             },
             {
                 "symbol": test_symbol,
-                "date": date(2024, 1, 11),
+                "timestamp": datetime(2024, 1, 11, 0, 0, 0),
                 "open": 12050.0,
                 "high": 12150.0,
                 "low": 12000.0,
@@ -469,6 +473,7 @@ async def test_stock_data_count_and_latest(monkeypatch):
         ]
 
         await repo.upsert_bulk(test_data)
+        await session.commit()
 
         # レコード数カウント
         count = await repo.count_by_symbol(test_symbol)
@@ -478,7 +483,7 @@ async def test_stock_data_count_and_latest(monkeypatch):
         # 最新データ取得（降順）
         latest = await repo.get_latest(test_symbol, limit=2)
         assert len(latest) >= 1
-        assert latest[0].date >= latest[-1].date  # 降順確認
+        assert latest[0].timestamp >= latest[-1].timestamp  # 降順確認
         logger.info(
-            f"Latest record: {latest[0].date}, close: {latest[0].close}"
+            f"Latest record: {latest[0].timestamp}, close: {latest[0].close}"
         )

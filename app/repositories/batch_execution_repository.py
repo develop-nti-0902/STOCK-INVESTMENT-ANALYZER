@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.batch_execution import BatchExecution
 from app.repositories.base import BaseRepository
-from app.utils.database import flush_commit_return_with_log
+from app.utils.database import flush_return_with_log
 from app.utils.validation import validate_pagination
 
 logger = logging.getLogger(__name__)
@@ -36,29 +36,37 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         super().__init__(session, model=BatchExecution)
 
     async def create_job(self, batch_type: str) -> BatchExecution:
-        """新しいバッチ実行レコードを作成して返す"""
+        """新しいバッチ実行レコードを作成して返す
+
+        注意:
+            トランザクションのコミットはService層で行ってください。
+        """
         # total_stocks は NULL 不可のため 0 で初期化する
         instance = self.model(
             batch_type=batch_type,
             status="pending",
             total_stocks=0,
         )
-        return await self._add_and_commit(instance)
+        return await self._add_and_flush(instance)
 
     async def update_status(
         self, record_id: int, status: str
     ) -> Optional[BatchExecution]:
-        """指定レコードのステータスを更新する"""
+        """指定レコードのステータスを更新する
+
+        注意:
+            トランザクションのコミットはService層で行ってください。
+        """
         instance = await self.get(record_id)
         if instance is None:
             return None
         instance.status = status
 
-        return await flush_commit_return_with_log(
+        return await flush_return_with_log(
             self.session,
             instance,
             logger,
-            "Failed to update status id=%s",
+            "Failed to flush status update id=%s",
             record_id,
         )
 
@@ -68,7 +76,11 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         success_count: int,
         failed_count: int,
     ) -> Optional[BatchExecution]:
-        """完了マークを付与して集計値と終了時刻を設定する"""
+        """完了マークを付与して集計値と終了時刻を設定する
+
+        注意:
+            トランザクションのコミットはService層で行ってください。
+        """
         instance = await self.get(record_id)
         if instance is None:
             return None
@@ -79,11 +91,11 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         instance.processed_stocks = success_count + failed_count
         instance.end_time = datetime.now(timezone.utc)
 
-        return await flush_commit_return_with_log(
+        return await flush_return_with_log(
             self.session,
             instance,
             logger,
-            "Failed to mark completed id=%s",
+            "Failed to flush mark completed id=%s",
             record_id,
         )
 

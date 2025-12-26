@@ -94,10 +94,10 @@ async def test_update_status_updates_and_commits():
     # Act
     updated = await repo.update_status(10, "running")
 
-    # Assert
+    # Assert: flush が呼ばれること（commitはService層で実施）
     assert updated is not None
     assert updated.status == "running"
-    session.commit.assert_called()
+    session.flush.assert_awaited()
 
 
 @pytest.mark.asyncio
@@ -192,8 +192,8 @@ async def test_create_job_rollback_on_failure():
     session.add = AsyncMock(side_effect=_raise)
     repo = BatchExecutionRepository(session)
 
-    # Act / Assert
+    # Act / Assert: 例外が伝播すること（rollbackはService層で実施）
     with pytest.raises(SQLAlchemyError):
         await repo.create_job("fail_job")
 
-    session.rollback.assert_called()
+    # Repository層ではrollbackを呼ばない

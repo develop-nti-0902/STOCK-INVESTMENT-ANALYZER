@@ -9,7 +9,7 @@ DataFrameからDB形式への変換と一括保存をサポートします。
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Callable, Dict, List, Optional, Union, cast
 
 import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,8 +23,10 @@ from app.repositories.stock_data_repository import (
     StockData5mRepository,
     StockData15mRepository,
     StockData30mRepository,
+    StockDataRepository,
 )
 from app.services.core.savers.bulk_saver_mixin import BulkSaverMixin
+from app.utils.database import get_session_maker
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,9 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
     """
 
     # タイムフレームとRepositoryクラスのマッピング
-    TIMEFRAME_REPOSITORIES = {
+    TIMEFRAME_REPOSITORIES: Dict[
+        str, Callable[[AsyncSession], StockDataRepository]
+    ] = {
         "1m": StockData1mRepository,
         "5m": StockData5mRepository,
         "15m": StockData15mRepository,
@@ -163,6 +167,11 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
 
         Raises:
             ValueError: 無効なタイムフレームまたはデータ形式の場合
+
+        注意:
+            このメソッドはFastAPIから注入されたセッション（self.session）を使用します。
+            トランザクションのコミットは、FastAPIのget_db()が自動的に行います。
+            エラーが発生した場合は、例外を上位層に伝播させてください（get_db()が自動ロールバック）。
         """
         try:
             # Repository選択
@@ -175,16 +184,19 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
 
             if not db_records:
                 logger.warning(
-                    f"No valid data to save for symbol {symbol}, "
-                    f"timeframe {timeframe}"
+                    "No valid data to save for symbol %s, " "timeframe %s",
+                    symbol,
+                    timeframe,
                 )
                 return False
 
             # 一括保存
             saved_count: int = await repository.upsert_bulk(db_records)
             logger.info(
-                f"Saved {saved_count} records for symbol {symbol}, "
-                f"timeframe {timeframe}"
+                "Saved %s records for symbol %s, " "timeframe %s",
+                saved_count,
+                symbol,
+                timeframe,
             )
 
             return saved_count > 0
@@ -267,21 +279,80 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         Returns:
             int: 保存件数
         """
-        try:
-            repository = self._select_repository(timeframe)
-            if not repository:
-                raise ValueError(f"Unsupported timeframe: {timeframe}")
-
-            db_records = self._prepare_data_for_db(symbol, data)
-            saved_count = await repository.upsert_bulk(db_records)
-            return saved_count
-
-        except Exception as e:
+        # 新しいセッションをシンボル単位で作成し、同一セッションの並列使用を避ける
+        repo_class = self.TIMEFRAME_REPOSITORIES.get(timeframe)
+        if not repo_class:
             logger.error(
-                f"Error in _save_single_stock_async for {symbol} "
-                f"({timeframe}): {e}"
+                "Unsupported timeframe for symbol %s: %s", symbol, timeframe
             )
-            raise
+            return 0
+
+        db_records = self._prepare_data_for_db(symbol, data)
+        if not db_records:
+            logger.warning(
+                "No DB records prepared for %s (%s)", symbol, timeframe
+            )
+            return 0
+
+        session_maker = get_session_maker()
+        async with session_maker() as session:
+            repository = repo_class(session)
+            try:
+                saved_count = await repository.upsert_bulk(db_records)
+                # Repository層ではコミットしないため、Service層でコミット
+                if saved_count > 0:
+                    await session.commit()
+                    logger.info(
+                        "_save_single_stock_async: %s (%s) saved_count=%s "
+                        "(committed)",
+                        symbol,
+                        timeframe,
+                        saved_count,
+                    )
+                else:
+                    # 診断: saved_count が 0 の場合、コミット/ロールバック前に代表レコードで
+                    # upsert_single を試して例外内容を取得する（セッションはまだ有効）
+                    if db_records:
+                        try:
+                            # upsert_single は例外を投げる設計なので、ここで捕まえてログを出す
+                            await repository.upsert_single(db_records[0])
+                        except Exception as ex_single:
+                            logger.exception(
+                                "Detailed upsert_single error for %s (%s): %s",
+                                symbol,
+                                timeframe,
+                                ex_single,
+                            )
+
+                    # 成功件数が0の場合はトランザクションを明示的にロールバックしてクリーンにする
+                    await session.rollback()
+                    logger.info(
+                        "_save_single_stock_async: %s (%s) saved_count=0 "
+                        "(rolled back)",
+                        symbol,
+                        timeframe,
+                    )
+                return saved_count
+
+            except Exception as e:
+                # 詳細な診断ログを出し、例外を外に投げず 0 を返す
+                logger.exception(
+                    "Exception saving symbol %s (%s): %s",
+                    symbol,
+                    timeframe,
+                    e,
+                )
+                try:
+                    await session.rollback()
+                except Exception as rollback_error:
+                    logger.exception(
+                        "Failed to rollback transaction for symbol %s "
+                        "(%s): %s",
+                        symbol,
+                        timeframe,
+                        rollback_error,
+                    )
+                return 0
 
     def _select_repository(self, timeframe: str) -> Optional[Any]:
         """
@@ -355,15 +426,13 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 # timestampの変換
                 timestamp = pd.to_datetime(row["timestamp"])
                 if timestamp.tz is None:
-                    # タイムゾーンなしの場合、UTCとみなす
-                    timestamp = timestamp.tz_localize("UTC")
+                    # タイムゾーンなしの場合、JST(Asia/Tokyo)とみなす
+                    timestamp = timestamp.tz_localize("Asia/Tokyo")
 
                 record = {
                     "symbol": symbol,
-                    # 保存時は timestamp (datetime) を保持し、日次等のRepository向けに
-                    # date も同時に保持する（repository が必要とするキーが存在するようにするため）
+                    # 保存時は timezone-aware な timestamp をそのまま保持
                     "timestamp": timestamp.to_pydatetime(),
-                    "date": timestamp.date(),
                     "open": float(row["open"]),
                     "high": float(row["high"]),
                     "low": float(row["low"]),
@@ -380,6 +449,25 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                             symbol,
                             e,
                         )
+                # 値の論理整合性チェック (高値/安値/始値/終値の関係)
+                eps = 1e-8
+                open_val = record["open"]
+                high_val = record["high"]
+                low_val = record["low"]
+                close_val = record["close"]
+                if not (
+                    high_val + eps >= low_val
+                    and high_val + eps >= open_val
+                    and high_val + eps >= close_val
+                    and low_val - eps <= open_val
+                    and low_val - eps <= close_val
+                ):
+                    logger.warning(
+                        "Skipping row due to price logic violation: %s",
+                        record,
+                    )
+                    continue
+
                 records.append(record)
 
             except (ValueError, TypeError) as e:
@@ -407,12 +495,11 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 # timestampの変換
                 timestamp = pd.to_datetime(item["timestamp"])
                 if timestamp.tz is None:
-                    timestamp = timestamp.tz_localize("UTC")
+                    timestamp = timestamp.tz_localize("Asia/Tokyo")
 
                 record = {
                     "symbol": symbol,
                     "timestamp": timestamp.to_pydatetime(),
-                    "date": timestamp.date(),
                     "open": float(item["open"]),
                     "high": float(item["high"]),
                     "low": float(item["low"]),
@@ -429,6 +516,25 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                             symbol,
                             e,
                         )
+                # 値の論理整合性チェック
+                eps = 1e-8
+                open_val = record["open"]
+                high_val = record["high"]
+                low_val = record["low"]
+                close_val = record["close"]
+                if not (
+                    high_val + eps >= low_val
+                    and high_val + eps >= open_val
+                    and high_val + eps >= close_val
+                    and low_val - eps <= open_val
+                    and low_val - eps <= close_val
+                ):
+                    logger.warning(
+                        "Skipping item due to price logic violation: %s",
+                        record,
+                    )
+                    continue
+
                 records.append(record)
 
             except (KeyError, ValueError, TypeError) as e:

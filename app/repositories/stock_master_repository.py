@@ -48,6 +48,33 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         )
         return result.scalar_one_or_none()
 
+    async def get_all_active_symbols(self) -> List[str]:
+        """アクティブな全銘柄コードを取得"""
+        result = await self.session.execute(
+            select(self.model.stock_code).where(self.model.is_active)
+        )
+        return [row[0] for row in result.all()]
+
+    async def get_symbols_by_market(self, market: str) -> List[str]:
+        """市場別銘柄コードを取得"""
+        result = await self.session.execute(
+            select(self.model.stock_code).where(
+                self.model.market_category == market,
+                self.model.is_active,
+            )
+        )
+        return [row[0] for row in result.all()]
+
+    async def get_symbols_by_sector(self, sector: str) -> List[str]:
+        """業種別銘柄コードを取得"""
+        result = await self.session.execute(
+            select(self.model.stock_code).where(
+                self.model.sector_name_33 == sector,
+                self.model.is_active,
+            )
+        )
+        return [row[0] for row in result.all()]
+
     async def get_by_market(self, market: str) -> List[StockMaster]:
         """市場区分で取得"""
         result = await self.session.execute(
@@ -103,7 +130,11 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         )
 
     async def bulk_upsert(self, records: List[dict]) -> int:
-        """既存のbulk_upsertも残す（入力件数を返す）"""
+        """既存のbulk_upsertも残す（入力件数を返す）
+
+        注意:
+            トランザクションのコミットはService層で行ってください。
+        """
         if not records:
             return 0
 
@@ -123,10 +154,8 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         try:
             await self.session.execute(stmt)
             await self.session.flush()
-            await self.session.commit()
             return len(records)
         except SQLAlchemyError as e:
-            await self.session.rollback()
             logger.exception("bulk_upsert failed: %s", e)
             raise
 

@@ -124,11 +124,11 @@ CREATE INDEX IF NOT EXISTS idx_stocks_1h_symbol ON stocks_1h (symbol);
 CREATE INDEX IF NOT EXISTS idx_stocks_1h_timestamp ON stocks_1h (timestamp);
 CREATE INDEX IF NOT EXISTS idx_stocks_1h_symbol_timestamp_desc ON stocks_1h (symbol, timestamp DESC);
 
--- 日足・週足・月足テーブル（日付ベースの間隔には `DATE` 型を使用）
+-- 日足・週足・月足テーブル（日時は TIMESTAMP 型を使用）
 CREATE TABLE IF NOT EXISTS stocks_1d (
   id SERIAL PRIMARY KEY,
   symbol VARCHAR(10) NOT NULL,
-  date DATE NOT NULL,
+  timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
   open NUMERIC(14,4) NOT NULL,
   high NUMERIC(14,4) NOT NULL,
   low NUMERIC(14,4) NOT NULL,
@@ -137,7 +137,7 @@ CREATE TABLE IF NOT EXISTS stocks_1d (
   volume BIGINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  CONSTRAINT uq_stocks_1d_symbol_date UNIQUE (symbol, date),
+  CONSTRAINT uq_stocks_1d_symbol_timestamp UNIQUE (symbol, timestamp),
   CONSTRAINT chk_stocks_1d_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
   CONSTRAINT chk_stocks_1d_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
   CONSTRAINT chk_stocks_1d_volume_non_negative CHECK (volume >= 0),
@@ -145,13 +145,13 @@ CREATE TABLE IF NOT EXISTS stocks_1d (
 );
 
 CREATE INDEX IF NOT EXISTS idx_stocks_1d_symbol ON stocks_1d (symbol);
-CREATE INDEX IF NOT EXISTS idx_stocks_1d_date ON stocks_1d (date);
-CREATE INDEX IF NOT EXISTS idx_stocks_1d_symbol_date_desc ON stocks_1d (symbol, date DESC);
+CREATE INDEX IF NOT EXISTS idx_stocks_1d_timestamp ON stocks_1d (timestamp);
+CREATE INDEX IF NOT EXISTS idx_stocks_1d_symbol_timestamp_desc ON stocks_1d (symbol, timestamp DESC);
 
 CREATE TABLE IF NOT EXISTS stocks_1wk (
   id SERIAL PRIMARY KEY,
   symbol VARCHAR(10) NOT NULL,
-  date DATE NOT NULL,
+  timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
   open NUMERIC(14,4) NOT NULL,
   high NUMERIC(14,4) NOT NULL,
   low NUMERIC(14,4) NOT NULL,
@@ -160,7 +160,7 @@ CREATE TABLE IF NOT EXISTS stocks_1wk (
   volume BIGINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  CONSTRAINT uq_stocks_1wk_symbol_date UNIQUE (symbol, date),
+  CONSTRAINT uq_stocks_1wk_symbol_timestamp UNIQUE (symbol, timestamp),
   CONSTRAINT chk_stocks_1wk_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
   CONSTRAINT chk_stocks_1wk_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
   CONSTRAINT chk_stocks_1wk_volume_non_negative CHECK (volume >= 0),
@@ -168,13 +168,13 @@ CREATE TABLE IF NOT EXISTS stocks_1wk (
 );
 
 CREATE INDEX IF NOT EXISTS idx_stocks_1wk_symbol ON stocks_1wk (symbol);
-CREATE INDEX IF NOT EXISTS idx_stocks_1wk_date ON stocks_1wk (date);
-CREATE INDEX IF NOT EXISTS idx_stocks_1wk_symbol_date_desc ON stocks_1wk (symbol, date DESC);
+CREATE INDEX IF NOT EXISTS idx_stocks_1wk_timestamp ON stocks_1wk (timestamp);
+CREATE INDEX IF NOT EXISTS idx_stocks_1wk_symbol_timestamp_desc ON stocks_1wk (symbol, timestamp DESC);
 
 CREATE TABLE IF NOT EXISTS stocks_1mo (
   id SERIAL PRIMARY KEY,
   symbol VARCHAR(10) NOT NULL,
-  date DATE NOT NULL,
+  timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
   open NUMERIC(14,4) NOT NULL,
   high NUMERIC(14,4) NOT NULL,
   low NUMERIC(14,4) NOT NULL,
@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS stocks_1mo (
   volume BIGINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  CONSTRAINT uq_stocks_1mo_symbol_date UNIQUE (symbol, date),
+  CONSTRAINT uq_stocks_1mo_symbol_timestamp UNIQUE (symbol, timestamp),
   CONSTRAINT chk_stocks_1mo_non_negative_prices CHECK (open >= 0 AND high >= 0 AND low >= 0 AND close >= 0),
   CONSTRAINT chk_stocks_1mo_high_low_logic CHECK (high >= low AND high >= open AND high >= close AND low <= open AND low <= close),
   CONSTRAINT chk_stocks_1mo_volume_non_negative CHECK (volume >= 0),
@@ -191,8 +191,8 @@ CREATE TABLE IF NOT EXISTS stocks_1mo (
 );
 
 CREATE INDEX IF NOT EXISTS idx_stocks_1mo_symbol ON stocks_1mo (symbol);
-CREATE INDEX IF NOT EXISTS idx_stocks_1mo_date ON stocks_1mo (date);
-CREATE INDEX IF NOT EXISTS idx_stocks_1mo_symbol_date_desc ON stocks_1mo (symbol, date DESC);
+CREATE INDEX IF NOT EXISTS idx_stocks_1mo_timestamp ON stocks_1mo (timestamp);
+CREATE INDEX IF NOT EXISTS idx_stocks_1mo_symbol_timestamp_desc ON stocks_1mo (symbol, timestamp DESC);
 
 -- テーブルの所有者を stock_user に変更し、権限を付与
 -- これにより、アプリケーションユーザーがテーブルにアクセスできるようになります

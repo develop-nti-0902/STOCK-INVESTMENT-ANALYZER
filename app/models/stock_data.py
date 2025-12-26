@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from datetime import date as DateType
 from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     BigInteger,
-    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -135,7 +133,6 @@ class Stocks1h(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     )
 
 
-# 日次・週次・月次は Date を使用
 class Stocks1d(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     __tablename__ = "stocks_1d"
 
@@ -144,11 +141,15 @@ class Stocks1d(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         ForeignKey("stock_master.stock_code", ondelete="CASCADE"),
         nullable=False,
     )
-    date: Mapped[DateType] = mapped_column(Date, nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
 
     __table_args__ = (
-        UniqueConstraint("symbol", "date", name="uix_stocks_1d_symbol_date"),
-        Index("idx_stocks_1d_date", "date"),
+        UniqueConstraint(
+            "symbol", "timestamp", name="uix_stocks_1d_symbol_timestamp"
+        ),
+        Index("idx_stocks_1d_timestamp", "timestamp"),
     )
 
 
@@ -160,11 +161,15 @@ class Stocks1wk(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         ForeignKey("stock_master.stock_code", ondelete="CASCADE"),
         nullable=False,
     )
-    date: Mapped[DateType] = mapped_column(Date, nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
 
     __table_args__ = (
-        UniqueConstraint("symbol", "date", name="uix_stocks_1wk_symbol_date"),
-        Index("idx_stocks_1wk_date", "date"),
+        UniqueConstraint(
+            "symbol", "timestamp", name="uix_stocks_1wk_symbol_timestamp"
+        ),
+        Index("idx_stocks_1wk_timestamp", "timestamp"),
     )
 
 
@@ -176,11 +181,15 @@ class Stocks1mo(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         ForeignKey("stock_master.stock_code", ondelete="CASCADE"),
         nullable=False,
     )
-    date: Mapped[DateType] = mapped_column(Date, nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
 
     __table_args__ = (
-        UniqueConstraint("symbol", "date", name="uix_stocks_1mo_symbol_date"),
-        Index("idx_stocks_1mo_date", "date"),
+        UniqueConstraint(
+            "symbol", "timestamp", name="uix_stocks_1mo_symbol_timestamp"
+        ),
+        Index("idx_stocks_1mo_timestamp", "timestamp"),
     )
 
 

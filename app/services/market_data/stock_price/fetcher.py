@@ -6,6 +6,7 @@ Yahoo Finance API (yfinance) を使用して株価データを取得します。
 """
 
 import asyncio
+import re
 from datetime import date, timedelta
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -325,10 +326,26 @@ class StockPriceFetcher(RetryMixin):
         """
         async with self.semaphore:  # 並列数制限
             try:
+                # 日本株はDBでは接尾辞なしで管理しているため、
+                # yfinance 呼び出し時のみ ".T" を付与する。
+                # 日本株判定は銘柄が数字のみで構成されている場合とする。
+                if isinstance(symbol, str) and re.fullmatch(r"\d+", symbol):
+                    # 数字のみ（日本株）: DBの値は ".T" なしを期待する
+                    if "." in symbol:
+                        # 呼び出し元が .T を付与しているのは想定外（エラー）
+                        raise ValueError(
+                            "Japanese stock symbol must be provided "
+                            "without suffix '.T'"
+                        )
+                    yf_symbol = f"{symbol}.T"
+                else:
+                    # 非日本株はそのまま渡す
+                    yf_symbol = symbol
+
                 # yfinanceの同期APIを非同期で実行
                 loop = asyncio.get_event_loop()
                 ticker = await loop.run_in_executor(
-                    None, lambda: yf.Ticker(symbol)
+                    None, lambda: yf.Ticker(yf_symbol)
                 )
 
                 # データ取得
@@ -343,7 +360,7 @@ class StockPriceFetcher(RetryMixin):
                 if period:
                     # periodを使用する場合
                     logger.debug(
-                        f"Fetching data for {symbol}: period={period}, "
+                        f"Fetching data for {yf_symbol}: period={period}, "
                         f"interval={interval}"
                     )
                     hist = await loop.run_in_executor(
@@ -358,8 +375,11 @@ class StockPriceFetcher(RetryMixin):
                 else:
                     # start/endを使用する場合
                     logger.debug(
-                        f"Fetching data for {symbol}: interval={interval}, "
-                        f"start={start_date}, end={end_date}"
+                        "Fetching data for %s: interval=%s start=%s end=%s",
+                        yf_symbol,
+                        interval,
+                        start_date,
+                        end_date,
                     )
                     hist = await loop.run_in_executor(
                         None,
@@ -475,8 +495,6 @@ class StockPriceFetcher(RetryMixin):
         Returns:
             bool: 銘柄コードが有効なフォーマットの場合True
         """
-        import re
-
         if not symbol or not isinstance(symbol, str):
             return False
 

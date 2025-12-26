@@ -167,3 +167,122 @@ def test_get_settings_raises_validation_error_when_required_env_missing(
     assert "errors" in exc_info.value.details
     assert len(exc_info.value.details["errors"]) > 0
     assert isinstance(exc_info.value.original_error, ValidationError)
+
+
+def test_batch_processing_settings_default_values():
+    """
+    BatchProcessingSettingsのデフォルト値が正しく設定されていることを検証する
+    """
+    # Arrange & Act
+    from app.utils.config import BatchProcessingSettings
+
+    settings = BatchProcessingSettings()
+
+    # Assert
+    assert settings.batch_size == 100
+    assert settings.max_concurrent == 20
+    assert settings.retry_attempts == 3
+    assert settings.retry_delay == 1.0
+    assert settings.request_timeout == 30
+    assert settings.operation_timeout == 3600
+    assert settings.rate_limit_calls == 2000
+    assert settings.rate_limit_period == 3600
+
+
+def test_batch_processing_settings_env_variables(monkeypatch):
+    """
+    BatchProcessingSettingsが環境変数から正しく読み込まれることを検証する
+    """
+    # Arrange
+    monkeypatch.setenv("BATCH_BATCH_SIZE", "50")
+    monkeypatch.setenv("BATCH_MAX_CONCURRENT", "10")
+    monkeypatch.setenv("BATCH_RETRY_ATTEMPTS", "5")
+    monkeypatch.setenv("BATCH_RETRY_DELAY", "2.0")
+    monkeypatch.setenv("BATCH_REQUEST_TIMEOUT", "60")
+    monkeypatch.setenv("BATCH_OPERATION_TIMEOUT", "7200")
+    monkeypatch.setenv("BATCH_RATE_LIMIT_CALLS", "1000")
+    monkeypatch.setenv("BATCH_RATE_LIMIT_PERIOD", "1800")
+
+    # Act
+    from app.utils.config import BatchProcessingSettings
+
+    settings = BatchProcessingSettings()
+
+    # Assert
+    assert settings.batch_size == 50
+    assert settings.max_concurrent == 10
+    assert settings.retry_attempts == 5
+    assert settings.retry_delay == 2.0
+    assert settings.request_timeout == 60
+    assert settings.operation_timeout == 7200
+    assert settings.rate_limit_calls == 1000
+    assert settings.rate_limit_period == 1800
+
+
+def test_batch_processing_settings_validation():
+    """
+    BatchProcessingSettingsのバリデーションが正しく動作することを検証する
+    """
+    from pydantic import ValidationError
+
+    from app.utils.config import BatchProcessingSettings
+
+    # バッチサイズの最小値検証
+    with pytest.raises(ValidationError):
+        BatchProcessingSettings(batch_size=0)
+
+    # バッチサイズの最大値検証
+    with pytest.raises(ValidationError):
+        BatchProcessingSettings(batch_size=1001)
+
+    # 並列実行数の最小値検証
+    with pytest.raises(ValidationError):
+        BatchProcessingSettings(max_concurrent=0)
+
+    # 並列実行数の最大値検証
+    with pytest.raises(ValidationError):
+        BatchProcessingSettings(max_concurrent=101)
+
+    # リトライ回数の最小値検証（0は許可）
+    settings = BatchProcessingSettings(retry_attempts=0)
+    assert settings.retry_attempts == 0
+
+    # リトライ回数の最大値検証
+    with pytest.raises(ValidationError):
+        BatchProcessingSettings(retry_attempts=11)
+
+    # リトライ遅延の最小値検証
+    with pytest.raises(ValidationError):
+        BatchProcessingSettings(retry_delay=0.05)
+
+    # リトライ遅延の最大値検証
+    with pytest.raises(ValidationError):
+        BatchProcessingSettings(retry_delay=65.0)
+
+
+def test_settings_includes_batch_processing_settings():
+    """
+    SettingsクラスがBatchProcessingSettingsを正しく含んでいることを検証する
+    """
+    # Arrange
+    import os
+
+    os.environ["BATCH_BATCH_SIZE"] = "75"
+    os.environ["BATCH_MAX_CONCURRENT"] = "15"
+
+    try:
+        # Act
+        from app.utils.config import get_settings
+
+        settings = get_settings()
+
+        # Assert
+        assert hasattr(settings, "batch")
+        assert settings.batch.batch_size == 75
+        assert settings.batch.max_concurrent == 15
+        assert settings.batch.retry_attempts == 3  # デフォルト値
+
+    finally:
+        # Cleanup
+        del os.environ["BATCH_BATCH_SIZE"]
+        del os.environ["BATCH_MAX_CONCURRENT"]

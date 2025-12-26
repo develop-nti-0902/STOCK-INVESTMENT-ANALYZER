@@ -84,10 +84,17 @@ def test_date_based_models_crud(model):
         )
         session.flush()
 
+        from datetime import timezone
+
+        # 以前は date フィールドを使っていましたが、モデルを timestamp に変更したため
+        # 日付の 00:00 UTC を timestamp として使用して CRUD を確認します
         d = date.today()
+        ts = datetime.combine(d, datetime.min.time()).replace(
+            tzinfo=timezone.utc
+        )
         entry = model(
             symbol="DM1",
-            date=d,
+            timestamp=ts,
             open=Decimal("200.00"),
             high=Decimal("210.00"),
             low=Decimal("190.00"),
@@ -118,7 +125,7 @@ def test_date_based_models_crud(model):
     ],
 )
 def test_unique_constraint_per_model(model, is_date):
-    """各モデルで (symbol, timestamp|date) のユニーク制約が機能することを確認する"""
+    """各モデルで (symbol, timestamp) のユニーク制約が機能することを確認する"""
     session = _make_session()
     with session:
         # Arrange
@@ -131,35 +138,37 @@ def test_unique_constraint_per_model(model, is_date):
         )
         session.flush()
 
-        if is_date:
-            key = date.today()
-            a = model(
-                symbol="UQ1",
-                date=key,
-                open=Decimal("1.00"),
-                high=Decimal("2.00"),
-                low=Decimal("1.00"),
-                close=Decimal("1.50"),
-                volume=1,
-            )
-            session.add(a)
+        # 全モデルとも timestamp をユニークキーとして扱うように変更されたため、
+        # ここでは timestamp ベースのテストを実施する
+        from datetime import timezone
+
+        key = datetime.now(timezone.utc)
+        a = model(
+            symbol="UQ1",
+            timestamp=key,
+            open=Decimal("1.00"),
+            high=Decimal("2.00"),
+            low=Decimal("1.00"),
+            close=Decimal("1.50"),
+            volume=1,
+        )
+        session.add(a)
+        session.commit()
+
+        b = model(
+            symbol="UQ1",
+            timestamp=key,
+            open=Decimal("1.00"),
+            high=Decimal("2.00"),
+            low=Decimal("1.00"),
+            close=Decimal("1.50"),
+            volume=1,
+        )
+        session.add(b)
+
+        # Act & Assert
+        with pytest.raises(IntegrityError):
             session.commit()
-
-            b = model(
-                symbol="UQ1",
-                date=key,
-                open=Decimal("1.00"),
-                high=Decimal("2.00"),
-                low=Decimal("1.00"),
-                close=Decimal("1.50"),
-                volume=1,
-            )
-            session.add(b)
-
-            # Act & Assert
-            with pytest.raises(IntegrityError):
-                session.commit()
-        else:
             from datetime import timezone
 
             key = datetime.now(timezone.utc)

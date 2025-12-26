@@ -1,5 +1,3 @@
-import csv
-import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, List, Type
 
@@ -33,17 +31,22 @@ logger = get_logger(__name__)
 
 # テスト用の共通銘柄リスト
 TEST_SYMBOLS = [
-    "7203.T",  # トヨタ自動車株式会社
-    "6758.T",  # ソニーグループ株式会社
-    "9432.T",  # 日本電信電話株式会社
-    "9984.T",  # ソフトバンクグループ株式会社
-    "8306.T",  # 三菱UFJフィナンシャル・グループ株式会社
-    "6861.T",  # キーエンス株式会社
-    "6098.T",  # リクルートホールディングス株式会社
-    "7974.T",  # 任天堂株式会社
-    "6954.T",  # ファナック株式会社
-    "4063.T",  # 信越化学工業株式会社
+    "7203",  # トヨタ自動車株式会社
+    "6758",  # ソニーグループ株式会社
+    "9432",  # 日本電信電話株式会社
+    "9984",  # ソフトバンクグループ株式会社
+    "8306",  # 三菱UFJフィナンシャル・グループ株式会社
+    "6861",  # キーエンス株式会社
+    "6098",  # リクルートホールディングス株式会社
+    "7974",  # 任天堂株式会社
+    "6954",  # ファナック株式会社
+    "4063",  # 信越化学工業株式会社
 ]
+
+# TEST_SYMBOLS = [
+#     "7203",  # トヨタ自動車株式会社
+#     "6758",  # ソニーグループ株式会社
+# ]
 
 
 async def setup_test_database(
@@ -102,41 +105,26 @@ async def cleanup_database(engine: AsyncEngine) -> None:
 
 
 def write_csv_artifact(
-    rows, timeframe: str, fieldnames: List[str], use_date: bool = False
+    rows,
+    timeframe: str,
+    fieldnames: List[str],
+    use_date: bool = False,
+    filename: str | None = None,
+    test_name: str | None = None,
 ) -> None:
-    """CSVファイルへの結果出力"""
-    artifacts_dir = os.path.join(os.path.dirname(__file__), "artifacts")
-    os.makedirs(artifacts_dir, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out_path = os.path.join(
-        artifacts_dir, f"stocks_{timeframe}_multiple_{ts}.csv"
+    """CSVアーティファクト出力のラッパー（内部で共通ユーティリティを呼ぶ）"""
+    from tests.integration.utils import (
+        write_csv_artifact as util_write_csv_artifact,  # type: ignore
     )
 
-    try:
-        with open(out_path, "w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            for r in rows:
-                row_data = {
-                    "id": getattr(r, "id", None),
-                    "symbol": getattr(r, "symbol", None),
-                    "open": getattr(r, "open", None),
-                    "high": getattr(r, "high", None),
-                    "low": getattr(r, "low", None),
-                    "close": getattr(r, "close", None),
-                    "volume": getattr(r, "volume", None),
-                    "adj_close": getattr(r, "adj_close", None),
-                    "created_at": getattr(r, "created_at", None),
-                    "updated_at": getattr(r, "updated_at", None),
-                }
-                if use_date:
-                    row_data["date"] = getattr(r, "date", None)
-                else:
-                    row_data["timestamp"] = getattr(r, "timestamp", None)
-                writer.writerow(row_data)
-        logger.info(f"Wrote full dump to {out_path}")
-    except Exception as e:
-        logger.error(f"Failed to write artifact: {e}")
+    util_write_csv_artifact(
+        rows,
+        timeframe,
+        fieldnames,
+        use_date=use_date,
+        filename=filename,
+        test_name=test_name,
+    )
 
 
 async def run_stock_price_test(
@@ -231,7 +219,7 @@ async def run_stock_price_test(
                 f"but got {len(symbol_rows)}/{expected_symbol_count} "
                 f"({symbol_rate:.2%})"
             )
-            assert symbol_rate >= 0, symbol_msg
+            assert symbol_rate >= 0.95, symbol_msg
 
             if symbol_rows:
                 first_row = symbol_rows[0]
@@ -249,7 +237,7 @@ async def run_stock_price_test(
         persistence_rate = (
             len(all_rows) / expected_count if expected_count > 0 else 0
         )
-        assert persistence_rate >= 0, (
+        assert persistence_rate >= 0.99, (
             f"Expected most rows (>99%) in {stock_model_class.__name__} "
             f"table, but got {len(all_rows)}/{expected_count} "
             f"({persistence_rate:.2%})"
@@ -290,7 +278,13 @@ async def run_stock_price_test(
                 "updated_at",
             ]
 
-        write_csv_artifact(all_rows, timeframe, fieldnames, use_date)
+        write_csv_artifact(
+            all_rows,
+            timeframe,
+            fieldnames,
+            use_date,
+            test_name=f"run_stock_price_test_{timeframe}",
+        )
 
     await cleanup_database(engine)
 
@@ -379,7 +373,7 @@ async def run_stock_price_single_test(
             f"but got {len(symbol_rows)}/{expected_symbol_count} "
             f"({symbol_rate:.2%})"
         )
-        assert symbol_rate >= 0, symbol_msg
+        assert symbol_rate >= 0.95, symbol_msg
 
         if symbol_rows:
             first_row = symbol_rows[0]
@@ -397,7 +391,7 @@ async def run_stock_price_single_test(
         persistence_rate = (
             len(symbol_rows) / expected_count if expected_count > 0 else 0
         )
-        assert persistence_rate >= 0, (
+        assert persistence_rate >= 0.99, (
             f"Expected most rows (>99%) in {stock_model_class.__name__} "
             f"table, but got {len(symbol_rows)}/{expected_count} "
             f"({persistence_rate:.2%})"
@@ -438,7 +432,13 @@ async def run_stock_price_single_test(
                 "updated_at",
             ]
 
-        write_csv_artifact(symbol_rows, timeframe, fieldnames, use_date)
+        write_csv_artifact(
+            symbol_rows,
+            timeframe,
+            fieldnames,
+            use_date,
+            test_name=f"run_stock_price_single_{symbol}_{timeframe}",
+        )
 
     await cleanup_database(engine)
 
@@ -511,7 +511,7 @@ async def test_fetch_and_save_single_1d_stock_data(monkeypatch):
     end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=30)
     await run_stock_price_single_test(
-        monkeypatch, "1d", Stocks1d, start_date, end_date, use_date=True
+        monkeypatch, "1d", Stocks1d, start_date, end_date, use_date=False
     )
 
 
@@ -523,7 +523,7 @@ async def test_fetch_and_save_single_1wk_stock_data(monkeypatch):
     end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=365)
     await run_stock_price_single_test(
-        monkeypatch, "1wk", Stocks1wk, start_date, end_date, use_date=True
+        monkeypatch, "1wk", Stocks1wk, start_date, end_date, use_date=False
     )
 
 
@@ -535,7 +535,7 @@ async def test_fetch_and_save_single_1mo_stock_data(monkeypatch):
     end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=365 * 2)
     await run_stock_price_single_test(
-        monkeypatch, "1mo", Stocks1mo, start_date, end_date, use_date=True
+        monkeypatch, "1mo", Stocks1mo, start_date, end_date, use_date=False
     )
     """
     統合テスト: 1m株価データをフェッチしてStocks1mテーブルへ保存
@@ -603,7 +603,7 @@ async def test_fetch_and_save_1d_stock_data(monkeypatch):
     end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=30)
     await run_stock_price_test(
-        monkeypatch, "1d", Stocks1d, start_date, end_date, use_date=True
+        monkeypatch, "1d", Stocks1d, start_date, end_date, use_date=False
     )
 
 
@@ -615,7 +615,7 @@ async def test_fetch_and_save_1wk_stock_data(monkeypatch):
     end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=365)
     await run_stock_price_test(
-        monkeypatch, "1wk", Stocks1wk, start_date, end_date, use_date=True
+        monkeypatch, "1wk", Stocks1wk, start_date, end_date, use_date=False
     )
 
 
@@ -627,5 +627,5 @@ async def test_fetch_and_save_1mo_stock_data(monkeypatch):
     end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=365 * 2)
     await run_stock_price_test(
-        monkeypatch, "1mo", Stocks1mo, start_date, end_date, use_date=True
+        monkeypatch, "1mo", Stocks1mo, start_date, end_date, use_date=False
     )

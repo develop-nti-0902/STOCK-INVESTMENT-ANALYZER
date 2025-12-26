@@ -6,6 +6,65 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.exceptions.system import SettingsValidationError
 
 
+class BatchProcessingSettings(BaseSettings):
+    """バッチ処理関連の設定"""
+
+    # バッチサイズ
+    batch_size: int = Field(
+        default=100, ge=1, le=1000, description="Number of symbols per batch"
+    )
+
+    # 並列実行数（同時処理銘柄数）
+    max_concurrent: int = Field(
+        default=20, ge=1, le=100, description="Maximum concurrent tasks"
+    )
+
+    # リトライ設定
+    retry_attempts: int = Field(
+        default=3,
+        ge=0,
+        le=10,
+        description="Number of retry attempts on failure",
+    )
+
+    retry_delay: float = Field(
+        default=1.0,
+        ge=0.1,
+        le=60.0,
+        description="Delay between retries in seconds",
+    )
+
+    # タイムアウト設定
+    request_timeout: int = Field(
+        default=30, ge=5, le=300, description="HTTP request timeout in seconds"
+    )
+
+    operation_timeout: int = Field(
+        default=3600,
+        ge=60,
+        le=86400,
+        description="Overall operation timeout in seconds",
+    )
+
+    # レート制限設定
+    rate_limit_calls: int = Field(
+        default=2000, ge=1, le=10000, description="API calls per time window"
+    )
+
+    rate_limit_period: int = Field(
+        default=3600,
+        ge=60,
+        le=86400,
+        description="Rate limit time window in seconds",
+    )
+
+    model_config = SettingsConfigDict(
+        env_prefix="BATCH_",
+        env_file=".env",
+        extra="ignore",
+    )
+
+
 class Settings(BaseSettings):
     """アプリケーション設定（環境変数管理）
 
@@ -79,6 +138,11 @@ class Settings(BaseSettings):
     YAHOO_FINANCE_CONCURRENCY_LIMIT: int = Field(
         10,
         description="Max concurrent requests (default: 10)",
+    )
+
+    # バッチ処理設定
+    batch: BatchProcessingSettings = Field(
+        default_factory=BatchProcessingSettings
     )
 
     model_config = SettingsConfigDict(

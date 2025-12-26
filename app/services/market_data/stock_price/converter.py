@@ -6,7 +6,6 @@ yfinance DataFrameをPydanticモデルに変換し、さらにDB保存用の辞�
 """
 
 import logging
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -73,11 +72,8 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
             # Pydanticモデルを辞書に変換
             data_dict = model.model_dump()
 
-            # タイムスタンプをUTCに変換（DB保存用）
-            if isinstance(data_dict["trade_date"], datetime):
-                data_dict["trade_date"] = data_dict["trade_date"].astimezone(
-                    timezone.utc
-                )
+            # trade_date はそのまま保持（プロジェクトではJSTを前提とする）
+            # 変換は行わない
 
             # 不要なフィールドを除去（id, created_at, updated_atはDB側で管理）
             db_dict = {
@@ -145,20 +141,26 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
                     stock_data_list.append(stock_data)
                 except ValidationError as e:
                     logger.warning(
-                        f"Data conversion error (symbol={symbol}, "
-                        f"timestamp={timestamp}): {e}"
+                        "Data conversion error (symbol=%s, "
+                        "timestamp=%s): %s",
+                        symbol,
+                        timestamp,
+                        e,
                     )
                     continue
 
             logger.info(
-                f"Conversion completed: {len(stock_data_list)} items "
-                f"(symbol={symbol})"
+                "Conversion completed: %d items " "(symbol=%s)",
+                len(stock_data_list),
+                symbol,
             )
             return stock_data_list
 
         except Exception as e:
             logger.error(
-                f"from_dataframe conversion error (symbol={symbol}): {e}"
+                "from_dataframe conversion error " "(symbol=%s): %s",
+                symbol,
+                e,
             )
             raise ValueError(f"Failed to convert stock price data: {e}") from e
 
@@ -200,15 +202,17 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
         try:
             # インデックスがDatetimeIndexの場合
             if isinstance(df.index, pd.DatetimeIndex):
-                # UTCに変換（タイムゾーン情報がない場合はUTCとみなす）
+                # JST (Asia/Tokyo) を前提とする
                 if df.index.tz is None:
                     df_normalized = df.copy()
                     df_normalized.index = df_normalized.index.tz_localize(
-                        "UTC"
+                        "Asia/Tokyo"
                     )
                 else:
                     df_normalized = df.copy()
-                    df_normalized.index = df_normalized.index.tz_convert("UTC")
+                    df_normalized.index = df_normalized.index.tz_convert(
+                        "Asia/Tokyo"
+                    )
             else:
                 raise ValueError("インデックスがDatetimeIndexではありません")
 
@@ -251,3 +255,34 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
             return int(value)
         except (ValueError, TypeError):
             return None
+
+    def to_saver_record(self, model: StockPriceCreate) -> Dict[str, Any]:
+        """
+        StockPriceCreate -> Saver入力用辞書に変換します。
+
+        Args:
+            model: StockPriceCreateモデル
+
+        Returns:
+            Dict[str, Any]: Saverが期待するフィールド一覧
+                - timestamp
+                - open, high, low, close, volume, adj_close
+        """
+        data = model.model_dump()
+        return {
+            "timestamp": data.get("trade_date"),
+            "open": data.get("open_price"),
+            "high": data.get("high"),
+            "low": data.get("low"),
+            "close": data.get("close"),
+            "volume": data.get("volume"),
+            "adj_close": data.get("adj_close"),
+        }
+
+    def to_saver_records(
+        self, models: List[StockPriceCreate]
+    ) -> List[Dict[str, Any]]:
+        """
+        複数の StockPriceCreate を Saver 用の辞書リストに変換します。
+        """
+        return [self.to_saver_record(m) for m in models]
