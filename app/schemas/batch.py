@@ -51,7 +51,7 @@ class BatchExecutionBase(BaseModel):
     model_config = ConfigDict(validate_assignment=True, extra="allow")
 
     job_type: JobType = Field(..., description="ジョブタイプ")
-    status: JobStatus = Field(..., description="ジョブステータス")
+    status: Optional[JobStatus] = Field(..., description="ジョブステータス")
     params: Optional[BatchJobParams] = Field(
         None, description="ジョブパラメータ"
     )
@@ -99,10 +99,10 @@ class BatchExecutionUpdate(BaseModel):
 
 
 class BatchExecutionResponse(BaseResponseSchema, BatchExecutionBase):
-    """APIレスポンス用スキーマ"""
+    """APIレスポンス用スキーマ
 
-    # BaseResponseSchema が id/created_at/updated_at を提供するため、追加フィールド不要
-    pass
+    BaseResponseSchema が id/created_at/updated_at を提供するため、追加フィールド不要
+    """
 
 
 __all__ = [
