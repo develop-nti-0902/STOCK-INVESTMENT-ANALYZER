@@ -25,6 +25,19 @@ class TestStockPriceServiceIntegration:
         self.fetcher = StockPriceFetcher()
         self.converter = StockPriceConverter()
         self.validator = StockPriceValidator()
+        # ダミーのバッチサービス（テスト用）
+        from unittest.mock import AsyncMock, MagicMock
+
+        self.dummy_batch = MagicMock()
+        self.dummy_batch.create_job = AsyncMock(return_value=MagicMock(id=1))
+        self.dummy_batch.start_job = AsyncMock()
+        self.dummy_batch.update_progress = AsyncMock()
+        self.dummy_batch.complete_job = AsyncMock()
+        self.dummy_batch.get_job_status = AsyncMock(
+            return_value=MagicMock(
+                successful_stocks=0, failed_stocks=0, processed_stocks=0
+            )
+        )
         # saverはDBセッションが必要なので、テストDBを使用
 
     @pytest.mark.asyncio
@@ -38,6 +51,7 @@ class TestStockPriceServiceIntegration:
             saver=mock_saver,
             converter=self.converter,
             validator=self.validator,
+            batch_service=self.dummy_batch,
         )
 
         assert service.fetcher is self.fetcher
@@ -168,6 +182,7 @@ class TestStockPriceServiceIntegration:
             saver=mock_saver,
             converter=self.converter,
             validator=self.validator,
+            batch_service=self.dummy_batch,
         )
 
         # テスト実行
@@ -234,6 +249,7 @@ class TestStockPriceServiceIntegration:
             converter=self.converter,
             validator=self.validator,
             max_concurrent=2,
+            batch_service=self.dummy_batch,
         )
 
         # テスト実行
@@ -300,6 +316,7 @@ class TestStockPriceServiceIntegration:
             saver=mock_saver,
             converter=self.converter,
             validator=self.validator,
+            batch_service=self.dummy_batch,
         )
 
         # テスト実行
@@ -362,6 +379,7 @@ class TestStockPriceServiceIntegration:
             converter=self.converter,
             validator=self.validator,
             max_concurrent=3,
+            batch_service=self.dummy_batch,
         )
 
         # テスト実行
@@ -420,6 +438,7 @@ class TestStockPriceServiceIntegration:
             saver=mock_saver,
             converter=self.converter,
             validator=self.validator,
+            batch_service=self.dummy_batch,
         )
 
         # テスト実行
@@ -476,6 +495,7 @@ class TestStockPriceServiceIntegration:
             saver=mock_saver,
             converter=self.converter,
             validator=self.validator,
+            batch_service=self.dummy_batch,
         )
 
         # テスト実行（様々な日付形式）
@@ -510,6 +530,7 @@ class TestStockPriceServiceIntegration:
             saver=mock_saver,
             converter=self.converter,
             validator=self.validator,
+            batch_service=self.dummy_batch,
         )
 
         # テスト実行
@@ -546,6 +567,7 @@ class TestStockPriceServiceIntegration:
             saver=mock_saver,
             converter=self.converter,
             validator=self.validator,
+            batch_service=self.dummy_batch,
         )
 
         # テスト実行
@@ -599,6 +621,7 @@ class TestStockPriceServiceIntegration:
             saver=mock_saver,
             converter=self.converter,
             validator=self.validator,
+            batch_service=self.dummy_batch,
         )
 
         # テスト実行

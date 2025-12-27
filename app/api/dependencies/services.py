@@ -10,7 +10,11 @@ Repositoryや他のServiceとの依存関係を解決します。
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.repositories.batch_execution_repository import (
+    BatchExecutionRepository,
+)
 from app.repositories.stock_master_repository import StockMasterRepository
+from app.services.batch.batch_execution_service import BatchExecutionService
 from app.services.market_data.stock_master import StockMasterService
 from app.services.market_data.stock_price import (
     StockPriceConverter,
@@ -103,6 +107,7 @@ def get_stock_price_service(
     converter: StockPriceConverter = Depends(get_stock_price_converter),
     validator: StockPriceValidator = Depends(get_stock_price_validator),
     stock_master: StockMasterService = Depends(get_stock_master_service),
+    db: AsyncSession = Depends(get_db),
 ) -> StockPriceService:
     """
     StockPriceServiceを提供（オーケストレーション層）
@@ -116,6 +121,10 @@ def get_stock_price_service(
     Returns:
         StockPriceService: 株価データ収集サービス
     """
+    # バッチ用Repository/Service を組み立てて注入
+    batch_repo = BatchExecutionRepository(session=db)
+    batch_service = BatchExecutionService(repository=batch_repo)
+
     # StockMasterService を注入して StockPriceService を生成
     return StockPriceService(
         fetcher=fetcher,
@@ -123,4 +132,5 @@ def get_stock_price_service(
         converter=converter,
         validator=validator,
         stock_master_service=stock_master,
+        batch_service=batch_service,
     )

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from pydantic import ValidationError
@@ -54,7 +54,7 @@ def test_update_extra_forbid():
 
 
 def test_response_includes_base_fields():
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     resp = batch_schemas.BatchExecutionResponse(
         id=1,
         job_type=batch_schemas.JobType.JPX_ALL_STOCKS,

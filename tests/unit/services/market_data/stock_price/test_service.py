@@ -29,6 +29,19 @@ class TestStockPriceService:
         self.mock_saver = MagicMock(spec=StockPriceSaver)
         self.mock_converter = MagicMock(spec=StockPriceConverter)
         self.mock_validator = MagicMock(spec=StockPriceValidator)
+        # モックのバッチサービス
+        self.mock_batch_service = AsyncMock()
+        self.mock_batch_service.create_job = AsyncMock(
+            return_value=MagicMock(id=1)
+        )
+        self.mock_batch_service.start_job = AsyncMock()
+        self.mock_batch_service.update_progress = AsyncMock()
+        self.mock_batch_service.complete_job = AsyncMock()
+        self.mock_batch_service.get_job_status = AsyncMock(
+            return_value=MagicMock(
+                successful_stocks=0, failed_stocks=0, processed_stocks=0
+            )
+        )
 
         # converter.to_saver_records が呼ばれたとき、渡されたモデル群の
         # model_dump() を使ってレコード一覧を返すようにしておく（互換性維持）
@@ -43,6 +56,7 @@ class TestStockPriceService:
             converter=self.mock_converter,
             validator=self.mock_validator,
             max_concurrent=2,
+            batch_service=self.mock_batch_service,
         )
 
     @pytest.mark.asyncio

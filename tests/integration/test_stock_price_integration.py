@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, List, Type
+from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import delete, select
@@ -127,6 +128,25 @@ def write_csv_artifact(
     )
 
 
+class DummyBatchService:
+    async def create_job(self, *args, **kwargs):
+        return MagicMock(id=1)
+
+    async def start_job(self, *args, **kwargs):
+        return None
+
+    async def update_progress(self, *args, **kwargs):
+        return None
+
+    async def complete_job(self, *args, **kwargs):
+        return None
+
+    async def get_job_status(self, *args, **kwargs):
+        return MagicMock(
+            successful_stocks=0, failed_stocks=0, processed_stocks=0
+        )
+
+
 async def run_stock_price_test(
     monkeypatch,
     timeframe: str,
@@ -162,6 +182,7 @@ async def run_stock_price_test(
             converter=converter,
             validator=validator,
             max_concurrent=5,
+            batch_service=DummyBatchService(),
         )
 
         results = await service.fetch_and_save_multiple(
@@ -326,6 +347,7 @@ async def run_stock_price_single_test(
             converter=converter,
             validator=validator,
             max_concurrent=5,
+            batch_service=DummyBatchService(),
         )
 
         result = await service.fetch_and_save_single(
