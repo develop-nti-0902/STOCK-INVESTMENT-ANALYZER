@@ -368,6 +368,58 @@ batch_coordinator.execute(
 )
 ```
 
+### バッチ実行履歴管理 (Batch Execution History)
+
+バッチ実行のライフサイクル（ジョブ作成・進捗・完了/失敗）の記録と管理に関する設計方針をまとめます。
+
+#### 概要
+
+- ジョブは UUID で一意に識別され、`BatchExecution` エンティティとして DB に保存されます。
+- サービス層で提供する API とコンテキストマネージャにより、ジョブの開始・進捗・完了/失敗を自動的に記録します。
+
+#### 主要コンポーネント
+
+- `BatchExecutionService` (`app/services/batch/batch_execution_service.py`)
+    - ジョブ作成/開始/進捗更新/完了/失敗を扱うビジネスロジック層
+    - 主なメソッド:
+        - `async create_job(job_type: JobType, params: dict) -> BatchExecution`
+        - `async start_job(job_id: UUID) -> None`
+        - `async update_progress(job_id: UUID, progress: dict) -> None`
+        - `async complete_job(job_id: UUID, success_count: int, failed_count: int) -> None`
+        - `async fail_job(job_id: UUID, error_message: str) -> None`
+        - `async get_job_status(job_id: UUID) -> BatchExecution`
+        - `async get_recent_jobs(limit: int = 10) -> List[BatchExecution]`
+
+- `BatchExecutionContext` (`app/services/batch/context.py` または同ファイル内)
+    - `async with` 構文でジョブの開始・自動完了/失敗記録・例外ハンドリングを行うコンテキストマネージャ
+    - 使用例:
+
+    ```python
+    async with BatchExecutionContext(batch_service, job_type=JobType.JPX_ALL_STOCKS, params={"timeframe":"1d"}) as ctx:
+            # 実処理
+            await ctx.update_progress(processed=100, total=4000)
+    # 正常終了で自動的に完了記録、例外時は失敗記録
+    ```
+
+- `BatchExecutionRepository` (`app/repositories/batch_execution_repository.py`)
+    - DBアクセスを担当。`create`, `update_progress`, `mark_completed`, `mark_failed`, `get_running_jobs`, `cancel_job` 等を実装
+
+#### スキーマ / Enum
+
+- `JobType` (SINGLE_STOCK, JPX_ALL_STOCKS, STOCK_MASTER_UPDATE, FUNDAMENTAL_DATA)
+- `JobStatus` (PENDING, RUNNING, COMPLETED, FAILED, CANCELLED)
+- Pydantic スキーマ: `BatchExecutionBase`, `BatchExecutionCreate`, `BatchExecutionUpdate`, `BatchExecutionResponse`, `BatchJobParams`
+
+#### 使用上の注意
+
+- 長時間実行を伴う処理（JPX全銘柄取得等）には `BatchExecutionContext` を使用することで、例外発生時も確実に状態が記録されます。
+- 進捗更新は頻度を適切に調整し、DB 書き込み負荷を制御してください（バッチ内集約や間引き推奨）。
+
+#### テスト
+
+- サービス・コンテキスト・リポジトリそれぞれにユニットテストを用意し、統合テストで DB と接続してライフサイクルを検証します。
+
+
 ---
 
 ### 3.4 分析・解析ドメイン (Analysis)
