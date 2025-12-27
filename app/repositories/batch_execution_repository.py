@@ -117,5 +117,66 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         )
         return list(result.scalars().all())
 
+    async def update_progress(
+        self,
+        record_id: int,
+        progress_data: dict,
+    ) -> Optional[BatchExecution]:
+        """進捗情報を更新する
+
+        progress_data に含まれるキーをモデルの該当フィールドへ反映します。
+        受け付けるキー: `processed`, `successful`, `failed`, `total`
+        """
+        instance = await self.get(record_id)
+        if instance is None:
+            return None
+
+        if "processed" in progress_data:
+            instance.processed_stocks = int(progress_data["processed"])
+        if "successful" in progress_data:
+            instance.successful_stocks = int(progress_data["successful"])
+        if "failed" in progress_data:
+            instance.failed_stocks = int(progress_data["failed"])
+        if "total" in progress_data:
+            instance.total_stocks = int(progress_data["total"])
+
+        return await flush_return_with_log(
+            self.session,
+            instance,
+            logger,
+            "Failed to flush progress update id=%s",
+            record_id,
+        )
+
+    async def get_running_jobs(self) -> List[BatchExecution]:
+        """実行中のジョブ（status == 'running'）を取得する"""
+        result = await self.session.execute(
+            select(self.model).where(self.model.status == "running")
+        )
+        return list(result.scalars().all())
+
+    async def cancel_job(
+        self,
+        record_id: int,
+    ) -> Optional[BatchExecution]:
+        """ジョブをキャンセルして終了時刻を記録する
+
+        ステータスは 'cancelled' に設定します。
+        """
+        instance = await self.get(record_id)
+        if instance is None:
+            return None
+
+        instance.status = "cancelled"
+        instance.end_time = datetime.now(timezone.utc)
+
+        return await flush_return_with_log(
+            self.session,
+            instance,
+            logger,
+            "Failed to flush cancel job id=%s",
+            record_id,
+        )
+
 
 __all__ = ["BatchExecutionRepository"]

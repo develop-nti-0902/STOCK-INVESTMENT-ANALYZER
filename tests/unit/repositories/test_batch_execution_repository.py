@@ -197,3 +197,79 @@ async def test_create_job_rollback_on_failure():
         await repo.create_job("fail_job")
 
     # Repository層ではrollbackを呼ばない
+
+
+@pytest.mark.asyncio
+async def test_update_progress_updates_fields_and_flushes():
+    # Arrange
+    session = AsyncMock()
+    session.flush = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+
+    repo = BatchExecutionRepository(session)
+
+    dummy = SimpleNamespace(
+        id=20,
+        processed_stocks=0,
+        successful_stocks=0,
+        failed_stocks=0,
+        total_stocks=0,
+    )
+    session.execute = AsyncMock(return_value=_MockResult(single=dummy))
+
+    # Act
+    updated = await repo.update_progress(
+        20,
+        {"processed": 5, "successful": 4, "failed": 1, "total": 100},
+    )
+
+    # Assert
+    assert updated is not None
+    assert updated.processed_stocks == 5
+    assert updated.successful_stocks == 4
+    assert updated.failed_stocks == 1
+    assert updated.total_stocks == 100
+    session.flush.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_running_jobs_returns_list():
+    # Arrange
+    session = AsyncMock()
+    repo = BatchExecutionRepository(session)
+
+    d1 = SimpleNamespace(id=1, status="running")
+    d2 = SimpleNamespace(id=2, status="running")
+    session.execute = AsyncMock(return_value=_MockResult(items=[d1, d2]))
+
+    # Act
+    res = await repo.get_running_jobs()
+
+    # Assert
+    session.execute.assert_called()
+    assert isinstance(res, list)
+    assert len(res) == 2
+
+
+@pytest.mark.asyncio
+async def test_cancel_job_sets_status_and_end_time_and_flush():
+    # Arrange
+    session = AsyncMock()
+    session.flush = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+
+    repo = BatchExecutionRepository(session)
+
+    dummy = SimpleNamespace(id=30, status="running", end_time=None)
+    session.execute = AsyncMock(return_value=_MockResult(single=dummy))
+
+    # Act
+    res = await repo.cancel_job(30)
+
+    # Assert
+    assert res is not None
+    assert res.status == "cancelled"
+    assert res.end_time is not None
+    session.flush.assert_awaited()
