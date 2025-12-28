@@ -26,6 +26,9 @@ async def start_single_stock_job(
     repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
 ):
     """単一銘柄のデータ取得ジョブを作成して返す"""
+    # 引数は API 用のシグネチャとして必要だが関数内で使用しないため参照しておく
+    _ = params
+
     job = await repo.create_job(batch_type=JobType.SINGLE_STOCK.value)
     return job
 
@@ -41,6 +44,10 @@ async def start_jpx_all_job(
     repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
 ):
     """JPX全銘柄一括取得ジョブを作成しバックグラウンドで処理を開始する"""
+    # 引数参照は unused-argument を避けるために行う（実処理では未使用）
+    _ = params
+    _ = background_tasks
+
     job = await repo.create_job(batch_type=JobType.JPX_ALL_STOCKS.value)
 
     async def _process(job_id: int, _p: dict):
