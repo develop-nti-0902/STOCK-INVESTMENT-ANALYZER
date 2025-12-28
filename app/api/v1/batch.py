@@ -21,7 +21,7 @@ router = APIRouter()
     status_code=status.HTTP_201_CREATED,
 )
 async def start_single_stock_job(
-    params: BatchJobParams,
+    _params: BatchJobParams,
     repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
 ):
     """単一銘柄のデータ取得ジョブを作成して返す"""
@@ -42,7 +42,7 @@ async def start_jpx_all_job(
     """JPX全銘柄一括取得ジョブを作成しバックグラウンドで処理を開始する"""
     job = await repo.create_job(batch_type=JobType.JPX_ALL_STOCKS.value)
 
-    async def _process(job_id: int, p: dict):
+    async def _process(job_id: int, _p: dict):
         # セッションを新規作成して Repository を作成し、状態更新を行う
         session_maker = get_session_maker()
         async with session_maker() as session:
@@ -73,7 +73,7 @@ async def get_job_status(
 @router.get("/history", response_model=List[BatchExecutionResponse])
 async def get_history(
     job_type: Optional[JobType] = None,
-    status: Optional[str] = None,
+    job_status: Optional[str] = None,
     limit: int = 10,
     repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
 ):
@@ -82,8 +82,8 @@ async def get_history(
     else:
         records = await repo.get_recent(limit=limit)
 
-    if status is not None:
-        records = [r for r in records if r.status == status]
+    if job_status is not None:
+        records = [r for r in records if r.status == job_status]
 
     return records
 
