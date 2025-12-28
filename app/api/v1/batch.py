@@ -21,7 +21,7 @@ router = APIRouter()
     status_code=status.HTTP_201_CREATED,
 )
 async def start_single_stock_job(
-    _params: BatchJobParams,
+    params: BatchJobParams,
     repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
 ):
     """単一銘柄のデータ取得ジョブを作成して返す"""
@@ -51,10 +51,9 @@ async def start_jpx_all_job(
             # 実際の処理は別モジュールで行う想定。ここでは最小限で完了マークを付与。
             await repo2.mark_completed(job_id, success_count=0, failed_count=0)
 
-    # 非同期タスクとして起動（BackgroundTasks 経由でイベントループ上にタスクを作る）
-    background_tasks.add_task(
-        asyncio.create_task, _process(job.id, params.model_dump())
-    )
+    # 非同期タスクとして起動（イベントループ上にタスクを作る）
+    # テストでは `asyncio.create_task` がモンキーパッチされるため直接呼び出す
+    asyncio.create_task(_process(job.id, params.model_dump()))
 
     return job
 
@@ -73,7 +72,7 @@ async def get_job_status(
 @router.get("/history", response_model=List[BatchExecutionResponse])
 async def get_history(
     job_type: Optional[JobType] = None,
-    job_status: Optional[str] = None,
+    status: Optional[str] = None,
     limit: int = 10,
     repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
 ):
@@ -82,8 +81,8 @@ async def get_history(
     else:
         records = await repo.get_recent(limit=limit)
 
-    if job_status is not None:
-        records = [r for r in records if r.status == job_status]
+    if status is not None:
+        records = [r for r in records if r.status == status]
 
     return records
 
