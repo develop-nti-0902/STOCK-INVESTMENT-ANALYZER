@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import List, Optional
+import asyncio as _asyncio
+from datetime import date, datetime
+from typing import List, Optional, Union, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi import status as http_status
@@ -87,8 +89,6 @@ async def process_jpx_all_stocks(
         def _sync_progress_cb(p: dict):
             # 非同期関数をスケジュールして進捗を反映する
             try:
-                import asyncio as _asyncio
-
                 _asyncio.create_task(_progress_callback(p))
             except Exception:
                 pass
@@ -99,11 +99,16 @@ async def process_jpx_all_stocks(
         end_date = params.get("end_date")
         market = params.get("market")
 
+        # mypy の型チェック対応のために適切な型へキャストして渡す
+        timeframe_arg = cast(str, timeframe)
+        start_date_arg = cast(Union[date, datetime, str], start_date)
+        end_date_arg = cast(Union[date, datetime, str], end_date)
+
         try:
             result = await service.fetch_all_jpx_stocks(
-                timeframe=timeframe,
-                start_date=start_date,
-                end_date=end_date,
+                timeframe=timeframe_arg,
+                start_date=start_date_arg,
+                end_date=end_date_arg,
                 market=market,
                 progress_callback=_sync_progress_cb,
             )
