@@ -53,7 +53,7 @@ class BatchExecutionBase(BaseModel):
     model_config = ConfigDict(validate_assignment=True, extra="allow")
 
     job_type: JobType = Field(..., description="Job type")
-    status: JobStatus = Field(..., description="Job status")
+    status: Optional[JobStatus] = Field(None, description="Job status")
     params: Optional[BatchJobParams] = Field(
         None, description="Job parameters"
     )
@@ -77,8 +77,8 @@ class BatchExecutionCreate(BaseRequestSchema, BatchExecutionBase):
     """ジョブ作成用スキーマ"""
 
     # 作成時は status を省略可能（デフォルト PENDING をサーバー側でセット）
-    # Note: do not override `status` type here to keep model types consistent
-    # with BatchExecutionBase. Initial status is set server-side when omitted.
+    # 注意: ここで `status` の型を上書きしないこと。Base の型定義と整合性を保つため。
+    # 作成時はステータスを省略でき、サーバー側でデフォルト（PENDING）を設定します。
 
 
 class BatchExecutionUpdate(BaseModel):
