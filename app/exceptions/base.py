@@ -68,9 +68,11 @@ class AppException(Exception):
     def to_dict(self) -> dict:
         """例外を辞書形式に変換（APIレスポンス用）"""
         return {
-            "error": self.error_code,
-            "message": self.message,
-            "details": self.details,
+            "error": {
+                "code": self.error_code,
+                "message": self.message,
+                "details": self.details,
+            }
         }
 
     def to_http_exception(self) -> HTTPException:

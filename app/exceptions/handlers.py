@@ -48,9 +48,11 @@ def create_error_response(
         dict: エラーレスポンス形式の辞書
     """
     return {
-        "error": error_code,
-        "message": message,
-        "details": details or {},
+        "error": {
+            "code": error_code,
+            "message": message,
+            "details": details or {},
+        },
         "meta": {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "request_id": request_id or generate_request_id(),
@@ -161,9 +163,17 @@ async def http_exception_handler(
     # exc.detailが既に辞書形式の場合はそれを使用、そうでなければ文字列として扱う
     details: dict[str, Any]
     if isinstance(exc.detail, dict):
-        error_code = exc.detail.get("error", "HTTP_ERROR")
-        message = exc.detail.get("message", str(exc.detail))
-        details = exc.detail.get("details", {})  # type: ignore[assignment]
+        # ネストされた `error` オブジェクト形式をサポート
+        if isinstance(exc.detail.get("error"), dict):
+            error_obj = exc.detail.get("error", {})
+            error_code = error_obj.get("code", "HTTP_ERROR")
+            message = error_obj.get("message", str(error_obj))
+            details = error_obj.get("details", {})  # type: ignore[assignment]
+        else:
+            # 旧来のフラット形式をサポート
+            error_code = exc.detail.get("error", "HTTP_ERROR")
+            message = exc.detail.get("message", str(exc.detail))
+            details = exc.detail.get("details", {})  # type: ignore[assignment]
     else:
         error_code = "HTTP_ERROR"
         message = str(exc.detail)
