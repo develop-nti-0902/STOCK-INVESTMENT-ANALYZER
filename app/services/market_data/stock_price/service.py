@@ -36,6 +36,9 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 if TYPE_CHECKING:
+    from app.services.batch.batch_execution_service import (
+        BatchExecutionService,
+    )
     from app.services.market_data.stock_master.service import (
         StockMasterService,
     )
@@ -110,6 +113,7 @@ class StockPriceService:
         saver: StockPriceSaver,
         converter: StockPriceConverter,
         validator: StockPriceValidator,
+        batch_service: "BatchExecutionService",
         max_concurrent: int = 5,
         stock_master_service: Optional["StockMasterService"] = None,
     ):
@@ -123,6 +127,10 @@ class StockPriceService:
             validator: StockPriceValidatorインスタンス
             max_concurrent: 最大並列処理数
         """
+        # バッチ実行管理サービスは必須（Noneは許容しない）
+        if batch_service is None:
+            raise ValueError("batch_service is required and cannot be None")
+
         self.fetcher = fetcher
         self.saver = saver
         self.converter = converter
@@ -131,6 +139,8 @@ class StockPriceService:
         self._semaphore = asyncio.Semaphore(max_concurrent)
         # 銘柄マスタサービス（オプション）。依存性注入によって渡される想定
         self.stock_master_service = stock_master_service
+        # バッチ実行管理サービス（必須）
+        self.batch_service = batch_service
 
     def _normalize_date_param(
         self, d: Union[date, datetime, str, None]
@@ -416,65 +426,90 @@ class StockPriceService:
         failed = 0
         errors: List[Dict[str, Any]] = []
 
-        # バッチ分割
-        for i in range(0, total, batch_size):
-            batch = symbols[i : i + batch_size]
+        from app.services.batch.batch_execution_service import (
+            BatchExecutionContext,
+        )
 
-            sem = asyncio.Semaphore(max_concurrent)
+        async with BatchExecutionContext(
+            self.batch_service,
+            job_type="jpx_all",
+            params={"timeframe": timeframe, "market": market},
+        ) as ctx:
+            # バッチ分割
+            for i in range(0, total, batch_size):
+                batch = symbols[i : i + batch_size]
 
-            async def _process(symbol: str):
-                try:
-                    async with sem:
-                        result = await self.fetch_and_save_single(
+                sem = asyncio.Semaphore(max_concurrent)
+
+                async def _process(symbol: str):
+                    try:
+                        async with sem:
+                            result = await self.fetch_and_save_single(
+                                symbol=symbol,
+                                timeframe=timeframe,
+                                start_date=start_date,
+                                end_date=end_date,
+                            )
+                            return result
+                    except Exception as exc:  # pylint: disable=broad-except
+                        return StockPriceServiceResult(
+                            success=False,
                             symbol=symbol,
                             timeframe=timeframe,
-                            start_date=start_date,
-                            end_date=end_date,
+                            errors=[str(exc)],
                         )
-                        return result
-                except Exception as exc:  # pylint: disable=broad-except
-                    return StockPriceServiceResult(
-                        success=False,
-                        symbol=symbol,
-                        timeframe=timeframe,
-                        errors=[str(exc)],
-                    )
 
-            tasks = [_process(s) for s in batch]
-            # 並列実行して結果を収集
-            batch_results = await asyncio.gather(
-                *tasks, return_exceptions=True
-            )
+                tasks = [_process(s) for s in batch]
+                # 並列実行して結果を収集
+                batch_results = await asyncio.gather(
+                    *tasks, return_exceptions=True
+                )
 
-            # gather 後に集計して競合状態を回避
-            for res in batch_results:
-                if isinstance(res, Exception):
-                    failed += 1
-                    errors.append({"symbol": "unknown", "errors": [str(res)]})
-                else:
-                    # 型は StockPriceServiceResult に絞る
-                    result = cast(StockPriceServiceResult, res)
-                    if result.success:
-                        success += 1
-                    else:
+                # gather 後に集計して競合状態を回避
+                for res in batch_results:
+                    if isinstance(res, Exception):
                         failed += 1
                         errors.append(
-                            {"symbol": result.symbol, "errors": result.errors}
+                            {"symbol": "unknown", "errors": [str(res)]}
                         )
+                    else:
+                        # 型は StockPriceServiceResult に絞る
+                        result = cast(StockPriceServiceResult, res)
+                        if result.success:
+                            success += 1
+                        else:
+                            failed += 1
+                            errors.append(
+                                {
+                                    "symbol": result.symbol,
+                                    "errors": result.errors,
+                                }
+                            )
 
-            # 進捗通知
-            if progress_callback:
+                # 進捗通知
+                if progress_callback:
+                    try:
+                        progress_callback(
+                            {
+                                "total": total,
+                                "processed": success + failed,
+                                "success": success,
+                                "failed": failed,
+                            }
+                        )
+                    except Exception:
+                        logger.exception("Progress callback failed")
+
+                # バッチサービスへ進捗を保存
                 try:
-                    progress_callback(
-                        {
-                            "total": total,
-                            "processed": success + failed,
-                            "success": success,
-                            "failed": failed,
-                        }
+                    await ctx.update_progress(
+                        processed=success + failed,
+                        total=total,
+                        success=success,
+                        failed=failed,
                     )
                 except Exception:
-                    logger.exception("Progress callback failed")
+                    logger.exception("Failed to update batch progress")
 
         elapsed = perf_counter() - start_time
 

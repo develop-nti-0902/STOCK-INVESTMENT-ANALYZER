@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any, List, Type
+from typing import Any, Dict, List, Optional, Type
+from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import delete, select
@@ -18,6 +19,7 @@ from app.models.stock_data import (
     Stocks30m,
 )
 from app.models.stock_master import StockMaster
+from app.services.batch.batch_execution_service import BatchExecutionService
 from app.services.market_data.stock_price.converter import StockPriceConverter
 from app.services.market_data.stock_price.fetcher import StockPriceFetcher
 from app.services.market_data.stock_price.saver import StockPriceSaver
@@ -127,6 +129,38 @@ def write_csv_artifact(
     )
 
 
+class DummyBatchService(BatchExecutionService):
+    def __init__(self, *args, **kwargs):
+        # override parent init so tests can instantiate without repository
+        return None
+
+    async def create_job(self, job_type: str, params: Optional[Dict] = None):
+        return MagicMock(id=1)
+
+    async def start_job(self, job_id: int):
+        return None
+
+    async def update_progress(
+        self,
+        job_id: int,
+        processed: Optional[int] = None,
+        total: Optional[int] = None,
+        success: Optional[int] = None,
+        failed: Optional[int] = None,
+    ):
+        return None
+
+    async def complete_job(
+        self, job_id: int, success_count: int, failed_count: int
+    ):
+        return None
+
+    async def get_job_status(self, job_id: int):
+        return MagicMock(
+            successful_stocks=0, failed_stocks=0, processed_stocks=0
+        )
+
+
 async def run_stock_price_test(
     monkeypatch,
     timeframe: str,
@@ -162,6 +196,7 @@ async def run_stock_price_test(
             converter=converter,
             validator=validator,
             max_concurrent=5,
+            batch_service=DummyBatchService(),
         )
 
         results = await service.fetch_and_save_multiple(
@@ -326,6 +361,7 @@ async def run_stock_price_single_test(
             converter=converter,
             validator=validator,
             max_concurrent=5,
+            batch_service=DummyBatchService(),
         )
 
         result = await service.fetch_and_save_single(

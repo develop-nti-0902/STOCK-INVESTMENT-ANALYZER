@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import select
@@ -26,6 +27,25 @@ from tests.integration.test_stock_price_integration import (
     setup_test_database,
 )
 from tests.integration.utils import write_csv_artifact
+
+
+class DummyBatchService:
+    async def create_job(self, *args, **kwargs):
+        return MagicMock(id=1)
+
+    async def start_job(self, *args, **kwargs):
+        return None
+
+    async def update_progress(self, *args, **kwargs):
+        return None
+
+    async def complete_job(self, *args, **kwargs):
+        return None
+
+    async def get_job_status(self, *args, **kwargs):
+        return MagicMock(
+            successful_stocks=0, failed_stocks=0, processed_stocks=0
+        )
 
 
 @pytest.mark.anyio
@@ -63,6 +83,7 @@ async def test_fetch_all_jpx_stocks_persists_1d(monkeypatch):
             validator=validator,
             max_concurrent=5,
             stock_master_service=stock_master_service,
+            batch_service=DummyBatchService(),
         )
 
         summary = await service.fetch_all_jpx_stocks(
@@ -145,6 +166,7 @@ async def test_fetch_all_jpx_stocks_persists_1h(monkeypatch):
             validator=validator,
             max_concurrent=5,
             stock_master_service=stock_master_service,
+            batch_service=DummyBatchService(),
         )
 
         await service.fetch_all_jpx_stocks(
@@ -220,6 +242,7 @@ async def test_fetch_all_jpx_stocks_persists_1mo(monkeypatch):
             validator=validator,
             max_concurrent=5,
             stock_master_service=stock_master_service,
+            batch_service=DummyBatchService(),
         )
 
         await service.fetch_all_jpx_stocks(
@@ -295,6 +318,7 @@ async def test_fetch_all_jpx_stocks_persists_1wk(monkeypatch):
             validator=validator,
             max_concurrent=5,
             stock_master_service=stock_master_service,
+            batch_service=DummyBatchService(),
         )
 
         await service.fetch_all_jpx_stocks(
@@ -370,6 +394,7 @@ async def test_fetch_all_jpx_stocks_persists_1m(monkeypatch):
             validator=validator,
             max_concurrent=5,
             stock_master_service=stock_master_service,
+            batch_service=DummyBatchService(),
         )
 
         await service.fetch_all_jpx_stocks(
@@ -445,6 +470,7 @@ async def test_fetch_all_jpx_stocks_persists_5m(monkeypatch):
             validator=validator,
             max_concurrent=5,
             stock_master_service=stock_master_service,
+            batch_service=DummyBatchService(),
         )
 
         await service.fetch_all_jpx_stocks(
@@ -520,6 +546,7 @@ async def test_fetch_all_jpx_stocks_persists_15m(monkeypatch):
             validator=validator,
             max_concurrent=5,
             stock_master_service=stock_master_service,
+            batch_service=DummyBatchService(),
         )
 
         await service.fetch_all_jpx_stocks(
@@ -595,6 +622,7 @@ async def test_fetch_all_jpx_stocks_persists_30m(monkeypatch):
             validator=validator,
             max_concurrent=5,
             stock_master_service=stock_master_service,
+            batch_service=DummyBatchService(),
         )
 
         await service.fetch_all_jpx_stocks(
