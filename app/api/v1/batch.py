@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-import asyncio
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi import status as http_status
 
 from app.api.dependencies.repositories import get_batch_execution_repository
+from app.api.dependencies.services import get_stock_price_service
 from app.repositories.batch_execution_repository import (
     BatchExecutionRepository,
 )
 from app.schemas.batch import BatchExecutionResponse, BatchJobParams, JobType
+from app.services.market_data.stock_price import StockPriceService
 from app.utils.database import get_session_maker
 
 router = APIRouter()
@@ -42,6 +43,7 @@ async def start_jpx_all_job(
     params: BatchJobParams,
     background_tasks: BackgroundTasks,
     repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
+    service: StockPriceService = Depends(get_stock_price_service),
 ):
     """JPX全銘柄一括取得ジョブを作成しバックグラウンドで処理を開始する"""
     # 引数参照は unused-argument を避けるために行う（実処理では未使用）
@@ -50,20 +52,75 @@ async def start_jpx_all_job(
 
     job = await repo.create_job(batch_type=JobType.JPX_ALL_STOCKS.value)
 
-    async def _process(job_id: int, _p: dict):
-        # セッションを新規作成して Repository を作成し、状態更新を行う
-        session_maker = get_session_maker()
-        async with session_maker() as session:
-            repo2 = BatchExecutionRepository(session)
-            await repo2.update_status(job_id, "running")
-            # 実際の処理は別モジュールで行う想定。ここでは最小限で完了マークを付与。
-            await repo2.mark_completed(job_id, success_count=0, failed_count=0)
-
-    # 非同期タスクとして起動（イベントループ上にタスクを作る）
-    # テストでは `asyncio.create_task` がモンキーパッチされるため直接呼び出す
-    asyncio.create_task(_process(job.id, params.model_dump()))
+    # バックグラウンドタスクを登録して既存の StockPriceService を呼び出す
+    background_tasks.add_task(
+        process_jpx_all_stocks, job.id, params.model_dump(), service
+    )
 
     return job
+
+
+async def process_jpx_all_stocks(
+    job_id: int, params: dict, service: StockPriceService
+) -> None:
+    """JPX全銘柄取得タスクの簡易実装。
+
+    実環境では銘柄リスト取得やStockPriceServiceの呼び出しを行う想定。
+    ここでは`BatchExecutionRepository`のステータス更新・進捗更新・完了マークを行う。
+    """
+    session_maker = get_session_maker()
+    async with session_maker() as session:
+        repo = BatchExecutionRepository(session)
+        # 実行開始を記録
+        await repo.update_status(job_id, "running")
+
+        # progress_callback を作成して service の進捗をこのジョブへ反映する
+        async def _progress_callback(progress: dict):
+            try:
+                await repo.update_progress(job_id, progress)
+            except Exception:
+                # ログは既存のユーティリティに任せる
+                pass
+
+        # service.fetch_all_jpx_stocks は progress_callback を同期コールバックとして想定している
+        # ここでは非同期から呼ぶため、ラッパーで同期的に呼ぶ
+        def _sync_progress_cb(p: dict):
+            # 非同期関数をスケジュールして進捗を反映する
+            try:
+                import asyncio as _asyncio
+
+                _asyncio.create_task(_progress_callback(p))
+            except Exception:
+                pass
+
+        # パラメータ抽出
+        timeframe = params.get("timeframe")
+        start_date = params.get("start_date")
+        end_date = params.get("end_date")
+        market = params.get("market")
+
+        try:
+            result = await service.fetch_all_jpx_stocks(
+                timeframe=timeframe,
+                start_date=start_date,
+                end_date=end_date,
+                market=market,
+                progress_callback=_sync_progress_cb,
+            )
+
+            # service の返却結果に基づき完了マークを付与
+            success = int(result.get("success", 0))
+            failed = int(result.get("failed", 0))
+            await repo.mark_completed(
+                job_id, success_count=success, failed_count=failed
+            )
+
+        except Exception:  # pylint: disable=broad-except
+            # 失敗時は fail 情報を残す
+            try:
+                await repo.update_status(job_id, "failed")
+            except Exception:
+                pass
 
 
 @router.get("/status/{job_id}", response_model=BatchExecutionResponse)

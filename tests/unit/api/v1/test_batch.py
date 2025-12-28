@@ -1,4 +1,3 @@
-import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -82,25 +81,21 @@ async def test_start_jpx_all_job_schedules_background_task(monkeypatch):
     fake_job = FakeJob(id=99, status="created")
     repo = FakeRepo(create_job_result=fake_job)
     background_tasks = BackgroundTasks()
-
-    called = {"create_task": False}
-
-    def fake_create_task(coro):
-        called["create_task"] = True
-
-        class DummyTask:
-            pass
-
-        return DummyTask()
-
-    monkeypatch.setattr(asyncio, "create_task", fake_create_task)
-
     result = await batch_module.start_jpx_all_job(
         params=ParamsStub(), background_tasks=background_tasks, repo=repo
     )
 
     assert result is fake_job
-    assert called["create_task"] is True
+    # BackgroundTasks にタスクが登録されていることを確認
+    assert len(background_tasks.tasks) == 1
+    # BackgroundTask オブジェクトの中に登録されたコール可能オブジェクトを検査
+    found = False
+    for t in background_tasks.tasks:
+        if getattr(t, "func", None) is batch_module.process_jpx_all_stocks:
+            found = True
+            break
+
+    assert found is True
 
 
 @pytest.mark.asyncio
