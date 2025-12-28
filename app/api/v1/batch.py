@@ -93,23 +93,16 @@ async def process_jpx_all_stocks(
             except Exception:
                 pass
 
-        # パラメータ抽出
-        timeframe = params.get("timeframe")
-        start_date = params.get("start_date")
-        end_date = params.get("end_date")
-        market = params.get("market")
-
-        # mypy の型チェック対応のために適切な型へキャストして渡す
-        timeframe_arg = cast(str, timeframe)
-        start_date_arg = cast(Union[date, datetime, str], start_date)
-        end_date_arg = cast(Union[date, datetime, str], end_date)
-
         try:
             result = await service.fetch_all_jpx_stocks(
-                timeframe=timeframe_arg,
-                start_date=start_date_arg,
-                end_date=end_date_arg,
-                market=market,
+                timeframe=cast(str, params.get("timeframe")),
+                start_date=cast(
+                    Union[date, datetime, str], params.get("start_date")
+                ),
+                end_date=cast(
+                    Union[date, datetime, str], params.get("end_date")
+                ),
+                market=params.get("market"),
                 progress_callback=_sync_progress_cb,
             )
 
