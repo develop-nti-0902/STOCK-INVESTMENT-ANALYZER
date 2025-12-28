@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import status as http_status
 
 from app.api.dependencies.repositories import get_batch_execution_repository
 from app.repositories.batch_execution_repository import (
@@ -18,7 +19,7 @@ router = APIRouter()
 @router.post(
     "/stock-data/single",
     response_model=BatchExecutionResponse,
-    status_code=status.HTTP_201_CREATED,
+    status_code=http_status.HTTP_201_CREATED,
 )
 async def start_single_stock_job(
     params: BatchJobParams,
@@ -32,7 +33,7 @@ async def start_single_stock_job(
 @router.post(
     "/stock-data/jpx-all",
     response_model=BatchExecutionResponse,
-    status_code=status.HTTP_201_CREATED,
+    status_code=http_status.HTTP_201_CREATED,
 )
 async def start_jpx_all_job(
     params: BatchJobParams,

@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+import pandas as _pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
@@ -41,13 +42,16 @@ async def get_stock_data(
     - データが存在しない場合はHTTP 404を返します。
     - `limit` 指定で返却件数を制限できます。
     """
+
+    # サービスへ渡す引数を必要なものだけ組み立てる（None を渡さないようにする）
+    svc_kwargs: dict = {"symbol": symbol, "timeframe": timeframe}
+    if start_date is not None:
+        svc_kwargs["start_date"] = start_date
+    if end_date is not None:
+        svc_kwargs["end_date"] = end_date
+
     # サービスからデータを取得
-    result = await service.get_stock_data(
-        symbol=symbol,
-        timeframe=timeframe,
-        start_date=start_date,
-        end_date=end_date,
-    )
+    result = await service.get_stock_data(**svc_kwargs)
 
     # データ未取得時は404を返す
     if result is None or result.data is None or result.data.empty:
@@ -65,7 +69,6 @@ async def get_stock_data(
     records = df.where(df.notnull(), None).to_dict(orient="records")
 
     # 辞書化後に float('nan') 等が残ることがあるので明示的に None に変換
-    import pandas as _pd
 
     for r in records:
         for k, v in list(r.items()):
