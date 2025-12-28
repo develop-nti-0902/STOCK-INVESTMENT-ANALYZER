@@ -77,9 +77,8 @@ class BatchExecutionCreate(BaseRequestSchema, BatchExecutionBase):
     """ジョブ作成用スキーマ"""
 
     # 作成時は status を省略可能（デフォルト PENDING をサーバー側でセット）
-    status: Optional[JobStatus] = Field(
-        None, description="Initial status (defaults to PENDING if omitted)"
-    )
+    # Note: do not override `status` type here to keep model types consistent
+    # with BatchExecutionBase. Initial status is set server-side when omitted.
 
 
 class BatchExecutionUpdate(BaseModel):
