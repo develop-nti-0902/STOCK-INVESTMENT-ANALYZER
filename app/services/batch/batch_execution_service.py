@@ -23,6 +23,13 @@ class BatchExecutionService:
     async def create_job(
         self, job_type: str, params: Optional[Dict] = None
     ) -> BatchExecution:
+        if params is not None:
+            logger.debug(
+                "Creating batch job with type '%s' and params: %s",
+                job_type,
+                params,
+            )
+
         return await self.repository.create_job(batch_type=job_type)
 
     async def start_job(self, job_id: int) -> Optional[BatchExecution]:
@@ -38,20 +45,31 @@ class BatchExecutionService:
         success: Optional[int] = None,
         failed: Optional[int] = None,
     ) -> Optional[BatchExecution]:
-        data: Dict[str, Any] = {}
-        if processed is not None:
-            data["processed_stocks"] = processed
-        if total is not None:
-            data["total_stocks"] = total
-        if success is not None:
-            data["successful_stocks"] = success
-        if failed is not None:
-            data["failed_stocks"] = failed
-
-        if not data:
+        # 進捗値が指定されていない場合は、現在のジョブ状態を返す。
+        if (
+            processed is None
+            and total is None
+            and success is None
+            and failed is None
+        ):
             return await self.repository.get(job_id)
 
-        return await self.repository.update(record_id=job_id, data=data)
+        # リポジトリ側の専用メソッド `update_progress` に処理を委譲する。
+        # リポジトリ側では progress_data に次のキーを期待する:
+        # 'processed', 'total', 'successful', 'failed'
+        progress_data: Dict[str, Optional[int]] = {}
+        if processed is not None:
+            progress_data["processed"] = processed
+        if total is not None:
+            progress_data["total"] = total
+        if success is not None:
+            progress_data["successful"] = success
+        if failed is not None:
+            progress_data["failed"] = failed
+
+        return await self.repository.update_progress(
+            record_id=job_id, progress_data=progress_data
+        )
 
     async def complete_job(
         self, job_id: int, success_count: int, failed_count: int

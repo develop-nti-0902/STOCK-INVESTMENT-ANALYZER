@@ -40,9 +40,11 @@ class BatchJobParams(BaseModel):
     model_config = ConfigDict(validate_assignment=True, extra="allow")
 
     symbol: Optional[str] = Field(
-        None, description="銘柄コード（単一銘柄処理時）"
+        None, description="Stock symbol (for single-stock jobs)"
     )
-    timeframe: Optional[str] = Field(None, description="時間軸（例: 1d, 1m）")
+    timeframe: Optional[str] = Field(
+        None, description="Timeframe (e.g. 1d, 1m)"
+    )
 
 
 class BatchExecutionBase(BaseModel):
@@ -50,21 +52,25 @@ class BatchExecutionBase(BaseModel):
 
     model_config = ConfigDict(validate_assignment=True, extra="allow")
 
-    job_type: JobType = Field(..., description="ジョブタイプ")
-    status: Optional[JobStatus] = Field(..., description="ジョブステータス")
+    job_type: JobType = Field(..., description="Job type")
+    status: JobStatus = Field(..., description="Job status")
     params: Optional[BatchJobParams] = Field(
-        None, description="ジョブパラメータ"
+        None, description="Job parameters"
     )
     progress: Optional[float] = Field(
-        None, description="進捗（0.0〜100.0）", ge=0.0, le=100.0
+        None, description="Progress (0.0–100.0)", ge=0.0, le=100.0
     )
-    success_count: Optional[int] = Field(None, description="成功件数", ge=0)
-    failed_count: Optional[int] = Field(None, description="失敗件数", ge=0)
+    success_count: Optional[int] = Field(
+        None, description="Number of successful items", ge=0
+    )
+    failed_count: Optional[int] = Field(
+        None, description="Number of failed items", ge=0
+    )
     error_message: Optional[str] = Field(
-        None, description="エラーメッセージ（発生時）"
+        None, description="Error message (if any)"
     )
-    started_at: Optional[datetime] = Field(None, description="開始時刻")
-    finished_at: Optional[datetime] = Field(None, description="終了時刻")
+    started_at: Optional[datetime] = Field(None, description="Start time")
+    finished_at: Optional[datetime] = Field(None, description="Finish time")
 
 
 class BatchExecutionCreate(BaseRequestSchema, BatchExecutionBase):
@@ -72,7 +78,7 @@ class BatchExecutionCreate(BaseRequestSchema, BatchExecutionBase):
 
     # 作成時は status を省略可能（デフォルト PENDING をサーバー側でセット）
     status: Optional[JobStatus] = Field(
-        None, description="初期ステータス（省略時はPENDING）"
+        None, description="Initial status (defaults to PENDING if omitted)"
     )
 
 
@@ -81,20 +87,18 @@ class BatchExecutionUpdate(BaseModel):
 
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
 
-    status: Optional[JobStatus] = Field(
-        None, description="ジョブステータスの更新"
-    )
+    status: Optional[JobStatus] = Field(None, description="Job status update")
     progress: Optional[float] = Field(
-        None, description="進捗更新（0.0〜100.0）", ge=0.0, le=100.0
+        None, description="Progress update (0.0–100.0)", ge=0.0, le=100.0
     )
     success_count: Optional[int] = Field(
-        None, description="成功件数の更新", ge=0
+        None, description="Update number of successful items", ge=0
     )
     failed_count: Optional[int] = Field(
-        None, description="失敗件数の更新", ge=0
+        None, description="Update number of failed items", ge=0
     )
     error_message: Optional[str] = Field(
-        None, description="エラーメッセージ（更新時）"
+        None, description="Error message (for update)"
     )
 
 

@@ -26,6 +26,36 @@ from app.services.market_data.stock_price import (
 from app.utils.database import get_db
 
 
+def get_batch_execution_repository(
+    db: AsyncSession = Depends(get_db),
+) -> BatchExecutionRepository:
+    """
+    BatchExecutionRepository を提供
+
+    Args:
+        db: 非同期DBセッション
+
+    Returns:
+        BatchExecutionRepository
+    """
+    return BatchExecutionRepository(session=db)
+
+
+def get_batch_execution_service(
+    repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
+) -> BatchExecutionService:
+    """
+    BatchExecutionService を提供
+
+    Args:
+        repo: BatchExecutionRepository
+
+    Returns:
+        BatchExecutionService
+    """
+    return BatchExecutionService(repository=repo)
+
+
 def get_stock_price_fetcher() -> StockPriceFetcher:
     """
     StockPriceFetcherを提供
@@ -107,7 +137,9 @@ def get_stock_price_service(
     converter: StockPriceConverter = Depends(get_stock_price_converter),
     validator: StockPriceValidator = Depends(get_stock_price_validator),
     stock_master: StockMasterService = Depends(get_stock_master_service),
-    db: AsyncSession = Depends(get_db),
+    batch_service: BatchExecutionService = Depends(
+        get_batch_execution_service
+    ),
 ) -> StockPriceService:
     """
     StockPriceServiceを提供（オーケストレーション層）
@@ -121,11 +153,7 @@ def get_stock_price_service(
     Returns:
         StockPriceService: 株価データ収集サービス
     """
-    # バッチ用Repository/Service を組み立てて注入
-    batch_repo = BatchExecutionRepository(session=db)
-    batch_service = BatchExecutionService(repository=batch_repo)
-
-    # StockMasterService を注入して StockPriceService を生成
+    # StockMasterService と BatchExecutionService を注入して StockPriceService を生成
     return StockPriceService(
         fetcher=fetcher,
         saver=saver,

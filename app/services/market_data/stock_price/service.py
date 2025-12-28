@@ -127,6 +127,10 @@ class StockPriceService:
             validator: StockPriceValidatorインスタンス
             max_concurrent: 最大並列処理数
         """
+        # バッチ実行管理サービスは必須（Noneは許容しない）
+        if batch_service is None:
+            raise ValueError("batch_service is required and cannot be None")
+
         self.fetcher = fetcher
         self.saver = saver
         self.converter = converter
