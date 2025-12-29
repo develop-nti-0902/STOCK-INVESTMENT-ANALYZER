@@ -102,7 +102,8 @@ async def get_stock_price_data(
     offset: int = Query(0, ge=0, description="Offset"),
     db: AsyncSession = Depends(get_db),
 ):
-    # pylint: disable=too-many-arguments,too-many-locals,too-many-branches
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
+    # pylint: disable=too-many-locals,too-many-branches
     """指定銘柄・時間軸の株価データを取得
 
     データベースに格納されている株価データを取得します。
