@@ -104,9 +104,7 @@ async def test_start_single_stock_job_calls_create_and_returns_job():
     repo = FakeRepo(create_job_result=fake_job)
 
     # Act
-    result = await batch_module.start_single_stock_job(
-        params=ParamsStub(), repo=repo
-    )
+    result = await batch_module.start_single_stock_job(repo=repo)
 
     # Assert
     assert result is fake_job

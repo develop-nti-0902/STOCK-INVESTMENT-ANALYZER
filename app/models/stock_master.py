@@ -9,6 +9,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, SerialPKMixin, TimestampMixin
 
+# is_active カラムの値を表す定数
+# 0/1 の整数をそのまま使うのではなく、名前付き定数を用いることで可読性と保守性を高める
+IS_ACTIVE = 1
+IS_INACTIVE = 0
+
 
 class StockMaster(SerialPKMixin, TimestampMixin, Base):
     """管理DBの `stock_master` テーブルに合わせたモデル定義。
