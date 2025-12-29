@@ -4,11 +4,13 @@ from fastapi import APIRouter
 
 # v1 のサブルータをまとめて登録
 from . import batch as batch_module
-from . import stock_data as stock_data_module
+from . import stock_master as stock_master_module
+from . import stock_price as stock_price_module
 
 router = APIRouter()
 
 router.include_router(batch_module.router, prefix="/batch")
-router.include_router(stock_data_module.router, prefix="/stock-data")
+router.include_router(stock_master_module.router, prefix="/stock-master")
+router.include_router(stock_price_module.router, prefix="/stock-price")
 
 __all__ = ["router"]

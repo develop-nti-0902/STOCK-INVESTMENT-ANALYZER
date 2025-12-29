@@ -343,6 +343,43 @@ class StockDataRepository(BaseRepository, ABC):
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
+    async def delete_all(self) -> int:
+        """
+        テーブル内の全データを削除
+
+        Returns:
+            削除されたレコード数
+
+        Raises:
+            RuntimeError: 削除処理に失敗した場合
+
+        注意:
+            トランザクションのコミット/ロールバックはService層で行ってください。
+        """
+        try:
+            from sqlalchemy import delete as sql_delete
+
+            stmt = sql_delete(self.model)
+            result = cast(CursorResult, await self.session.execute(stmt))
+
+            deleted_count = result.rowcount or 0
+
+            logger.info(
+                "Deleted all records from %s: %d rows",
+                self.timeframe,
+                deleted_count,
+            )
+
+            return deleted_count
+
+        except Exception as e:
+            logger.exception(
+                "Failed to delete all records from %s: %s",
+                self.timeframe,
+                e,
+            )
+            raise RuntimeError(f"Failed to delete all records: {e}") from e
+
 
 # 具体的なRepositoryクラス実装
 

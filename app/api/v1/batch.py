@@ -16,7 +16,7 @@ from app.schemas.batch import BatchExecutionResponse, BatchJobParams, JobType
 from app.services.market_data.stock_price import StockPriceService
 from app.utils.database import get_session_maker
 
-router = APIRouter()
+router = APIRouter(tags=["batch"])
 
 
 @router.post(

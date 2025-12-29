@@ -51,7 +51,7 @@ class StockMasterRepository(BaseRepository[StockMaster]):
     async def get_all_active_symbols(self) -> List[str]:
         """アクティブな全銘柄コードを取得"""
         result = await self.session.execute(
-            select(self.model.stock_code).where(self.model.is_active)
+            select(self.model.stock_code).where(self.model.is_active == 1)
         )
         return [row[0] for row in result.all()]
 
@@ -60,7 +60,7 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         result = await self.session.execute(
             select(self.model.stock_code).where(
                 self.model.market_category == market,
-                self.model.is_active,
+                self.model.is_active == 1,
             )
         )
         return [row[0] for row in result.all()]
@@ -70,7 +70,7 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         result = await self.session.execute(
             select(self.model.stock_code).where(
                 self.model.sector_name_33 == sector,
-                self.model.is_active,
+                self.model.is_active == 1,
             )
         )
         return [row[0] for row in result.all()]
@@ -157,6 +157,26 @@ class StockMasterRepository(BaseRepository[StockMaster]):
             return len(records)
         except SQLAlchemyError as e:
             logger.exception("bulk_upsert failed: %s", e)
+            raise
+
+    async def delete_all(self) -> int:
+        """全銘柄マスタデータを削除
+
+        Returns:
+            int: 削除された件数
+
+        注意:
+            トランザクションのコミットはService層で行ってください。
+        """
+        from sqlalchemy import delete
+
+        try:
+            stmt = delete(self.model)
+            result = await self.session.execute(stmt)
+            await self.session.flush()
+            return result.rowcount
+        except SQLAlchemyError as e:
+            logger.exception("delete_all failed: %s", e)
             raise
 
 
