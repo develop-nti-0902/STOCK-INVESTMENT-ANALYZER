@@ -12,6 +12,7 @@ from abc import ABC, abstractmethod
 from datetime import date, datetime
 from typing import List, Optional, Union, cast
 
+from sqlalchemy import delete as sql_delete
 from sqlalchemy import desc, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import CursorResult
@@ -357,8 +358,6 @@ class StockDataRepository(BaseRepository, ABC):
             トランザクションのコミット/ロールバックはService層で行ってください。
         """
         try:
-            from sqlalchemy import delete as sql_delete
-
             stmt = sql_delete(self.model)
             result = cast(CursorResult, await self.session.execute(stmt))
 

@@ -1,7 +1,7 @@
 import logging
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -168,13 +168,14 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         注意:
             トランザクションのコミットはService層で行ってください。
         """
-        from sqlalchemy import delete
-
         try:
             stmt = delete(self.model)
             result = await self.session.execute(stmt)
             await self.session.flush()
-            return result.rowcount
+            # Result may not expose `rowcount` in typing.
+            # Use getattr to access it safely.
+            rc: Any = getattr(result, "rowcount", None)
+            return int(rc or 0)
         except SQLAlchemyError as e:
             logger.exception("delete_all failed: %s", e)
             raise
