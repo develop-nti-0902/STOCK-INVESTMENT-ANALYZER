@@ -1,12 +1,12 @@
 import logging
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.stock_master import StockMaster
+from app.models.stock_master import IS_ACTIVE, StockMaster
 from app.repositories.base import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,9 @@ class StockMasterRepository(BaseRepository[StockMaster]):
     async def get_all_active_symbols(self) -> List[str]:
         """アクティブな全銘柄コードを取得"""
         result = await self.session.execute(
-            select(self.model.stock_code).where(self.model.is_active)
+            select(self.model.stock_code).where(
+                self.model.is_active == IS_ACTIVE
+            )
         )
         return [row[0] for row in result.all()]
 
@@ -60,7 +62,7 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         result = await self.session.execute(
             select(self.model.stock_code).where(
                 self.model.market_category == market,
-                self.model.is_active,
+                self.model.is_active == IS_ACTIVE,
             )
         )
         return [row[0] for row in result.all()]
@@ -70,7 +72,7 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         result = await self.session.execute(
             select(self.model.stock_code).where(
                 self.model.sector_name_33 == sector,
-                self.model.is_active,
+                self.model.is_active == IS_ACTIVE,
             )
         )
         return [row[0] for row in result.all()]
@@ -157,6 +159,26 @@ class StockMasterRepository(BaseRepository[StockMaster]):
             return len(records)
         except SQLAlchemyError as e:
             logger.exception("bulk_upsert failed: %s", e)
+            raise
+
+    async def delete_all(self) -> int:
+        """全銘柄マスタデータを削除
+
+        Returns:
+            int: 削除された件数
+
+        注意:
+            トランザクションのコミットはService層で行ってください。
+        """
+        try:
+            stmt = delete(self.model)
+            result = await self.session.execute(stmt)
+            await self.session.flush()
+            # Use getattr with default 0 for typing safety
+            rc: Any = getattr(result, "rowcount", 0)
+            return int(rc or 0)
+        except SQLAlchemyError as e:
+            logger.exception("delete_all failed: %s", e)
             raise
 
 

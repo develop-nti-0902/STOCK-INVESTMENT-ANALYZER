@@ -74,9 +74,9 @@ class TestCreateErrorResponse:
         )
 
         # Assert: レスポンスの構造が正しいことを確認
-        assert response["error"] == "TEST_ERROR"
-        assert response["message"] == "Test error message"
-        assert response["details"] == {}
+        assert response["error"]["code"] == "TEST_ERROR"
+        assert response["error"]["message"] == "Test error message"
+        assert response["error"]["details"] == {}
         assert "meta" in response
         assert "timestamp" in response["meta"]
         assert "request_id" in response["meta"]
@@ -95,8 +95,8 @@ class TestCreateErrorResponse:
         )
 
         # Assert: 詳細情報が正しく含まれていることを確認
-        assert response["details"]["field"] == "symbol"
-        assert response["details"]["value"] == "invalid"
+        assert response["error"]["details"]["field"] == "symbol"
+        assert response["error"]["details"]["value"] == "invalid"
 
     def test_creates_error_response_with_request_id(self):
         """

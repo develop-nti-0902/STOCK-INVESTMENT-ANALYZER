@@ -24,18 +24,13 @@ class StockMasterService:
         self.repo = repo
         self.fetcher = fetcher or StockMasterFetcher()
 
-    async def fetch_and_store(
-        self, source: str = "jpx", *, batch_size: int = 500
-    ) -> int:
+    async def fetch_and_store(self, *, batch_size: int = 500) -> int:
         """
-        指定ソースから銘柄マスタを取得し、DBに保存する
+        JPXから銘柄マスタを取得し、DBに保存する
 
         Returns:
             int: 登録（処理）した件数
         """
-        if source != "jpx":
-            raise ValueError(f"Unsupported source: {source}")
-
         # フェッチ（リトライなし）
         try:
             data = await self.fetcher.fetch_all()
@@ -145,7 +140,7 @@ class StockMasterService:
             int: 更新された件数
         """
         try:
-            updated_count = await self.fetch_and_store(source="jpx")
+            updated_count = await self.fetch_and_store()
             logger.info(
                 "Stock master refreshed",
                 extra={"updated_count": updated_count},
@@ -154,5 +149,25 @@ class StockMasterService:
         except Exception as exc:
             logger.error(
                 "Failed to refresh stock master", extra={"error": str(exc)}
+            )
+            raise
+
+    async def reset_stock_master(self) -> int:
+        """
+        銘柄マスタの全データを削除
+
+        Returns:
+            int: 削除された件数
+        """
+        try:
+            deleted_count = await self.repo.delete_all()
+            logger.info(
+                "Stock master reset completed",
+                extra={"deleted_count": deleted_count},
+            )
+            return deleted_count
+        except Exception as exc:
+            logger.error(
+                "Failed to reset stock master", extra={"error": str(exc)}
             )
             raise
