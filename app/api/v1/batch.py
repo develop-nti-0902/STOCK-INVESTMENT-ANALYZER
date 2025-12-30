@@ -22,6 +22,98 @@ router = APIRouter(tags=["batch"])
 logger = logging.getLogger(__name__)
 
 
+async def _commit_with_rollback(session, context: str, job_id: int) -> None:
+    """セッションをコミットし、失敗した場合はログを出力してロールバックを試みます。"""
+    try:
+        await session.commit()
+    except Exception:
+        logger.exception(
+            "Failed to commit session after %s for job %s",
+            context,
+            job_id,
+        )
+        try:
+            await session.rollback()
+        except Exception:
+            logger.exception(
+                "Failed to rollback session after commit failure for job %s",
+                job_id,
+            )
+
+
+async def _await_pending_tasks(
+    pending_tasks: set[_asyncio.Task], context: str | None = None
+) -> None:
+    """保留中のタスクを待ち、エラーがあればログを出力してセットをクリアします。"""
+    if not pending_tasks:
+        return
+    try:
+        await _asyncio.gather(*list(pending_tasks), return_exceptions=True)
+    except Exception:
+        if context:
+            logger.exception("Error %s", context)
+        else:
+            logger.exception("Error while awaiting pending progress tasks")
+    finally:
+        pending_tasks.clear()
+
+
+def _make_progress_handlers(job_id: int):
+    """進捗更新用のハンドラ群を作成して返します。
+
+    返却値: `(pending_tasks, async_progress_callback, sync_wrapper)`。
+    `sync_wrapper` は同期コールバックとして動作し、非同期の進捗更新を
+    スケジュールして `pending_tasks` に登録します。呼び出し側は返却された
+    `pending_tasks` を待機して更新完了を確認できます。
+    """
+    pending_tasks: set[_asyncio.Task] = set()
+
+    async def _progress_callback(progress: dict):
+        inner_session_maker = get_session_maker()
+        async with inner_session_maker() as inner_session:
+            inner_repo = BatchExecutionRepository(inner_session)
+            try:
+                await inner_repo.update_progress(job_id, progress)
+                try:
+                    await inner_session.commit()
+                except Exception:
+                    logger.exception(
+                        "Failed to commit progress update for job %s", job_id
+                    )
+                    try:
+                        await inner_session.rollback()
+                    except Exception:
+                        logger.exception(
+                            "Failed to rollback inner session for job %s",
+                            job_id,
+                        )
+            except Exception:
+                logger.exception(
+                    "Failed to update progress for job %s", job_id
+                )
+
+    def _sync_progress_cb(p: dict):
+        try:
+            task = _asyncio.create_task(_progress_callback(p))
+        except Exception:
+            return
+
+        pending_tasks.add(task)
+
+        def _on_done(t: _asyncio.Task) -> None:
+            pending_tasks.discard(t)
+            try:
+                exc = t.exception()
+            except (RuntimeError, _asyncio.CancelledError):
+                return
+            if exc is not None:
+                logger.exception("Progress callback task failed: %s", exc)
+
+        task.add_done_callback(_on_done)
+
+    return pending_tasks, _progress_callback, _sync_progress_cb
+
+
 @router.post(
     "/stock-data/single",
     response_model=BatchExecutionResponse,
@@ -94,68 +186,9 @@ async def process_jpx_all_stocks(
                 )
 
         # progress_callback を作成して service の進捗をこのジョブへ反映する
-        # pending_tasks: スケジュールした非同期タスクを追跡し、
-        # ジョブ完了前に全ての更新が終わるのを待つために使用する
-        pending_tasks: set[_asyncio.Task] = set()
-
-        async def _progress_callback(progress: dict):
-            """進捗更新を行う。進捗更新は頻繁に呼ばれうるため、
-            外部セッションを共有せず、専用のセッションを作ってコミットする。
-
-            これにより:
-            - 共有セッションへの同時アクセスによる競合を避ける
-            - 各進捗更新を確実に永続化できる
-            """
-            inner_session_maker = get_session_maker()
-            async with inner_session_maker() as inner_session:
-                inner_repo = BatchExecutionRepository(inner_session)
-                try:
-                    await inner_repo.update_progress(job_id, progress)
-                    try:
-                        await inner_session.commit()
-                    except Exception:
-                        logger.exception(
-                            "Failed to commit progress update for " "job %s",
-                            job_id,
-                        )
-                        try:
-                            await inner_session.rollback()
-                        except Exception:
-                            logger.exception(
-                                "Failed to rollback inner session for "
-                                "job %s",
-                                job_id,
-                            )
-                except Exception:
-                    logger.exception(
-                        "Failed to update progress for job %s",
-                        job_id,
-                    )
-
-        # service.fetch_all_jpx_stocks は progress_callback を同期コールバックとして想定している
-        # ここでは非同期から呼ぶため、ラッパーで同期的に呼ぶ
-        def _sync_progress_cb(p: dict):
-            # サービスは同期コールバックを想定しているため、ここで非同期処理をスケジュールして
-            # 非同期の `repo.update_progress` を呼び出す。
-            # スケジュールしたタスクは `pending_tasks` に保持し、完了時に除去して例外をログする。
-            try:
-                task = _asyncio.create_task(_progress_callback(p))
-            except Exception:
-                return
-
-            pending_tasks.add(task)
-
-            def _on_done(t: _asyncio.Task) -> None:
-                pending_tasks.discard(t)
-                # 例外が発生していたらログ出力する（非同期タスクの失敗を見落とさない）
-                try:
-                    exc = t.exception()
-                except (RuntimeError, _asyncio.CancelledError):
-                    return
-                if exc is not None:
-                    logger.exception("Progress callback task failed: %s", exc)
-
-            task.add_done_callback(_on_done)
+        pending_tasks, _progress_callback, _sync_progress_cb = (
+            _make_progress_handlers(job_id)
+        )
 
         try:
             result = await service.fetch_all_jpx_stocks(
@@ -177,37 +210,12 @@ async def process_jpx_all_stocks(
                 job_id, success_count=success, failed_count=failed
             )
             # 完了マークを永続化
-            try:
-                await session.commit()
-            except Exception:
-                logger.exception(
-                    "Failed to commit session after mark_completed "
-                    "for job %s",
-                    job_id,
-                )
-                try:
-                    await session.rollback()
-                except Exception:
-                    logger.exception(
-                        "Failed to rollback session after commit "
-                        "failure for job %s",
-                        job_id,
-                    )
+            await _commit_with_rollback(session, "mark_completed", job_id)
 
             # すべての進捗更新タスクが完了するのを待つ（例外はログに記録される）
-            if pending_tasks:
-                try:
-                    await _asyncio.gather(
-                        *list(pending_tasks), return_exceptions=True
-                    )
-                except Exception:
-                    # gather 自体が例外を投げる可能性があるが、
-                    # done callbacks 側で既にログは出している
-                    logger.exception(
-                        "Error while awaiting pending progress tasks"
-                    )
-                finally:
-                    pending_tasks.clear()
+            await _await_pending_tasks(
+                pending_tasks, "while awaiting pending progress tasks"
+            )
 
         except Exception:  # pylint: disable=broad-except
             # 元の例外をログに残す（スタックトレース含む）
@@ -219,22 +227,9 @@ async def process_jpx_all_stocks(
             # 失敗時は fail 情報を残す（更新に失敗した場合もログを出す）
             try:
                 await repo.update_status(job_id, "failed")
-                try:
-                    await session.commit()
-                except Exception:
-                    logger.exception(
-                        "Failed to commit session after setting "
-                        "status 'failed' for job %s",
-                        job_id,
-                    )
-                    try:
-                        await session.rollback()
-                    except Exception:
-                        logger.exception(
-                            "Failed to rollback session after commit "
-                            "failure for job %s",
-                            job_id,
-                        )
+                await _commit_with_rollback(
+                    session, "setting status 'failed'", job_id
+                )
             except Exception:
                 logger.exception(
                     "Failed to update status to 'failed' for job %s", job_id
