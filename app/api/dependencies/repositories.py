@@ -1,8 +1,7 @@
-"""
-Repository依存性注入プロバイダ
+"""Repository依存性注入プロバイダ.
 
-FastAPIのDependsパターンを使用して、各Repositoryインスタンスを提供する。
-共通モジュール（app.utils.database）のget_db()を使用してDBセッションを取得する。
+FastAPIの`Depends`パターンを使って各Repositoryインスタンスを提供します。
+DBセッションは`app.utils.database.get_db()`から取得します。
 
 仕様書: docs/architecture/layers/data_access_layer.md 3.3章
 """
@@ -19,36 +18,18 @@ from app.utils.database import get_db
 def get_base_repository(
     db: AsyncSession = Depends(get_db),
 ) -> BaseRepository[Any]:
-    """
-    BaseRepositoryを提供（汎用CRUD操作用）
+    """BaseRepository を提供する依存性プロバイダ.
 
-    使用例:
-        ```python
-        from fastapi import APIRouter, Depends
-        from app.api.dependencies.repositories import get_base_repository
-        from app.repositories.base import BaseRepository
-
-        router = APIRouter()
-
-        @router.get("/items/{item_id}")
-        async def get_item(
-            item_id: int,
-            repo: BaseRepository = Depends(get_base_repository)
-        ):
-            item = await repo.get_by_id(item_id)
-            return item
-        ```
+    汎用的な CRUD 操作用の `BaseRepository` インスタンスを返します。
 
     Args:
-        db: 非同期DBセッション（共通モジュールから提供）
+        db (AsyncSession): 非同期DBセッション（`get_db` から提供される）
 
     Returns:
-        BaseRepository: 汎用CRUD操作Repository
+        BaseRepository[Any]: 汎用CRUD操作Repository（テスト・一時利用向け）
 
     Note:
-        - 実際のプロジェクトでは、このプロバイダは直接使用せず、
-          各エンティティ専用のRepositoryプロバイダ（例: get_stock_repository）を使用することを推奨
-        - このプロバイダはテストや一時的な用途に使用
+        BaseRepository は抽象的なインターフェースのため、実運用では具象Repositoryを使用してください。
     """
     # 注意: BaseRepositoryはABCなので、実際には具象クラスを使用する必要がある
     # ここではプレースホルダとして汎用的なリポジトリを返します。
@@ -59,9 +40,15 @@ def get_base_repository(
 def get_stock_master_repository(
     db: AsyncSession = Depends(get_db),
 ) -> BaseRepository[Any]:
-    """StockMasterRepository を提供する DI プロバイダ
+    """StockMasterRepository を提供する依存性プロバイダ.
 
-    遅延インポートにより循環依存を回避します。
+    遅延インポートで循環依存を回避して `StockMasterRepository` を生成します。
+
+    Args:
+        db (AsyncSession): 非同期DBセッション
+
+    Returns:
+        BaseRepository[Any]: `StockMasterRepository` のインスタンス
     """
     # pylint: disable=import-outside-toplevel
     from app.repositories.stock_master_repository import StockMasterRepository
@@ -72,26 +59,15 @@ def get_stock_master_repository(
 def get_batch_execution_repository(
     db: AsyncSession = Depends(get_db),
 ) -> BaseRepository[Any]:
-    """BatchExecutionRepository を提供する DI プロバイダ
+    """BatchExecutionRepository を提供する依存性プロバイダ.
 
-    遅延インポートにより循環依存を回避します。
+    遅延インポートで循環依存を回避して `BatchExecutionRepository` を生成します。
 
-    使用例:
-        ```python
-            from fastapi import APIRouter, Depends
-            from app.api.dependencies import (
-                get_batch_execution_repository,
-            )
+    Args:
+        db (AsyncSession): 非同期DBセッション
 
-            router = APIRouter()
-
-        @router.post("/batch/start")
-        async def start_batch(
-            repo = Depends(get_batch_execution_repository),
-        ):
-            job = await repo.create_job("daily_fetch")
-            return {"job_id": job.id}
-        ```
+    Returns:
+        BaseRepository[Any]: `BatchExecutionRepository` のインスタンス
     """
     # pylint: disable=import-outside-toplevel
     from app.repositories.batch_execution_repository import (

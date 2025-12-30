@@ -1,7 +1,6 @@
-"""
-例外処理モジュール - 外部API関連例外
+"""例外処理モジュール - 外部API関連例外.
 
-外部APIとの通信に関連する例外クラスを定義する。
+外部APIとの通信に関連する例外クラスを定義します。
 仕様書: docs/architecture/layers/common_modules.md 3.3章
 """
 
@@ -9,7 +8,13 @@ from app.exceptions.base import AppException
 
 
 class ExternalAPIError(AppException):
-    """外部API呼び出しの基底例外クラス"""
+    """外部API呼び出しの基底例外クラス.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "External API request failed"
     default_error_code = "EXTERNAL_API_ERROR"
@@ -17,7 +22,13 @@ class ExternalAPIError(AppException):
 
 
 class YahooFinanceError(ExternalAPIError):
-    """Yahoo Finance API エラー"""
+    """Yahoo Finance API エラー.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "Yahoo Finance API request failed"
     default_error_code = "YAHOO_FINANCE_ERROR"
@@ -25,7 +36,13 @@ class YahooFinanceError(ExternalAPIError):
 
 
 class JPXAPIError(ExternalAPIError):
-    """JPX API エラー"""
+    """JPX API エラー.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "JPX API request failed"
     default_error_code = "JPX_API_ERROR"
@@ -33,7 +50,13 @@ class JPXAPIError(ExternalAPIError):
 
 
 class APITimeoutError(ExternalAPIError):
-    """API タイムアウトエラー"""
+    """API タイムアウトエラー.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "API request timeout"
     default_error_code = "API_TIMEOUT"
@@ -41,7 +64,13 @@ class APITimeoutError(ExternalAPIError):
 
 
 class APIRateLimitError(ExternalAPIError):
-    """APIレート制限超過エラー"""
+    """APIレート制限超過エラー.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "API rate limit exceeded"
     default_error_code = "API_RATE_LIMIT"

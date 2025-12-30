@@ -8,12 +8,16 @@ logger = get_logger(__name__)
 
 
 class StockMasterService:
-    """
-    銘柄マスタ向けのサービスレイヤ
+    """Service layer for stock master operations.
 
-    - フェッチャーからのデータ取得
-    - 正規化済Pydanticモデルの辞書化
-    - Repositoryのbulk_upsert呼び出し（バッチ処理）
+    Responsibilities:
+        - Retrieve data from fetcher
+        - Convert Pydantic models to dicts for persistence
+        - Call repository ``bulk_upsert`` in batches
+
+    Attributes:
+        repo (StockMasterRepository): 永続化リポジトリ
+        fetcher (StockMasterFetcher): データ取得フェッチャー
     """
 
     def __init__(
@@ -21,15 +25,27 @@ class StockMasterService:
         repo: StockMasterRepository,
         fetcher: Optional[StockMasterFetcher] = None,
     ):
+        """Initialize the service.
+
+        Args:
+            repo (StockMasterRepository): StockMaster データ用リポジトリ
+            fetcher (Optional[StockMasterFetcher]): フェッチャー（未指定時はデフォルトを生成）
+
+        """
         self.repo = repo
         self.fetcher = fetcher or StockMasterFetcher()
 
     async def fetch_and_store(self, *, batch_size: int = 500) -> int:
-        """
-        JPXから銘柄マスタを取得し、DBに保存する
+        """Fetch all stock master records and store them in DB in batches.
+
+        Args:
+            batch_size (int): バッチのサイズ（デフォルト: 500）
 
         Returns:
-            int: 登録（処理）した件数
+            int: 保存されたレコードの合計数.
+
+        Raises:
+            Exception: フェッチや保存処理で発生した例外を透過します.
         """
         # フェッチ（リトライなし）
         try:
@@ -66,11 +82,13 @@ class StockMasterService:
         return total_processed
 
     async def get_all_active_symbols(self) -> List[str]:
-        """
-        アクティブな全銘柄コードを取得
+        """Return all active stock symbols.
 
         Returns:
-            List[str]: アクティブな銘柄コードのリスト
+            List[str]: アクティブな銘柄コードのリスト.
+
+        Raises:
+            Exception: リポジトリ呼び出しで発生した例外を透過します.
         """
         try:
             symbols = await self.repo.get_all_active_symbols()
@@ -85,14 +103,16 @@ class StockMasterService:
             raise
 
     async def get_symbols_by_market(self, market: str) -> List[str]:
-        """
-        市場別銘柄コードを取得
+        """Get symbols filtered by market.
 
         Args:
-            market: 市場名（例: "プライム", "スタンダード", "グロース"）
+            market (str): 市場名（例: "プライム", "スタンダード", "グロース"）
 
         Returns:
-            List[str]: 指定市場のアクティブな銘柄コードのリスト
+            List[str]: 指定市場のアクティブな銘柄コードのリスト.
+
+        Raises:
+            Exception: リポジトリ呼び出し中に発生した例外を透過します.
         """
         try:
             symbols = await self.repo.get_symbols_by_market(market)
@@ -109,14 +129,16 @@ class StockMasterService:
             raise
 
     async def get_symbols_by_sector(self, sector: str) -> List[str]:
-        """
-        業種別銘柄コードを取得
+        """Get symbols filtered by sector.
 
         Args:
-            sector: 業種名
+            sector (str): 業種名
 
         Returns:
-            List[str]: 指定業種のアクティブな銘柄コードのリスト
+            List[str]: 指定業種のアクティブな銘柄コードのリスト.
+
+        Raises:
+            Exception: リポジトリ呼び出し中に発生した例外を透過します.
         """
         try:
             symbols = await self.repo.get_symbols_by_sector(sector)
@@ -133,11 +155,13 @@ class StockMasterService:
             raise
 
     async def refresh_stock_master(self) -> int:
-        """
-        銘柄マスタを最新情報で更新
+        """Refresh stock master by fetching and storing latest data.
 
         Returns:
-            int: 更新された件数
+            int: 更新された件数.
+
+        Raises:
+            Exception: 内部で発生した例外を透過します.
         """
         try:
             updated_count = await self.fetch_and_store()
@@ -153,11 +177,13 @@ class StockMasterService:
             raise
 
     async def reset_stock_master(self) -> int:
-        """
-        銘柄マスタの全データを削除
+        """Delete all stock master records.
 
         Returns:
-            int: 削除された件数
+            int: 削除された件数.
+
+        Raises:
+            Exception: リポジトリ操作中に発生した例外を透過します.
         """
         try:
             deleted_count = await self.repo.delete_all()

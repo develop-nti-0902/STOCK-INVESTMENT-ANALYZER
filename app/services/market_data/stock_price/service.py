@@ -1,8 +1,10 @@
-"""
-株価データサービス（オーケストレーション層）
+"""Stock price service (orchestration layer).
 
-データ取得（Fetcher）と保存（Saver）を統合し、株価データ収集の全体フローを管理します。
-仕様書: docs/architecture/layers/service_layer.md 3.2.4章
+Orchestrates fetching, conversion, validation and saving of stock price data.
+
+Notes:
+    - Integrates ``Fetcher``, ``Converter``, ``Validator`` and ``Saver``
+    - Intended to be used by batch processes and API endpoints.
 """
 
 from __future__ import annotations

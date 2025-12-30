@@ -1,7 +1,6 @@
-"""
-例外処理モジュール - ビジネスロジック関連例外
+"""例外処理モジュール - ビジネスロジック関連例外.
 
-ビジネスルールに関連する例外クラスを定義する。
+ビジネスルールに関連する例外クラスを定義します。
 仕様書: docs/architecture/layers/common_modules.md 3.3章
 """
 
@@ -9,7 +8,13 @@ from app.exceptions.base import AppException
 
 
 class BusinessError(AppException):
-    """ビジネスロジックエラーの基底例外クラス"""
+    """ビジネスロジックエラーの基底例外クラス.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "Business logic error occurred"
     default_error_code = "BUSINESS_ERROR"
@@ -17,10 +22,9 @@ class BusinessError(AppException):
 
 
 class ServiceError(BusinessError):
-    """サービス層で発生する例外を表すクラス
+    """サービス層で発生する例外を表すクラス.
 
-    補助的に `ServiceError` を定義しておくことで、サービス層の
-    エラーハンドリング（デコレータ等）で一貫して利用できます。
+    補助として定義。サービス層のエラーハンドリングで一貫して利用します。
     """
 
     default_message = "Service error occurred"
@@ -29,7 +33,13 @@ class ServiceError(BusinessError):
 
 
 class InsufficientDataError(BusinessError):
-    """データ不足エラー"""
+    """データ不足エラー.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "Insufficient data for processing"
     default_error_code = "INSUFFICIENT_DATA"
@@ -37,7 +47,13 @@ class InsufficientDataError(BusinessError):
 
 
 class CalculationError(BusinessError):
-    """計算処理エラー"""
+    """計算処理エラー.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "Calculation error occurred"
     default_error_code = "CALCULATION_ERROR"
@@ -45,7 +61,13 @@ class CalculationError(BusinessError):
 
 
 class StockDataValidationError(BusinessError):
-    """株価データ検証エラー"""
+    """株価データ検証エラー.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "Stock data validation failed"
     default_error_code = "STOCK_DATA_VALIDATION_ERROR"

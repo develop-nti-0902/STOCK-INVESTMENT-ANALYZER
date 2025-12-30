@@ -1,7 +1,6 @@
-"""
-データ取得抽象基底クラス
+"""データ取得抽象基底クラス.
 
-外部APIやデータソースからのデータ取得を抽象化します。
+外部 API や各種データソースからのデータ取得を抽象化する基底クラスを提供します。
 仕様書: docs/architecture/layers/service_layer.md 6.1章
 """
 
@@ -13,26 +12,12 @@ T = TypeVar("T")
 
 
 class BaseFetcher(ABC, Generic[T]):
-    """
-    データ取得の抽象基底クラス（Strategy パターン）
+    """データ取得の抽象基底クラス（Strategy パターン）.
 
-    全てのFetcherはこのクラスを継承し、fetch/fetch_batchメソッドを実装します。
-    非同期処理を前提とした設計で、大量データの並列取得に対応します。
+    非同期処理を前提に、単一／複数のデータ取得インターフェースを定義します.
 
     Type Parameters:
-        T: 取得するデータの型（Pydanticモデルなど）
-
-    Examples:
-        >>> class StockPriceFetcher(BaseFetcher[StockData]):
-        ...     async def fetch(self, identifier: str, **kwargs) -> StockData:
-        ...         # Yahoo Finance APIから取得
-        ...         return stock_data
-        ...
-        ...     async def fetch_batch(
-        ...         self, identifiers: list[str], **kwargs
-        ...     ) -> list[StockData]:
-        ...         # 複数銘柄を一括取得
-        ...         return stock_data_list
+        T: 取得するデータの型（Pydantic モデルなど）
     """
 
     @abstractmethod

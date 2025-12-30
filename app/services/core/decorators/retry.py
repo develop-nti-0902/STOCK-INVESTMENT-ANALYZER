@@ -1,7 +1,6 @@
-"""
-リトライデコレータ
+"""リトライデコレータ.
 
-一時的なエラーに対する自動リトライ機能を提供します。
+一時的なエラーに対して自動リトライを行うデコレータを提供します。
 仕様書: docs/architecture/layers/service_layer.md 6.1章
 """
 
@@ -27,32 +26,20 @@ def retry_on_error(
     backoff: float = 2.0,
     exceptions: tuple[type[Exception], ...] = (Exception,),
 ) -> Callable[[Callable[P, Any]], Callable[P, Any]]:
-    """
-    エラー時に自動リトライするデコレータ
+    """エラー発生時に自動でリトライを行うデコレータを返す.
 
     Args:
-        max_retries: 最大リトライ回数（デフォルト: 3）
-        delay: 初回リトライまでの待機時間（秒）（デフォルト: 1.0）
-        backoff: リトライごとの待機時間増加倍率（デフォルト: 2.0）
-        exceptions: リトライ対象の例外タプル（デフォルト: (Exception,)）
+        max_retries (int): 最大リトライ回数（デフォルト: 3）
+        delay (float): 初回待機時間（秒）（デフォルト: 1.0）
+        backoff (float): 各試行での倍率（デフォルト: 2.0）
+        exceptions (tuple[type[Exception], ...]): リトライ対象例外のタプル
 
     Returns:
         Callable: デコレータ関数
 
-    Examples:
-        >>> @retry_on_error(
-        ...     max_retries=5,
-        ...     delay=2.0,
-        ...     exceptions=(ConnectionError, TimeoutError)
-        ... )
-        ... async def fetch_from_api(url: str) -> dict:
-        ...     # API呼び出し
-        ...     return response_data
-
-    Note:
-        - 非同期関数と同期関数の両方に対応
-        - 指数バックオフ戦略を使用（delay * (backoff ** attempt)）
-        - 最終的に全てのリトライが失敗した場合、最後の例外を送出
+    Notes:
+        - 非同期/同期関数両対応
+        - 指数バックオフ戦略を使用
     """
 
     def decorator(func: Callable[P, Any]) -> Callable[P, Any]:

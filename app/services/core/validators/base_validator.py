@@ -1,7 +1,6 @@
-"""
-データ検証抽象基底クラス
+"""データ検証抽象基底クラス.
 
-取得・保存前のデータ検証を抽象化します。
+取得・保存前のデータ検証を抽象化する基底クラス群を提供します。
 仕様書: docs/architecture/layers/service_layer.md 6.1章
 """
 
@@ -10,13 +9,12 @@ from typing import Any
 
 
 class ValidationResult:
-    """
-    検証結果を保持するクラス
+    """検証結果を保持するクラス.
 
     Attributes:
-        is_valid: 検証が成功したかどうか
-        errors: エラーメッセージのリスト
-        warnings: 警告メッセージのリスト
+        is_valid (bool): 検証が成功したかどうか
+        errors (list[str]): エラーメッセージ一覧
+        warnings (list[str]): 警告メッセージ一覧
     """
 
     def __init__(
@@ -41,25 +39,9 @@ class ValidationResult:
 
 
 class BaseValidator(ABC):
-    """
-    データ検証の抽象基底クラス
+    """データ検証の抽象基底クラス.
 
-    全てのValidatorはこのクラスを継承し、validateメソッドを実装します。
-    Pydanticのバリデーションを補完する、ビジネスロジック固有の検証に使用します。
-
-    Examples:
-        >>> class StockPriceValidator(BaseValidator):
-        ...     def validate(self, data: Any) -> ValidationResult:
-        ...         # 株価データの妥当性検証
-        ...         if data.close < 0:
-        ...             errors = ["株価が負の値です"]
-        ...             return ValidationResult(False, errors=errors)
-        ...         return ValidationResult(True)
-        ...
-        ...     def validate_batch(
-        ...         self, data_list: list[Any]
-        ...     ) -> list[ValidationResult]:
-        ...         return [self.validate(data) for data in data_list]
+    Pydantic の型検証に加え、ビジネスルールに基づく検証を実装するために利用します。
     """
 
     @abstractmethod

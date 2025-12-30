@@ -1,9 +1,14 @@
-"""
-JPX銘柄マスタフェッチャー
+"""JPX 銘柄マスタフェッチャー.
 
-JPX（日本取引所グループ）から銘柄マスタデータを取得します。
-仕様書: docs/architecture/layers/service_layer.md 3.2.2章
-Issue: #68
+JPX（日本取引所グループ）から銘柄マスタデータを取得して
+正規化するユーティリティを提供します。
+
+Attributes:
+    DEFAULT_URL (str): JPX のデータダウンロード URL（クラス定数）
+
+Notes:
+    実装は Excel ファイルをダウンロードし、pandas で解析、
+    Pydantic モデルへ正規化します。
 """
 
 from io import BytesIO
@@ -25,15 +30,14 @@ logger = get_logger(__name__)
 
 
 class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
-    """
-    銘柄マスタフェッチャー（JPX用実装）
+    """StockMasterFetcher (JPX implementation).
 
-    JPXの銘柄一覧エクセルファイルをダウンロードし、
-    銘柄マスタデータを取得・正規化します。Market Data ドメイン側の
-    `StockMasterFetcher` として実装します。
+    JPX の銘柄一覧 Excel を取得して正規化済みの
+    :class:`~app.schemas.market_data.stock_master.StockMasterNormalized` の
+    リストを返します.
 
     Attributes:
-        url: JPXのデータダウンロードURL
+        url (str): JPX のダウンロード URL.
     """
 
     DEFAULT_URL = (
@@ -42,19 +46,23 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
     )
 
     def __init__(self, url: Optional[str] = None):
-        """
+        """Initialize StockMasterFetcher.
+
         Args:
-            url: JPXデータURL（Noneの場合デフォルトURL使用）
+            url (Optional[str]): JPX データ URL。None の場合は
+                    ``DEFAULT_URL`` が使用されます.
         """
         self.url = url or self.DEFAULT_URL
 
     async def fetch(
         self, identifier: str, **kwargs: Any
     ) -> StockMasterNormalized:
-        """
-        単一銘柄の取得（JPXでは未サポート）
+        """Fetch a single stock master record (not supported).
 
-        JPXからは全銘柄を一括取得するため、このメソッドは未実装です。
+        JPX は全銘柄を一括で提供するため、個別取得は未サポートです.
+
+        Raises:
+            NotImplementedError: このフェッチャーは単一取得をサポートしません。
         """
         raise NotImplementedError(
             """
@@ -66,10 +74,11 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
     async def fetch_batch(
         self, identifiers: list[str], **kwargs: Any
     ) -> list[StockMasterNormalized]:
-        """
-        複数銘柄の取得（JPXでは未サポート）
+        """Fetch multiple stock master records by identifiers (not supported).
 
-        JPXからは全銘柄を一括取得するため、このメソッドは未実装です。
+        Raises:
+            NotImplementedError: このフェッチャーは識別子によるバッチ取得を
+            サポートしません。代わりに :meth:`fetch_all` を使用してください.
         """
         raise NotImplementedError(
             """
@@ -79,11 +88,13 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
         )
 
     async def fetch_all(self) -> list[StockMasterNormalized]:
-        """
-        全銘柄マスタデータを取得
+        """Fetch and normalize all stock master records from JPX.
 
-        JPXからエクセルファイルをダウンロードし、全銘柄のマスタデータを
-        正規化して返します。
+        Returns:
+            List[StockMasterNormalized]: 正規化された銘柄マスタのリスト.
+
+        Raises:
+            JPXAPIError: ダウンロードや解析に失敗した場合に送出されます.
         """
         logger.info(
             "Starting JPX stock master data fetch", extra={"url": self.url}
@@ -116,11 +127,13 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
             ) from e
 
     async def _download_excel(self) -> bytes:
-        """
-        JPXからエクセルファイルをダウンロード
+        """Download the Excel file from JPX.
 
         Returns:
-            bytes: エクセルファイルのバイトデータ
+            bytes: Excel ファイルのバイナリデータ.
+
+        Raises:
+            aiohttp.ClientError: HTTP 通信エラーが発生した場合.
         """
         async with aiohttp.ClientSession() as session:
             async with session.get(self.url) as response:
@@ -128,8 +141,16 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
                 return await response.read()
 
     async def _parse_excel(self, excel_data: bytes) -> pd.DataFrame:
-        """
-        エクセルファイルをDataFrameに変換
+        """Parse Excel binary into a :class:`pandas.DataFrame`.
+
+        Args:
+            excel_data (bytes): ダウンロード済みの Excel バイト列.
+
+        Returns:
+            pd.DataFrame: 解析結果の DataFrame.
+
+        Raises:
+            ValueError: 解析に失敗した場合.
         """
         try:
             df = pd.read_excel(BytesIO(excel_data), engine="xlrd")
@@ -151,8 +172,16 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
     async def _normalize_data(
         self, df: pd.DataFrame
     ) -> list[StockMasterNormalized]:
-        """
-        DataFrameを正規化されたPydanticモデルに変換
+        """Normalize DataFrame rows into Pydantic models.
+
+        Args:
+            df (pd.DataFrame): 解析済みの DataFrame.
+
+        Returns:
+            List[StockMasterNormalized]: 正規化されたレコードのリスト.
+
+        Raises:
+            ValueError: 全行のバリデーションに失敗した場合.
         """
         normalized_data = []
         errors = []
@@ -241,6 +270,18 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
         return normalized_data
 
     def _normalize_stock_code(self, code: Optional[Union[str, int]]) -> str:
+        """Normalize stock code value to string.
+
+        Args:
+            code (Optional[Union[str, int]]): 生の銘柄コード値.
+
+        Returns:
+            str: 正規化された銘柄コード文字列.
+
+        Raises:
+            ValueError: code が無効または空文字列の場合.
+        """
+
         if not code and code != 0:
             raise ValueError("Stock code is required")
 
@@ -252,6 +293,18 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
         return normalized
 
     def _normalize_stock_name(self, name: Optional[str]) -> str:
+        """Normalize stock name to a non-empty string.
+
+        Args:
+            name (Optional[str]): 生の銘柄名.
+
+        Returns:
+            str: 正規化された銘柄名.
+
+        Raises:
+            ValueError: name が無効または空文字列の場合.
+        """
+
         if not name:
             raise ValueError("Stock name is required")
 
@@ -265,6 +318,16 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
     def _normalize_date(
         self, date: Optional[Union[str, int]]
     ) -> Optional[str]:
+        """Normalize date-like values into YYYYMMDD string when possible.
+
+        Args:
+            date (Optional[Union[str, int]]): 生の日付値（例: '2020/1/2',
+                '2020-01-02', 20200102）.
+
+        Returns:
+            Optional[str]: 正規化された文字列（不正な場合は None を返す）.
+        """
+
         if not date and date != 0:
             return None
 

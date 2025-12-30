@@ -7,7 +7,18 @@ from app.exceptions.system import SettingsValidationError
 
 
 class BatchProcessingSettings(BaseSettings):
-    """バッチ処理関連の設定"""
+    """バッチ処理関連の設定.
+
+    Attributes:
+        batch_size (int): バッチあたりの処理対象数.
+        max_concurrent (int): 同時実行タスク数の上限.
+        retry_attempts (int): リトライ試行回数.
+        retry_delay (float): リトライ間の遅延（秒）.
+        request_timeout (int): HTTP リクエストタイムアウト（秒）.
+        operation_timeout (int): 全体操作のタイムアウト（秒）.
+        rate_limit_calls (int): 指定期間内の API 呼び出し上限.
+        rate_limit_period (int): レート制限の時間窓（秒）.
+    """
 
     # バッチサイズ
     batch_size: int = Field(
@@ -66,10 +77,17 @@ class BatchProcessingSettings(BaseSettings):
 
 
 class Settings(BaseSettings):
-    """アプリケーション設定（環境変数管理）
+    """アプリケーション設定（環境変数から読み込み）.
 
-    Pydantic Settings v2 を使用して環境変数から設定を読み込み、
-    必要に応じて .env ファイルも参照します。
+    Pydantic Settings v2 を利用して設定を読み込みます。必要に応じて
+    ``.env`` ファイルも参照します。
+
+    Attributes:
+        APP_NAME (str): アプリケーション名.
+        APP_VERSION (str): アプリケーションのバージョン.
+        DEBUG (bool): デバッグフラグ.
+        ENV (str): 実行環境識別子（development/production/test）.
+        batch (BatchProcessingSettings): バッチ処理関連のネスト設定.
     """
 
     # アプリケーション基本設定

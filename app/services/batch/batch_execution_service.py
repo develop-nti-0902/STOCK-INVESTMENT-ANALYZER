@@ -10,11 +10,10 @@ logger = get_logger(__name__)
 
 
 class BatchExecutionService:
-    """
-    バッチ実行管理サービス
+    """バッチ実行管理サービス.
 
-    リポジトリ層の `BatchExecutionRepository` を薄くラップして
-    ビジネスロジック（状態遷移・コンテキスト管理）を提供します。
+    `BatchExecutionRepository` をラップして状態遷移や進捗集計などの
+    ビジネスロジックを提供します。
     """
 
     def __init__(self, repository: Any):
@@ -23,6 +22,15 @@ class BatchExecutionService:
     async def create_job(
         self, job_type: str, params: Optional[Dict] = None
     ) -> BatchExecution:
+        """ジョブを作成する.
+
+        Args:
+            job_type (str): ジョブ種別
+            params (Optional[Dict]): ジョブパラメータ（任意）
+
+        Returns:
+            BatchExecution: 作成されたジョブインスタンス
+        """
         if params is not None:
             logger.debug(
                 "Creating batch job with type '%s' and params: %s",
@@ -33,6 +41,14 @@ class BatchExecutionService:
         return await self.repository.create_job(batch_type=job_type)
 
     async def start_job(self, job_id: int) -> Optional[BatchExecution]:
+        """ジョブを開始状態に更新する.
+
+        Args:
+            job_id (int): ジョブ ID
+
+        Returns:
+            Optional[BatchExecution]: 更新後のジョブインスタンス、存在しない場合は None
+        """
         return await self.repository.update_status(
             record_id=job_id, status="running"
         )
@@ -45,6 +61,21 @@ class BatchExecutionService:
         success: Optional[int] = None,
         failed: Optional[int] = None,
     ) -> Optional[BatchExecution]:
+        """ジョブ進捗を更新する.
+
+        指定がない場合は現在のジョブ情報を返します。リポジトリの
+        `update_progress` は `processed`/`total`/`successful`/`failed` を期待します。
+
+        Args:
+            job_id (int): ジョブ ID
+            processed (Optional[int]): 処理済み件数
+            total (Optional[int]): 総件数
+            success (Optional[int]): 成功件数
+            failed (Optional[int]): 失敗件数
+
+        Returns:
+            Optional[BatchExecution]: 更新後のジョブインスタンス、存在しない場合は None
+        """
         # 進捗値が指定されていない場合は、現在のジョブ状態を返す。
         if (
             processed is None
@@ -74,6 +105,16 @@ class BatchExecutionService:
     async def complete_job(
         self, job_id: int, success_count: int, failed_count: int
     ) -> Optional[BatchExecution]:
+        """ジョブを完了状態にマークし集計値を保存する.
+
+        Args:
+            job_id (int): ジョブ ID
+            success_count (int): 成功件数
+            failed_count (int): 失敗件数
+
+        Returns:
+            Optional[BatchExecution]: 更新後のジョブインスタンス、存在しない場合は None
+        """
         return await self.repository.mark_completed(
             record_id=job_id,
             success_count=success_count,
@@ -83,6 +124,15 @@ class BatchExecutionService:
     async def fail_job(
         self, job_id: int, error_message: str
     ) -> Optional[BatchExecution]:
+        """ジョブを失敗状態として記録する.
+
+        Args:
+            job_id (int): ジョブ ID
+            error_message (str): エラーメッセージ
+
+        Returns:
+            Optional[BatchExecution]: 更新後のジョブインスタンス、存在しない場合は None
+        """
         data = {
             "status": "failed",
             "error_message": error_message,
@@ -91,17 +141,41 @@ class BatchExecutionService:
         return await self.repository.update(record_id=job_id, data=data)
 
     async def get_job_status(self, job_id: int) -> Optional[BatchExecution]:
+        """ジョブ情報を取得する.
+
+        Args:
+            job_id (int): ジョブ ID
+
+        Returns:
+            Optional[BatchExecution]: ジョブインスタンス、存在しない場合は None
+        """
         return await self.repository.get(job_id)
 
     async def get_recent_jobs(self, limit: int = 10):
+        """最近のジョブ一覧を取得する.
+
+        Args:
+            limit (int): 取得件数（デフォルト: 10）
+
+        Returns:
+            list: ジョブインスタンスのリスト
+        """
         return await self.repository.get_recent(limit=limit)
 
     async def get_jobs_by_type(self, job_type: str):
+        """指定種別のジョブ一覧を取得する.
+
+        Args:
+            job_type (str): ジョブ種別
+
+        Returns:
+            list: ジョブインスタンスのリスト
+        """
         return await self.repository.get_by_job_type(batch_type=job_type)
 
 
 class BatchExecutionContext:
-    """async context manager for a batch job lifecycle
+    """非同期コンテキストマネージャ — バッチジョブのライフサイクル管理.
 
     使用例:
         async with BatchExecutionContext(service, job_type="jpx_all") as ctx:
@@ -122,6 +196,11 @@ class BatchExecutionContext:
         self.job_id: Optional[int] = None
 
     async def __aenter__(self):
+        """コンテキスト開始時にジョブを作成・開始する.
+
+        Returns:
+            オブジェクト: `update_progress` を呼べる簡易コンテキストオブジェクト
+        """
         self.job = await self.service.create_job(self.job_type, self.params)
         if self.job is None:
             raise RuntimeError("failed to create batch job")
@@ -149,6 +228,16 @@ class BatchExecutionContext:
         return _Ctx(self.service, jid)
 
     async def __aexit__(self, exc_type, exc, tb):
+        """コンテキスト終了時にジョブを完了または失敗として記録する.
+
+        Args:
+            exc_type: 発生した例外の型
+            exc: 発生した例外インスタンス
+            tb: トレースバック
+
+        Returns:
+            bool|None: False を返すと例外が再送される
+        """
         if self.job is None:
             return
         jid = self.job_id

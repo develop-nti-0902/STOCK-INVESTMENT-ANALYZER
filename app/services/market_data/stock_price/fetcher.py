@@ -1,8 +1,10 @@
-"""
-株価データ取得クラス
+"""Yahoo Finance を利用した株価データ取得モジュール.
 
-Yahoo Finance API (yfinance) を使用して株価データを取得します。
-仕様書: docs/architecture/layers/service_layer.md 3.2.1章
+yfinance をラップして株価データを取得・整形する機能を提供します.
+
+Notes:
+    - 取得は同期的な yfinance API をスレッド実行で非同期に扱います。
+    - タイムフレームごとの取得制約やフォールバック処理を含みます。
 """
 
 import asyncio

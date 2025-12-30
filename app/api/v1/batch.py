@@ -23,7 +23,16 @@ logger = logging.getLogger(__name__)
 
 
 async def _commit_with_rollback(session, context: str, job_id: int) -> None:
-    """セッションをコミットし、失敗した場合はログを出力してロールバックを試みます。"""
+    """セッションをコミットし、失敗時にロールバックを試みるユーティリティ.
+
+    Args:
+        session: データベースセッション
+        context (str): ログ出力時のコンテキスト説明
+        job_id (int): 対象ジョブのID
+
+    Returns:
+        None
+    """
     try:
         await session.commit()
     except Exception:
@@ -44,7 +53,15 @@ async def _commit_with_rollback(session, context: str, job_id: int) -> None:
 async def _await_pending_tasks(
     pending_tasks: set[_asyncio.Task], context: str | None = None
 ) -> None:
-    """保留中のタスクを待ち、エラーがあればログを出力してセットをクリアします。"""
+    """保留中の非同期タスクを待機して例外をログに記録するヘルパー.
+
+    Args:
+        pending_tasks (set[_asyncio.Task]): 待機対象のタスク集合
+        context (Optional[str]): ログ出力時の任意コンテキスト
+
+    Returns:
+        None
+    """
     if not pending_tasks:
         return
     try:
@@ -59,12 +76,17 @@ async def _await_pending_tasks(
 
 
 def _make_progress_handlers(job_id: int):
-    """進捗更新用のハンドラ群を作成して返します。
+    """進捗更新用ハンドラ群を作成して返すファクトリ関数.
 
-    返却値: `(pending_tasks, async_progress_callback, sync_wrapper)`。
-    `sync_wrapper` は同期コールバックとして動作し、非同期の進捗更新を
-    スケジュールして `pending_tasks` に登録します。呼び出し側は返却された
-    `pending_tasks` を待機して更新完了を確認できます。
+    Args:
+        job_id (int): 進捗更新対象のジョブID
+
+    Returns:
+        tuple: `(pending_tasks, async_progress_callback, sync_wrapper)`。
+            - pending_tasks (set[asyncio.Task]): 保留中タスク集合
+            - async_progress_callback (Callable[[dict], Awaitable[None]]):
+                非同期コールバック
+            - sync_wrapper (Callable[[dict], None]): 同期ラッパー（非同期タスクをスケジュール）
     """
     pending_tasks: set[_asyncio.Task] = set()
 
@@ -121,8 +143,15 @@ def _make_progress_handlers(job_id: int):
 )
 async def start_single_stock_job(
     repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
-):
-    """単一銘柄のデータ取得ジョブを作成して返す"""
+) -> BatchExecutionResponse:
+    """単一銘柄のデータ取得ジョブを作成して返すエンドポイント.
+
+    Args:
+        repo (BatchExecutionRepository): バッチ実行リポジトリ
+
+    Returns:
+        BatchExecutionResponse: 作成されたジョブ情報
+    """
     # このエンドポイントはジョブ作成のみを行うため、パラメータを受け取らない仕様に変更しました。
     job = await repo.create_job(batch_type=JobType.SINGLE_STOCK.value)
     return job
@@ -138,8 +167,18 @@ async def start_jpx_all_job(
     background_tasks: BackgroundTasks,
     repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
     service: StockPriceService = Depends(get_stock_price_service),
-):
-    """JPX全銘柄一括取得ジョブを作成しバックグラウンドで処理を開始する"""
+) -> BatchExecutionResponse:
+    """JPX全銘柄一括取得ジョブを作成し、バックグラウンド処理を開始するエンドポイント.
+
+    Args:
+        params (BatchJobParams): ジョブ実行パラメータ
+        background_tasks (BackgroundTasks): FastAPI のバックグラウンドタスク
+        repo (BatchExecutionRepository): バッチ実行リポジトリ
+        service (StockPriceService): 株価収集サービス
+
+    Returns:
+        BatchExecutionResponse: 作成されたジョブ情報
+    """
     # 引数参照は unused-argument を避けるために行う（実処理では未使用）
     _ = params
     _ = background_tasks
@@ -157,10 +196,18 @@ async def start_jpx_all_job(
 async def process_jpx_all_stocks(
     job_id: int, params: dict, service: StockPriceService
 ) -> None:
-    """JPX全銘柄取得タスクの簡易実装。
+    """JPX全銘柄取得タスクの簡易実装.
 
-    実環境では銘柄リスト取得やStockPriceServiceの呼び出しを行う想定。
+    実環境では銘柄リスト取得や`StockPriceService`の呼び出しを行う想定。
     ここでは`BatchExecutionRepository`のステータス更新・進捗更新・完了マークを行う。
+
+    Args:
+        job_id (int): 対象ジョブID
+        params (dict): ジョブパラメータ（`BatchJobParams.model_dump()`の結果）
+        service (StockPriceService): 株価収集サービス
+
+    Returns:
+        None
     """
     session_maker = get_session_maker()
     async with session_maker() as session:

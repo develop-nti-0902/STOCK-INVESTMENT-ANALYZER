@@ -1,6 +1,6 @@
-"""株価データAPI
+"""株価データAPI.
 
-データベースに格納されている株価データを取得するエンドポイント群
+データベースに格納されている株価データを取得するエンドポイント群を提供します。
 """
 
 from datetime import date, datetime
@@ -39,7 +39,19 @@ TIMEFRAME_REPOSITORY_MAP = {
 
 
 class StockPriceData(BaseModel):
-    """株価データレスポンスモデル"""
+    """株価データレスポンスモデル.
+
+    Attributes:
+        symbol (str): 銘柄コード
+        timestamp (Optional[datetime]): タイムスタンプ
+        trade_date (Optional[date]): 取引日
+        open (float): 始値
+        high (float): 高値
+        low (float): 安値
+        close (float): 終値
+        adj_close (Optional[float]): 調整終値
+        volume (int): 出来高
+    """
 
     symbol: str
     timestamp: Optional[datetime] = None
@@ -53,7 +65,14 @@ class StockPriceData(BaseModel):
 
 
 class StockPriceListResponse(BaseModel):
-    """株価データ一覧レスポンス"""
+    """株価データ一覧レスポンス.
+
+    Attributes:
+        symbol (str): 銘柄コード
+        timeframe (str): 時間軸
+        data (List[StockPriceData]): データ一覧
+        count (int): 件数
+    """
 
     symbol: str
     timeframe: str
@@ -62,7 +81,13 @@ class StockPriceListResponse(BaseModel):
 
 
 class DeleteAllResponse(BaseModel):
-    """全データ削除レスポンス"""
+    """全データ削除レスポンス.
+
+    Attributes:
+        message (str): 結果メッセージ
+        timeframe (str): 対象時間軸
+        deleted_count (int): 削除件数
+    """
 
     message: str
     timeframe: str
@@ -104,18 +129,18 @@ async def get_stock_price_data(
 ):
     # pylint: disable=too-many-arguments,too-many-positional-arguments
     # pylint: disable=too-many-locals,too-many-branches
-    """指定銘柄・時間軸の株価データを取得
+    """指定銘柄・時間軸の株価データを取得.
 
-    データベースに格納されている株価データを取得します。
+    データベースに格納されている株価データを返します。
 
     Args:
-        symbol: 銘柄コード
-        timeframe: 時間軸
-        start: 開始日時（オプション）
-        end: 終了日時（オプション）
-        limit: 取得件数上限（デフォルト: 1000）
-        offset: オフセット（デフォルト: 0）
-        db: DBセッション
+        symbol (str): 銘柄コード
+        timeframe (str): 時間軸
+        start (Optional[str]): 開始日時（ISO形式、オプション）
+        end (Optional[str]): 終了日時（ISO形式、オプション）
+        limit (int): 取得件数上限（デフォルト: 1000）
+        offset (int): オフセット（デフォルト: 0）
+        db (AsyncSession): DBセッション
 
     Returns:
         StockPriceListResponse: 株価データリスト
@@ -227,14 +252,13 @@ async def delete_all_stock_price_data(
     ),
     db: AsyncSession = Depends(get_db),
 ):
-    """指定時間軸の全株価データを削除
+    """指定時間軸の全株価データを削除.
 
-    指定された時間軸テーブルの全レコードを削除します。
-    この操作は取り消せないため、注意して使用してください。
+    指定された時間軸テーブルの全レコードを削除します。取り消し不可です。
 
     Args:
-        timeframe: 時間軸
-        db: DBセッション
+        timeframe (str): 時間軸
+        db (AsyncSession): DBセッション
 
     Returns:
         DeleteAllResponse: 削除結果

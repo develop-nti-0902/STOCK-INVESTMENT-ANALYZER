@@ -1,7 +1,6 @@
-﻿"""
-株価データスキーマ
+﻿"""株価データスキーマ.
 
-Yahoo Finance APIから取得する株価データのPydanticスキーマを定義します。
+Yahoo Finance API などから取得する株価データを正規化するための Pydantic スキーマを定義します。
 仕様書: docs/architecture/layers/service_layer.md 3.2.1章
 """
 
@@ -12,10 +11,17 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class StockData(BaseModel):
-    """
-    株価データモデル
+    """株価データモデル.
 
-    Yahoo Finance APIから取得した株価データを正規化した形式です。
+    Attributes:
+        symbol (str): 銘柄コード
+        trade_date (datetime): 日時（intraday の場合は時刻を含む）
+        open_price (Optional[float]): 始値
+        high (Optional[float]): 高値
+        low (Optional[float]): 安値
+        close (Optional[float]): 終値
+        volume (Optional[int]): 出来高
+        adj_close (Optional[float]): 調整後終値
     """
 
     model_config = ConfigDict(

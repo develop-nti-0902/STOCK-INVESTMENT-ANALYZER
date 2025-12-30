@@ -1,8 +1,7 @@
-"""バッチ実行履歴用の Repository 実装モジュール。
+"""バッチ実行履歴用の Repository 実装モジュール.
 
-このモジュールは `BatchExecution` モデルを扱うリポジトリを提供します。
-テスト環境での AsyncMock 等に対応するため、BaseRepository の
-ヘルパーを活用して awaitable な戻り値にも耐性を持たせています。
+`BatchExecution` モデル用のデータアクセスを提供します。テスト環境の
+awaitable な戻り値にも対応するため BaseRepository のヘルパーを利用しています。
 """
 
 import logging
@@ -21,25 +20,30 @@ logger = logging.getLogger(__name__)
 
 
 class BatchExecutionRepository(BaseRepository[BatchExecution]):
-    """
-    BatchExecution 専用の Repository
+    """`BatchExecution` 専用の Repository.
 
-    提供する主要メソッド:
-    - create_job
-    - update_status
-    - mark_completed
-    - get_by_job_type
-    - get_recent
+    主な提供メソッド:
+        - create_job
+        - update_status
+        - mark_completed
+        - get_by_job_type
+        - get_recent
     """
 
     def __init__(self, session: AsyncSession):
         super().__init__(session, model=BatchExecution)
 
     async def create_job(self, batch_type: str) -> BatchExecution:
-        """新しいバッチ実行レコードを作成して返す
+        """新しいバッチ実行レコードを作成して返す.
 
-        注意:
-            トランザクションのコミットはService層で行ってください。
+        Args:
+            batch_type (str): バッチ種別識別子
+
+        Returns:
+            BatchExecution: 作成されたジョブレコード
+
+        Notes:
+            トランザクションのコミットは Service 層で行ってください。
         """
         # total_stocks は NULL 不可のため 0 で初期化する
         instance = self.model(
@@ -52,10 +56,17 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
     async def update_status(
         self, record_id: int, status: str
     ) -> Optional[BatchExecution]:
-        """指定レコードのステータスを更新する
+        """指定レコードのステータスを更新する.
 
-        注意:
-            トランザクションのコミットはService層で行ってください。
+        Args:
+            record_id (int): 更新対象のレコード ID
+            status (str): 新しいステータス文字列
+
+        Returns:
+            Optional[BatchExecution]: 更新後のインスタンス、存在しなければ None
+
+        Notes:
+            トランザクションのコミットは Service 層で行ってください。
         """
         instance = await self.get(record_id)
         if instance is None:
@@ -76,10 +87,18 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         success_count: int,
         failed_count: int,
     ) -> Optional[BatchExecution]:
-        """完了マークを付与して集計値と終了時刻を設定する
+        """完了マークを付与し集計値と終了時刻を設定する.
 
-        注意:
-            トランザクションのコミットはService層で行ってください。
+        Args:
+            record_id (int): ジョブ ID
+            success_count (int): 成功件数
+            failed_count (int): 失敗件数
+
+        Returns:
+            Optional[BatchExecution]: 更新後のインスタンス、存在しなければ None
+
+        Notes:
+            トランザクションのコミットは Service 層で行ってください。
         """
         instance = await self.get(record_id)
         if instance is None:
@@ -100,14 +119,28 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         )
 
     async def get_by_job_type(self, batch_type: str) -> List[BatchExecution]:
-        """ジョブ種別（batch_type）で取得"""
+        """ジョブ種別（batch_type）でレコード一覧を取得する.
+
+        Args:
+            batch_type (str): 対象のバッチ種別
+
+        Returns:
+            List[BatchExecution]: 該当レコードのリスト
+        """
         result = await self.session.execute(
             select(self.model).where(self.model.batch_type == batch_type)
         )
         return list(result.scalars().all())
 
     async def get_recent(self, limit: int = 10) -> List[BatchExecution]:
-        """開始時間で降順に最近の実行履歴を取得"""
+        """開始時間で降順に最近の実行履歴を取得する.
+
+        Args:
+            limit (int): 取得上限件数（デフォルト: 10）
+
+        Returns:
+            List[BatchExecution]: 最近実行されたジョブ一覧
+        """
         # パラメータ検証: 共通ユーティリティへ移譲
         validate_pagination(0, limit)
         result = await self.session.execute(
@@ -122,10 +155,18 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         record_id: int,
         progress_data: dict,
     ) -> Optional[BatchExecution]:
-        """進捗情報を更新する
+        """進捗情報を更新する.
 
-        progress_data に含まれるキーをモデルの該当フィールドへ反映します。
-        受け付けるキー: `processed`, `successful`, `failed`, `total`
+        Args:
+            record_id (int): ジョブ ID
+            progress_data (dict): 進捗情報を表す辞書。受け付けるキー:
+                - processed: 処理済数
+                - successful: 成功数
+                - failed: 失敗数
+                - total: 総対象数
+
+        Returns:
+            Optional[BatchExecution]: 更新後のインスタンス、存在しなければ None
         """
         instance = await self.get(record_id)
         if instance is None:
@@ -149,7 +190,11 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         )
 
     async def get_running_jobs(self) -> List[BatchExecution]:
-        """実行中のジョブ（status == 'running'）を取得する"""
+        """実行中のジョブ（status == 'running'）を取得する.
+
+        Returns:
+            List[BatchExecution]: 実行中ジョブのリスト
+        """
         result = await self.session.execute(
             select(self.model).where(self.model.status == "running")
         )
@@ -159,9 +204,16 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         self,
         record_id: int,
     ) -> Optional[BatchExecution]:
-        """ジョブをキャンセルして終了時刻を記録する
+        """ジョブをキャンセルして終了時刻を記録する.
 
-        ステータスは 'cancelled' に設定します。
+        Args:
+            record_id (int): キャンセル対象のジョブ ID
+
+        Returns:
+            Optional[BatchExecution]: 更新後のインスタンス、存在しなければ None
+
+        Notes:
+            ステータスは 'cancelled' に設定します。
         """
         instance = await self.get(record_id)
         if instance is None:
