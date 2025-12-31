@@ -154,7 +154,7 @@ async def start_single_stock_job(
     """
     # このエンドポイントはジョブ作成のみを行うため、パラメータを受け取らない仕様に変更しました。
     job = await repo.create_job(batch_type=JobType.SINGLE_STOCK.value)
-    return job
+    return BatchExecutionResponse.model_validate(job)
 
 
 @router.post(
@@ -190,7 +190,7 @@ async def start_jpx_all_job(
         process_jpx_all_stocks, job.id, params.model_dump(), service
     )
 
-    return job
+    return BatchExecutionResponse.model_validate(job)
 
 
 async def process_jpx_all_stocks(

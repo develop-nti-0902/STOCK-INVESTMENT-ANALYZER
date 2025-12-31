@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 """モデル共通基底と mixin を提供するモジュール.
 
 このモジュールはプロジェクトで使う SQLAlchemy の Declarative base と
 再利用可能な mixin クラスを定義します。テーブル名自動生成や共通カラムを提供します。
 """
+
+from __future__ import annotations
 
 import re
 import uuid

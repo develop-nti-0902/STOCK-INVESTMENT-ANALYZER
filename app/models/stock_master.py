@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 """銘柄マスタモデル定義モジュール.
 
 管理用の `stock_master` テーブルに合わせたモデルを定義します。
 既存スキーマとの互換性を保つためのインデックスやカラム制約を含みます。
 """
+
+from __future__ import annotations
 
 from typing import Optional
 
