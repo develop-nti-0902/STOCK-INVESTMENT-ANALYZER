@@ -17,6 +17,8 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions.database import StockDataError
+from app.exceptions.validation import FieldValidationError
 from app.models.stock_data import (
     Stocks1d,
     Stocks1h,
@@ -96,11 +98,11 @@ class StockDataRepository(BaseRepository, ABC):
             dict: UPSERT 結果情報（operation/rowcount/timeframe/symbol など）
 
         Raises:
-            ValueError: 入力データが不正な場合
-            RuntimeError: UPSERT 実行失敗時
+            FieldValidationError: 入力データが不正な場合
+            StockDataError: UPSERT 実行失敗時
         """
         if not data:
-            raise ValueError("Data cannot be empty")
+            raise FieldValidationError(message="Data cannot be empty")
 
         required_fields = [
             "symbol",
@@ -114,7 +116,9 @@ class StockDataRepository(BaseRepository, ABC):
             field for field in required_fields if field not in data
         ]
         if missing_fields:
-            raise ValueError(f"Missing required fields: {missing_fields}")
+            raise FieldValidationError(
+                message=f"Missing required fields: {missing_fields}"
+            )
 
         try:
             # UPSERT文の構築
@@ -166,7 +170,7 @@ class StockDataRepository(BaseRepository, ABC):
                 e,
                 data,
             )
-            raise RuntimeError(f"Failed to upsert data: {e}") from e
+            raise StockDataError(message=f"Failed to upsert data: {e}") from e
 
     async def upsert_bulk(self, data_list: List[dict]) -> int:
         """複数レコードの UPSERT を一括で実行する.
@@ -214,7 +218,9 @@ class StockDataRepository(BaseRepository, ABC):
 
         except Exception as e:
             logger.error("Bulk UPSERT failed for %s: %s", self.timeframe, e)
-            raise RuntimeError(f"Failed to bulk upsert data: {e}") from e
+            raise StockDataError(
+                message=f"Failed to bulk upsert data: {e}"
+            ) from e
 
     async def get_by_symbol_and_range(
         self,
@@ -299,8 +305,8 @@ class StockDataRepository(BaseRepository, ABC):
             Optional[StockDataModel]: 見つかればモデルインスタンス、なければ None
         """
         if self.time_column != "timestamp":
-            raise ValueError(
-                f"This method is for timestamp-based data. "
+            raise FieldValidationError(
+                message=f"This method is for timestamp-based data. "
                 f"Use get_by_symbol_and_date for {self.timeframe}"
             )
 
@@ -325,8 +331,8 @@ class StockDataRepository(BaseRepository, ABC):
             Optional[StockDataModel]: 見つかればモデルインスタンス、なければ None
         """
         if self.time_column != "date":
-            raise ValueError(
-                f"This method is for date-based data. "
+            raise FieldValidationError(
+                message=f"This method is for date-based data. "
                 f"Use get_by_symbol_and_timestamp for {self.timeframe}"
             )
 
@@ -370,7 +376,9 @@ class StockDataRepository(BaseRepository, ABC):
                 self.timeframe,
                 e,
             )
-            raise RuntimeError(f"Failed to delete all records: {e}") from e
+            raise StockDataError(
+                message=f"Failed to delete all records: {e}"
+            ) from e
 
 
 # 具体的なRepositoryクラス実装

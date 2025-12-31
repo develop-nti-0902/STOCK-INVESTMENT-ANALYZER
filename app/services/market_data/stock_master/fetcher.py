@@ -18,7 +18,9 @@ import aiohttp
 import pandas as pd
 from pydantic import ValidationError
 
+from app.exceptions.business import ServiceError
 from app.exceptions.external_api import JPXAPIError
+from app.exceptions.validation import FieldValidationError
 from app.schemas.market_data.stock_master import (
     StockMasterNormalized,
     StockMasterRaw,
@@ -115,6 +117,7 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
         except (
             aiohttp.ClientError,
             ValueError,
+            ServiceError,
             pd.errors.EmptyDataError,
         ) as e:
             logger.error(
@@ -167,7 +170,9 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
             OSError,
             pd.errors.EmptyDataError,
         ) as e:
-            raise ValueError(f"Failed to parse Excel file: {str(e)}") from e
+            raise ServiceError(
+                message=f"Failed to parse Excel file: {str(e)}"
+            ) from e
 
     async def _normalize_data(
         self, df: pd.DataFrame
@@ -237,6 +242,7 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
                 TypeError,
                 KeyError,
                 AttributeError,
+                FieldValidationError,
             ) as e:
                 errors.append(
                     {
@@ -263,8 +269,8 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
             )
 
             if len(errors) == len(df):
-                raise ValueError(
-                    "All rows failed validation. Check data format."
+                raise ServiceError(
+                    message="All rows failed validation. Check data format."
                 )
 
         return normalized_data
@@ -283,12 +289,12 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
         """
 
         if not code and code != 0:
-            raise ValueError("Stock code is required")
+            raise FieldValidationError(message="Stock code is required")
 
         normalized = str(code).strip()
 
         if not normalized:
-            raise ValueError("Stock code cannot be empty")
+            raise FieldValidationError(message="Stock code cannot be empty")
 
         return normalized
 
@@ -306,12 +312,12 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
         """
 
         if not name:
-            raise ValueError("Stock name is required")
+            raise FieldValidationError(message="Stock name is required")
 
         normalized = str(name).strip()
 
         if not normalized:
-            raise ValueError("Stock name cannot be empty")
+            raise FieldValidationError(message="Stock name cannot be empty")
 
         return normalized
 

@@ -3,9 +3,10 @@ from datetime import date
 from types import SimpleNamespace
 
 import pytest
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import BackgroundTasks
 
 from app.api.v1 import batch as batch_module
+from app.exceptions.database import RecordNotFoundError
 
 
 class FakeJob:
@@ -160,7 +161,7 @@ async def test_get_job_status_not_found_raises():
     repo = FakeRepo(get_result=None)
 
     # Act & Assert
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(RecordNotFoundError) as exc:
         await batch_module.get_job_status(1, repo=repo)
 
     # Assert
@@ -194,7 +195,7 @@ async def test_get_history_filters_by_type_and_status():
 @pytest.mark.asyncio
 async def test_cancel_job_returns_404_when_not_found():
     repo = FakeRepo(cancel_result=None)
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(RecordNotFoundError) as exc:
         await batch_module.cancel_job(123, repo=repo)
 
     assert exc.value.status_code == 404

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from app.exceptions.business import ServiceError
 from app.models.batch_execution import BatchExecution
 from app.utils.logger import get_logger
 
@@ -203,7 +204,7 @@ class BatchExecutionContext:
         """
         self.job = await self.service.create_job(self.job_type, self.params)
         if self.job is None:
-            raise RuntimeError("failed to create batch job")
+            raise ServiceError(message="failed to create batch job")
 
         # 安全に job_id を取り出して以降は int 型で扱う
         self.job_id = int(getattr(self.job, "id"))

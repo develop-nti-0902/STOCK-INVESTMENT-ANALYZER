@@ -16,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import count as sql_count
 
+from app.exceptions.validation import ValidationError
 from app.utils.database import flush_return_with_log
 from app.utils.validation import validate_pagination
 
@@ -149,7 +150,7 @@ class BaseRepository(ABC, Generic[T]):
             トランザクションのコミットは Service 層で行ってください。
         """
         if self.model is None:
-            raise ValueError("Repository model is not set")
+            raise ValidationError(message="Repository model is not set")
 
         instance = self.model(**data)
         return await self._add_and_flush(instance)
@@ -173,7 +174,7 @@ class BaseRepository(ABC, Generic[T]):
             Optional[T]: 見つかればモデルインスタンス、存在しなければ None
         """
         if self.model is None:
-            raise ValueError("Repository model is not set")
+            raise ValidationError(message="Repository model is not set")
 
         result = await self.session.execute(
             select(self.model).where(self.model.id == record_id)
@@ -191,7 +192,7 @@ class BaseRepository(ABC, Generic[T]):
             List[T]: モデルインスタンスのリスト
         """
         if self.model is None:
-            raise ValueError("Repository model is not set")
+            raise ValidationError(message="Repository model is not set")
 
         # 引数検証: 共通ユーティリティへ移譲
         validate_pagination(skip, limit)
@@ -281,7 +282,7 @@ class BaseRepository(ABC, Generic[T]):
             トランザクションのコミットは Service 層で行ってください。
         """
         if self.model is None:
-            raise ValueError("Repository model is not set")
+            raise ValidationError(message="Repository model is not set")
 
         instances = [self.model(**record) for record in records]
         return await self._add_all_and_flush(instances)
@@ -293,7 +294,7 @@ class BaseRepository(ABC, Generic[T]):
             int: テーブル内の総件数
         """
         if self.model is None:
-            raise ValueError("Repository model is not set")
+            raise ValidationError(message="Repository model is not set")
 
         stmt = select(sql_count()).select_from(self.model)
         result = await self.session.execute(stmt)
@@ -309,7 +310,7 @@ class BaseRepository(ABC, Generic[T]):
             bool: 存在する場合は True
         """
         if self.model is None:
-            raise ValueError("Repository model is not set")
+            raise ValidationError(message="Repository model is not set")
 
         result = await self.session.execute(
             select(self.model).where(self.model.id == record_id)

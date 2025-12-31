@@ -5,11 +5,12 @@ import logging
 from datetime import date, datetime
 from typing import List, Optional, Union, cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi import status as http_status
 
 from app.api.dependencies.repositories import get_batch_execution_repository
 from app.api.dependencies.services import get_stock_price_service
+from app.exceptions.database import RecordNotFoundError
 from app.repositories.batch_execution_repository import (
     BatchExecutionRepository,
 )
@@ -303,7 +304,7 @@ async def get_job_status(
 ):
     job = await repo.get(job_id)
     if job is None:
-        raise HTTPException(status_code=404, detail="job not found")
+        raise RecordNotFoundError(message=f"Job with id {job_id} not found")
     return job
 
 
@@ -332,5 +333,5 @@ async def cancel_job(
 ):
     job = await repo.cancel_job(job_id)
     if job is None:
-        raise HTTPException(status_code=404, detail="job not found")
+        raise RecordNotFoundError(message=f"Job with id {job_id} not found")
     return job

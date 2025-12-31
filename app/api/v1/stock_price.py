@@ -6,11 +6,14 @@
 from datetime import date, datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, Path, Query
 from fastapi import status as http_status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions.business import ServiceError
+from app.exceptions.database import RecordNotFoundError
+from app.exceptions.validation import FieldValidationError
 from app.repositories.stock_data_repository import (
     StockData1dRepository,
     StockData1hRepository,
@@ -148,9 +151,8 @@ async def get_stock_price_data(
     # 時間軸に対応するリポジトリを取得
     repo_class = TIMEFRAME_REPOSITORY_MAP.get(timeframe)
     if not repo_class:
-        raise HTTPException(
-            status_code=http_status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid timeframe: {timeframe}",
+        raise FieldValidationError(
+            message=f"Invalid timeframe: {timeframe}",
         )
 
     repo = repo_class(session=db)  # type: ignore[abstract]
@@ -166,9 +168,8 @@ async def get_stock_price_data(
             try:
                 start_dt = datetime.fromisoformat(f"{start}T00:00:00")
             except ValueError:
-                raise HTTPException(
-                    status_code=http_status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid start date format: {start}",
+                raise FieldValidationError(
+                    message=f"Invalid start date format: {start}",
                 ) from None
 
     if end:
@@ -178,9 +179,8 @@ async def get_stock_price_data(
             try:
                 end_dt = datetime.fromisoformat(f"{end}T23:59:59")
             except ValueError:
-                raise HTTPException(
-                    status_code=http_status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid end date format: {end}",
+                raise FieldValidationError(
+                    message=f"Invalid end date format: {end}",
                 ) from None
 
     try:
@@ -194,9 +194,8 @@ async def get_stock_price_data(
         )
 
         if not results:
-            raise HTTPException(
-                status_code=http_status.HTTP_404_NOT_FOUND,
-                detail=f"No data found for symbol '{symbol}'",
+            raise RecordNotFoundError(
+                message=f"No data found for symbol '{symbol}'"
             )
 
         # レスポンスデータの構築
@@ -230,12 +229,11 @@ async def get_stock_price_data(
             count=len(data_list),
         )
 
-    except HTTPException:
+    except (FieldValidationError, RecordNotFoundError):
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch data: {str(e)}",
+        raise ServiceError(
+            message=f"Failed to fetch data: {str(e)}",
         ) from e
 
 
@@ -266,9 +264,8 @@ async def delete_all_stock_price_data(
     # 時間軸に対応するリポジトリを取得
     repo_class = TIMEFRAME_REPOSITORY_MAP.get(timeframe)
     if not repo_class:
-        raise HTTPException(
-            status_code=http_status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid timeframe: {timeframe}",
+        raise FieldValidationError(
+            message=f"Invalid timeframe: {timeframe}",
         )
 
     repo = repo_class(session=db)  # type: ignore[abstract]
@@ -284,9 +281,10 @@ async def delete_all_stock_price_data(
             deleted_count=deleted_count,
         )
 
+    except FieldValidationError:
+        raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete data: {str(e)}",
+        raise ServiceError(
+            message=f"Failed to delete data: {str(e)}",
         ) from e

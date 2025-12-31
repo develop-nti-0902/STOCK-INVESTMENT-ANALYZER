@@ -2,9 +2,11 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
-from fastapi import HTTPException
 
 from app.api.v1 import stock_price as stock_price_module
+from app.exceptions.business import ServiceError
+from app.exceptions.database import RecordNotFoundError
+from app.exceptions.validation import FieldValidationError
 
 
 class FakeRepoClass:
@@ -35,7 +37,7 @@ class DummyDB:
 async def test_get_stock_price_invalid_timeframe_raises_400():
     # Arrange
     # Act / Assert
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(FieldValidationError) as exc:
         await stock_price_module.get_stock_price_data(
             symbol="7203",
             timeframe="2h",
@@ -47,7 +49,7 @@ async def test_get_stock_price_invalid_timeframe_raises_400():
         )
 
     assert exc.value.status_code == 400
-    assert "Invalid timeframe" in exc.value.detail
+    assert "Invalid timeframe" in exc.value.message
 
 
 @pytest.mark.asyncio
@@ -58,7 +60,7 @@ async def test_get_stock_price_invalid_start_format_raises_400(monkeypatch):
     )
 
     # Act / Assert
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(FieldValidationError) as exc:
         await stock_price_module.get_stock_price_data(
             symbol="7203",
             timeframe="1d",
@@ -70,7 +72,7 @@ async def test_get_stock_price_invalid_start_format_raises_400(monkeypatch):
         )
 
     assert exc.value.status_code == 400
-    assert "Invalid start date format" in exc.value.detail
+    assert "Invalid start date format" in exc.value.message
 
 
 @pytest.mark.asyncio
@@ -86,7 +88,7 @@ async def test_get_stock_price_no_results_raises_404(monkeypatch):
     )
 
     # Act / Assert
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(RecordNotFoundError) as exc:
         await stock_price_module.get_stock_price_data(
             symbol="9999",
             timeframe="1d",
@@ -98,7 +100,7 @@ async def test_get_stock_price_no_results_raises_404(monkeypatch):
         )
 
     assert exc.value.status_code == 404
-    assert "No data found for symbol '9999'" in exc.value.detail
+    assert "No data found for symbol '9999'" in exc.value.message
 
 
 @pytest.mark.asyncio
@@ -182,7 +184,7 @@ async def test_delete_all_stock_price_data_invalid_timeframe_raises_400():
     db = DummyDB()
 
     # Act / Assert
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(FieldValidationError) as exc:
         await stock_price_module.delete_all_stock_price_data(
             timeframe="2h",
             db=db,
@@ -206,7 +208,7 @@ async def test_delete_all_stock_price_data_failure_rolls_back(monkeypatch):
     db = DummyDB()
 
     # Act / Assert
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(ServiceError) as exc:
         await stock_price_module.delete_all_stock_price_data(
             timeframe="1d", db=db
         )

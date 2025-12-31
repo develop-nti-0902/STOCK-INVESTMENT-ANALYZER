@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from app.exceptions.validation import FieldValidationError
 from app.repositories.stock_data_repository import (
     StockData1dRepository,
     StockData1hRepository,
@@ -116,14 +117,16 @@ class TestStockDataRepository:
         }
 
         # Act & Assert
-        with pytest.raises(ValueError, match="Missing required fields"):
+        with pytest.raises(
+            FieldValidationError, match="Missing required fields"
+        ):
             await repo_1m.upsert_single(data)
 
     @pytest.mark.asyncio
     async def test_upsert_single_empty_data(self, repo_1m):
         """空データ時のエラー"""
         # Act & Assert
-        with pytest.raises(ValueError, match="Data cannot be empty"):
+        with pytest.raises(FieldValidationError, match="Data cannot be empty"):
             await repo_1m.upsert_single({})
 
     @pytest.mark.asyncio

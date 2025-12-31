@@ -5,11 +5,13 @@
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi import status as http_status
 from pydantic import BaseModel
 
 from app.api.dependencies.services import get_stock_master_service
+from app.exceptions.business import ServiceError
+from app.exceptions.database import RecordNotFoundError
 from app.services.market_data.stock_master.service import StockMasterService
 
 router = APIRouter(tags=["stock-master"])
@@ -78,9 +80,8 @@ async def refresh_stock_master(
             updated_count=updated_count,
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to refresh stock master: {str(e)}",
+        raise ServiceError(
+            message=f"Failed to refresh stock master: {str(e)}",
         ) from e
 
 
@@ -104,9 +105,8 @@ async def get_all_active_symbols(
         symbols = await service.get_all_active_symbols()
         return SymbolListResponse(symbols=symbols, count=len(symbols))
     except Exception as e:
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve stock symbols: {str(e)}",
+        raise ServiceError(
+            message=f"Failed to retrieve stock symbols: {str(e)}",
         ) from e
 
 
@@ -131,17 +131,15 @@ async def get_symbols_by_market(
     try:
         symbols = await service.get_symbols_by_market(market)
         if not symbols:
-            raise HTTPException(
-                status_code=http_status.HTTP_404_NOT_FOUND,
-                detail=f"No symbols found for market '{market}'",
+            raise RecordNotFoundError(
+                message=f"No symbols found for market '{market}'"
             )
         return SymbolListResponse(symbols=symbols, count=len(symbols))
-    except HTTPException:
+    except RecordNotFoundError:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve stock symbols: {str(e)}",
+        raise ServiceError(
+            message=f"Failed to retrieve stock symbols: {str(e)}",
         ) from e
 
 
@@ -170,7 +168,6 @@ async def reset_stock_master(
             deleted_count=deleted_count,
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to reset stock master: {str(e)}",
+        raise ServiceError(
+            message=f"Failed to reset stock master: {str(e)}",
         ) from e

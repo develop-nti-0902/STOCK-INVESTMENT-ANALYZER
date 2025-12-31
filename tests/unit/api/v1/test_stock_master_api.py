@@ -1,7 +1,8 @@
 import pytest
-from fastapi import HTTPException
 
 from app.api.v1 import stock_master as stock_master_module
+from app.exceptions.business import ServiceError
+from app.exceptions.database import RecordNotFoundError
 
 
 class FakeService:
@@ -65,13 +66,13 @@ async def test_refresh_stock_master_failure_raises_500():
     service = FakeService(raise_on={"fetch_and_store"})
 
     # Act / Assert
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(ServiceError) as exc:
         await stock_master_module.refresh_stock_master(
             batch_size=10, service=service
         )
 
     assert exc.value.status_code == 500
-    assert "Failed to refresh stock master" in exc.value.detail
+    assert "Failed to refresh stock master" in exc.value.message
 
 
 @pytest.mark.asyncio
@@ -93,11 +94,11 @@ async def test_get_all_active_symbols_failure_raises_500():
     service = FakeService(raise_on={"get_all_active_symbols"})
 
     # Act / Assert
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(ServiceError) as exc:
         await stock_master_module.get_all_active_symbols(service=service)
 
     assert exc.value.status_code == 500
-    assert "Failed to retrieve stock symbols" in exc.value.detail
+    assert "Failed to retrieve stock symbols" in exc.value.message
 
 
 @pytest.mark.asyncio
@@ -106,7 +107,7 @@ async def test_get_symbols_by_market_not_found_returns_404():
     service = FakeService(market_symbols=[])
 
     # Act / Assert
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(RecordNotFoundError) as exc:
         await stock_master_module.get_symbols_by_market(
             "Prime", service=service
         )
@@ -120,13 +121,13 @@ async def test_get_symbols_by_market_failure_raises_500():
     service = FakeService(raise_on={"get_symbols_by_market"})
 
     # Act / Assert
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(ServiceError) as exc:
         await stock_master_module.get_symbols_by_market(
             "Prime", service=service
         )
 
     assert exc.value.status_code == 500
-    assert "Failed to retrieve stock symbols" in exc.value.detail
+    assert "Failed to retrieve stock symbols" in exc.value.message
 
 
 @pytest.mark.asyncio
@@ -148,8 +149,8 @@ async def test_reset_stock_master_failure_raises_500():
     service = FakeService(raise_on={"reset_stock_master"})
 
     # Act / Assert
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(ServiceError) as exc:
         await stock_master_module.reset_stock_master(service=service)
 
     assert exc.value.status_code == 500
-    assert "Failed to reset stock master" in exc.value.detail
+    assert "Failed to reset stock master" in exc.value.message

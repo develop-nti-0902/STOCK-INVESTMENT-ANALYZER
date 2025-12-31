@@ -27,6 +27,8 @@ from typing import (
     cast,
 )
 
+from app.exceptions.validation import FieldValidationError
+
 T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
@@ -44,10 +46,10 @@ def chunk_list(items: List[T], chunk_size: int) -> List[List[T]]:
         分割されたリストのリスト
 
     Raises:
-        ValueError: chunk_sizeが1未満の場合
+        FieldValidationError: chunk_sizeが1未満の場合
     """
     if chunk_size < 1:
-        raise ValueError("chunk_size must be greater than 0")
+        raise FieldValidationError(message="chunk_size must be greater than 0")
 
     return [
         items[i : i + chunk_size] for i in range(0, len(items), chunk_size)
