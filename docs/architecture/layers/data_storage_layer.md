@@ -22,7 +22,7 @@ related_docs:
     - [依存関係](#依存関係)
   - [3. データベーススキーマ](#3-データベーススキーマ)
     - [3.1 株価データテーブル（8テーブル）](#31-株価データテーブル8テーブル)
-    - [3.2 管理データテーブル（4テーブル）](#32-管理データテーブル4テーブル)
+    - [3.2 管理データテーブル（2テーブル）](#32-管理データテーブル2テーブル)
       - [stock\_master（銘柄マスタ）](#stock_master銘柄マスタ)
       - [stock\_master\_updates（銘柄更新履歴）](#stock_master_updates銘柄更新履歴)
       - [batch\_executions（バッチ実行情報）](#batch_executionsバッチ実行情報)
@@ -94,11 +94,11 @@ PostgreSQL Server
     │   ├── stocks_1d                # 日足
     │   ├── stocks_1wk               # 週足
     │   └── stocks_1mo               # 月足
-    └── 管理データテーブル（4）
-        ├── stock_master             # 銘柄マスタ
-        ├── stock_master_updates     # 銘柄更新履歴
-        ├── batch_executions         # バッチ実行情報
-        └── batch_execution_details  # バッチ実行詳細
+    └── 管理データテーブル（2 + 2未実装）
+        ├── stock_master             # 銘柄マスタ ✅実装済み
+        ├── batch_executions         # バッチ実行情報 ✅実装済み
+        ├── stock_master_updates     # 銘柄更新履歴 ⚠️未実装
+        └── batch_execution_details  # バッチ実行詳細 ⚠️未実装
 ```
 
 ### 依存関係
@@ -144,23 +144,22 @@ graph TB
 
 **テーブル一覧:**
 
-| テーブル名   | 時間軸  | 日時型    | 主な用途             | 想定レコード数（1銘柄/1年） |
-| ------------ | ------- | --------- | -------------------- | --------------------------- |
-| `stocks_1m`  | 1分足   | TIMESTAMP | 短期トレード分析     | 約80,000件                  |
-| `stocks_5m`  | 5分足   | TIMESTAMP | 短期トレード分析     | 約16,000件                  |
-| `stocks_15m` | 15分足  | TIMESTAMP | デイトレード分析     | 約5,300件                   |
-| `stocks_30m` | 30分足  | TIMESTAMP | デイトレード分析     | 約2,600件                   |
-| `stocks_1h`  | 1時間足 | TIMESTAMP | スイングトレード分析 | 約1,300件                   |
-| `stocks_1d`  | 日足    | DATE      | 中期投資分析         | 約245件                     |
-| `stocks_1wk` | 週足    | DATE      | 中長期投資分析       | 約52件                      |
-| `stocks_1mo` | 月足    | DATE      | 長期投資分析         | 約12件                      |
+| テーブル名   | 時間軸  | 日時型                  | 主な用途             | 想定レコード数（1銘柄/1年） |
+| ------------ | ------- | ----------------------- | -------------------- | --------------------------- |
+| `stocks_1m`  | 1分足   | TIMESTAMP WITH TIMEZONE | 短期トレード分析     | 約80,000件                  |
+| `stocks_5m`  | 5分足   | TIMESTAMP WITH TIMEZONE | 短期トレード分析     | 約16,000件                  |
+| `stocks_15m` | 15分足  | TIMESTAMP WITH TIMEZONE | デイトレード分析     | 約5,300件                   |
+| `stocks_30m` | 30分足  | TIMESTAMP WITH TIMEZONE | デイトレード分析     | 約2,600件                   |
+| `stocks_1h`  | 1時間足 | TIMESTAMP WITH TIMEZONE | スイングトレード分析 | 約1,300件                   |
+| `stocks_1d`  | 日足    | TIMESTAMP WITH TIMEZONE | 中期投資分析         | 約245件                     |
+| `stocks_1wk` | 週足    | TIMESTAMP WITH TIMEZONE | 中長期投資分析       | 約52件                      |
+| `stocks_1mo` | 月足    | TIMESTAMP WITH TIMEZONE | 長期投資分析         | 約12件                      |
 
 **共通制約:**
 
 - **主キー**: `id` (SERIAL, AUTO INCREMENT)
-- **ユニーク制約**:
-  - 分足・時間足: `(symbol, datetime)`
-  - 日足・週足・月足: `(symbol, date)`
+- **ユニーク制約**: `(symbol, timestamp)` ※すべてのテーブルで`timestamp`カラムを使用
+- **外部キー制約**: `symbol` → `stock_master.stock_code` (ON DELETE CASCADE)
 - **価格チェック制約**:
   - `open >= 0 AND high >= 0 AND low >= 0 AND close >= 0`
   - `high >= low AND high >= open AND high >= close AND low <= open AND low <= close`
@@ -172,20 +171,22 @@ graph TB
 -- 銘柄コード検索用
 CREATE INDEX idx_stocks_{interval}_symbol ON stocks_{interval} (symbol);
 
--- 日時検索用
-CREATE INDEX idx_stocks_{interval}_datetime ON stocks_{interval} (datetime); -- 分足・時間足
-CREATE INDEX idx_stocks_{interval}_date ON stocks_{interval} (date);         -- 日足・週足・月足
+-- タイムスタンプ検索用
+CREATE INDEX idx_stocks_{interval}_timestamp ON stocks_{interval} (timestamp);
 
 -- 銘柄別最新データ取得用（複合インデックス、降順）
-CREATE INDEX idx_stocks_{interval}_symbol_datetime_desc
-    ON stocks_{interval} (symbol, datetime DESC); -- 分足・時間足
-CREATE INDEX idx_stocks_{interval}_symbol_date_desc
-    ON stocks_{interval} (symbol, date DESC);     -- 日足・週足・月足
+CREATE INDEX idx_stocks_{interval}_symbol_timestamp_desc
+    ON stocks_{interval} (symbol, timestamp DESC);
 ```
+
+> **Note**: すべてのテーブルで`timestamp`カラム（TIMESTAMP WITH TIMEZONE型）を使用し、統一されたインデックス構造を持っています。
 
 ---
 
-### 3.2 管理データテーブル（4テーブル）
+### 3.2 管理データテーブル（2テーブル）
+
+> **Note**: 現在のプロジェクトでは、SQLAlchemyモデルとして実装されているのは`stock_master`と`batch_executions`の2テーブルのみです。
+> `stock_master_updates`と`batch_execution_details`のテーブル定義はSQLスクリプトに存在しますが、アプリケーション層での実装は未完了です。
 
 #### stock_master（銘柄マスタ）
 
@@ -219,6 +220,8 @@ CREATE INDEX idx_stock_master_sector_33 ON stock_master (sector_code_33);
 ```
 
 #### stock_master_updates（銘柄更新履歴）
+
+> **実装ステータス**: ⚠️ **未実装** - SQLスクリプトに定義されていますが、SQLAlchemyモデルは未作成です。
 
 **用途**: 銘柄マスタの更新履歴記録
 
@@ -266,6 +269,8 @@ CREATE INDEX idx_batch_executions_start_time ON batch_executions (start_time);
 
 #### batch_execution_details（バッチ実行詳細）
 
+> **実装ステータス**: ⚠️ **未実装** - SQLスクリプトに定義されていますが、SQLAlchemyモデルは未作成です。
+
 **用途**: バッチ処理の銘柄ごとの詳細記録
 
 **カラム定義:**
@@ -306,12 +311,12 @@ CREATE INDEX idx_batch_execution_details_batch_stock
 
 **主要な接続設定:**
 
-| 項目                   | 説明                                              | 参照先                                                                                                     |
-| ---------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| **環境変数管理**       | `.env`ファイルによる設定管理                      | [共通モジュール - 5.6 設定管理](./common_modules.md#56-設定管理apputilsconfigpy)                           |
-| **非同期エンジン**     | SQLAlchemy AsyncEngine による非同期接続           | [共通モジュール - 5.5 データベース接続管理](./common_modules.md#55-データベース接続管理apputilsdatabasepy) |
-| **コネクションプール** | pool_size=10, max_overflow=20 (最大30接続)        | [共通モジュール - 5.5 データベース接続管理](./common_modules.md#55-データベース接続管理apputilsdatabasepy) |
-| **依存性注入**         | FastAPIの`get_db()`による自動トランザクション管理 | [共通モジュール - 5.5 データベース接続管理](./common_modules.md#55-データベース接続管理apputilsdatabasepy) |
+| 項目                   | 説明                                                            | 参照先                                                                                                     |
+| ---------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **環境変数管理**       | `.env`ファイルによる設定管理                                    | [共通モジュール - 5.6 設定管理](./common_modules.md#56-設定管理apputilsconfigpy)                           |
+| **非同期エンジン**     | SQLAlchemy AsyncEngine による非同期接続                         | [共通モジュール - 5.5 データベース接続管理](./common_modules.md#55-データベース接続管理apputilsdatabasepy) |
+| **コネクションプール** | pool_size=5, max_overflow=10 (最大15接続) ※環境変数で上書き可能 | [共通モジュール - 5.5 データベース接続管理](./common_modules.md#55-データベース接続管理apputilsdatabasepy) |
+| **依存性注入**         | FastAPIの`get_db()`による自動トランザクション管理               | [共通モジュール - 5.5 データベース接続管理](./common_modules.md#55-データベース接続管理apputilsdatabasepy) |
 
 **環境変数 (`.env`):**
 
@@ -412,12 +417,12 @@ async with engine.connect() as conn:
 
 **想定クエリとインデックス利用:**
 
-| クエリ種別       | 利用インデックス                             | 例                                                       |
-| ---------------- | -------------------------------------------- | -------------------------------------------------------- |
-| 銘柄コード検索   | `idx_stocks_{interval}_symbol`               | `WHERE symbol = '7203.T'`                                |
-| 期間指定検索     | `idx_stocks_{interval}_datetime/date`        | `WHERE datetime BETWEEN ... AND ...`                     |
-| 銘柄別最新データ | `idx_stocks_{interval}_symbol_datetime_desc` | `WHERE symbol = '7203.T' ORDER BY datetime DESC LIMIT 1` |
-| 複合条件検索     | `idx_stocks_{interval}_symbol_datetime_desc` | `WHERE symbol = '7203.T' AND datetime >= ...`            |
+| クエリ種別       | 利用インデックス                              | 例                                                        |
+| ---------------- | --------------------------------------------- | --------------------------------------------------------- |
+| 銘柄コード検索   | `idx_stocks_{interval}_symbol`                | `WHERE symbol = '7203.T'`                                 |
+| 期間指定検索     | `idx_stocks_{interval}_timestamp`             | `WHERE timestamp BETWEEN ... AND ...`                     |
+| 銘柄別最新データ | `idx_stocks_{interval}_symbol_timestamp_desc` | `WHERE symbol = '7203.T' ORDER BY timestamp DESC LIMIT 1` |
+| 複合条件検索     | `idx_stocks_{interval}_symbol_timestamp_desc` | `WHERE symbol = '7203.T' AND timestamp >= ...`            |
 
 ### 5.2 データ容量見積もり
 
@@ -546,5 +551,5 @@ ORDER BY last_autovacuum DESC;
 
 ---
 
-**最終更新**: 2025-11-16
-**更新内容**: 共通モジュールとの役割分担を明確化し、接続管理・トランザクション管理を共通モジュール参照に変更
+**最終更新**: 2026-01-01
+**更新内容**: 実装との乖離を修正（TIMESTAMP型の統一、管理テーブルの実装状況の明確化、接続プール設定の修正、インデックス名の統一）

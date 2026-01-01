@@ -1,6 +1,6 @@
 category: architecture
 ai_context: high
-last_updated: 2025-11-16
+last_updated: 2026-01-01
 related_docs:
   - ../architecture_overview.md
   - ./api_layer.md
@@ -30,30 +30,19 @@ related_docs:
       - [ビジネスロジック関連例外（`app/exceptions/business.py`）](#ビジネスロジック関連例外appexceptionsbusinesspy)
     - [3.4 FastAPI例外ハンドラ（`app/exceptions/handlers.py`）](#34-fastapi例外ハンドラappexceptionshandlerspy)
   - [4. Pydanticスキーマモジュール](#4-pydanticスキーマモジュール)
-    - [4.1 共通スキーマ（`app/schemas/common.py`）](#41-共通スキーマappschemascommonpy)
-    - [4.2 共通レスポンススキーマ（`app/schemas/responses.py`）](#42-共通レスポンススキーマappschemasresponsespy)
-    - [4.3 ドメイン別スキーマ構成](#43-ドメイン別スキーマ構成)
+    - [4.1 基底スキーマ（`app/schemas/base.py`）](#41-基底スキーマappschemasbasepy)
+    - [4.2 ドメイン別スキーマ構成](#42-ドメイン別スキーマ構成)
       - [市場データドメイン（`app/schemas/market_data/`）](#市場データドメインappschemasmarket_data)
       - [バッチ処理スキーマ（`app/schemas/batch.py`）](#バッチ処理スキーマappschemasbatchpy)
-      - [分析ドメイン（`app/schemas/analysis/`）](#分析ドメインappschemasanalysis)
-      - [ユーザードメイン（`app/schemas/user/`）](#ユーザードメインappschemasuser)
   - [5. ユーティリティモジュール](#5-ユーティリティモジュール)
     - [5.1 ロガー設定（`app/utils/logger.py`）](#51-ロガー設定apputilsloggerpy)
-    - [5.2 時間軸変換・日時処理（`app/utils/time_utils.py`）](#52-時間軸変換日時処理apputilstime_utilspy)
-    - [5.3 APIレスポンス生成ヘルパー（`app/utils/api_response.py`）](#53-apiレスポンス生成ヘルパーapputilsapi_responsepy)
-    - [5.4 共通バリデータ（`app/utils/validators.py`）](#54-共通バリデータapputilsvalidatorspy)
-    - [5.5 データベース接続管理（`app/utils/database.py`）](#55-データベース接続管理apputilsdatabasepy)
+    - [5.2 共通バリデータ（`app/utils/validation.py`）](#52-共通バリデータapputilsvalidationpy)
+    - [5.3 データベース接続管理（`app/utils/database.py`）](#53-データベース接続管理apputilsdatabasepy)
     - [5.6 設定管理（`app/utils/config.py`）](#56-設定管理apputilsconfigpy)
-    - [5.7 セキュリティユーティリティ（`app/utils/security.py`）](#57-セキュリティユーティリティapputilssecuritypy)
-    - [5.8 レート制限（`app/utils/rate_limiter.py`）](#58-レート制限apputilsrate_limiterpy)
-    - [5.9 リトライロジック（`app/utils/retry.py`）](#59-リトライロジックapputilsretrypy)
-    - [5.9 WebSocket接続管理（`app/utils/websocket_manager.py`）](#59-websocket接続管理apputilswebsocket_managerpy)
-    - [5.10 キャッシュ制御ミドルウェア（`app/utils/cache.py`）](#510-キャッシュ制御ミドルウェアapputilscachepy)
-    - [5.11 セキュリティミドルウェア（`app/utils/security.py` へ追加）](#511-セキュリティミドルウェアapputilssecuritypy-へ追加)
-    - [5.12 システム定数（`app/utils/constants.py`）](#512-システム定数apputilsconstantspy)
+    - [5.5 バッチ処理ユーティリティ（`app/utils/batch_utils.py`）](#55-バッチ処理ユーティリティapputilsbatch_utilspy)
   - [6. アーキテクチャ図](#6-アーキテクチャ図)
     - [6.1 共通モジュール全体構成](#61-共通モジュール全体構成)
-    - [7.2 エラーハンドリングフロー](#72-エラーハンドリングフロー)
+    - [6.2 エラーハンドリングフロー](#62-エラーハンドリングフロー)
     - [7.3 Pydanticスキーマ連携フロー](#73-pydanticスキーマ連携フロー)
   - [7. 設計原則と利用ガイドライン](#7-設計原則と利用ガイドライン)
     - [7.1 例外処理のベストプラクティス](#71-例外処理のベストプラクティス)
@@ -147,41 +136,21 @@ app/
 │
 ├── schemas/                     # Pydanticスキーマモジュール
 │   ├── __init__.py
-│   ├── common.py                # 共通スキーマ（メタデータ、ページネーション等）
-│   ├── responses.py             # 共通レスポンススキーマ
+│   ├── base.py                  # 基底スキーマ（BaseSchema、ページネーション等）
 │   ├── market_data/             # 市場データドメインスキーマ
 │   │   ├── __init__.py
 │   │   ├── stock_price.py       # 株価データスキーマ
-│   │   ├── stock_master.py      # 銘柄マスタスキーマ
-│   │   ├── fundamentals.py      # ファンダメンタルデータスキーマ
-│   │   └── indices.py           # インデックススキーマ
+│   │   └── stock_master.py      # 銘柄マスタスキーマ
 │   ├── batch.py                 # バッチ処理スキーマ
-│   ├── analysis/                # 分析ドメインスキーマ
-│   │   ├── __init__.py
-│   │   ├── screening.py
-│   │   └── backtest.py
-│   ├── user/                    # ユーザードメインスキーマ
-│   │   ├── __init__.py
-│   │   ├── auth.py
-│   │   ├── profile.py
-│   │   ├── settings.py
-│   │   └── portfolio.py
-│   └── notification.py          # 通知スキーマ
+│   └── stock_data.py            # 株価データ関連スキーマ（旧版）
 │
 └── utils/                       # ユーティリティモジュール
     ├── __init__.py
     ├── logger.py                # ロガー設定
-    ├── time_utils.py            # 時間軸変換・日時処理
-    ├── api_response.py          # API レスポンス生成ヘルパー
-    ├── validators.py            # 共通バリデータ
-    ├── database.py              # データベース接続管理 + 依存性注入
+    ├── validation.py            # 共通バリデータ
+    ├── database.py              # データベース接続管理
     ├── config.py                # 設定管理
-    ├── security.py              # セキュリティユーティリティ + 認証依存性 + セキュリティミドルウェア
-    ├── retry.py                 # リトライロジック
-    ├── rate_limiter.py          # レート制限デコレータ + RateLimiterクラス
-    ├── websocket_manager.py     # WebSocket接続管理（シングルトン）
-    ├── cache.py                 # キャッシュ制御ミドルウェア
-    └── constants.py             # システム定数
+    └── batch_utils.py           # バッチ処理ユーティリティ
 ```
 
 ### モジュール間依存関係
@@ -374,67 +343,21 @@ graph TB
 
 ## 4. Pydanticスキーマモジュール
 
-### 4.1 共通スキーマ（`app/schemas/common.py`）
+### 4.1 基底スキーマ（`app/schemas/base.py`）
 
-**メタデータスキーマ**:
+**実装済みのスキーマ**：
 
-| フィールド   | 型  | 説明                             |
-| ------------ | --- | -------------------------------- |
-| `timestamp`  | str | レスポンス生成日時（ISO 8601）   |
-| `request_id` | str | リクエストID（トレーサビリティ） |
+| スキーマ名                 | 用途                       |
+| -------------------------- | -------------------------- |
+| `BaseSchema`               | 全スキーマの基底クラス     |
+| `BaseRequestSchema`        | リクエスト系スキーマの基底 |
+| `BaseResponseSchema`       | レスポンス系スキーマの基底 |
+| `PaginationRequestSchema`  | ページネーションリクエスト |
+| `PaginationResponseSchema` | ページネーションレスポンス |
 
-**ページネーション情報スキーマ**:
+これらの基底スキーマは、他の全てのスキーマで継承され、共通の振る舞いを提供します。
 
-| フィールド | 型   | 説明                |
-| ---------- | ---- | ------------------- |
-| `total`    | int  | 総件数              |
-| `limit`    | int  | 1ページあたりの件数 |
-| `offset`   | int  | オフセット          |
-| `has_next` | bool | 次ページの有無      |
-
-**時間軸Enum**:
-
-| 値    | 説明    |
-| ----- | ------- |
-| `1m`  | 1分足   |
-| `5m`  | 5分足   |
-| `15m` | 15分足  |
-| `30m` | 30分足  |
-| `1h`  | 1時間足 |
-| `1d`  | 日足    |
-| `1wk` | 週足    |
-| `1mo` | 月足    |
-
-### 4.2 共通レスポンススキーマ（`app/schemas/responses.py`）
-
-**成功レスポンス（汎用）**:
-
-| フィールド | 型                 | 説明               |
-| ---------- | ------------------ | ------------------ |
-| `status`   | str                | "success"固定      |
-| `message`  | str                | 処理結果メッセージ |
-| `data`     | T (Generic)        | レスポンスデータ   |
-| `meta`     | Optional[MetaData] | メタ情報           |
-
-**ページネーション対応レスポンス**:
-
-| フィールド | 型                | 説明                 |
-| ---------- | ----------------- | -------------------- |
-| `status`   | str               | "success"固定        |
-| `message`  | str               | 処理結果メッセージ   |
-| `data`     | List[T] (Generic) | データリスト         |
-| `meta`     | PaginatedMetaData | ページネーション情報 |
-
-**エラーレスポンス**:
-
-| フィールド | 型             | 説明             |
-| ---------- | -------------- | ---------------- |
-| `error`    | str            | エラーコード     |
-| `message`  | str            | エラーメッセージ |
-| `details`  | Optional[dict] | エラー詳細情報   |
-| `meta`     | MetaData       | メタ情報         |
-
-### 4.3 ドメイン別スキーマ構成
+### 4.2 ドメイン別スキーマ構成
 
 #### 市場データドメイン（`app/schemas/market_data/`）
 
@@ -466,34 +389,7 @@ graph TB
 | `BatchSummary`  | バッチサマリ     | total, successful, failed, duration_seconds       |
 | `ProgressInfo`  | 進捗情報         | total, processed, successful, failed, eta_seconds |
 
-#### 分析ドメイン（`app/schemas/analysis/`）
-
-**スクリーニングスキーマ（`screening.py`）**:
-
-| スキーマ名         | 用途                     | 主要フィールド                             |
-| ------------------ | ------------------------ | ------------------------------------------ |
-| `FilterCondition`  | フィルタ条件             | field, operator, value                     |
-| `ScreeningRequest` | スクリーニングリクエスト | conditions, logic (AND/OR), sort_by, order |
-| `ScreeningResult`  | スクリーニング結果       | result_id, matched_count, results          |
-
-**バックテストスキーマ（`backtest.py`）**:
-
-| スキーマ名           | 用途                   | 主要フィールド                                          |
-| -------------------- | ---------------------- | ------------------------------------------------------- |
-| `BacktestRequest`    | バックテストリクエスト | symbol, strategy, start_date, end_date, initial_capital |
-| `BacktestResult`     | バックテスト結果       | job_id, total_return, sharpe_ratio, max_drawdown        |
-| `PerformanceMetrics` | パフォーマンス指標     | win_rate, avg_profit, avg_loss                          |
-
-#### ユーザードメイン（`app/schemas/user/`）
-
-**認証スキーマ（`auth.py`）**:
-
-| スキーマ名        | 用途               | 主要フィールド                                |
-| ----------------- | ------------------ | --------------------------------------------- |
-| `LoginRequest`    | ログインリクエスト | email, password                               |
-| `LoginResponse`   | ログインレスポンス | access_token, refresh_token, token_type, user |
-| `RegisterRequest` | 登録リクエスト     | email, password, display_name                 |
-| `TokenPayload`    | JWTペイロード      | user_id, email, role, exp                     |
+> **注**: `app/schemas/analysis/` および `app/schemas/user/` ディレクトリは現在未実装です。将来的な拡張として計画されています。
 
 ---
 
@@ -522,109 +418,24 @@ graph TB
 [2025-11-16 10:00:00] [INFO] [req-123456] [app.services.stock_price] 株価データ取得開始: symbol=7203.T
 ```
 
-### 5.2 時間軸変換・日時処理（`app/utils/time_utils.py`）
+### 5.2 共通バリデータ（`app/utils/validation.py`）
 
-**主要関数**:
+**実装済みのバリデータ関数**:
 
-| 関数名                          | 引数               | 戻り値            | 説明                               |
-| ------------------------------- | ------------------ | ----------------- | ---------------------------------- |
-| `convert_interval_to_model()`   | interval: str      | Type[Model]       | 時間軸文字列からモデルクラスを取得 |
-| `convert_model_to_interval()`   | model: Type[Model] | str               | モデルクラスから時間軸文字列を取得 |
-| `get_table_name_for_interval()` | interval: str      | str               | 時間軸文字列からテーブル名を取得   |
-| `parse_datetime()`              | datetime_str: str  | datetime          | ISO 8601文字列をdatetimeに変換     |
-| `format_datetime()`             | dt: datetime       | str               | datetimeをISO 8601文字列に変換     |
-| `get_market_open_hours()`       | -                  | Tuple[time, time] | 市場開場時間を取得（9:00-15:00）   |
-| `is_trading_day()`              | date: date         | bool              | 取引日判定（土日祝日除外）         |
-
-**時間軸マッピング**:
-
-| interval | モデルクラス | テーブル名 |
-| -------- | ------------ | ---------- |
-| `1m`     | Stocks1m     | stocks_1m  |
-| `5m`     | Stocks5m     | stocks_5m  |
-| `15m`    | Stocks15m    | stocks_15m |
-| `30m`    | Stocks30m    | stocks_30m |
-| `1h`     | Stocks1h     | stocks_1h  |
-| `1d`     | Stocks1d     | stocks_1d  |
-| `1wk`    | Stocks1wk    | stocks_1wk |
-| `1mo`    | Stocks1mo    | stocks_1mo |
-
-### 5.3 APIレスポンス生成ヘルパー（`app/utils/api_response.py`）
-
-**主要関数**:
-
-| 関数名        | 引数                                      | 戻り値 | 説明                               |
-| ------------- | ----------------------------------------- | ------ | ---------------------------------- |
-| `success()`   | data, message, meta                       | dict   | 成功レスポンス生成                 |
-| `error()`     | error_code, message, details, status_code | dict   | エラーレスポンス生成               |
-| `paginated()` | data, total, limit, offset                | dict   | ページネーション対応レスポンス生成 |
-
-**使用例**:
-
-成功レスポンス:
-```python
-return api_response.success(
-    data={"stocks": stock_data},
-    message="株価データを取得しました"
-)
-```
-
-エラーレスポンス:
-```python
-return api_response.error(
-    error_code="VALIDATION_ERROR",
-    message="銘柄コードが不正です",
-    details={"field": "symbol", "value": "invalid"},
-    status_code=400
-)
-```
-
-ページネーションレスポンス:
-```python
-return api_response.paginated(
-    data=stock_list,
-    total=1000,
-    limit=100,
-    offset=0
-)
-```
-
-### 5.4 共通バリデータ（`app/utils/validators.py`）
-
-**主要バリデータ関数**:
-
-| 関数名                         | 引数                               | 戻り値                                   | 説明                           |
-| ------------------------------ | ---------------------------------- | ---------------------------------------- | ------------------------------ |
-| `validate_symbol()`            | symbol: str                        | Tuple[bool, Optional[str]]               | 銘柄コード検証（形式チェック） |
-| `validate_symbols()`           | symbols: List[str], max_count: int | Tuple[bool, Optional[HTTPException]]     | 銘柄リスト検証（型・件数制限） |
-| `validate_date_range()`        | start_date, end_date               | Tuple[bool, Optional[str]]               | 日付範囲検証                   |
-| `validate_interval()`          | interval: str                      | Tuple[bool, Optional[HTTPException]]     | 時間軸検証（妥当性チェック）   |
-| `validate_pagination()`        | limit, offset, max_limit           | Tuple[int, int, Optional[HTTPException]] | ページネーションパラメータ検証 |
-| `validate_email()`             | email: str                         | Tuple[bool, Optional[str]]               | メールアドレス検証             |
-| `validate_password_strength()` | password: str                      | Tuple[bool, Optional[str]]               | パスワード強度検証             |
-
-**Note**: `validate_symbols()`, `validate_interval()`, `validate_pagination()` は、API層の `app/api/validators/common.py` から共通モジュールへ移動すべき関数です。これにより、API層以外（CLI、バックグラウンドジョブ等）でも再利用可能になります。
+| 関数名                  | 引数                     | 戻り値                                   | 説明                           |
+| ----------------------- | ------------------------ | ---------------------------------------- | ------------------------------ |
+| `validate_pagination()` | limit, offset, max_limit | Tuple[int, int, Optional[HTTPException]] | ページネーションパラメータ検証 |
 
 **検証ルール**:
-
-銘柄コード:
-- 形式: `{4桁数字}.T` または `{4桁数字}.JP`
-- 例: `7203.T`, `9984.T`
-
-日付範囲:
-- start_date <= end_date
-- 未来日付の禁止
-- 最大範囲: 5年
-
-時間軸:
-- 許可値: `1m`, `5m`, `15m`, `30m`, `1h`, `1d`, `1wk`, `1mo`
 
 ページネーション:
 - limit: 1〜100（デフォルト: 100）
 - offset: 0以上
 - max_limit: システム全体の最大制限（デフォルト: 100）
 
-### 5.5 データベース接続管理（`app/utils/database.py`）
+> **注**: 時間軸変換・日時処理、APIレスポンス生成ヘルパー、その他のバリデータ関数は現在未実装です。必要に応じて将来的に追加される予定です。
+
+### 5.3 データベース接続管理（`app/utils/database.py`）
 
 **主要関数**:
 
@@ -798,356 +609,29 @@ async def fetch_and_save_multiple(self, symbols: List[str]) -> dict:
 | Yahoo Finance タイムアウト | `YAHOO_TIMEOUT`   | 30           | Yahoo Finance API タイムアウト（秒） |
 | リトライ回数               | `API_RETRY_COUNT` | 3            | 外部API呼び出しリトライ回数          |
 
-### 5.7 セキュリティユーティリティ（`app/utils/security.py`）
-
-**主要関数**:
-
-| 関数名                   | 引数                      | 戻り値 | 説明                           |
-| ------------------------ | ------------------------- | ------ | ------------------------------ |
-| `hash_password()`        | password: str             | str    | パスワードハッシュ化（bcrypt） |
-| `verify_password()`      | plain_password, hashed    | bool   | パスワード検証                 |
-| `create_access_token()`  | data: dict, expires_delta | str    | JWTアクセストークン生成        |
-| `create_refresh_token()` | data: dict, expires_delta | str    | JWTリフレッシュトークン生成    |
-| `decode_token()`         | token: str                | dict   | JWTトークンデコード            |
-| `generate_request_id()`  | -                         | str    | リクエストID生成（UUID4）      |
-
-**セキュリティ設定**:
-
-パスワードハッシュ:
-- アルゴリズム: bcrypt
-- コスト係数: 12
-
-JWT:
-- アルゴリズム: HS256
-- アクセストークン有効期限: 1時間（デフォルト）
-- リフレッシュトークン有効期限: 30日（デフォルト）
-
-**FastAPI依存性注入関数**:
-
-| 関数名               | 引数                    | 戻り値 | 説明                            |
-| -------------------- | ----------------------- | ------ | ------------------------------- |
-| `verify_api_key()`   | x_api_key: str (Header) | bool   | APIキー認証（システム間連携用） |
-| `get_current_user()` | token: str (Bearer)     | User   | JWT認証（ユーザー認証用）       |
-
-**使用例**:
-
-APIキー認証:
-```python
-from fastapi import Depends, Header
-from app.utils.security import verify_api_key
-
-@router.post("/api/batch/jobs")
-async def start_batch(api_key: str = Depends(verify_api_key)):
-    """APIキーで認証されたエンドポイント."""
-    ...
-```
-
-JWT認証:
-```python
-from fastapi import Depends
-from app.utils.security import get_current_user
-from app.models import User
-
-@router.get("/api/user/profile")
-async def get_profile(current_user: User = Depends(get_current_user)):
-    """JWTで認証されたエンドポイント."""
-    ...
-```
-
-**Note**: これらの依存性注入関数は、API層の `app/api/dependencies/auth.py` から共通モジュールへ移動すべきです。これにより、API層以外でも認証ロジックを再利用可能になります。
-
-### 5.8 レート制限（`app/utils/rate_limiter.py`）
-
-**主要コンポーネント**:
-
-| コンポーネント名 | 型               | 説明                              |
-| ---------------- | ---------------- | --------------------------------- |
-| `RateLimiter`    | Singleton クラス | スレッドセーフなレート制限管理    |
-| `rate_limit()`   | デコレータ関数   | FastAPIエンドポイント用レート制限 |
-
-**RateLimiterクラス**:
-
-| メソッド名               | 引数                                  | 戻り値 | 説明                         |
-| ------------------------ | ------------------------------------- | ------ | ---------------------------- |
-| `is_allowed()`           | request, max_requests, window_seconds | bool   | リクエスト許可判定           |
-| `_get_client_ip()`       | request                               | str    | クライアントIP取得           |
-| `_cleanup_old_entries()` | -                                     | None   | 古いエントリのクリーンアップ |
-
-**rate_limitデコレータ**:
-
-| パラメータ       | デフォルト値 | 説明                           |
-| ---------------- | ------------ | ------------------------------ |
-| `max_requests`   | 10           | ウィンドウ内の最大リクエスト数 |
-| `window_seconds` | 60           | レート制限ウィンドウ（秒）     |
-
-**使用例**:
-
-```python
-from app.utils.rate_limiter import rate_limit
-from fastapi import APIRouter
-
-router = APIRouter()
-
-@router.post("/api/batch/jobs")
-@rate_limit(max_requests=10, window_seconds=60)
-async def start_batch_fetch(...):
-    """一括データ取得開始（10リクエスト/60秒）."""
-    ...
-```
-
-**レート制限超過時の動作**:
-- HTTPステータスコード: 429 Too Many Requests
-- エラーレスポンス: `{"error": "RATE_LIMIT_EXCEEDED", "message": "リクエスト制限を超過しました"}`
-- Retry-Afterヘッダー: 待機すべき秒数を返却
-
-**Note**: このモジュールは、API層の `app/api/decorators/rate_limit.py` から共通モジュールへ移動すべきです。これにより、API層以外（WebSocketハンドラ、バックグラウンドジョブ等）でも再利用可能になります。
-
-### 5.9 リトライロジック（`app/utils/retry.py`）
-
-**主要デコレータ**:
-
-| デコレータ名      | 引数                               | 説明                     |
-| ----------------- | ---------------------------------- | ------------------------ |
-| `@retry_on_error` | max_retries, delay, backoff_factor | 例外発生時の自動リトライ |
-| `@retry_async`    | max_retries, delay, backoff_factor | 非同期関数用リトライ     |
-
-**リトライ設定**:
-
-| パラメータ       | デフォルト値 | 説明                 |
-| ---------------- | ------------ | -------------------- |
-| `max_retries`    | 3            | 最大リトライ回数     |
-| `delay`          | 1.0          | 初回リトライ待機秒数 |
-| `backoff_factor` | 2.0          | 指数バックオフ係数   |
-
-**リトライ対象例外**:
-- `APITimeoutError`
-- `ExternalAPIError`
-- `DatabaseError`（接続エラーのみ）
-
-### 5.9 WebSocket接続管理（`app/utils/websocket_manager.py`）
-
-**WebSocketManagerクラス**:
-
-WebSocket接続の一元管理を提供するシングルトンクラスです。複数のクライアントとの接続を管理し、メッセージ配信を行います。
-
-| 属性                 | 型                   | 説明                       |
-| -------------------- | -------------------- | -------------------------- |
-| `active_connections` | Dict[str, WebSocket] | アクティブな接続の辞書管理 |
-
-**主要メソッド**:
-
-| メソッド名         | 引数                                 | 戻り値 | 説明                             |
-| ------------------ | ------------------------------------ | ------ | -------------------------------- |
-| `connect()`        | client_id: str, websocket: WebSocket | None   | クライアント接続受け入れ         |
-| `disconnect()`     | client_id: str                       | None   | クライアント切断処理             |
-| `send_to_client()` | client_id: str, message: dict        | None   | 特定クライアントへメッセージ送信 |
-| `broadcast()`      | message: dict                        | None   | 全クライアントへメッセージ配信   |
-
-**使用例（FastAPIエンドポイント）**:
-
-```python
-from fastapi import WebSocket, WebSocketDisconnect
-from app.utils.websocket_manager import websocket_manager
-
-@app.websocket("/ws/{client_id}")
-async def websocket_endpoint(websocket: WebSocket, client_id: str):
-    """WebSocketエンドポイント."""
-    await websocket_manager.connect(client_id, websocket)
-    try:
-        while True:
-            data = await websocket.receive_json()
-            # メッセージ処理
-            await websocket_manager.send_to_client(
-                client_id,
-                {"type": "response", "data": "処理完了"}
-            )
-    except WebSocketDisconnect:
-        await websocket_manager.disconnect(client_id)
-```
-
-**使用例（サービス層からの進捗通知）**:
-
-```python
-from app.utils.websocket_manager import websocket_manager
-
-class BatchService:
-    async def process_batch(self, client_id: str, symbols: List[str]):
-        """バッチ処理と進捗通知."""
-        total = len(symbols)
-        for i, symbol in enumerate(symbols):
-            # データ処理
-            result = await self._process_symbol(symbol)
-
-            # WebSocket経由で進捗通知
-            await websocket_manager.send_to_client(
-                client_id,
-                {
-                    "type": "progress",
-                    "current": i + 1,
-                    "total": total,
-                    "symbol": symbol,
-                    "progress_percentage": ((i + 1) / total) * 100
-                }
-            )
-```
-
-**メッセージタイプ**:
-
-| タイプ     | 用途                 | ペイロード例                                                           |
-| ---------- | -------------------- | ---------------------------------------------------------------------- |
-| `progress` | バッチ処理進捗通知   | `{current: 10, total: 100, symbol: "7203.T", progress_percentage: 10}` |
-| `complete` | バッチ処理完了通知   | `{total: 100, elapsed_time: 120.5}`                                    |
-| `error`    | エラー通知           | `{message: "データ取得失敗", symbol: "7203.T"}`                        |
-| `realtime` | リアルタイム株価更新 | `{symbol: "7203.T", price: 1500, change: +0.5%}`                       |
-
-### 5.10 キャッシュ制御ミドルウェア（`app/utils/cache.py`）
-
-**CacheControlMiddlewareクラス**:
-
-HTTPレスポンスにCache-Controlヘッダーを自動設定するミドルウェアです。静的ファイルとAPIレスポンスで異なるキャッシュポリシーを適用します。
-
-**キャッシュポリシー**:
-
-| パス        | Cache-Controlヘッダー値               | 説明                          |
-| ----------- | ------------------------------------- | ----------------------------- |
-| `/static/*` | `public, max-age=31536000, immutable` | 静的ファイル: 1年間キャッシュ |
-| `/api/*`    | `no-store, no-cache`                  | APIレスポンス: キャッシュ無効 |
-| その他      | `no-cache`                            | デフォルト: 毎回検証          |
-
-**使用例（FastAPI Application Factoryでの登録）**:
-
-```python
-from fastapi import FastAPI
-from app.utils.cache import CacheControlMiddleware
-
-def create_app():
-    """FastAPIアプリケーション生成."""
-    app = FastAPI()
-
-    # キャッシュ制御ミドルウェアを追加
-    app.add_middleware(CacheControlMiddleware)
-
-    return app
-```
-
-**実装パターン**:
-
-```python
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
-
-class CacheControlMiddleware(BaseHTTPMiddleware):
-    """Cache-Control ヘッダー自動設定ミドルウェア."""
-
-    async def dispatch(self, request: Request, call_next):
-        """リクエスト処理とCache-Controlヘッダー設定."""
-        response: Response = await call_next(request)
-
-        # パスに応じてCache-Controlヘッダーを設定
-        if request.url.path.startswith("/static/"):
-            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-        elif request.url.path.startswith("/api/"):
-            response.headers["Cache-Control"] = "no-store, no-cache"
-        else:
-            response.headers["Cache-Control"] = "no-cache"
-
-        return response
-```
-
-### 5.11 セキュリティミドルウェア（`app/utils/security.py` へ追加）
-
-**SecurityHeadersMiddlewareクラス**:
-
-セキュリティ関連のHTTPヘッダーを自動設定するミドルウェアです。XSS、クリックジャッキング、MIME スニッフィング攻撃を防止します。
-
-**設定されるセキュリティヘッダー**:
-
-| ヘッダー                    | 値                                    | 効果                     |
-| --------------------------- | ------------------------------------- | ------------------------ |
-| `X-Content-Type-Options`    | `nosniff`                             | MIME スニッフィング防止  |
-| `X-Frame-Options`           | `DENY`                                | クリックジャッキング防止 |
-| `X-XSS-Protection`          | `1; mode=block`                       | XSS 攻撃検出・ブロック   |
-| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | HTTPS 強制（1年間）      |
-
-**使用例（FastAPI Application Factoryでの登録）**:
-
-```python
-from fastapi import FastAPI
-from app.utils.security import SecurityHeadersMiddleware
-
-def create_app():
-    """FastAPIアプリケーション生成."""
-    app = FastAPI()
-
-    # セキュリティヘッダーミドルウェアを追加
-    app.add_middleware(SecurityHeadersMiddleware)
-
-    return app
-```
-
-**実装パターン**:
-
-```python
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
-
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """セキュリティヘッダー自動設定ミドルウェア."""
-
-    async def dispatch(self, request: Request, call_next):
-        """リクエスト処理とセキュリティヘッダー設定."""
-        response: Response = await call_next(request)
-
-        # セキュリティヘッダーを設定
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Strict-Transport-Security"] = (
-            "max-age=31536000; includeSubDomains"
-        )
-
-        return response
-```
-
-**本番環境での追加設定**:
-
-本番環境では、以下の追加設定を推奨します:
-
-| ミドルウェア              | 説明                             |
-| ------------------------- | -------------------------------- |
-| `HTTPSRedirectMiddleware` | HTTP → HTTPS リダイレクト強制    |
-| `TrustedHostMiddleware`   | 許可されたホスト名のみ受け入れ   |
-| `GZipMiddleware`          | レスポンス圧縮（1000バイト以上） |
-
-### 5.12 システム定数（`app/utils/constants.py`）
-
-**株価データ関連定数**:
-
-| 定数名                | 値        | 説明                   |
-| --------------------- | --------- | ---------------------- |
-| `SUPPORTED_INTERVALS` | List[str] | サポートされる時間軸   |
-| `DEFAULT_PERIOD`      | "1mo"     | デフォルト取得期間     |
-| `MAX_BATCH_SYMBOLS`   | 5000      | 一括処理最大銘柄数     |
-| `MAX_WORKERS`         | 10        | 並列処理最大ワーカー数 |
-
-**API関連定数**:
-
-| 定数名                     | 値  | 説明                       |
-| -------------------------- | --- | -------------------------- |
-| `DEFAULT_PAGINATION_LIMIT` | 100 | デフォルトページサイズ     |
-| `MAX_PAGINATION_LIMIT`     | 100 | 最大ページサイズ           |
-| `RATE_LIMIT_REQUESTS`      | 10  | レート制限リクエスト数     |
-| `RATE_LIMIT_WINDOW`        | 60  | レート制限ウィンドウ（秒） |
-
-**ビジネスロジック定数**:
-
-| 定数名              | 値        | 説明                    |
-| ------------------- | --------- | ----------------------- |
-| `MARKET_OPEN_TIME`  | "09:00"   | 市場開始時刻            |
-| `MARKET_CLOSE_TIME` | "15:00"   | 市場終了時刻            |
-| `TRADING_DAYS`      | List[int] | 取引曜日（月〜金: 0-4） |
+### 5.5 バッチ処理ユーティリティ（`app/utils/batch_utils.py`）
+
+**実装済みの機能**:
+
+| 関数/クラス          | 用途                               |
+| -------------------- | ---------------------------------- |
+| `chunk_list()`       | リストを指定サイズのチャンクに分割 |
+| `parallel_execute()` | 並列実行ユーティリティ             |
+| `ProgressTracker`    | バッチ処理の進捗追跡クラス         |
+
+このモジュールは、大量データのバッチ処理を効率的に実行するためのユーティリティを提供します。
+
+> **注**: 以下のモジュールは現在未実装です：
+> - `app/utils/security.py` - セキュリティユーティリティ（認証、JWT等）
+> - `app/utils/retry.py` - リトライロジック
+> - `app/utils/rate_limiter.py` - レート制限
+> - `app/utils/websocket_manager.py` - WebSocket接続管理
+> - `app/utils/cache.py` - キャッシュ制御ミドルウェア
+> - `app/utils/constants.py` - システム定数
+> - `app/utils/time_utils.py` - 時間軸変換・日時処理
+> - `app/utils/api_response.py` - APIレスポンス生成ヘルパー
+>
+> これらの機能は、必要に応じて将来的に実装される予定です。
 
 ---
 
@@ -1163,72 +647,56 @@ graph TB
         DataAccess[データアクセス層]
     end
 
-    subgraph Exceptions[例外定義モジュール]
+    subgraph Exceptions[例外定義モジュール - 実装済み]
         BaseException[基底例外<br/>AppException]
         DatabaseExceptions[データベース例外群]
         APIExceptions[外部API例外群]
         ValidationExceptions[バリデーション例外群]
         BusinessExceptions[ビジネスロジック例外群]
+        SystemExceptions[システム例外群]
     end
 
-    subgraph Schemas[Pydanticスキーマモジュール]
-        CommonSchemas[共通スキーマ<br/>メタデータ/ページネーション]
-        ResponseSchemas[レスポンススキーマ<br/>成功/エラー/ページネーション]
-        DomainSchemas[ドメイン別スキーマ<br/>市場データ/分析/ユーザー]
+    subgraph Schemas[Pydanticスキーマモジュール - 一部実装]
+        BaseSchemas[基底スキーマ<br/>BaseSchema/Pagination]
+        MarketDataSchemas[市場データスキーマ<br/>stock_price/stock_master]
+        BatchSchemas[バッチ処理スキーマ]
     end
 
-    subgraph Core[サービス層向け共通基盤モジュール]
-        BaseFetcher[BaseFetcher<br/>データ取得抽象化]
-        BaseSaver[BaseSaver<br/>データ保存抽象化]
-        BaseValidator[BaseValidator<br/>データ検証抽象化]
-        BaseConverter[BaseConverter<br/>データ変換抽象化]
-        Decorators[デコレータ<br/>error_handler/retry]
-    end
-
-    subgraph Utils[ユーティリティモジュール]
+    subgraph Utils[ユーティリティモジュール - 一部実装]
         Logger[ロガー設定]
-        TimeUtils[時間軸変換・日時処理]
-        APIResponse[APIレスポンス生成]
-        Validators[共通バリデータ]
+        Validation[共通バリデータ]
         Database[データベース接続管理]
         Config[設定管理]
-        Security[セキュリティ]
-        Retry[リトライロジック]
-        Constants[システム定数]
+        BatchUtils[バッチ処理ユーティリティ]
     end
 
     API --> BaseException
-    API --> ResponseSchemas
-    API --> APIResponse
-    API --> Validators
+    API --> BaseSchemas
+    API --> Validation
 
     Service --> DatabaseExceptions
-    Service --> DomainSchemas
-    Service --> BaseFetcher
-    Service --> BaseSaver
-    Service --> Decorators
-    Service --> TimeUtils
+    Service --> MarketDataSchemas
+    Service --> BatchUtils
 
     DataAccess --> DatabaseExceptions
-    DataAccess --> CommonSchemas
+    DataAccess --> BaseSchemas
     DataAccess --> Database
 
-    Core -.->|uses| BaseException
-    Core -.->|uses| Logger
-    Core -.->|uses| Retry
     BaseException -.->|uses| Logger
-    ResponseSchemas -.->|uses| CommonSchemas
-    Validators -.->|uses| Constants
-    Security -.->|uses| Config
+    BatchSchemas -.->|uses| BaseSchemas
 
     style ApplicationLayers fill:#e1f5ff
     style Exceptions fill:#ffe1f5
     style Schemas fill:#e1ffe1
-    style Core fill:#ffe1e1
     style Utils fill:#fff4e1
 ```
 
-### 7.2 エラーハンドリングフロー
+**実装状況の凡例**:
+- **実装済み**: exceptions/ 配下の全モジュール
+- **一部実装**: schemas/ (base.py, batch.py, market_data/)、utils/ (logger.py, validation.py, database.py, config.py, batch_utils.py)
+- **未実装**: utils/ 配下のその他モジュール（time_utils.py, api_response.py, security.py, retry.py等）
+
+### 6.2 エラーハンドリングフロー
 
 ```mermaid
 sequenceDiagram
@@ -2020,6 +1488,12 @@ async def create_stock(
 
 ---
 
-**最終更新**: 2025-11-16
+**最終更新**: 2026-01-01
 **設計方針**: DRY原則 + 型安全性 + 一貫性による保守性の向上
 **アーキテクチャ**: 横断的関心事の共通化により、薄いAPI層とクリーンなサービス層を実現
+
+**実装状況**:
+- **例外定義モジュール**: 完全実装済み (base.py, database.py, external_api.py, validation.py, business.py, system.py, handlers.py)
+- **Pydanticスキーマモジュール**: 一部実装済み (base.py, batch.py, market_data/)
+- **ユーティリティモジュール**: 一部実装済み (logger.py, validation.py, database.py, config.py, batch_utils.py)
+- **未実装**: time_utils.py, api_response.py, security.py, retry.py, rate_limiter.py, websocket_manager.py, cache.py, constants.py 等は将来的に実装予定

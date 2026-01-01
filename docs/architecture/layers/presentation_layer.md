@@ -20,21 +20,17 @@ related_docs:
   - [2. 構成](#2-構成)
     - [ディレクトリ構造](#ディレクトリ構造)
     - [レイヤー間の通信](#レイヤー間の通信)
-  - [3. FastAPI Application Factory](#3-fastapi-application-factory)
-    - [3.1 Application Factory パターン](#31-application-factory-パターン)
-    - [3.2 ファクトリ関数（app/main.py）](#32-ファクトリ関数appmainpy)
-    - [3.3 設定クラス（app/config.py）](#33-設定クラスappconfigpy)
-    - [3.4 拡張機能初期化（app/main.py）](#34-拡張機能初期化appmainpy)
-  - [4. テンプレートエンジン](#4-テンプレートエンジン)
-    - [4.1 Jinja2テンプレート構成](#41-jinja2テンプレート構成)
-    - [4.2 ページルート定義](#42-ページルート定義)
-  - [5. 静的ファイル管理](#5-静的ファイル管理)
-    - [5.1 CSS構成](#51-css構成)
-    - [5.2 JavaScript構成](#52-javascript構成)
-  - [6. WebSocket通信](#6-websocket通信)
-    - [6.1 WebSocketエンドポイント](#61-websocketエンドポイント)
-    - [6.2 進捗配信パターン](#62-進捗配信パターン)
-    - [6.3 フロントエンドWebSocketクライアント](#63-フロントエンドwebsocketクライアント)
+  - [3. FastAPI アプリケーション構成](#3-fastapi-アプリケーション構成)
+    - [3.1 アプリケーション生成（app/main.py）](#31-アプリケーション生成appmainpy)
+    - [3.2 設定クラス（app/utils/config.py）](#32-設定クラスapputilsconfigpy)
+    - [3.3 例外ハンドラ登録（app/main.py）](#33-例外ハンドラ登録appmainpy)
+    - [3.4 将来の拡張機能（計画）](#34-将来の拡張機能計画)
+  - [4. テンプレートエンジン（将来実装予定）](#4-テンプレートエンジン将来実装予定)
+    - [4.1 実装計画](#41-実装計画)
+  - [5. 静的ファイル管理（将来実装予定）](#5-静的ファイル管理将来実装予定)
+    - [5.1 実装計画](#51-実装計画)
+  - [6. WebSocket通信（将来実装予定）](#6-websocket通信将来実装予定)
+    - [6.1 実装計画](#61-実装計画)
   - [7. APIドキュメント自動生成](#7-apiドキュメント自動生成)
     - [7.1 Swagger UI](#71-swagger-ui)
     - [7.2 ReDoc](#72-redoc)
@@ -43,15 +39,12 @@ related_docs:
     - [8.1 プレゼンテーション層全体構成](#81-プレゼンテーション層全体構成)
     - [8.2 リクエスト処理フロー](#82-リクエスト処理フロー)
   - [9. セキュリティ](#9-セキュリティ)
-    - [9.1 CORS設定](#91-cors設定)
-    - [9.2 HTTPS強制（本番環境）](#92-https強制本番環境)
-    - [9.3 セキュリティヘッダー](#93-セキュリティヘッダー)
-    - [9.4 レート制限](#94-レート制限)
+    - [9.1 CORS設定（将来実装予定）](#91-cors設定将来実装予定)
+    - [9.2 セキュリティヘッダー（将来実装予定）](#92-セキュリティヘッダー将来実装予定)
+    - [9.3 レート制限（将来実装予定）](#93-レート制限将来実装予定)
   - [10. パフォーマンス最適化](#10-パフォーマンス最適化)
-    - [10.1 静的ファイルキャッシュ](#101-静的ファイルキャッシュ)
-    - [10.2 圧縮（Gzip）](#102-圧縮gzip)
-    - [10.3 CDN活用（本番環境）](#103-cdn活用本番環境)
-    - [10.4 非同期処理の活用](#104-非同期処理の活用)
+    - [10.1 非同期処理](#101-非同期処理)
+    - [10.2 将来の最適化計画](#102-将来の最適化計画)
   - [関連ドキュメント](#関連ドキュメント)
 
 
@@ -99,59 +92,24 @@ app/
 ├── config.py                  # 環境別設定クラス
 ├── extensions.py              # 拡張機能初期化（WebSocket等）
 │
-├── api/                       # API層（12種類のAPIRouter）
-│   ├── __init__.py
+├── api/                       # API層
+│   ├── __init__.py            # v1ルーターの統合
 │   ├── dependencies/          # 依存性注入モジュール
-│   ├── decorators/            # 共通デコレータ
-│   ├── validators/            # 共通バリデータ
-│   ├── error_handlers.py      # エラーハンドラ
-│   ├── batch_data.py          # 一括データ取得API
-│   ├── stock_master.py        # 銘柄マスタAPI
-│   ├── stock_data.py          # 株価データAPI
-│   ├── fundamental.py         # ファンダメンタルデータAPI
-│   ├── portfolio.py           # ポートフォリオAPI
-│   ├── market_indices.py      # 市場インデックスAPI
-│   ├── screening.py           # スクリーニングAPI
-│   ├── backtest.py            # バックテストAPI
-│   ├── user.py                # ユーザー管理API
-│   ├── auth.py                # 認証API
-│   ├── notification.py        # 通知API
-│   └── system_monitoring.py   # システム監視API
+│   └── v1/                    # バージョン1のAPIエンドポイント
+│       ├── __init__.py        # v1サブルーターの統合
+│       ├── batch.py           # バッチ処理API
+│       ├── stock_master.py    # 銘柄マスタAPI
+│       └── stock_price.py     # 株価データAPI
 │
-├── templates/                 # Jinja2テンプレート
-│   ├── base.html              # 基本レイアウト
-│   ├── index.html             # メインダッシュボード
-│   ├── auth/                  # 認証関連ページ
-│   │   ├── login.html
-│   │   └── register.html
-│   ├── portfolio/             # ポートフォリオページ
-│   │   ├── summary.html
-│   │   └── detail.html
-│   ├── screening/             # スクリーニングページ
-│   │   └── index.html
-│   ├── backtest/              # バックテストページ
-│   │   └── index.html
-│   └── partials/              # 再利用可能コンポーネント
-│       ├── navbar.html
-│       ├── footer.html
-│       ├── alerts.html
-│       └── pagination.html
+├── templates/                 # Jinja2テンプレート（将来実装予定）
+│   └── .gitkeep
 │
-└── static/                    # 静的ファイル
-    ├── css/                   # スタイルシート
-    │   ├── main.css           # メインスタイル
-    │   ├── dashboard.css      # ダッシュボード専用
-    │   └── components.css     # 共通コンポーネント
-    ├── js/                    # JavaScript
-    │   ├── app.js             # メインロジック
-    │   ├── state-manager.js   # 状態管理
-    │   ├── api-client.js      # APIクライアント
-    │   ├── websocket-client.js # WebSocketクライアント
-    │   ├── chart-manager.js   # チャート管理（Lightweight Charts）
-    │   └── utils.js           # ユーティリティ
-    └── images/                # 画像ファイル
-        ├── logo.svg
-        └── icons/
+└── static/                    # 静的ファイル（将来実装予定）
+    ├── css/
+    │   └── .gitkeep
+    ├── js/
+    │   └── .gitkeep
+    └── images/
 ```
 
 ### レイヤー間の通信
@@ -190,277 +148,189 @@ graph TB
 
 ---
 
-## 3. FastAPI Application Factory
+## 3. FastAPI アプリケーション構成
 
-### 3.1 Application Factory パターン
+### 3.1 アプリケーション生成（app/main.py）
 
-**目的**: 環境ごとに異なる設定でアプリケーションインスタンスを生成し、テスタビリティと柔軟性を向上させる。
+**現在の実装状況**:
 
-### 3.2 ファクトリ関数（app/main.py）
+現在は直接 `FastAPI` インスタンスを生成する方式を採用しています。将来的には Application Factory パターンへの移行を検討します。
 
 **主要機能**:
 
-- `create_app(config_name: Environment) -> FastAPI`: 環境設定に基づいたアプリケーションインスタンス生成
-- FastAPIインスタンス生成（title, description, version, OpenAPI URL設定）
-- ミドルウェア追加（CORS, セキュリティヘッダー等）
-- 拡張機能初期化（WebSocket Manager等）
-- APIRouter一括登録
-- エラーハンドラ登録
-- 静的ファイルマウント（`/static`）
-- Jinja2テンプレート設定
+- FastAPIインスタンス直接生成（title, lifespan設定）
+- ライフスパンハンドラによるDB接続管理
+- 例外ハンドラ登録（`AppException`, `HTTPException`, `RequestValidationError`, 汎用例外）
+- APIRouter登録（`/api` プレフィックス）
+- ヘルスチェックエンドポイント（`/health`）
 
-**エントリーポイント**:
-
-```python
-# アプリケーションインスタンス生成
-app = create_app(config_name=Environment.DEVELOPMENT)
-```
-
-### 3.3 設定クラス（app/config.py）
-
-**環境別設定**:
-
-| 環境                | DEBUG | DATABASE_URL        | CORS設定                             |
-| ------------------- | ----- | ------------------- | ------------------------------------ |
-| `DevelopmentConfig` | True  | PostgreSQL (開発用) | localhost:3000, localhost:8000       |
-| `TestingConfig`     | False | SQLite (インメモリ) | localhost:3000, localhost:8000       |
-| `ProductionConfig`  | False | PostgreSQL (本番用) | 環境変数 `FRONTEND_URL` から読み込み |
-
-**共通設定項目**:
-
-- SECRET_KEY: アプリケーション秘密鍵
-- JWT_SECRET_KEY / JWT_ALGORITHM / JWT_EXPIRATION: JWT認証設定
-- WEBSOCKET_PING_INTERVAL / WEBSOCKET_PING_TIMEOUT: WebSocket接続維持設定
-- API_TIMEOUT / API_RETRY_COUNT: 外部API呼び出し設定
-
-### 3.4 拡張機能初期化（app/main.py）
-
-**共通モジュールの活用**:
-
-プレゼンテーション層では、以下の共通モジュールを利用します:
-
-| 共通モジュール              | 用途                              | インポート元                  |
-| --------------------------- | --------------------------------- | ----------------------------- |
-| `websocket_manager`         | WebSocket接続管理（シングルトン） | `app.utils.websocket_manager` |
-| `SecurityHeadersMiddleware` | セキュリティヘッダー自動設定      | `app.utils.security`          |
-| `CacheControlMiddleware`    | キャッシュ制御ヘッダー自動設定    | `app.utils.cache`             |
-| `settings`                  | 環境別設定                        | `app.utils.config`            |
-
-**初期化処理**:
+**実装例**:
 
 ```python
 from fastapi import FastAPI
-from app.utils.websocket_manager import websocket_manager
-from app.utils.security import SecurityHeadersMiddleware
-from app.utils.cache import CacheControlMiddleware
-from app.utils.config import settings
+from contextlib import asynccontextmanager
 
-def create_app(config_name: Environment) -> FastAPI:
-    """FastAPIアプリケーション生成（共通モジュール活用）."""
-    app = FastAPI(
-        title=settings.APP_NAME,
-        version=settings.VERSION,
-        debug=settings.DEBUG
-    )
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # 起動処理: DBプールのウォームアップ
+    yield
+    # 終了処理: DBリソースのクリーンアップ
 
-    # 共通モジュールのミドルウェアを登録
-    app.add_middleware(SecurityHeadersMiddleware)
-    app.add_middleware(CacheControlMiddleware)
-
-    # WebSocketManagerをアプリケーション状態に登録
-    app.state.websocket_manager = websocket_manager
-
-    return app
+app = FastAPI(title="Stock Investment Analyzer API", lifespan=lifespan)
 ```
 
-**WebSocketManager の利用**:
+### 3.2 設定クラス（app/utils/config.py）
 
-WebSocketManager は共通モジュール (`app.utils.websocket_manager`) で定義されています。プレゼンテーション層では、WebSocketエンドポイントでこれを利用します。
+**実装状況**:
 
-主要メソッド:
-- `connect(client_id, websocket)`: クライアント接続受け入れ
-- `disconnect(client_id)`: クライアント切断処理
-- `send_to_client(client_id, message)`: 特定クライアントへメッセージ送信
-- `broadcast(message)`: 全クライアントへメッセージ配信
+現在は `pydantic-settings` を使用した単一の `Settings` クラスで環境変数から設定を読み込んでいます。
 
-詳細は [共通モジュール仕様書 - 5.9 WebSocket接続管理](./common_modules.md#59-websocket接続管理apputilswebsocket_managerpy) を参照してください。
+**主要設定項目**:
 
----
+- `APP_NAME`: アプリケーション名
+- `APP_VERSION`: アプリケーションバージョン
+- `DEBUG`: デバッグフラグ
+- `ENV`: 環境識別子（development/production/test）
+- `batch`: バッチ処理関連のネスト設定（`BatchProcessingSettings`）
 
-## 4. テンプレートエンジン
+**BatchProcessingSettings**:
 
-### 4.1 Jinja2テンプレート構成
+- `batch_size`: バッチサイズ（デフォルト: 100）
+- `max_concurrent`: 同時実行タスク数（デフォルト: 20）
+- `retry_attempts`: リトライ試行回数（デフォルト: 3）
+- `retry_delay`: リトライ間の遅延秒数（デフォルト: 1.0）
+- `request_timeout`: HTTPリクエストタイムアウト秒数（デフォルト: 30）
+- `operation_timeout`: 全体操作タイムアウト秒数（デフォルト: 3600）
+- `rate_limit_calls`: API呼び出し上限（デフォルト: 2000）
+- `rate_limit_period`: レート制限時間窓秒数（デフォルト: 3600）
 
-**基本レイアウト（templates/base.html）**:
-
-- ヘッダー: ナビゲーションバー、ユーザー情報
-- コンテンツエリア: ページ固有のコンテンツ
-- フッター: コピーライト、リンク
-
-**テンプレート継承パターン**:
-
-- **base.html**: 基本レイアウト
-  - `{% block title %}`: ページタイトル
-  - `{% block extra_css %}`: ページ固有CSS
-  - `{% block content %}`: メインコンテンツ領域
-  - `{% block extra_js %}`: ページ固有JavaScript
-  - `{% include 'partials/navbar.html' %}`: ナビゲーションバー
-  - `{% include 'partials/footer.html' %}`: フッター
-
-- **子テンプレート（例: index.html）**:
-  - `{% extends "base.html" %}`: 基本レイアウト継承
-  - 各ブロックをオーバーライドしてページ固有の内容を定義
-
-### 4.2 ページルート定義
-
-**主要ページエンドポイント**:
-
-| エンドポイント       | テンプレート             | 認証要否 | 説明                 |
-| -------------------- | ------------------------ | -------- | -------------------- |
-| `GET /`              | `index.html`             | 任意     | メインダッシュボード |
-| `GET /auth/login`    | `auth/login.html`        | 不要     | ログインページ       |
-| `GET /auth/register` | `auth/register.html`     | 不要     | ユーザー登録ページ   |
-| `GET /portfolio`     | `portfolio/summary.html` | 必須     | ポートフォリオサマリ |
-| `GET /screening`     | `screening/index.html`   | 必須     | スクリーニングページ |
-| `GET /backtest`      | `backtest/index.html`    | 必須     | バックテストページ   |
-
-**実装パターン**:
-
-- `response_class=HTMLResponse`: HTML応答指定
-- `Depends(get_current_user)`: 認証必須エンドポイント
-- `Depends(get_current_user_optional)`: 認証任意エンドポイント
-- `TemplateResponse`: Jinja2テンプレートレンダリング
-
----
-
-## 5. 静的ファイル管理
-
-### 5.1 CSS構成
-
-**メインスタイルシート（static/css/main.css）**:
-
-- グローバルスタイル
-- レスポンシブデザイン
-- CSS変数によるテーマ管理
-
-**CSS設計方針**:
-
-| 方針             | 説明                                  |
-| ---------------- | ------------------------------------- |
-| **BEM命名規則**  | Block-Element-Modifier による構造化   |
-| **モジュール化** | コンポーネントごとにCSSファイルを分離 |
-| **CSS変数**      | テーマ切替（ライト/ダーク）対応       |
-| **レスポンシブ** | モバイル/タブレット/デスクトップ対応  |
-
-### 5.2 JavaScript構成
-
-**主要モジュール**:
-
-| ファイル              | 責務                                   |
-| --------------------- | -------------------------------------- |
-| `app.js`              | メインエントリーポイント、初期化処理   |
-| `state-manager.js`    | グローバル状態管理（シングルトン）     |
-| `api-client.js`       | Fetch API ラッパー、エラーハンドリング |
-| `websocket-client.js` | WebSocket通信の抽象化                  |
-| `chart-manager.js`    | Lightweight Charts 管理                |
-| `utils.js`            | ユーティリティ関数                     |
-
-**APIクライアント（static/js/api-client.js）**:
-
-- **主要機能**:
-  - Fetch API のラッパー
-  - GET/POST/PUT/DELETE メソッド統一インターフェース
-  - 統一エラーハンドリング（`APIError` クラス）
-  - 自動JSON変換
-  - credentials: 'include' でCookie送信
-
-**チャート管理（static/js/chart-manager.js）**:
-
-- **主要機能**:
-  - Lightweight Charts ライブラリのラッパー
-  - ローソク足シリーズ + 出来高シリーズの統合管理
-  - `loadStock(symbol, interval)`: API経由でチャートデータ取得・描画
-  - レスポンシブ対応（コンテナサイズに追従）
-
----
-
-## 6. WebSocket通信
-
-### 6.1 WebSocketエンドポイント
-
-**エンドポイント**: `/ws/{client_id}`
-
-**共通モジュールの利用**:
-
-WebSocket接続管理には、共通モジュールの `websocket_manager` を使用します。
+**設定の取得**:
 
 ```python
-from fastapi import WebSocket, WebSocketDisconnect
-from app.utils.websocket_manager import websocket_manager
+from app.utils.config import get_settings
 
-@app.websocket("/ws/{client_id}")
-async def websocket_endpoint(websocket: WebSocket, client_id: str):
-    """WebSocketエンドポイント（共通モジュール利用）."""
-    await websocket_manager.connect(client_id, websocket)
-    try:
-        while True:
-            data = await websocket.receive_json()
-            # メッセージ処理
-            await websocket_manager.send_to_client(
-                client_id,
-                {"type": "response", "data": "処理完了"}
-            )
-    except WebSocketDisconnect:
-        await websocket_manager.disconnect(client_id)
+settings = get_settings()  # シングルトンパターン
 ```
 
-**処理フロー**:
+### 3.3 例外ハンドラ登録（app/main.py）
 
-1. `websocket_manager.connect(client_id, websocket)`: 接続受け入れ（共通モジュール）
-2. `while True`: メッセージ受信ループ
-3. `websocket.receive_json()`: JSONメッセージ受信
-4. メッセージタイプに応じた処理実行
-5. `websocket_manager.send_to_client()`: レスポンス送信（共通モジュール）
-6. `WebSocketDisconnect` 例外時: 切断処理（共通モジュール）
+**実装状況**:
 
-### 6.2 進捗配信パターン
+現在、以下の例外ハンドラが登録されています:
 
-**メッセージタイプ**:
+| 例外タイプ               | ハンドラ                       | 用途                               |
+| ------------------------ | ------------------------------ | ---------------------------------- |
+| `AppException`           | `app_exception_handler`        | アプリケーション固有の例外処理     |
+| `HTTPException`          | `http_exception_handler`       | FastAPI標準のHTTP例外処理          |
+| `RequestValidationError` | `validation_exception_handler` | リクエストバリデーションエラー処理 |
+| `Exception`              | `general_exception_handler`    | 予期しない例外の汎用処理           |
 
-WebSocketManagerでサポートされるメッセージタイプは、共通モジュールで定義されています。
+**実装例**:
 
-| タイプ     | 用途                 | ペイロード例                                                           |
-| ---------- | -------------------- | ---------------------------------------------------------------------- |
-| `progress` | バッチ処理進捗通知   | `{current: 10, total: 100, symbol: "7203.T", progress_percentage: 10}` |
-| `complete` | バッチ処理完了通知   | `{total: 100, elapsed_time: 120.5}`                                    |
-| `error`    | エラー通知           | `{message: "データ取得失敗", symbol: "7203.T"}`                        |
-| `realtime` | リアルタイム株価更新 | `{symbol: "7203.T", price: 1500, change: +0.5%}`                       |
+```python
+from app.exceptions import (
+    AppException,
+    app_exception_handler,
+    general_exception_handler,
+    http_exception_handler,
+    validation_exception_handler,
+)
 
-**実装パターン**:
-
-サービス層から共通モジュールの `websocket_manager.send_to_client()` を呼び出し、進捗をリアルタイム配信します。
-
-詳細は [共通モジュール仕様書 - 5.9 WebSocket接続管理](./common_modules.md#59-websocket接続管理apputilswebsocket_managerpy) を参照してください。
-
-### 6.3 フロントエンドWebSocketクライアント
-
-**WebSocketClient クラス**:
-
-- **主要機能**:
-  - 自動再接続機能（最大5回、指数バックオフ）
-  - メッセージタイプ別ハンドラ登録（`on(type, handler)`）
-  - JSON自動変換（送受信）
-  - WebSocket URL自動生成（HTTP/HTTPS に応じて ws/wss 切替）
-
-**使用例**:
-
-```javascript
-const wsClient = new WebSocketClient('user-123');
-wsClient.connect();
-
-wsClient.on('progress', (msg) => updateProgressBar(msg.current, msg.total));
-wsClient.on('complete', (msg) => alert('完了'));
+app.add_exception_handler(AppException, app_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(Exception, general_exception_handler)
 ```
+
+### 3.4 将来の拡張機能（計画）
+
+以下の機能は将来的な実装を計画しています:
+
+- **WebSocket接続管理**: リアルタイム通信用のWebSocketManager
+- **セキュリティヘッダーミドルウェア**: セキュリティヘッダー自動設定
+- **キャッシュ制御ミドルウェア**: キャッシュ制御ヘッダー自動設定
+- **レート制限**: API呼び出しのレート制限機能
+
+---
+
+## 4. テンプレートエンジン（将来実装予定）
+
+### 4.1 実装計画
+
+現在、HTMLフロントエンドは未実装です。将来的に以下の実装を計画しています:
+
+**予定されているテンプレート構成**:
+
+- Jinja2テンプレートエンジンの導入
+- 基本レイアウトテンプレート（`base.html`）
+- ページ固有テンプレート（ダッシュボード、認証ページ等）
+- 再利用可能な部品テンプレート（ナビゲーション、フッター等）
+
+**予定されているページエンドポイント**:
+
+| エンドポイント    | 説明                 | 優先度 |
+| ----------------- | -------------------- | ------ |
+| `GET /`           | メインダッシュボード | 高     |
+| `GET /auth/login` | ログインページ       | 高     |
+| `GET /portfolio`  | ポートフォリオ表示   | 中     |
+| `GET /screening`  | スクリーニング       | 中     |
+
+---
+
+## 5. 静的ファイル管理（将来実装予定）
+
+### 5.1 実装計画
+
+現在、静的ファイル（CSS/JavaScript）は未実装です。将来的に以下の実装を計画しています:
+
+**予定されているCSS構成**:
+
+- BEM命名規則によるCSS設計
+- CSS変数によるテーマ管理（ライト/ダーク切替）
+- レスポンシブデザイン対応
+- モジュール化されたコンポーネントスタイル
+
+**予定されているJavaScript構成**:
+
+| モジュール（予定）    | 責務                                   |
+| --------------------- | -------------------------------------- |
+| `app.js`              | メインエントリーポイント、初期化処理   |
+| `api-client.js`       | Fetch API ラッパー、エラーハンドリング |
+| `websocket-client.js` | WebSocket通信の抽象化                  |
+| `chart-manager.js`    | チャート描画管理（Lightweight Charts） |
+| `utils.js`            | ユーティリティ関数                     |
+
+---
+
+## 6. WebSocket通信（将来実装予定）
+
+### 6.1 実装計画
+
+現在、WebSocket機能は未実装です。将来的に以下の実装を計画しています:
+
+**予定されている機能**:
+
+- リアルタイム株価更新配信
+- バッチ処理進捗通知
+- システムアラート・通知配信
+- クライアント接続管理（WebSocketManager）
+
+**予定されているメッセージタイプ**:
+
+| タイプ（予定） | 用途                 |
+| -------------- | -------------------- |
+| `progress`     | バッチ処理進捗通知   |
+| `complete`     | バッチ処理完了通知   |
+| `error`        | エラー通知           |
+| `realtime`     | リアルタイム株価更新 |
+
+**予定されているエンドポイント**:
+
+```
+GET /ws/{client_id}
+```
+
+**実装優先度**: 中（v0.3.0以降で検討）
 
 ---
 
@@ -514,22 +384,14 @@ graph TB
         WebSocket[WebSocket Manager<br/>リアルタイム通信]
     end
 
-    subgraph APILayer[API層]
-        Router1[Batch Data API]
+    subgraph APILayer[API層 v1]
+        Router1[Batch API]
         Router2[Stock Master API]
-        Router3[Stock Data API]
-        Router4[Fundamental API]
-        Router5[Portfolio API]
-        Router6[Screening API]
-        Router7[Backtest API]
-        Router8[User API]
-        Router9[Auth API]
-        Router10[Notification API]
-        Router11[System API]
+        Router3[Stock Price API]
     end
 
     subgraph ServiceLayer[サービス層]
-        Services[ビジネスロジック<br/>12種類のサービス]
+        Services[ビジネスロジック<br/>各種サービス]
     end
 
     Browser -->|HTTP GET /| FastAPI
@@ -542,8 +404,8 @@ graph TB
     Browser <-->|WebSocket| WebSocket
 
     Browser -->|HTTP /api/*| FastAPI
-    FastAPI -->|route| Router1 & Router2 & Router3 & Router4 & Router5 & Router6 & Router7 & Router8 & Router9 & Router10 & Router11
-    Router1 & Router2 & Router3 & Router4 & Router5 & Router6 & Router7 & Router8 & Router9 & Router10 & Router11 -->|await| Services
+    FastAPI -->|route| Router1 & Router2 & Router3
+    Router1 & Router2 & Router3 -->|await| Services
 
     style FastAPI fill:#e1f5ff
     style APILayer fill:#fff4e1
@@ -587,128 +449,68 @@ sequenceDiagram
 
 プレゼンテーション層では、共通モジュールのセキュリティ機能を活用してアプリケーションを保護します。
 
-### 9.1 CORS設定
+### 9.1 CORS設定（将来実装予定）
 
-**共通モジュールの設定利用**:
+現在、CORSミドルウェアは未設定です。将来的にフロントエンドを実装する際に追加します。
 
-CORS設定は `app.utils.config` (共通モジュール) の `settings` で管理されます。
+**実装計画**:
 
 ```python
 from fastapi.middleware.cors import CORSMiddleware
-from app.utils.config import settings
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,  # 共通モジュールから取得
+    allow_origins=["http://localhost:3000"],  # 開発環境
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 ```
 
-**環境別設定**:
-- **本番環境**: 環境変数 `FRONTEND_URL` から許可オリジンを読み込み
-- **開発環境**: `localhost:3000`, `localhost:8000` を許可
+### 9.2 セキュリティヘッダー（将来実装予定）
 
-### 9.2 HTTPS強制（本番環境）
+現在、セキュリティヘッダーの自動設定は未実装です。将来的に以下のヘッダーを追加する計画です:
 
-**共通モジュールの設定に基づく条件付き有効化**:
-
-```python
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
-from app.utils.config import settings
-
-if settings.ENVIRONMENT == "production":
-    app.add_middleware(HTTPSRedirectMiddleware)
-```
-
-### 9.3 セキュリティヘッダー
-
-**共通モジュールのミドルウェア利用**:
-
-セキュリティヘッダーの設定には、`app.utils.security` (共通モジュール) の `SecurityHeadersMiddleware` を使用します。
-
-```python
-from app.utils.security import SecurityHeadersMiddleware
-
-app.add_middleware(SecurityHeadersMiddleware)
-```
-
-**設定されるセキュリティヘッダー**:
-
-| ヘッダー                    | 値                                    | 効果                     |
+| ヘッダー（予定）            | 値                                    | 効果                     |
 | --------------------------- | ------------------------------------- | ------------------------ |
 | `X-Content-Type-Options`    | `nosniff`                             | MIME スニッフィング防止  |
 | `X-Frame-Options`           | `DENY`                                | クリックジャッキング防止 |
 | `X-XSS-Protection`          | `1; mode=block`                       | XSS 攻撃検出・ブロック   |
-| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | HTTPS 強制（1年間）      |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | HTTPS 強制（本番環境）   |
 
-詳細は [共通モジュール仕様書 - 5.11 セキュリティミドルウェア](./common_modules.md#511-セキュリティミドルウェアapputilssecuritypy-へ追加) を参照してください。
+### 9.3 レート制限（将来実装予定）
 
-### 9.4 レート制限
-
-**共通モジュールのレート制限機能利用**:
-
-レート制限には、`app.utils.rate_limiter` (共通モジュール) の `rate_limit` デコレータを使用します。
-
-```python
-from app.utils.rate_limiter import rate_limit
-
-@router.post("/api/batch/jobs")
-@rate_limit(max_requests=10, window_seconds=60)
-async def start_batch_fetch(...):
-    """一括データ取得開始（10リクエスト/60秒）."""
-    ...
-```
-
-詳細は [共通モジュール仕様書 - 5.8 レート制限](./common_modules.md#58-レート制限apputilsrate_limiterpy) を参照してください。
+現在、レート制限機能は未実装です。将来的にAPIエンドポイントごとにレート制限を追加する計画です。
 
 ---
 
 ## 10. パフォーマンス最適化
 
-### 10.1 静的ファイルキャッシュ
+### 10.1 非同期処理
 
-**共通モジュールのキャッシュ制御ミドルウェア利用**:
+**現在の実装状況**:
 
-キャッシュ制御には、`app.utils.cache` (共通モジュール) の `CacheControlMiddleware` を使用します。
+FastAPIの非同期機能を活用しています:
 
-```python
-from app.utils.cache import CacheControlMiddleware
+- 全APIエンドポイントで `async/await` を使用
+- データベースアクセスの非同期実行
+- 並行処理による高速なバッチ処理（`asyncio.gather`）
 
-app.add_middleware(CacheControlMiddleware)
-```
+### 10.2 将来の最適化計画
 
-**Cache-Control ヘッダー設定**:
+以下の最適化を将来的に実装する計画です:
 
-| パス        | Cache-Controlヘッダー値               | 説明                          |
-| ----------- | ------------------------------------- | ----------------------------- |
-| `/static/*` | `public, max-age=31536000, immutable` | 静的ファイル: 1年間キャッシュ |
-| `/api/*`    | `no-store, no-cache`                  | APIレスポンス: キャッシュ無効 |
-| その他      | `no-cache`                            | デフォルト: 毎回検証          |
+**静的ファイルキャッシュ**:
+- Cache-Controlヘッダーの自動設定
+- 静的ファイルの長期キャッシュ（1年間）
 
-詳細は [共通モジュール仕様書 - 5.10 キャッシュ制御ミドルウェア](./common_modules.md#510-キャッシュ制御ミドルウェアapputilscachepy) を参照してください。
+**レスポンス圧縮**:
+- GZipミドルウェアの追加
+- JSONレスポンスの自動圧縮
 
-### 10.2 圧縮（Gzip）
-
-- **ミドルウェア**: `GZipMiddleware`
-- **最小サイズ**: 1000バイト以上で圧縮有効化
-- 効果: テキストベースのレスポンス（JSON/HTML/CSS/JS）を自動圧縮
-
-### 10.3 CDN活用（本番環境）
-
-**外部ライブラリのCDN利用**:
-
-- Lightweight Charts: `cdn.jsdelivr.net`
-- フォント・アイコン: Google Fonts CDN
-
-### 10.4 非同期処理の活用
-
-**バックグラウンドタスク**:
-
-- `BackgroundTasks.add_task()` で長時間処理をバックグラウンド実行
-- 即座にレスポンス返却（202 Accepted）
-- WebSocket経由で進捗通知
+**CDN活用**（本番環境）:
+- 静的ファイルのCDN配信
+- 外部ライブラリのCDN利用
 
 ---
 
