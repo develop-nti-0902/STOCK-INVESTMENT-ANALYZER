@@ -1,9 +1,8 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.exceptions import (
@@ -60,9 +59,6 @@ logger = get_logger(__name__)
 # 起動時に設定を一度だけ読み込み、アプリ状態に保持
 app.state.settings = get_settings()
 
-# テンプレートエンジンの設定
-templates = Jinja2Templates(directory="app/templates")
-
 # 静的ファイルのマウント
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -101,7 +97,8 @@ except ImportError:
 try:
     from app.api.admin import batch
 
-    app.include_router(batch.router)
+    router: APIRouter = batch.router
+    app.include_router(router)
 except ImportError:
     # 管理画面が未実装の場合は無視
     pass

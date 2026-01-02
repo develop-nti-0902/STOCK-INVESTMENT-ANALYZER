@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from app.main import templates
+from app.templates_config import templates
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
