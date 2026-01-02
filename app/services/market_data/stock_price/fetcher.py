@@ -1,8 +1,10 @@
-"""
-株価データ取得クラス
+"""Yahoo Finance を利用した株価データ取得モジュール.
 
-Yahoo Finance API (yfinance) を使用して株価データを取得します。
-仕様書: docs/architecture/layers/service_layer.md 3.2.1章
+yfinance をラップして株価データを取得・整形する機能を提供します.
+
+Notes:
+    - 取得は同期的な yfinance API をスレッド実行で非同期に扱います。
+    - タイムフレームごとの取得制約やフォールバック処理を含みます。
 """
 
 import asyncio
@@ -15,6 +17,7 @@ import yfinance as yf
 from pydantic import ValidationError
 
 from app.exceptions.external_api import YahooFinanceError
+from app.exceptions.validation import FieldValidationError
 from app.schemas.market_data.stock_price import StockData
 from app.services.core.fetchers.retry_mixin import RetryMixin
 from app.utils.config import get_settings
@@ -66,7 +69,9 @@ class TimeframeMapping:
     def get_yfinance_interval(cls, timeframe: str) -> str:
         """タイムフレームをyfinanceのintervalに変換"""
         if timeframe not in cls.MAPPINGS:
-            raise ValueError(f"Unsupported timeframe: {timeframe}")
+            raise FieldValidationError(
+                message=f"Unsupported timeframe: {timeframe}"
+            )
         return cls.MAPPINGS[timeframe]
 
     @classmethod
@@ -86,7 +91,9 @@ class TimeframeMapping:
             Optional[str]: periodパラメータ（使用しない場合はNone）
         """
         if timeframe not in cls.PERIOD_MAPPINGS:
-            raise ValueError(f"Unsupported timeframe: {timeframe}")
+            raise FieldValidationError(
+                message=f"Unsupported timeframe: {timeframe}"
+            )
 
         return cls.PERIOD_MAPPINGS[timeframe]
 
@@ -106,7 +113,9 @@ class TimeframeMapping:
             - end_date: 終了日（常にNoneで今日を意味する）
         """
         if timeframe not in cls.MAX_PERIODS:
-            raise ValueError(f"Unsupported timeframe: {timeframe}")
+            raise FieldValidationError(
+                message=f"Unsupported timeframe: {timeframe}"
+            )
 
         max_period = cls.MAX_PERIODS[timeframe]
 
@@ -165,12 +174,16 @@ class StockPriceFetcher(RetryMixin):
 
         # パラメータ検証
         if not identifier or not isinstance(identifier, str):
-            raise ValueError("Identifier must be a non-empty string")
+            raise FieldValidationError(
+                message="Identifier must be a non-empty string"
+            )
 
         try:
             TimeframeMapping.get_yfinance_interval(timeframe)
-        except ValueError as e:
-            raise ValueError(f"Invalid timeframe: {timeframe}") from e
+        except FieldValidationError as e:
+            raise FieldValidationError(
+                message=f"Invalid timeframe: {timeframe}"
+            ) from e
 
         # fetch_single を呼び出して重複を避ける
         remaining_kwargs = kwargs.copy()
@@ -213,14 +226,18 @@ class StockPriceFetcher(RetryMixin):
         """
         # パラメータ検証
         if not symbol or not isinstance(symbol, str):
-            raise ValueError("Symbol must be a non-empty string")
+            raise FieldValidationError(
+                message="Symbol must be a non-empty string"
+            )
 
         try:
             yfinance_interval = TimeframeMapping.get_yfinance_interval(
                 timeframe
             )
-        except ValueError as e:
-            raise ValueError(f"Invalid timeframe: {timeframe}") from e
+        except FieldValidationError as e:
+            raise FieldValidationError(
+                message=f"Invalid timeframe: {timeframe}"
+            ) from e
 
         # start_dateとend_dateが指定されていない場合は最大期間を設定
         if start_date is None and end_date is None:
@@ -265,7 +282,9 @@ class StockPriceFetcher(RetryMixin):
             ValueError: パラメータが不正な場合
         """
         if not symbols or not isinstance(symbols, list):
-            raise ValueError("Symbols must be a non-empty list")
+            raise FieldValidationError(
+                message="Symbols must be a non-empty list"
+            )
 
         # start_dateとend_dateが指定されていない場合は最大期間を設定
         if start_date is None and end_date is None:
@@ -333,8 +352,8 @@ class StockPriceFetcher(RetryMixin):
                     # 数字のみ（日本株）: DBの値は ".T" なしを期待する
                     if "." in symbol:
                         # 呼び出し元が .T を付与しているのは想定外（エラー）
-                        raise ValueError(
-                            "Japanese stock symbol must be provided "
+                        raise FieldValidationError(
+                            message="Japanese stock symbol must be provided "
                             "without suffix '.T'"
                         )
                     yf_symbol = f"{symbol}.T"

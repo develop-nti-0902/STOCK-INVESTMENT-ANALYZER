@@ -1,7 +1,6 @@
-"""
-例外処理モジュール - データベース関連例外
+"""例外処理モジュール - データベース関連例外.
 
-データベース操作に関連する例外クラスを定義する。
+データベース操作に関連する例外クラスを定義します。
 仕様書: docs/architecture/layers/common_modules.md 3.3章
 """
 
@@ -9,7 +8,13 @@ from app.exceptions.base import AppException
 
 
 class DatabaseError(AppException):
-    """データベース操作の基底例外クラス"""
+    """データベース操作の基底例外クラス.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "Database operation failed"
     default_error_code = "DB_ERROR"
@@ -17,7 +22,13 @@ class DatabaseError(AppException):
 
 
 class StockDataError(DatabaseError):
-    """株価データ操作に関するエラー"""
+    """株価データ操作に関するエラー.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "Stock data operation failed"
     default_error_code = "STOCK_DATA_ERROR"
@@ -25,7 +36,13 @@ class StockDataError(DatabaseError):
 
 
 class MasterDataError(DatabaseError):
-    """銘柄マスタデータ操作に関するエラー"""
+    """銘柄マスタデータ操作に関するエラー.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "Master data operation failed"
     default_error_code = "MASTER_DATA_ERROR"
@@ -33,7 +50,13 @@ class MasterDataError(DatabaseError):
 
 
 class ConstraintViolationError(DatabaseError):
-    """データベース制約違反エラー"""
+    """データベース制約違反エラー.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "Database constraint violation"
     default_error_code = "CONSTRAINT_VIOLATION"
@@ -41,7 +64,13 @@ class ConstraintViolationError(DatabaseError):
 
 
 class DuplicateRecordError(ConstraintViolationError):
-    """レコード重複エラー（UNIQUE制約違反）"""
+    """レコード重複エラー（UNIQUE制約違反）.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "Duplicate record detected"
     default_error_code = "DUPLICATE_RECORD"
@@ -49,7 +78,13 @@ class DuplicateRecordError(ConstraintViolationError):
 
 
 class RecordNotFoundError(DatabaseError):
-    """レコード未検出エラー"""
+    """レコード未検出エラー.
+
+    Attributes:
+        default_message (str): デフォルトメッセージ
+        default_error_code (str): デフォルトエラーコード
+        default_status_code (int): デフォルトHTTPステータスコード
+    """
 
     default_message = "Record not found"
     default_error_code = "RECORD_NOT_FOUND"

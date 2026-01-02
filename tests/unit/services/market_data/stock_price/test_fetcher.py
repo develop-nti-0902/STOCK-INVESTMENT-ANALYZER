@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from app.exceptions.validation import FieldValidationError
 from app.schemas.market_data.stock_price import StockData
 from app.services.market_data.stock_price.fetcher import (
     StockPriceFetcher,
@@ -35,10 +36,10 @@ class TestTimeframeMapping:
         # 無効なタイムフレーム変換をテスト
 
         # Act & Assert - 実行と検証
-        with pytest.raises(ValueError):
+        with pytest.raises(FieldValidationError):
             TimeframeMapping.get_yfinance_interval("invalid")
 
-        with pytest.raises(ValueError):
+        with pytest.raises(FieldValidationError):
             TimeframeMapping.get_yfinance_interval("2d")
 
     def test_get_supported_timeframes(self):
@@ -108,7 +109,7 @@ class TestTimeframeMapping:
         """無効なタイムフレームの最大期間日付取得をテスト"""
         # Arrange - 準備
         # Act & Assert - 実行と検証
-        with pytest.raises(ValueError):
+        with pytest.raises(FieldValidationError):
             TimeframeMapping.get_max_period_dates("invalid")
 
 
@@ -341,7 +342,7 @@ class TestStockPriceFetcherAdditional:
         """無効なタイムフレームのperiod取得をテスト"""
         # Arrange - 準備
         # Act & Assert - 実行と検証
-        with pytest.raises(ValueError):
+        with pytest.raises(FieldValidationError):
             TimeframeMapping.get_period("invalid")
 
     def test_init(self):
@@ -395,7 +396,7 @@ class TestStockPriceFetcherAdditional:
         """fetchメソッドの無効なidentifierテスト"""
         # Arrange - 準備
         # Act & Assert - 実行と検証
-        with pytest.raises(ValueError):
+        with pytest.raises(FieldValidationError):
             await fetcher.fetch("")
 
     @pytest.mark.asyncio

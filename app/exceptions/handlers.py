@@ -1,7 +1,6 @@
-"""
-例外処理モジュール - FastAPI例外ハンドラ
+"""例外処理モジュール - FastAPI例外ハンドラ.
 
-FastAPIアプリケーション全体の例外処理を統一する。
+FastAPIアプリケーション全体の例外処理を統一するハンドラを提供します。
 仕様書: docs/architecture/layers/common_modules.md 3.4章
 """
 
@@ -20,11 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 def generate_request_id() -> str:
-    """
-    リクエストIDを生成する
+    """タイムスタンプベースのリクエストIDを生成する.
 
     Returns:
-        str: タイムスタンプベースのリクエストID
+        str: 生成されたリクエストID（例: "req-YYYYmmddHHMMSSffffff"）
     """
     return f"req-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}"
 
@@ -35,17 +33,16 @@ def create_error_response(
     details: dict[str, Any] | None = None,
     request_id: str | None = None,
 ) -> dict[str, Any]:
-    """
-    統一されたエラーレスポンス形式を生成する
+    """統一されたエラーレスポンス形式を生成する.
 
     Args:
-        error_code: エラーコード
-        message: エラーメッセージ
-        details: エラー詳細情報（オプション）
-        request_id: リクエストID（オプション）
+        error_code (str): エラーコード
+        message (str): エラーメッセージ
+        details (Optional[dict[str, Any]]): エラー詳細情報（オプション）
+        request_id (Optional[str]): リクエストID（オプション）
 
     Returns:
-        dict: エラーレスポンス形式の辞書
+        dict[str, Any]: エラーレスポンス形式の辞書
     """
     return {
         "error": {
@@ -63,12 +60,11 @@ def create_error_response(
 async def app_exception_handler(
     request: Request, exc: Exception
 ) -> JSONResponse:
-    """
-    AppException(カスタム例外)のハンドラ
+    """`AppException`（カスタム例外）を処理して統一レスポンスを返すハンドラ.
 
     Args:
-        request: FastAPIリクエストオブジェクト
-        exc: カスタム例外オブジェクト
+        request (Request): FastAPIリクエストオブジェクト
+        exc (Exception): `AppException` または派生例外のインスタンス
 
     Returns:
         JSONResponse: 統一フォーマットのエラーレスポンス
@@ -124,12 +120,11 @@ async def app_exception_handler(
 async def http_exception_handler(
     request: Request, exc: Exception
 ) -> JSONResponse:
-    """
-    FastAPI標準HTTPExceptionのハンドラ
+    """`HTTPException` を処理して統一レスポンスを返すハンドラ.
 
     Args:
-        request: FastAPIリクエストオブジェクト
-        exc: HTTPException例外オブジェクト
+        request (Request): FastAPIリクエストオブジェクト
+        exc (Exception): `HTTPException` のインスタンス
 
     Returns:
         JSONResponse: 統一フォーマットのエラーレスポンス
@@ -193,15 +188,14 @@ async def http_exception_handler(
 async def validation_exception_handler(
     request: Request, exc: Exception
 ) -> JSONResponse:
-    """
-    Pydantic RequestValidationErrorのハンドラ
+    """`RequestValidationError` を整形して返すハンドラ.
 
     Args:
-        request: FastAPIリクエストオブジェクト
-        exc: RequestValidationError例外オブジェクト
+        request (Request): FastAPIリクエストオブジェクト
+        exc (Exception): `RequestValidationError` のインスタンス
 
     Returns:
-        JSONResponse: 統一フォーマットのエラーレスポンス
+        JSONResponse: 統一フォーマットのエラーレスポンス（バリデーション詳細含む）
     """
     # 型チェック
     if not isinstance(exc, RequestValidationError):
@@ -253,12 +247,11 @@ async def validation_exception_handler(
 async def general_exception_handler(
     request: Request, exc: Exception
 ) -> JSONResponse:
-    """
-    予期しない例外の汎用ハンドラ
+    """予期しない例外をキャッチして統一レスポンスを返す汎用ハンドラ.
 
     Args:
-        request: FastAPIリクエストオブジェクト
-        exc: 例外オブジェクト
+        request (Request): FastAPIリクエストオブジェクト
+        exc (Exception): 発生した例外オブジェクト
 
     Returns:
         JSONResponse: 統一フォーマットのエラーレスポンス

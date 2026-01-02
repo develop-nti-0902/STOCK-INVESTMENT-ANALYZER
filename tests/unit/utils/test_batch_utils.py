@@ -6,6 +6,7 @@ from typing import Any, Dict
 
 import pytest
 
+from app.exceptions.validation import FieldValidationError
 from app.utils.batch_utils import ProgressTracker, chunk_list, parallel_execute
 
 
@@ -48,12 +49,12 @@ class TestChunkList:
     def test_invalid_chunk_size(self):
         """無効なチャンクサイズのテスト"""
         with pytest.raises(
-            ValueError, match="chunk_size must be greater than 0"
+            FieldValidationError, match="chunk_size must be greater than 0"
         ):
             chunk_list([1, 2, 3], 0)
 
         with pytest.raises(
-            ValueError, match="chunk_size must be greater than 0"
+            FieldValidationError, match="chunk_size must be greater than 0"
         ):
             chunk_list([1, 2, 3], -1)
 

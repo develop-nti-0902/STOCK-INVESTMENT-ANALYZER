@@ -1,7 +1,7 @@
-"""
-エラーハンドリングデコレータ
+"""サービス層のエラーハンドリングデコレータ.
 
-サービス層の共通エラーハンドリングを提供します。
+サービス境界で発生する例外を `ServiceError` にラップして一貫した
+エラーハンドリングを提供します。
 仕様書: docs/architecture/layers/service_layer.md 6.1章
 """
 
@@ -21,26 +21,19 @@ def handle_service_error(
     error_code: str = "SERVICE_ERROR",
     reraise: bool = True,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """
-    サービス層のエラーを統一的にハンドリングするデコレータ
+    """サービス層で例外を一貫して処理するデコレータを返す.
 
     Args:
-        error_message: エラーメッセージ（デフォルト: "Service operation failed"）
-        error_code: エラーコード（デフォルト: "SERVICE_ERROR"）
-        reraise: 例外を再送出するかどうか（デフォルト: True）
+        error_message (str): 表示させるエラーメッセージ
+        error_code (str): 内部エラーコード
+        reraise (bool): True の場合 ServiceError を再送出する
 
     Returns:
-        Callable: デコレータ関数
+        Callable: 対象関数をラップするデコレータ
 
-    Examples:
-        >>> @handle_service_error(error_message="Failed to fetch stock data")
-        ... async def fetch_stock_data(symbol: str) -> StockData:
-        ...     # データ取得処理
-        ...     return stock_data
-
-    Note:
-        - 非同期関数と同期関数の両方に対応
-        - reraise=Falseの場合、エラーログのみ記録してNoneを返す
+    Notes:
+        - 非同期/同期関数の両方に対応
+        - `reraise=False` の場合はログ記録のうえ None を返します
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:

@@ -21,8 +21,11 @@ related_docs:
     - [責任分離](#責任分離)
   - [3. Repositoryパターン設計](#3-repositoryパターン設計)
     - [3.1 BaseRepository（汎用CRUD）](#31-baserepository汎用crud)
-    - [3.2 StockRepository（株価データ専用）](#32-stockrepository株価データ専用)
+    - [3.2 StockDataRepository（株価データ専用）](#32-stockdatarepository株価データ専用)
     - [3.3 依存性注入パターン（共通モジュール利用）](#33-依存性注入パターン共通モジュール利用)
+  - [実装上の注意](#実装上の注意)
+    - [ファイル名とモジュール構成](#ファイル名とモジュール構成)
+    - [初期化パラメータの順序](#初期化パラメータの順序)
   - [4. モデル定義](#4-モデル定義)
     - [4.1 モデル一覧](#41-モデル一覧)
     - [4.2 株価データモデル詳細](#42-株価データモデル詳細)
@@ -85,31 +88,37 @@ related_docs:
 app/
 ├── models/                        # SQLAlchemyモデル（ORM定義）
 │   ├── __init__.py
-│   ├── base.py                    # 基底クラス
-│   ├── stock_data.py              # 株価データモデル（8種類の時間軸）
-│   ├── stock_master.py            # 銘柄マスタモデル
-│   ├── fundamental_data.py        # ファンダメンタルデータモデル
-│   ├── batch.py                   # バッチ実行履歴モデル
-│   ├── user.py                    # ユーザー管理モデル
-│   ├── portfolio.py               # ポートフォリオモデル
-│   ├── market_indices.py          # 市場インデックスモデル
-│   ├── screening.py               # スクリーニングモデル
-│   ├── backtest.py                # バックテストモデル
-│   └── notification.py            # 通知モデル
+│   ├── base.py                    # 基底クラス ✅
+│   ├── stock_data.py              # 株価データモデル（8種類の時間軸）✅
+│   ├── stock_master.py            # 銘柄マスタモデル ✅
+│   ├── batch_execution.py         # バッチ実行履歴モデル ✅
+│   ├── fundamental_data.py        # ファンダメンタルデータモデル 🔲
+│   ├── user.py                    # ユーザー管理モデル 🔲
+│   ├── portfolio.py               # ポートフォリオモデル 🔲
+│   ├── market_indices.py          # 市場インデックスモデル 🔲
+│   ├── screening.py               # スクリーニングモデル 🔲
+│   ├── backtest.py                # バックテストモデル 🔲
+│   └── notification.py            # 通知モデル 🔲
 │
 └── repositories/                  # Repository実装
-    ├── __init__.py
-    ├── base.py                    # BaseRepository（汎用CRUD操作）
-    ├── stock.py                   # StockRepository（株価データ専用）
-    ├── master.py                  # MasterRepository（銘柄マスタ専用）
-    ├── fundamental.py             # FundamentalRepository（財務データ専用）
-    ├── user.py                    # UserRepository（ユーザー管理専用）
-    ├── portfolio.py               # PortfolioRepository（ポートフォリオ専用）
-    ├── indices.py                 # IndexRepository（インデックス専用）
-    ├── screening.py               # ScreeningRepository（スクリーニング専用）
-    ├── backtest.py                # BacktestRepository（バックテスト専用）
-    └── notification.py            # NotificationRepository（通知専用）
+    ├── __init__.py                # パッケージエクスポート ✅
+    ├── base.py                    # BaseRepository（汎用CRUD操作）✅
+    ├── stock_data_repository.py   # StockDataRepository（株価データ専用）✅
+    ├── stock_master_repository.py # StockMasterRepository（銘柄マスタ専用）✅
+    ├── batch_execution_repository.py # BatchExecutionRepository（バッチ履歴専用）✅
+    ├── fundamental_repository.py  # FundamentalRepository（財務データ専用）🔲
+    ├── user_repository.py         # UserRepository（ユーザー管理専用）🔲
+    ├── portfolio_repository.py    # PortfolioRepository（ポートフォリオ専用）🔲
+    ├── indices_repository.py      # IndexRepository（インデックス専用）🔲
+    ├── screening_repository.py    # ScreeningRepository（スクリーニング専用）🔲
+    ├── backtest_repository.py     # BacktestRepository（バックテスト専用）🔲
+    └── notification_repository.py # NotificationRepository（通知専用）🔲
 ```
+
+**Note**:
+- ✅ = 実装済み
+- 🔲 = 未実装（将来実装予定）
+- ファイル名には`_repository`サフィックスを使用しています
 
 ### 責任分離
 
@@ -129,32 +138,40 @@ app/
 
 **主要メソッド**:
 
-| メソッド                  | 説明                             | 戻り値型                  | 実装状況 |
-| ------------------------- | -------------------------------- | ------------------------- | -------- |
-| `async def create()`      | 新規レコード作成                 | `T`（モデルインスタンス） | ✅        |
-| `async def get_by_id()`   | ID検索                           | `Optional[T]`             | ✅        |
-| `async def get_all()`     | 全件取得（ページネーション対応） | `List[T]`                 | ✅        |
-| `async def update()`      | レコード更新                     | `Optional[T]`             | ✅        |
-| `async def delete()`      | レコード削除                     | `bool`                    | ✅        |
-| `async def bulk_create()` | 一括作成                         | `List[T]`                 | ✅        |
-| `async def count_all()`   | 全件数取得                       | `int`                     | ✅        |
+| メソッド                  | 説明                               | 戻り値型                  | 実装状況 |
+| ------------------------- | ---------------------------------- | ------------------------- | -------- |
+| `async def create()`      | 新規レコード作成                   | `T`（モデルインスタンス） | ✅        |
+| `async def upsert()`      | UPSERT（作成または更新）           | `T`（モデルインスタンス） | ✅        |
+| `async def get()`         | ID検索                             | `Optional[T]`             | ✅        |
+| `async def get_multi()`   | 複数件取得（ページネーション対応） | `List[T]`                 | ✅        |
+| `async def update()`      | レコード更新                       | `Optional[T]`             | ✅        |
+| `async def delete()`      | レコード削除                       | `bool`                    | ✅        |
+| `async def bulk_create()` | 一括作成                           | `List[T]`                 | ✅        |
+| `async def count()`       | 件数取得                           | `int`                     | ✅        |
+| `async def exists()`      | 存在確認                           | `bool`                    | ✅        |
 
 
 
-### 3.2 StockRepository（株価データ専用）
+### 3.2 StockDataRepository（株価データ専用）
 
 **目的**: 株価データ特有のクエリ操作を提供（時系列検索、銘柄別集計等）
 
+**実装クラス**:
+- `StockDataRepository`: 基底クラス（時間軸非依存のロジック）
+- `StockData1mRepository`, `StockData5mRepository`, `StockData15mRepository`, `StockData30mRepository`, `StockData1hRepository`, `StockData1dRepository`, `StockData1wkRepository`, `StockData1moRepository`: 各時間軸専用のRepository
+
 **主要メソッド**:
 
-| メソッド                                 | 説明                                  | 戻り値型         |
-| ---------------------------------------- | ------------------------------------- | ---------------- |
-| `async def get_by_symbol_and_date()`     | 銘柄コード+日付検索（日足以上用）     | `Optional[T]`    |
-| `async def get_by_symbol_and_datetime()` | 銘柄コード+日時検索（分足・時間足用） | `Optional[T]`    |
-| `async def get_by_symbol_range()`        | 銘柄コード+日付範囲検索               | `List[T]`        |
-| `async def count_by_symbol()`            | 銘柄ごとのレコード数                  | `int`            |
-| `async def get_latest_date_by_symbol()`  | 銘柄の最新日付取得                    | `Optional[date]` |
-| `async def bulk_upsert()`                | 一括UPSERT（重複時更新）              | `int`            |
+| メソッド                                  | 説明                                  | 戻り値型      |
+| ----------------------------------------- | ------------------------------------- | ------------- |
+| `async def get_by_symbol_and_timestamp()` | 銘柄コード+タイムスタンプ検索         | `Optional[T]` |
+| `async def get_by_symbol_and_date()`      | 銘柄コード+日付検索（日付で範囲指定） | `Optional[T]` |
+| `async def get_by_symbol_and_range()`     | 銘柄コード+期間範囲検索               | `List[T]`     |
+| `async def count_by_symbol()`             | 銘柄ごとのレコード数                  | `int`         |
+| `async def get_latest()`                  | 銘柄の最新データ取得                  | `Optional[T]` |
+| `async def upsert_single()`               | 単一レコードのUPSERT                  | `T`           |
+| `async def upsert_bulk()`                 | 一括UPSERT（重複時更新）              | `int`         |
+| `async def delete_all()`                  | 全件削除（テスト用）                  | `None`        |
 
 **実装例**:
 
@@ -168,19 +185,27 @@ from app.repositories.base import BaseRepository
 from app.models.stock_data import Stocks1d
 
 
-class StockRepository(BaseRepository[Stocks1d]):
-    """株価データRepository（時系列データ専用操作提供）."""
+class StockData1dRepository(BaseRepository[Stocks1d]):
+    """日足株価データRepository（時系列データ専用操作提供）."""
 
-    async def get_by_symbol_and_date(
-        self,
-        symbol: str,
-        target_date: date
-    ) -> Optional[Stocks1d]:
-        """銘柄コード+日付検索（日足以上用）.
+    def __init__(self, session: AsyncSession):
+        """初期化.
 
         Args:
-            symbol: 銘柄コード（例: "7203.T"）
-            target_date: 対象日付
+            session: 非同期DBセッション
+        """
+        super().__init__(session=session, model=Stocks1d)
+
+    async def get_by_symbol_and_timestamp(
+        self,
+        symbol: str,
+        timestamp: datetime
+    ) -> Optional[Stocks1d]:
+        """銘柄コード+タイムスタンプ検索.
+
+        Args:
+            symbol: 銘柄コード（例: "7203"）
+            timestamp: 対象タイムスタンプ
 
         Returns:
             モデルインスタンス、見つからない場合はNone
@@ -189,26 +214,26 @@ class StockRepository(BaseRepository[Stocks1d]):
             select(self.model).where(
                 and_(
                     self.model.symbol == symbol,
-                    self.model.date == target_date
+                    self.model.timestamp == timestamp
                 )
             )
         )
         return result.scalar_one_or_none()
 
-    async def get_by_symbol_range(
+    async def get_by_symbol_and_range(
         self,
         symbol: str,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
         limit: int = 100,
         offset: int = 0
     ) -> List[Stocks1d]:
-        """銘柄コード+日付範囲検索.
+        """銘柄コード+期間範囲検索.
 
         Args:
             symbol: 銘柄コード
-            start_date: 開始日（省略可）
-            end_date: 終了日（省略可）
+            start_date: 開始日時（省略可）
+            end_date: 終了日時（省略可）
             limit: 取得件数（デフォルト: 100）
             offset: オフセット（デフォルト: 0）
 
@@ -218,15 +243,15 @@ class StockRepository(BaseRepository[Stocks1d]):
         query = select(self.model).where(self.model.symbol == symbol)
 
         if start_date:
-            query = query.where(self.model.date >= start_date)
+            query = query.where(self.model.timestamp >= start_date)
         if end_date:
-            query = query.where(self.model.date <= end_date)
+            query = query.where(self.model.timestamp <= end_date)
 
-        query = query.order_by(self.model.date.desc()).limit(limit).offset(offset)
+        query = query.order_by(self.model.timestamp.desc()).limit(limit).offset(offset)
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
-    async def bulk_upsert(self, records: List[dict]) -> int:
+    async def upsert_bulk(self, records: List[dict]) -> int:
         """一括UPSERT（PostgreSQL専用）.
 
         Args:
@@ -237,7 +262,7 @@ class StockRepository(BaseRepository[Stocks1d]):
         """
         stmt = insert(self.model).values(records)
         stmt = stmt.on_conflict_do_update(
-            index_elements=['symbol', 'date'],
+            index_elements=['symbol', 'timestamp'],
             set_={
                 'open': stmt.excluded.open,
                 'high': stmt.excluded.high,
@@ -288,8 +313,8 @@ def get_stock_repository(
 # app/api/stock_data.py
 from fastapi import APIRouter, Depends
 
-from app.repositories.stock import StockRepository
-from app.api.dependencies.repositories import get_stock_repository
+from app.repositories import StockData1dRepository
+from app.utils.database import get_db
 
 router = APIRouter()
 
@@ -297,19 +322,20 @@ router = APIRouter()
 @router.get("/stocks/{symbol}")
 async def get_stock_data(
     symbol: str,
-    repo: StockRepository = Depends(get_stock_repository)
+    db: AsyncSession = Depends(get_db)
 ):
     """株価データ取得エンドポイント.
 
     Args:
         symbol: 銘柄コード
-        repo: StockRepository（DI経由で注入）
+        db: 非同期DBセッション（共通モジュールから自動注入）
 
     Returns:
         株価データ
     """
-    data = await repo.get_by_symbol_range(symbol, limit=100)
-    return {"data": [item.to_dict() for item in data]}
+    repo = StockData1dRepository(session=db)
+    data = await repo.get_by_symbol_and_range(symbol, limit=100)
+    return {"data": [item.dict() for item in data]}
 ```
 
 **パターン2: DBセッションを注入してRepository作成**
@@ -319,7 +345,7 @@ async def get_stock_data(
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.stock import StockRepository
+from app.repositories import StockData1dRepository
 from app.utils.database import get_db  # 共通モジュールから提供
 
 router = APIRouter()
@@ -339,9 +365,9 @@ async def get_stock_data(
     Returns:
         株価データ
     """
-    repo = StockRepository(session=db)
-    data = await repo.get_by_symbol_range(symbol, limit=100)
-    return {"data": [item.to_dict() for item in data]}
+    repo = StockData1dRepository(session=db)
+    data = await repo.get_by_symbol_and_range(symbol, limit=100)
+    return {"data": data}
 ```
 
 **Note**: `get_db()`関数の詳細な実装とトランザクション管理については、[共通モジュール仕様書](./common_modules.md#55-データベース接続管理apputilsdatabasepy)を参照してください。
@@ -352,20 +378,36 @@ async def get_stock_data(
 
 ## 実装上の注意
 
-- 実際のリポジトリモジュール名は `app/repositories/stock_master_repository.py`,
-    `app/repositories/batch_execution_repository.py` のようにファイル名に `_repository` を付けた形式で管理しています。
+### ファイル名とモジュール構成
+
+- リポジトリモジュールのファイル名には `_repository` サフィックスを使用しています:
+  - ✅ `app/repositories/stock_data_repository.py`
+  - ✅ `app/repositories/stock_master_repository.py`
+  - ✅ `app/repositories/batch_execution_repository.py`
+
 - パッケージの公開インターフェースとして `app/repositories/__init__.py` で主要な
     Repositoryクラスを `__all__` 経由でエクスポートしています。アプリケーション側では
     個別ファイルを直接参照するよりも以下のようにパッケージからインポートすることを推奨します:
 
 ```python
-from app.repositories import StockMasterRepository, BatchExecutionRepository
+from app.repositories import StockMasterRepository, StockData1dRepository, BatchExecutionRepository
 
 def get_stock_master_repository(db: AsyncSession = Depends(get_db)) -> StockMasterRepository:
-        return StockMasterRepository(session=db)
+    return StockMasterRepository(session=db)
+
+def get_stock_data_1d_repository(db: AsyncSession = Depends(get_db)) -> StockData1dRepository:
+    return StockData1dRepository(session=db)
 ```
 
 これにより、将来的なファイル名変更や実装差分の影響を受けにくくなります。
+
+### 初期化パラメータの順序
+
+BaseRepositoryの初期化時は、以下の順序でパラメータを渡してください:
+
+```python
+super().__init__(session=session, model=ModelClass)
+```
 
 ---
 
@@ -375,27 +417,32 @@ def get_stock_master_repository(db: AsyncSession = Depends(get_db)) -> StockMast
 
 **株価データモデル（8種類の時間軸）**
 
-| モデルクラス | テーブル名 | 時間軸  | 日時カラム | 用途                 |
-| ------------ | ---------- | ------- | ---------- | -------------------- |
-| `Stocks1m`   | stocks_1m  | 1分足   | datetime   | 短期トレード分析     |
-| `Stocks5m`   | stocks_5m  | 5分足   | datetime   | 短期トレード分析     |
-| `Stocks15m`  | stocks_15m | 15分足  | datetime   | デイトレード分析     |
-| `Stocks30m`  | stocks_30m | 30分足  | datetime   | デイトレード分析     |
-| `Stocks1h`   | stocks_1h  | 1時間足 | datetime   | スイングトレード分析 |
-| `Stocks1d`   | stocks_1d  | 日足    | date       | 中期投資分析         |
-| `Stocks1wk`  | stocks_1wk | 週足    | date       | 中長期投資分析       |
-| `Stocks1mo`  | stocks_1mo | 月足    | date       | 長期投資分析         |
+| モデルクラス | テーブル名 | 時間軸  | 日時カラム | 用途                 | 実装状況 |
+| ------------ | ---------- | ------- | ---------- | -------------------- | -------- |
+| `Stocks1m`   | stocks_1m  | 1分足   | timestamp  | 短期トレード分析     | ✅        |
+| `Stocks5m`   | stocks_5m  | 5分足   | timestamp  | 短期トレード分析     | ✅        |
+| `Stocks15m`  | stocks_15m | 15分足  | timestamp  | デイトレード分析     | ✅        |
+| `Stocks30m`  | stocks_30m | 30分足  | timestamp  | デイトレード分析     | ✅        |
+| `Stocks1h`   | stocks_1h  | 1時間足 | timestamp  | スイングトレード分析 | ✅        |
+| `Stocks1d`   | stocks_1d  | 日足    | timestamp  | 中期投資分析         | ✅        |
+| `Stocks1wk`  | stocks_1wk | 週足    | timestamp  | 中長期投資分析       | ✅        |
+| `Stocks1mo`  | stocks_1mo | 月足    | timestamp  | 長期投資分析         | ✅        |
 
 **管理データモデル**
 
-| モデルクラス           | テーブル名              | 用途                       |
-| ---------------------- | ----------------------- | -------------------------- |
-| `StockMaster`          | stock_master            | JPX銘柄マスタ管理          |
-| `BatchExecution`       | batch_executions        | バッチ処理実行情報         |
-| `BatchExecutionDetail` | batch_execution_details | バッチ処理詳細（銘柄単位） |
-| `FundamentalData`      | fundamental_data        | ファンダメンタルデータ     |
+| モデルクラス           | テーブル名              | 用途                       | 実装状況 |
+| ---------------------- | ----------------------- | -------------------------- | -------- |
+| `StockMaster`          | stock_master            | JPX銘柄マスタ管理          | ✅        |
+| `BatchExecution`       | batch_executions        | バッチ処理実行情報         | ✅        |
+| `BatchExecutionDetail` | batch_execution_details | バッチ処理詳細（銘柄単位） | 🔲 未実装 |
+| `FundamentalData`      | fundamental_data        | ファンダメンタルデータ     | 🔲 未実装 |
 
-**ユーザー管理モデル**
+**将来実装予定のモデル（🔲 未実装）**
+
+以下のモデルは、将来のバージョンで実装予定です:
+
+<details>
+<summary>ユーザー管理モデル（クリックして展開）</summary>
 
 | モデルクラス   | テーブル名    | 用途                                   |
 | -------------- | ------------- | -------------------------------------- |
@@ -403,14 +450,20 @@ def get_stock_master_repository(db: AsyncSession = Depends(get_db)) -> StockMast
 | `UserSession`  | user_sessions | ユーザーセッション（JWT管理）          |
 | `UserSettings` | user_settings | ユーザー設定（表示設定、通知設定等）   |
 
-**ポートフォリオ管理モデル**
+</details>
+
+<details>
+<summary>ポートフォリオ管理モデル（クリックして展開）</summary>
 
 | モデルクラス       | テーブル名         | 用途                       |
 | ------------------ | ------------------ | -------------------------- |
 | `Portfolio`        | portfolios         | ポートフォリオ情報         |
 | `PortfolioHolding` | portfolio_holdings | 保有銘柄（数量・取得単価） |
 
-**その他のモデル**
+</details>
+
+<details>
+<summary>その他のモデル（クリックして展開）</summary>
 
 | モデルクラス         | テーブル名           | 用途                                                   |
 | -------------------- | -------------------- | ------------------------------------------------------ |
@@ -420,6 +473,8 @@ def get_stock_master_repository(db: AsyncSession = Depends(get_db)) -> StockMast
 | `BacktestJob`        | backtest_jobs        | バックテストジョブ（実行履歴、パラメータ、結果サマリ） |
 | `BacktestTrade`      | backtest_trades      | バックテスト取引履歴（売買タイミング、損益詳細）       |
 | `UserAlert`          | user_alerts          | ユーザーアラート（株価アラート設定、通知履歴）         |
+
+</details>
 
 ### 4.2 株価データモデル詳細
 
@@ -437,78 +492,67 @@ def get_stock_master_repository(db: AsyncSession = Depends(get_db)) -> StockMast
 | `created_at` | DateTime(TZ)  | DEFAULT now()      | 作成日時                   |
 | `updated_at` | DateTime(TZ)  | DEFAULT now()      | 更新日時                   |
 
-**分足・時間足モデル固有カラム**:
+**全時間軸共通の日時カラム**:
 
-| カラム名   | 型           | 制約                               | 説明       |
-| ---------- | ------------ | ---------------------------------- | ---------- |
-| `datetime` | DateTime(TZ) | NOT NULL, UNIQUE(symbol, datetime) | データ日時 |
-
-**日足・週足・月足モデル固有カラム**:
-
-| カラム名 | 型   | 制約                           | 説明       |
-| -------- | ---- | ------------------------------ | ---------- |
-| `date`   | Date | NOT NULL, UNIQUE(symbol, date) | データ日付 |
+| カラム名    | 型           | 制約                                | 説明                                 |
+| ----------- | ------------ | ----------------------------------- | ------------------------------------ |
+| `timestamp` | DateTime(TZ) | NOT NULL, UNIQUE(symbol, timestamp) | データ日時（全時間軸で統一的に使用） |
 
 **制約**:
 
-- **ユニーク制約**: `(symbol, datetime)` または `(symbol, date)`
-- **価格チェック**: `open >= 0 AND high >= 0 AND low >= 0 AND close >= 0`
-- **出来高チェック**: `volume >= 0`
-- **価格論理チェック**: `high >= low AND high >= open AND high >= close AND low <= open AND low <= close`
+- **ユニーク制約**: `(symbol, timestamp)`
+- **外部キー制約**: `symbol` → `stock_master.stock_code` (CASCADE DELETE)
+- **価格チェック**: 価格カラムの非負制約（ORM層で実装）
+- **出来高チェック**: `volume >= 0`（ORM層で実装）
 
 **インデックス**:
 
-- `idx_stocks_{interval}_symbol`: 銘柄コード
-- `idx_stocks_{interval}_datetime/date`: 日時/日付
-- `idx_stocks_{interval}_symbol_datetime/date_desc`: 銘柄コード + 日時/日付（降順）
+- `idx_stocks_{interval}_timestamp`: タイムスタンプ
+- `uix_stocks_{interval}_symbol_timestamp`: 銘柄コード + タイムスタンプ（ユニーク）
 
 ### 4.3 モデル実装例
 
 ```python
 # app/models/stock_data.py
-from datetime import date
+from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import String, Date, Numeric, BigInteger, Index, UniqueConstraint, CheckConstraint
+from sqlalchemy import String, DateTime, Numeric, BigInteger, Index, UniqueConstraint, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql import func
 
-from app.models.base import Base
+from app.models.base import Base, SerialPKMixin, TimestampMixin
 
 
-class Stocks1d(Base):
+class Stocks1d(SerialPKMixin, TimestampMixin, Base):
     """日足株価データモデル."""
 
     __tablename__ = "stocks_1d"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    symbol: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
-    date: Mapped[date] = mapped_column(Date, nullable=False)
+    symbol: Mapped[str] = mapped_column(
+        String(10),
+        ForeignKey("stock_master.stock_code", ondelete="CASCADE"),
+        nullable=False,
+    )
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     open: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     high: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     low: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     close: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     volume: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        UniqueConstraint("symbol", "date", name="uq_stocks_1d_symbol_date"),
-        Index("idx_stocks_1d_symbol", "symbol"),
-        Index("idx_stocks_1d_date", "date"),
-        Index("idx_stocks_1d_symbol_date_desc", "symbol", "date", postgresql_using="btree"),
-        CheckConstraint("open >= 0 AND high >= 0 AND low >= 0 AND close >= 0", name="ck_price_positive"),
-        CheckConstraint("volume >= 0", name="ck_volume_positive"),
-        CheckConstraint(
-            "high >= low AND high >= open AND high >= close AND low <= open AND low <= close",
-            name="ck_price_logic"
-        ),
+        UniqueConstraint("symbol", "timestamp", name="uix_stocks_1d_symbol_timestamp"),
+        Index("idx_stocks_1d_timestamp", "timestamp"),
     )
 
-    def to_dict(self) -> dict:
+    def dict(self) -> dict:
         """辞書形式に変換."""
         return {
             "id": self.id,
             "symbol": self.symbol,
-            "date": self.date.isoformat(),
+            "timestamp": self.timestamp.isoformat(),
             "open": float(self.open),
             "high": float(self.high),
             "low": float(self.low),
@@ -537,8 +581,8 @@ Repositoryクラスは、FastAPIの依存性注入またはサービス層から
 # app/repositories/stock.py
 from sqlalchemy.ext.asyncio import AsyncSession
 
-class StockRepository(BaseRepository[Stocks1d]):
-    """株価データRepository."""
+class StockData1dRepository(BaseRepository[Stocks1d]):
+    """日足株価データRepository."""
 
     def __init__(self, session: AsyncSession):
         """初期化.
@@ -546,7 +590,7 @@ class StockRepository(BaseRepository[Stocks1d]):
         Args:
             session: 共通モジュールから提供される非同期DBセッション
         """
-        super().__init__(model=Stocks1d, session=session)
+        super().__init__(session=session, model=Stocks1d)
 ```
 
 **FastAPI依存性注入での使用**:
@@ -576,8 +620,8 @@ async def get_stock_data(
     Returns:
         株価データ
     """
-    repo = StockRepository(session=db)
-    data = await repo.get_by_symbol_range(symbol, limit=100)
+    repo = StockData1dRepository(session=db)
+    data = await repo.get_by_symbol_and_range(symbol, limit=100)
     return {"data": [item.to_dict() for item in data]}
 ```
 
@@ -610,7 +654,7 @@ graph TB
     end
 
     subgraph DataAccessLayer[データアクセス層]
-        Repo[StockRepository<br/>async CRUD操作]
+        Repo[StockDataRepository<br/>async CRUD操作]
         Model[SQLAlchemy Models<br/>ORM定義]
     end
 
@@ -637,12 +681,14 @@ classDiagram
         -model: type[T]
         -session: AsyncSession
         +async create(**kwargs) T
-        +async get_by_id(id) Optional[T]
-        +async get_all(limit, offset) List[T]
+        +async upsert(**kwargs) T
+        +async get(id) Optional[T]
+        +async get_multi(limit, offset) List[T]
         +async update(id, **kwargs) Optional[T]
         +async delete(id) bool
         +async bulk_create(records) List[T]
-        +async count_all() int
+        +async count() int
+        +async exists(id) bool
     }
 
     class StockRepository {
@@ -653,10 +699,11 @@ classDiagram
         +async bulk_upsert(records) int
     }
 
-    class MasterRepository {
-        +async get_by_stock_code(stock_code) Optional[StockMaster]
-        +async search_by_name(query) List[StockMaster]
-        +async get_active_symbols() List[str]
+    class StockMasterRepository {
+        +async get_by_symbol(symbol) Optional[StockMaster]
+        +async search(query) List[StockMaster]
+        +async get_all_active_symbols() List[str]
+        +async bulk_upsert(records) int
     }
 
     class FundamentalRepository {
@@ -664,12 +711,12 @@ classDiagram
         +async get_history(symbol, start_date, end_date) List[FundamentalData]
     }
 
-    BaseRepository <|-- StockRepository : extends
-    BaseRepository <|-- MasterRepository : extends
+    BaseRepository <|-- StockDataRepository : extends
+    BaseRepository <|-- StockMasterRepository : extends
     BaseRepository <|-- FundamentalRepository : extends
 
     note for BaseRepository "汎用CRUD操作を提供\nすべてのRepositoryの基底クラス"
-    note for StockRepository "株価データ専用操作\n時系列検索、銘柄別集計等"
+    note for StockDataRepository "株価データ専用操作\n時系列検索、銘柄別集計等"
 ```
 
 ---
@@ -691,7 +738,7 @@ FastAPIの依存性注入を使用する場合、トランザクションは自�
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.stock import StockRepository
+from app.repositories import StockData1dRepository
 from app.utils.database import get_db  # 共通モジュールから提供
 
 router = APIRouter()
@@ -706,7 +753,7 @@ async def create_stock(
 
     共通モジュールのget_db()により、自動的にコミット/ロールバックが実行される
     """
-    repo = StockRepository(session=db)
+    repo = StockData1dRepository(session=db)
     result = await repo.create(**request.dict())
     return result
 ```
@@ -717,17 +764,17 @@ Repository内で複数の操作を実行する場合も、同じセッション�
 
 ```python
 # app/repositories/stock.py
-class StockRepository(BaseRepository[Stocks1d]):
-    """株価データRepository."""
+class StockData1dRepository(BaseRepository[Stocks1d]):
+    """日足株価データRepository."""
 
-    async def bulk_upsert(self, records: List[dict]) -> int:
+    async def upsert_bulk(self, records: List[dict]) -> int:
         """一括UPSERT（トランザクション保証）.
 
         同一セッション内で実行されるため、全件成功または全件失敗が保証される
         """
         stmt = insert(self.model).values(records)
         stmt = stmt.on_conflict_do_update(
-            index_elements=['symbol', 'date'],
+            index_elements=['symbol', 'timestamp'],
             set_={
                 'open': stmt.excluded.open,
                 'high': stmt.excluded.high,
@@ -859,8 +906,8 @@ from app.utils.logger import get_logger  # 共通モジュールから提供
 logger = get_logger(__name__)
 
 
-class StockRepository(BaseRepository[Stocks1d]):
-    """株価データRepository."""
+class StockData1dRepository(BaseRepository[Stocks1d]):
+    """日足株価データRepository."""
 
     async def create(self, **kwargs) -> Stocks1d:
         """新規レコード作成."""

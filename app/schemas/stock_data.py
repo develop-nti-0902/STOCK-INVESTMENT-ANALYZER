@@ -1,7 +1,6 @@
-"""
-株価データPydanticスキーマ
+"""株価データ Pydantic スキーマ.
 
-株価データの作成、レスポンス、バッチ処理用のPydanticスキーマを定義します。
+株価データの作成／レスポンス／バッチ処理用スキーマを定義します。
 仕様書: docs/architecture/layers/service_layer.md 3.2.1章
 """
 
@@ -12,10 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class StockPriceBase(BaseModel):
-    """
-    株価データ基底スキーマ
+    """株価データ基底スキーマ.
 
-    全ての株価データスキーマの基底となる共通フィールドを定義します。
+    共通フィールドを提供します（symbol, trade_date, open_price, high,
+    low, close, volume, adj_close）。
     """
 
     model_config = ConfigDict(
@@ -38,26 +37,31 @@ class StockPriceBase(BaseModel):
 
 
 class StockPriceCreate(StockPriceBase):
-    """
-    株価データ作成スキーマ
+    """株価データ作成スキーマ.
 
-    データベースへの新規作成時に使用するスキーマです。
+    データベース挿入時に使用するバリデーションを行います。
     """
 
     @field_validator("symbol")
     @classmethod
     def validate_symbol(cls, v: str) -> str:
-        """銘柄コードのバリデーション"""
+        """銘柄コードのバリデーション.
+
+        Args:
+            v (str): 入力される銘柄コード
+
+        Returns:
+            str: 正規化された銘柄コード
+        """
         if not v or not v.strip():
             raise ValueError("銘柄コードは必須です")
         return v.strip().upper()
 
 
 class StockPriceResponse(StockPriceBase):
-    """
-    株価データレスポンススキーマ
+    """株価データレスポンススキーマ.
 
-    APIレスポンスとして使用するスキーマです。
+    API レスポンス用に `id`, `created_at`, `updated_at` を追加します。
     """
 
     id: Optional[int] = Field(None, description="レコードID")
@@ -66,10 +70,9 @@ class StockPriceResponse(StockPriceBase):
 
 
 class StockPriceBatch(BaseModel):
-    """
-    株価データバッチ処理スキーマ
+    """株価データバッチ処理スキーマ.
 
-    複数銘柄の株価データをバッチ処理する場合に使用します。
+    複数銘柄の株価データをまとめて処理する際に使用します。
     """
 
     model_config = ConfigDict(
@@ -87,7 +90,14 @@ class StockPriceBatch(BaseModel):
     @field_validator("timeframe")
     @classmethod
     def validate_timeframe(cls, v: str) -> str:
-        """時間軸のバリデーション"""
+        """時間軸のバリデーション.
+
+        Args:
+            v (str): 入力される時間軸文字列
+
+        Returns:
+            str: 検証済みの時間軸文字列
+        """
         valid_timeframes = ["1m", "5m", "15m", "1h", "1d", "1wk", "1mo"]
         if v not in valid_timeframes:
             raise ValueError(f"無効な時間軸です。有効な値: {valid_timeframes}")
@@ -96,28 +106,28 @@ class StockPriceBatch(BaseModel):
 
 # タイムフレーム別スキーマ（必要に応じて拡張可能）
 class StockPrice1M(StockPriceBase):
-    """1分足株価データスキーマ"""
+    """1分足株価データスキーマ."""
 
 
 class StockPrice5M(StockPriceBase):
-    """5分足株価データスキーマ"""
+    """5分足株価データスキーマ."""
 
 
 class StockPrice15M(StockPriceBase):
-    """15分足株価データスキーマ"""
+    """15分足株価データスキーマ."""
 
 
 class StockPrice1H(StockPriceBase):
-    """1時間足株価データスキーマ"""
+    """1時間足株価データスキーマ."""
 
 
 class StockPrice1D(StockPriceBase):
-    """日次株価データスキーマ"""
+    """日次株価データスキーマ."""
 
 
 class StockPrice1WK(StockPriceBase):
-    """週次株価データスキーマ"""
+    """週次株価データスキーマ."""
 
 
 class StockPrice1MO(StockPriceBase):
-    """月次株価データスキーマ"""
+    """月次株価データスキーマ."""

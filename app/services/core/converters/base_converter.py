@@ -1,5 +1,4 @@
-"""
-データ変換抽象基底クラス
+"""データ変換抽象基底クラス.
 
 外部データ形式と内部データ形式の相互変換を抽象化します。
 仕様書: docs/architecture/layers/service_layer.md 6.1章
@@ -13,25 +12,12 @@ T = TypeVar("T")
 
 
 class BaseConverter(ABC, Generic[T]):
-    """
-    データ変換の抽象基底クラス
+    """データ変換の抽象基底クラス.
 
-    全てのConverterはこのクラスを継承し、変換メソッドを実装します。
-    外部形式（DataFrame、JSON、CSV等）と内部形式（Pydanticモデル）の相互変換を行います。
+    全ての Converter はこのクラスを継承し、外部形式と内部形式の相互変換を実装します.
 
     Type Parameters:
-        T: 内部データの型（Pydanticモデルなど）
-
-    Examples:
-        >>> class StockPriceConverter(BaseConverter[StockData]):
-        ...     def to_pydantic(self, data: dict) -> StockData:
-        ...         return StockData(**data)
-        ...
-        ...     def from_pydantic(self, model: StockData) -> dict:
-        ...         return model.model_dump()
-        ...
-        ...     def to_dataframe(self, data: list[StockData]) -> pd.DataFrame:
-        ...         return pd.DataFrame([self.from_pydantic(d) for d in data])
+        T: 内部データの型（Pydantic モデルなど）
     """
 
     @abstractmethod

@@ -1,7 +1,6 @@
-"""
-銘柄マスタスキーマ
+"""銘柄マスタスキーマ.
 
-JPXから取得する銘柄マスタデータのPydanticスキーマを定義します。
+JPX から取得する銘柄マスタデータの Pydantic スキーマを定義します。
 仕様書: docs/architecture/layers/service_layer.md 3.2.2章
 """
 
@@ -11,11 +10,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class StockMasterRaw(BaseModel):
-    """
-    JPXから取得した銘柄マスタの生データスキーマ
+    """JPX から取得した銘柄マスタの生データスキーマ.
 
-    JPXの銘柄一覧エクセルファイルから取得したデータを正規化する前の形式です。
-    データソースの変動に対応するため、全てのフィールドをOptionalとしています。
+    Notes:
+        Excel 由来の生データをそのまま保持するため、ほとんどのフィールドを Optional にしています。
     """
 
     model_config = ConfigDict(
@@ -65,11 +63,16 @@ class StockMasterRaw(BaseModel):
 
 
 class StockMasterNormalized(BaseModel):
-    """
-    正規化された銘柄マスタスキーマ
+    """正規化された銘柄マスタスキーマ.
 
-    StockMasterモデル（DBテーブル）に対応する形式です。
-    必須フィールドのみをnullableとし、データ品質を保証します。
+    StockMaster モデル（DB テーブル）に対応する形式です。
+
+    Attributes:
+        stock_code (str): 銘柄コード
+        stock_name (str): 銘柄名
+        market_category (Optional[str]): 市場区分
+        data_date (Optional[str]): データ日付（YYYYMMDD）
+        is_active (int): 有効フラグ（1:有効, 0:無効）
     """
 
     model_config = ConfigDict(
@@ -108,10 +111,9 @@ class StockMasterNormalized(BaseModel):
 
 
 class StockMasterResponse(StockMasterNormalized):
-    """
-    銘柄マスタレスポンススキーマ（API返却用）
+    """銘柄マスタレスポンススキーマ（API 返却用）.
 
-    IDとタイムスタンプを含むAPI返却用のスキーマです。
+    ID およびタイムスタンプを含む API 返却用スキーマです。
     """
 
     id: Optional[int] = Field(default=None, description="レコードID")

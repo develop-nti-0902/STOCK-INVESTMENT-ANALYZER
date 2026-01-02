@@ -3,18 +3,34 @@ from datetime import date
 from types import SimpleNamespace
 
 import pytest
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import BackgroundTasks
 
 from app.api.v1 import batch as batch_module
+from app.exceptions.database import RecordNotFoundError
 
 
 class FakeJob:
     def __init__(
-        self, id: int = 1, status: str = "pending", batch_type: str = ""
+        self,
+        id: int = 1,
+        status: str = "PENDING",
+        batch_type: str = "",
+        job_type: str = "",
     ):
         self.id = id
         self.status = status
         self.batch_type = batch_type
+        # job_type がない場合は batch_type を使う
+        self.job_type = job_type if job_type else batch_type
+        self.created_at = None
+        self.updated_at = None
+        self.params = None
+        self.progress = None
+        self.success_count = None
+        self.failed_count = None
+        self.error_message = None
+        self.started_at = None
+        self.finished_at = None
 
 
 class FakeRepo:
@@ -100,20 +116,20 @@ class SessionMaker:
 @pytest.mark.asyncio
 async def test_start_single_stock_job_calls_create_and_returns_job():
     # Arrange
-    fake_job = FakeJob(id=42, status="created")
+    fake_job = FakeJob(id=42, status="PENDING", job_type="SINGLE_STOCK")
     repo = FakeRepo(create_job_result=fake_job)
 
     # Act
     result = await batch_module.start_single_stock_job(repo=repo)
 
     # Assert
-    assert result is fake_job
     assert result.id == 42
+    assert result.status == "PENDING"
 
 
 @pytest.mark.asyncio
 async def test_start_jpx_all_job_schedules_background_task(monkeypatch):
-    fake_job = FakeJob(id=99, status="created")
+    fake_job = FakeJob(id=99, status="PENDING", job_type="JPX_ALL_STOCKS")
     repo = FakeRepo(create_job_result=fake_job)
     background_tasks = BackgroundTasks()
     # Arrange
@@ -125,7 +141,8 @@ async def test_start_jpx_all_job_schedules_background_task(monkeypatch):
     )
 
     # Assert
-    assert result is fake_job
+    assert result.id == 99
+    assert result.status == "PENDING"
     # BackgroundTasks にタスクが登録されていることを確認する
     assert len(background_tasks.tasks) == 1
     # BackgroundTask オブジェクトの中に登録されたコール可能オブジェクトを検査する
@@ -144,7 +161,7 @@ async def test_get_job_status_not_found_raises():
     repo = FakeRepo(get_result=None)
 
     # Act & Assert
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(RecordNotFoundError) as exc:
         await batch_module.get_job_status(1, repo=repo)
 
     # Assert
@@ -178,7 +195,7 @@ async def test_get_history_filters_by_type_and_status():
 @pytest.mark.asyncio
 async def test_cancel_job_returns_404_when_not_found():
     repo = FakeRepo(cancel_result=None)
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(RecordNotFoundError) as exc:
         await batch_module.cancel_job(123, repo=repo)
 
     assert exc.value.status_code == 404
