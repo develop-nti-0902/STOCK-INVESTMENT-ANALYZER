@@ -7,6 +7,10 @@
 const batchTypeSelect = document.getElementById('batch-type');
 const batchSizeSelect = document.getElementById('batch-size');
 const batchSizeGroup = document.getElementById('batch-size-group');
+const timeframeSelect = document.getElementById('timeframe');
+const timeframeGroup = document.getElementById('timeframe-group');
+const listBatchSizeInput = document.getElementById('list-batch-size');
+const listBatchSizeGroup = document.getElementById('list-batch-size-group');
 const executeBatchBtn = document.getElementById('execute-batch-btn');
 const refreshHistoryBtn = document.getElementById('refresh-history-btn');
 const historyTbody = document.getElementById('history-tbody');
@@ -107,6 +111,7 @@ function formatDateTime(dateTimeStr) {
  */
 async function executeBatch() {
     const batchType = batchTypeSelect.value;
+    const timeframe = timeframeSelect ? timeframeSelect.value : '';
 
     // 実行前の確認(resetの場合)
     if (batchType === 'reset') {
@@ -120,21 +125,47 @@ async function executeBatch() {
     executeBatchBtn.innerHTML = '<span class="loading"></span> 実行中...';
 
     try {
-        let url = `${API_BASE_URL}/stock-master/${batchType}`;
-        let method = batchType === 'reset' ? 'DELETE' : 'POST';
+        let url;
+        let method = 'POST';
 
-        // refreshの場合にbatch_sizeをクエリパラメータとして追加
-        if (batchType === 'refresh') {
-            const batchSize = batchSizeSelect.value;
-            url += `?batch_size=${batchSize}`;
+        if (batchType === 'jpx_all') {
+            // JPX 全銘柄取得 API
+            url = `${API_BASE_URL}/batch/stock-data/jpx-all`;
+            method = 'POST';
+        } else if (batchType === 'jpx_all_multi') {
+            // JPX 全銘柄取得（マルチ）API
+            url = `${API_BASE_URL}/batch/stock-data/jpx-all/multi`;
+            method = 'POST';
+        } else {
+            // stock-master 用 API (refresh / reset)
+            url = `${API_BASE_URL}/stock-master/${batchType}`;
+            method = batchType === 'reset' ? 'DELETE' : 'POST';
+
+            // refreshの場合にbatch_sizeをクエリパラメータとして追加
+            if (batchType === 'refresh') {
+                const batchSize = batchSizeSelect.value;
+                url += `?batch_size=${batchSize}`;
+            }
         }
 
-        const response = await fetch(url, {
+        // fetch オプションを組み立て（jpx_all は JSON ボディを送信）
+        const fetchOptions = {
             method: method,
             headers: {
                 'Content-Type': 'application/json',
             },
-        });
+        };
+
+        if (batchType === 'jpx_all') {
+            const payload = { timeframe: timeframe };
+            fetchOptions.body = JSON.stringify(payload);
+        } else if (batchType === 'jpx_all_multi') {
+            const listBatchSize = listBatchSizeInput ? parseInt(listBatchSizeInput.value, 10) : 50;
+            const payload = { timeframe: timeframe, list_batch_size: listBatchSize };
+            fetchOptions.body = JSON.stringify(payload);
+        }
+
+        const response = await fetch(url, fetchOptions);
 
         const result = await response.json();
 
@@ -221,11 +252,23 @@ async function loadBatchHistory() {
 function onBatchTypeChange() {
     const batchType = batchTypeSelect.value;
 
-    // refreshの場合のみbatch_size選択を表示
+    // refreshの場合はbatch_sizeを表示、jpx_allの場合はtimeframeを表示
     if (batchType === 'refresh') {
         batchSizeGroup.style.display = 'flex';
+        if (timeframeGroup) timeframeGroup.style.display = 'none';
+        if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'none';
+    } else if (batchType === 'jpx_all') {
+        batchSizeGroup.style.display = 'none';
+        if (timeframeGroup) timeframeGroup.style.display = 'flex';
+        if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'none';
+    } else if (batchType === 'jpx_all_multi') {
+        batchSizeGroup.style.display = 'none';
+        if (timeframeGroup) timeframeGroup.style.display = 'flex';
+        if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'flex';
     } else {
         batchSizeGroup.style.display = 'none';
+        if (timeframeGroup) timeframeGroup.style.display = 'none';
+        if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'none';
     }
 }
 

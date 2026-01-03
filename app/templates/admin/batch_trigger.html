@@ -24,6 +24,8 @@
                         <label for="batch-type">バッチ種別</label>
                         <select id="batch-type" class="form-control">
                             <option value="refresh">銘柄マスタ更新 (refresh)</option>
+                            <option value="jpx_all">JPX 全銘柄取得 (jpx_all)</option>
+                            <option value="jpx_all_multi">JPX 全銘柄取得（マルチ） (jpx_all_multi)</option>
                             <option value="reset">銘柄マスタリセット (reset)</option>
                         </select>
                     </div>
@@ -39,6 +41,29 @@
                         </select>
                         <small style="color: #6c757d; margin-top: 0.25rem; display: block;">
                             ※ 銘柄マスタ更新時のバッチ処理サイズ (1-5000)
+                        </small>
+                    </div>
+
+                    <div id="timeframe-group" class="control-group" style="display: none;">
+                        <label for="timeframe">Timeframe</label>
+                        <select id="timeframe" class="form-control">
+                            <option value="1m">1分</option>
+                            <option value="5m" selected>5分</option>
+                            <option value="15m">15分</option>
+                            <option value="30m">30分</option>
+                            <option value="1h">1時間</option>
+                            <option value="1d">1日</option>
+                        </select>
+                        <small style="color: #6c757d; margin-top: 0.25rem; display: block;">
+                            ※ JPX全銘柄取得のタイムフレームを選択
+                        </small>
+                    </div>
+
+                    <div id="list-batch-size-group" class="control-group" style="display: none;">
+                        <label for="list-batch-size">マルチ取得バッチサイズ</label>
+                        <input id="list-batch-size" class="form-control" type="number" min="1" max="500" value="50">
+                        <small style="color: #6c757d; margin-top: 0.25rem; display: block;">
+                            ※ fetch_multi_yfinance に一度に渡す銘柄数 (デフォルト 50)
                         </small>
                     </div>
 

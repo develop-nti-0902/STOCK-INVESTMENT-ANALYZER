@@ -51,6 +51,50 @@ async def _commit_with_rollback(session, context: str, job_id: int) -> None:
             )
 
 
+def _job_to_response_dict(job) -> dict:
+    """ORM の `BatchExecution` インスタンスを API レスポンス用 dict に変換するヘルパー.
+
+    正規化ポイント:
+    - DB の `batch_type` -> API の `job_type`
+    - `status` は大文字化して enum に合わせる
+    - 日時は ISO 文字列に変換
+    - success/failed カウント名をスキーマ名に合わせる
+    """
+    # safe access for optional attributes
+    job_id = getattr(job, "id", None)
+    batch_type = getattr(job, "batch_type", None)
+    status = getattr(job, "status", None)
+    total = getattr(job, "total_stocks", None)
+    processed = getattr(job, "processed_stocks", None)
+    success = getattr(job, "successful_stocks", None)
+    failed = getattr(job, "failed_stocks", None)
+    start_time = getattr(job, "start_time", None)
+    end_time = getattr(job, "end_time", None)
+    error_message = getattr(job, "error_message", None)
+    params = getattr(job, "params", None)
+
+    # progress は processed/total を使って計算（存在しない場合は None）
+    progress = None
+    try:
+        if total and processed is not None and total > 0:
+            progress = float(processed) / float(total) * 100.0
+    except Exception:
+        progress = None
+
+    return {
+        "job_id": str(job_id) if job_id is not None else None,
+        "job_type": batch_type,
+        "status": status.upper() if isinstance(status, str) else status,
+        "params": params or {},
+        "progress": progress,
+        "success_count": success,
+        "failed_count": failed,
+        "error_message": error_message,
+        "started_at": start_time.isoformat() if start_time else None,
+        "finished_at": end_time.isoformat() if end_time else None,
+    }
+
+
 async def _await_pending_tasks(
     pending_tasks: set[_asyncio.Task], context: str | None = None
 ) -> None:
@@ -65,8 +109,10 @@ async def _await_pending_tasks(
     """
     if not pending_tasks:
         return
+
     try:
-        await _asyncio.gather(*list(pending_tasks), return_exceptions=True)
+        pending_list = list(pending_tasks)
+        await _asyncio.gather(*pending_list, return_exceptions=True)
     except Exception:
         if context:
             logger.exception("Error %s", context)
@@ -155,7 +201,7 @@ async def start_single_stock_job(
     """
     # このエンドポイントはジョブ作成のみを行うため、パラメータを受け取らない仕様に変更しました。
     job = await repo.create_job(batch_type=JobType.SINGLE_STOCK.value)
-    return BatchExecutionResponse.model_validate(job)
+    return BatchExecutionResponse.model_validate(_job_to_response_dict(job))
 
 
 @router.post(
@@ -191,7 +237,35 @@ async def start_jpx_all_job(
         process_jpx_all_stocks, job.id, params.model_dump(), service
     )
 
-    return BatchExecutionResponse.model_validate(job)
+    return BatchExecutionResponse.model_validate(_job_to_response_dict(job))
+
+
+@router.post(
+    "/stock-data/jpx-all/multi",
+    response_model=BatchExecutionResponse,
+    status_code=http_status.HTTP_201_CREATED,
+)
+async def start_jpx_all_multi_job(
+    params: BatchJobParams,
+    background_tasks: BackgroundTasks,
+    repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
+    service: StockPriceService = Depends(get_stock_price_service),
+) -> BatchExecutionResponse:
+    """JPX 全銘柄をマルチティッカー API で取得するジョブを作成してバックグラウンドで実行します.
+
+    `params` の中に `list_batch_size` を含めると、fetch_multi_yfinance に渡す銘柄数を制御できます。
+    """
+    _ = params
+    _ = background_tasks
+
+    job = await repo.create_job(batch_type=JobType.JPX_ALL_STOCKS.value)
+
+    # マルチ取得用のバックグラウンドタスクを登録
+    background_tasks.add_task(
+        process_jpx_all_stocks_multi, job.id, params.model_dump(), service
+    )
+
+    return BatchExecutionResponse.model_validate(_job_to_response_dict(job))
 
 
 async def process_jpx_all_stocks(
@@ -285,14 +359,215 @@ async def process_jpx_all_stocks(
             # ジョブ失敗時もスケジュール済みの進捗更新を待つ
             if pending_tasks:
                 try:
+                    pending_list = list(pending_tasks)
                     await _asyncio.gather(
-                        *list(pending_tasks), return_exceptions=True
+                        *pending_list, return_exceptions=True
                     )
                 except Exception:
                     logger.exception(
                         "Error while awaiting pending progress tasks "
                         "after failure"
                     )
+                finally:
+                    pending_tasks.clear()
+
+
+async def process_jpx_all_stocks_multi(
+    job_id: int, params: dict, service: StockPriceService
+) -> None:
+    """JPX全銘柄をマルチティッカー取得で処理するバックグラウンドタスク.
+
+    `params` には `list_batch_size` を含めることで、一度に fetch_multi_yfinance に渡す銘柄数を
+    指定できます。指定が無ければデフォルトで 50 を使います。
+    """
+    session_maker = get_session_maker()
+    async with session_maker() as session:
+        repo = BatchExecutionRepository(session)
+        await repo.update_status(job_id, "running")
+        try:
+            await session.commit()
+        except Exception:
+            msg = (
+                "Failed to commit session after setting status 'running' "
+                "for job %s"
+            )
+            logger.exception(msg, job_id)
+            try:
+                await session.rollback()
+            except Exception:
+                msg = (
+                    "Failed to rollback session after commit failure "
+                    "for job %s"
+                )
+                logger.exception(msg, job_id)
+
+        pending_tasks, _progress_callback, _sync_progress_cb = (
+            _make_progress_handlers(job_id)
+        )
+
+        try:
+            # 銘柄リスト取得
+            if service.stock_master_service is None:
+                raise Exception("StockMasterService is required")
+
+            market = params.get("market")
+            if market:
+                symbols = (
+                    await service.stock_master_service.get_symbols_by_market(
+                        market
+                    )
+                )
+            else:
+                symbols = (
+                    await service.stock_master_service.get_all_active_symbols()
+                )
+
+            total = len(symbols)
+            list_batch_size = int(params.get("list_batch_size") or 50)
+
+            from app.services.batch.batch_execution_service import (
+                BatchExecutionContext,
+            )
+
+            success = 0
+            failed = 0
+            errors = []
+
+            async with BatchExecutionContext(
+                service.batch_service,
+                job_type="jpx_all_multi",
+                params={
+                    "timeframe": params.get("timeframe"),
+                    "market": market,
+                    "list_batch_size": list_batch_size,
+                },
+            ) as ctx:
+                # 銘柄を list_batch_size ごとのチャンクに分割し、fetch_multi_yfinance を呼ぶ
+                for i in range(0, total, list_batch_size):
+                    chunk = symbols[i : i + list_batch_size]
+
+                    # fetch_multi_yfinance は Dict[symbol, List[StockData]] を返す
+                    results = await service.fetcher.fetch_multi_yfinance(
+                        chunk,
+                        timeframe=params.get("timeframe"),
+                        start_date=params.get("start_date"),
+                        end_date=params.get("end_date"),
+                    )
+
+                    # 銘柄ごとに payload を作成してバッチ保存の準備を行う
+                    payloads = []
+                    for sym, sd_list in results.items():
+                        # 検証
+                        valid_models = []
+                        for sd in sd_list:
+                            res = service.validator.validate(sd)
+                            if res.is_valid:
+                                valid_models.append(sd)
+
+                        if not valid_models:
+                            failed += 1
+                            errors.append(
+                                {"symbol": sym, "errors": ["no valid data"]}
+                            )
+                            continue
+
+                        try:
+                            records = service.converter.to_saver_records(
+                                valid_models
+                            )
+                        except (
+                            Exception
+                        ) as exc:  # pragma: no cover - defensive
+                            failed += 1
+                            errors.append(
+                                {"symbol": sym, "errors": [str(exc)]}
+                            )
+                            continue
+
+                        payloads.append(
+                            {
+                                "symbol": sym,
+                                "timeframe": params.get("timeframe"),
+                                "records": records,
+                            }
+                        )
+
+                    if payloads:
+                        try:
+                            _ = await service.saver.save_batch(payloads)
+                            # saved はペイロード全体で保存された行数（整数）
+                            success += len(payloads)
+                        except (
+                            Exception
+                        ) as exc:  # pragma: no cover - defensive
+                            logger.exception(
+                                "Failed to save batch payloads: %s", exc
+                            )
+                            failed += len(payloads)
+
+                    # 進捗コールバックの呼び出しとコンテキスト更新
+                    if _sync_progress_cb:
+                        try:
+                            _sync_progress_cb(
+                                {
+                                    "total": total,
+                                    "processed": success + failed,
+                                    "success": success,
+                                    "failed": failed,
+                                }
+                            )
+                        except Exception:
+                            logger.exception("Progress callback failed")
+
+                    try:
+                        await ctx.update_progress(
+                            processed=success + failed,
+                            total=total,
+                            success=success,
+                            failed=failed,
+                        )
+                    except Exception:
+                        logger.exception("Failed to update batch progress")
+
+            # 保留中の進捗更新タスクを待機する
+            await _await_pending_tasks(
+                pending_tasks, "while awaiting pending progress tasks"
+            )
+
+            # finalize job
+            try:
+                await repo.mark_completed(
+                    job_id, success_count=success, failed_count=failed
+                )
+                await _commit_with_rollback(session, "mark_completed", job_id)
+            except Exception:
+                logger.exception("Failed to mark_completed for job %s", job_id)
+
+        except Exception:  # pylint: disable=broad-except
+            logger.exception(
+                "process_jpx_all_stocks_multi failed for job %s", job_id
+            )
+            try:
+                await repo.update_status(job_id, "failed")
+                await _commit_with_rollback(
+                    session, "setting status 'failed'", job_id
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to update status to 'failed' for job %s", job_id
+                )
+            if pending_tasks:
+                try:
+                    pending_list = list(pending_tasks)
+                    await _asyncio.gather(
+                        *pending_list, return_exceptions=True
+                    )
+                except Exception:
+                    msg = (
+                        "Error while awaiting pending progress tasks "
+                        "after failure"
+                    )
+                    logger.exception(msg)
                 finally:
                     pending_tasks.clear()
 
@@ -305,7 +580,7 @@ async def get_job_status(
     job = await repo.get(job_id)
     if job is None:
         raise RecordNotFoundError(message=f"Job with id {job_id} not found")
-    return job
+    return BatchExecutionResponse.model_validate(_job_to_response_dict(job))
 
 
 @router.get("/history", response_model=List[BatchExecutionResponse])
@@ -323,7 +598,11 @@ async def get_history(
     if status is not None:
         records = [r for r in records if r.status == status]
 
-    return records
+    # ORM インスタンスをスキーマ互換の dict に変換して返す
+    return [
+        BatchExecutionResponse.model_validate(_job_to_response_dict(r))
+        for r in records
+    ]
 
 
 @router.delete("/cancel/{job_id}", response_model=BatchExecutionResponse)
@@ -334,4 +613,4 @@ async def cancel_job(
     job = await repo.cancel_job(job_id)
     if job is None:
         raise RecordNotFoundError(message=f"Job with id {job_id} not found")
-    return job
+    return BatchExecutionResponse.model_validate(_job_to_response_dict(job))

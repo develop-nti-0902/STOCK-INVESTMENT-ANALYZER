@@ -138,6 +138,97 @@ async def test_fetch_all_jpx_stocks_persists_1d(monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_fetch_multi_yfinance_persists_1d(monkeypatch):
+    """fetch_multi_yfinance を使って複数銘柄を一括取得し、DBへ永続化する簡易統合テスト"""
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=30)
+
+    engine = await setup_test_database(monkeypatch, Stocks1d)
+    await register_test_symbols(TEST_SYMBOLS)
+
+    fetcher = StockPriceFetcher()
+    converter = StockPriceConverter()
+
+    session_maker = db_mod.get_session_maker()
+
+    # 実際の yfinance で複数銘柄をダウンロードして検証する
+    # （環境にネットワーク接続と yahoo API の利用可能性が必要）
+
+    async with session_maker() as session:
+        saver = StockPriceSaver(session=session)
+
+        # fetch_multi_yfinance を呼んで結果を受け取り、Saver に渡して保存
+        results = await fetcher.fetch_multi_yfinance(
+            TEST_SYMBOLS,
+            timeframe="1d",
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        # 変換: `StockData` -> `StockPriceCreate` -> Saver用辞書へ
+        payload = []
+        for symbol, sd_list in results.items():
+            pyd_models = []
+            for sd in sd_list:
+                # StockData を dict にして converter で Pydantic に変換
+                d = sd.model_dump()
+                try:
+                    pyd = converter.to_pydantic(d)
+                    pyd_models.append(pyd)
+                except Exception:
+                    continue
+
+            if not pyd_models:
+                continue
+
+            records = converter.to_saver_records(pyd_models)
+            payload.append(
+                {"symbol": symbol, "timeframe": "1d", "records": records}
+            )
+
+        # 保存実行（セッションは saver に注入済み）
+        saved_count = await saver.save_batch(payload)
+        assert isinstance(saved_count, int)
+
+    # 確認: DB に行があること
+    async with session_maker() as verify_session:
+        all_rows = []
+        for symbol in TEST_SYMBOLS:
+            q = await verify_session.execute(
+                select(Stocks1d).where(Stocks1d.symbol == symbol)
+            )
+            rows = q.scalars().all()
+            all_rows.extend(rows)
+
+        # 永続化が実行されていることを簡易検証
+        assert len(all_rows) > 0
+
+        # CSVアーティファクトを出力
+        fieldnames = [
+            "id",
+            "symbol",
+            "timestamp",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "adj_close",
+            "created_at",
+            "updated_at",
+        ]
+        write_csv_artifact(
+            all_rows,
+            "1d",
+            fieldnames,
+            use_date=False,
+            test_name="test_fetch_multi_yfinance_persists_1d",
+        )
+
+    await cleanup_database(engine)
+
+
+@pytest.mark.anyio
 async def test_fetch_all_jpx_stocks_persists_1h(monkeypatch):
     end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=90)

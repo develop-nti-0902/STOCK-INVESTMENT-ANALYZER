@@ -574,6 +574,66 @@ class TestStockPriceFetcherAdditional:
                 actions=False,
             )
 
+    @pytest.mark.asyncio
+    async def test_fetch_multi_yfinance(self, fetcher):
+        """fetch_multi_yfinance が複数銘柄を正しくパースすることをテスト"""
+        from unittest.mock import patch as mock_patch
+
+        import pandas as pd
+
+        with mock_patch("yfinance.Tickers") as mock_tickers:
+            mock_instance = mock_tickers.return_value
+
+            # MultiIndex columns: (attribute, ticker)
+            cols = pd.MultiIndex.from_tuples(
+                [
+                    ("Open", "AAPL"),
+                    ("High", "AAPL"),
+                    ("Low", "AAPL"),
+                    ("Close", "AAPL"),
+                    ("Volume", "AAPL"),
+                    ("Open", "7203.T"),
+                    ("High", "7203.T"),
+                    ("Low", "7203.T"),
+                    ("Close", "7203.T"),
+                    ("Volume", "7203.T"),
+                ]
+            )
+
+            data = [
+                [
+                    100.0,
+                    101.0,
+                    99.0,
+                    100.5,
+                    1000,
+                    200.0,
+                    201.0,
+                    199.0,
+                    200.5,
+                    2000,
+                ]
+            ]
+
+            df = pd.DataFrame(
+                data, index=pd.to_datetime(["2023-01-01"]), columns=cols
+            )
+
+            mock_instance.history.return_value = df
+
+            result = await fetcher.fetch_multi_yfinance(
+                ["AAPL", "7203"], timeframe="1d"
+            )
+
+            assert "AAPL" in result
+            assert "7203" in result
+            assert len(result["AAPL"]) == 1
+            assert len(result["7203"]) == 1
+            assert result["AAPL"][0].symbol == "AAPL"
+            assert result["7203"][0].symbol == "7203"
+            assert result["AAPL"][0].open_price == 100.0
+            assert result["7203"][0].open_price == 200.0
+
     def test_parse_yfinance_data_with_missing_columns(self, fetcher):
         """_parse_yfinance_dataが欠損列を扱う場合をテスト"""
         # Arrange - 準備

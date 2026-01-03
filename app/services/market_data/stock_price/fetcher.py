@@ -453,6 +453,161 @@ class StockPriceFetcher(RetryMixin):
                     "internal error."
                 ) from e
 
+    async def fetch_multi_yfinance(
+        self,
+        symbols: List[str],
+        timeframe: str = "1d",
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        **kwargs,
+    ) -> Dict[str, List[StockData]]:
+        """
+        yfinance の複数銘柄同時ダウンロードを利用して複数銘柄を一度に取得します。
+
+        戻り値はオリジナルの `symbols` をキーにした `List[StockData]` の辞書です。
+        このメソッドは内部で `yf.Tickers(...).history(...)` を使い、
+        返却された MultiIndex DataFrame を各銘柄ごとに切り出して
+        `_parse_yfinance_data` に渡します。
+        """
+        if not symbols or not isinstance(symbols, list):
+            raise FieldValidationError(
+                message="Symbols must be a non-empty list"
+            )
+
+        try:
+            interval = TimeframeMapping.get_yfinance_interval(timeframe)
+        except FieldValidationError as e:
+            raise FieldValidationError(
+                message=f"Invalid timeframe: {timeframe}"
+            ) from e
+
+        # yfinance 用のシンボルリストを準備（日本株は ".T" を付与）
+        yf_symbols: List[str] = []
+        yf_to_orig: Dict[str, str] = {}
+        for s in symbols:
+            if isinstance(s, str) and re.fullmatch(r"\d+", s):
+                if "." in s:
+                    raise FieldValidationError(
+                        message=(
+                            "Japanese stock symbol must be provided "
+                            "without suffix '.T'"
+                        )
+                    )
+                yf_s = f"{s}.T"
+            else:
+                yf_s = s
+            yf_symbols.append(yf_s)
+            yf_to_orig[yf_s] = s
+
+        if start_date is None and end_date is None:
+            start_date, end_date = TimeframeMapping.get_max_period_dates(
+                timeframe
+            )
+
+        async with self.semaphore:
+            loop = asyncio.get_event_loop()
+            # 利用する yfinance オブジェクトを作成して history をまとめて取得
+            try:
+                tickers_str = " ".join(yf_symbols)
+                tickers_obj = await loop.run_in_executor(
+                    None, lambda: yf.Tickers(tickers_str)
+                )
+
+                period = None
+                try:
+                    period = TimeframeMapping.get_period(timeframe)
+                except FieldValidationError:
+                    period = None
+
+                if period:
+                    hist = await loop.run_in_executor(
+                        None,
+                        lambda: tickers_obj.history(
+                            period=period,
+                            interval=interval,
+                            prepost=False,
+                            actions=False,
+                        ),
+                    )
+                else:
+                    hist = await loop.run_in_executor(
+                        None,
+                        lambda: tickers_obj.history(
+                            interval=interval,
+                            start=start_date,
+                            end=end_date,
+                            prepost=False,
+                            actions=False,
+                        ),
+                    )
+
+                if hist.empty:
+                    logger.warning(
+                        "No data found for requested symbols (initial)"
+                    )
+                    try:
+                        hist = await loop.run_in_executor(
+                            None,
+                            lambda: tickers_obj.history(
+                                period="5y",
+                                interval=interval,
+                                prepost=False,
+                                actions=False,
+                            ),
+                        )
+                    except Exception:
+                        logger.debug(
+                            "Fallback fetch failed for multi-symbol request"
+                        )
+
+                    if hist.empty:
+                        return {s: [] for s in symbols}
+
+                results: Dict[str, List[StockData]] = {}
+
+                for yf_s in yf_symbols:
+                    orig = yf_to_orig.get(yf_s, yf_s)
+                    try:
+                        # MultiIndex (attribute, ticker) から当該ティッカー部分を切り出す
+                        if isinstance(hist.columns, pd.MultiIndex):
+                            try:
+                                df_sym = hist.xs(
+                                    yf_s, axis=1, level=1, drop_level=True
+                                )
+                            except Exception:
+                                # 代替: second level に一致する列を選択して整形
+                                cols = [
+                                    c
+                                    for c in hist.columns
+                                    if len(c) > 1 and c[1] == yf_s
+                                ]
+                                if not cols:
+                                    results[orig] = []
+                                    continue
+                                df_sym = hist.loc[:, cols]
+                                df_sym.columns = [c[0] for c in cols]
+                        else:
+                            # 単一銘柄または yfinance の戻りが既に単一インデックスの場合
+                            df_sym = hist.copy()
+
+                        parsed = self._parse_yfinance_data(df_sym, orig)
+                        results[orig] = parsed
+                    except Exception as e:
+                        logger.exception(
+                            "Failed to parse multi data for %s: %s", yf_s, e
+                        )
+                        results[orig] = []
+
+                return results
+
+            except Exception as e:
+                msg = (
+                    "Failed to fetch multiple symbols due to an "
+                    "internal error."
+                )
+                logger.exception(msg)
+                raise YahooFinanceError(message=msg) from e
+
     def _parse_yfinance_data(
         self, data: pd.DataFrame, symbol: str
     ) -> List[StockData]:
