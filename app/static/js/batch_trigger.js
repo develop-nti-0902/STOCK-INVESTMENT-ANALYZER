@@ -11,6 +11,8 @@ const timeframeSelect = document.getElementById('timeframe');
 const timeframeGroup = document.getElementById('timeframe-group');
 const listBatchSizeInput = document.getElementById('list-batch-size');
 const listBatchSizeGroup = document.getElementById('list-batch-size-group');
+const sampleSizeInput = document.getElementById('sample-size');
+const sampleSizeGroup = document.getElementById('sample-size-group');
 const executeBatchBtn = document.getElementById('execute-batch-btn');
 const refreshHistoryBtn = document.getElementById('refresh-history-btn');
 const historyTbody = document.getElementById('history-tbody');
@@ -148,6 +150,14 @@ async function executeBatch() {
             }
         }
 
+        // refresh_sample の場合は専用エンドポイントに sample_size と batch_size をクエリで渡す
+        if (batchType === 'refresh_sample') {
+            const batchSize = batchSizeSelect.value;
+            const sampleSize = sampleSizeInput ? parseInt(sampleSizeInput.value, 10) : 100;
+            url = `${API_BASE_URL}/stock-master/refresh/sample?sample_size=${sampleSize}&batch_size=${batchSize}`;
+            method = 'POST';
+        }
+
         // fetch オプションを組み立て（jpx_all は JSON ボディを送信）
         const fetchOptions = {
             method: method,
@@ -252,21 +262,30 @@ async function loadBatchHistory() {
 function onBatchTypeChange() {
     const batchType = batchTypeSelect.value;
 
-    // refreshの場合はbatch_sizeを表示、jpx_allの場合はtimeframeを表示
+    // refreshの場合はbatch_sizeを表示、refresh_sampleはbatch_sizeとsample_sizeを表示
     if (batchType === 'refresh') {
         batchSizeGroup.style.display = 'flex';
+        if (sampleSizeGroup) sampleSizeGroup.style.display = 'none';
+        if (timeframeGroup) timeframeGroup.style.display = 'none';
+        if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'none';
+    } else if (batchType === 'refresh_sample') {
+        batchSizeGroup.style.display = 'flex';
+        if (sampleSizeGroup) sampleSizeGroup.style.display = 'flex';
         if (timeframeGroup) timeframeGroup.style.display = 'none';
         if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'none';
     } else if (batchType === 'jpx_all') {
         batchSizeGroup.style.display = 'none';
+        if (sampleSizeGroup) sampleSizeGroup.style.display = 'none';
         if (timeframeGroup) timeframeGroup.style.display = 'flex';
         if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'none';
     } else if (batchType === 'jpx_all_multi') {
         batchSizeGroup.style.display = 'none';
+        if (sampleSizeGroup) sampleSizeGroup.style.display = 'none';
         if (timeframeGroup) timeframeGroup.style.display = 'flex';
         if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'flex';
     } else {
         batchSizeGroup.style.display = 'none';
+        if (sampleSizeGroup) sampleSizeGroup.style.display = 'none';
         if (timeframeGroup) timeframeGroup.style.display = 'none';
         if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'none';
     }

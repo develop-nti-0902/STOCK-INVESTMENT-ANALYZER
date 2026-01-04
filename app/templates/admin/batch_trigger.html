@@ -24,6 +24,7 @@
                         <label for="batch-type">バッチ種別</label>
                         <select id="batch-type" class="form-control">
                             <option value="refresh">銘柄マスタ更新 (refresh)</option>
+                            <option value="refresh_sample">銘柄マスタ更新（サンプル100件） (refresh_sample)</option>
                             <option value="jpx_all">JPX 全銘柄取得 (jpx_all)</option>
                             <option value="jpx_all_multi">JPX 全銘柄取得（マルチ） (jpx_all_multi)</option>
                             <option value="reset">銘柄マスタリセット (reset)</option>
@@ -41,6 +42,14 @@
                         </select>
                         <small style="color: #6c757d; margin-top: 0.25rem; display: block;">
                             ※ 銘柄マスタ更新時のバッチ処理サイズ (1-5000)
+                        </small>
+                    </div>
+
+                    <div id="sample-size-group" class="control-group" style="display: none;">
+                        <label for="sample-size">サンプル件数</label>
+                        <input id="sample-size" class="form-control" type="number" min="1" max="5000" value="100">
+                        <small style="color: #6c757d; margin-top: 0.25rem; display: block;">
+                            ※ 銘柄マスタ更新（サンプル）でDBに保持する件数（デフォルト 100）
                         </small>
                     </div>
 

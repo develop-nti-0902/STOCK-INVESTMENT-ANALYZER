@@ -234,36 +234,116 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
             ... }
             >>> result = await saver.save_multiple_stocks(data)
         """
-        results = {}
+        results: Dict[str, int] = {}
 
-        # 全タスクを収集
+        # シンボル単位でタスクを作成し、各シンボル内で全タイムフレームを処理して
+        # 最後に一度だけコミット/ロールバックする（銘柄ごとにコミット）
         tasks = []
         for symbol, timeframe_data in data_dict.items():
-            for timeframe, data in timeframe_data.items():
-                tasks.append(
-                    self._save_single_stock_async(symbol, timeframe, data)
-                )
+            tasks.append(self._save_symbol_async(symbol, timeframe_data))
 
-        # 並列実行
         task_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # 結果集計
+        # 結果集計: 各シンボル側がタイムフレームごとの保存件数辞書を返す想定
         idx = 0
         for symbol, timeframe_data in data_dict.items():
-            for timeframe in timeframe_data.keys():
-                result = task_results[idx]
-                if isinstance(result, Exception):
-                    logger.error(
-                        f"Failed to save {symbol} ({timeframe}): {result}"
-                    )
-                    results[f"{symbol}_{timeframe}"] = 0
-                elif isinstance(result, bool):
-                    results[f"{symbol}_{timeframe}"] = 1 if result else 0
-                else:
-                    results[f"{symbol}_{timeframe}"] = cast(int, result)
-                idx += 1
+            result = task_results[idx]
+            if isinstance(result, Exception):
+                logger.error(f"Failed to save symbol {symbol}: {result}")
+                for tf in timeframe_data.keys():
+                    results[f"{symbol}_{tf}"] = 0
+            else:
+                per_symbol: Dict[str, int] = cast(Dict[str, int], result)
+                for tf in timeframe_data.keys():
+                    results[f"{symbol}_{tf}"] = per_symbol.get(tf, 0)
+            idx += 1
 
         return results
+
+    async def _save_symbol_async(
+        self,
+        symbol: str,
+        timeframe_data: Dict[str, Union[pd.DataFrame, List[Dict[str, Any]]]],
+    ) -> Dict[str, int]:
+        """
+        銘柄単位で複数タイムフレームをまとめて保存し、最後に一度だけコミット/ロールバックする。
+
+        Returns:
+            Dict[str,int]: {timeframe: saved_count} の辞書
+        """
+        session_maker = get_session_maker()
+        async with session_maker() as session:
+            results: Dict[str, int] = {}
+            try:
+                for timeframe, data in timeframe_data.items():
+                    repo_class = self.TIMEFRAME_REPOSITORIES.get(timeframe)
+                    if not repo_class:
+                        logger.error(
+                            "Unsupported timeframe for symbol %s: %s",
+                            symbol,
+                            timeframe,
+                        )
+                        results[timeframe] = 0
+                        continue
+
+                    db_records = self._prepare_data_for_db(symbol, data)
+                    if not db_records:
+                        logger.warning(
+                            "No DB records prepared for %s (%s)",
+                            symbol,
+                            timeframe,
+                        )
+                        results[timeframe] = 0
+                        continue
+
+                    repository = repo_class(session)
+                    saved_count = await repository.upsert_bulk(db_records)
+
+                    if saved_count == 0 and db_records:
+                        # 診断目的で単一レコードで upsert_single を試す（例外があればログ）
+                        try:
+                            await repository.upsert_single(db_records[0])
+                        except Exception as ex_single:
+                            logger.exception(
+                                "Detailed upsert_single error for %s (%s): %s",
+                                symbol,
+                                timeframe,
+                                ex_single,
+                            )
+
+                    results[timeframe] = saved_count
+
+                total_saved = sum(results.values())
+                if total_saved > 0:
+                    await session.commit()
+                    logger.info(
+                        "_save_symbol_async: %s committed (total_saved=%s)",
+                        symbol,
+                        total_saved,
+                    )
+                else:
+                    await session.rollback()
+                    logger.info(
+                        "_save_symbol_async: %s rolled back (no records)",
+                        symbol,
+                    )
+
+                return results
+
+            except Exception:
+                logger.exception(
+                    "Exception saving symbol (bulk) for %s",
+                    symbol,
+                )
+                try:
+                    await session.rollback()
+                except Exception as rollback_error:
+                    logger.exception(
+                        "Rollback failed for %s: %s",
+                        symbol,
+                        rollback_error,
+                    )
+                return {tf: 0 for tf in timeframe_data.keys()}
 
     async def _save_single_stock_async(
         self,

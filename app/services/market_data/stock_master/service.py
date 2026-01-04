@@ -35,11 +35,14 @@ class StockMasterService:
         self.repo = repo
         self.fetcher = fetcher or StockMasterFetcher()
 
-    async def fetch_and_store(self, *, batch_size: int = 500) -> int:
-        """Fetch all stock master records and store them in DB in batches.
+    async def fetch_and_store(
+        self, *, batch_size: int = 500, limit: Optional[int] = None
+    ) -> int:
+        """Fetch stock master records and store them in DB in batches.
 
         Args:
             batch_size (int): バッチのサイズ（デフォルト: 500）
+            limit (Optional[int]): フェッチ後に保存する上限件数（指定しない場合は全件）
 
         Returns:
             int: 保存されたレコードの合計数.
@@ -53,6 +56,16 @@ class StockMasterService:
         except Exception as exc:  # pylint: disable=broad-except
             logger.error("Failed to fetch data", extra={"error": str(exc)})
             raise
+
+        # limitが指定されていれば先頭からsliceする
+        if limit is not None:
+            try:
+                limit_val = int(limit)
+                if limit_val < 0:
+                    raise ValueError("limit must be >= 0")
+            except Exception:
+                raise
+            data = data[:limit_val]
 
         # バッチ処理でRepositoryに渡す
         total_processed = 0

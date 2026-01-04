@@ -172,20 +172,21 @@ class StockDataRepository(BaseRepository, ABC):
             )
             raise StockDataError(message=f"Failed to upsert data: {e}") from e
 
-    async def upsert_bulk(self, data_list: List[dict]) -> int:
-        """複数レコードの UPSERT を一括で実行する.
+    async def upsert_bulk(
+        self, data_list: List[dict], chunk_size: int = 5000
+    ) -> int:
+        """複数レコードの UPSERT をチャンク単位でまとめて実行する.
 
         Args:
             data_list (List[dict]): UPSERT 対象のデータリスト
+            chunk_size (int): チャンクサイズ（デフォルト: 500）
 
         Returns:
             int: 成功件数
 
-        Raises:
-            RuntimeError: 一括処理に失敗した場合
-
         Notes:
-            トランザクション制御は Service 層で行ってください。
+            - トランザクション制御は Service 層で行ってください。
+            - 大きなチャンクはメモリ/クエリ長に影響するため適切なサイズを設定してください。
         """
         if not data_list:
             return 0
@@ -193,19 +194,81 @@ class StockDataRepository(BaseRepository, ABC):
         success_count = 0
 
         try:
-            # 全データをUPSERT
-            for data in data_list:
+            # チャンクごとに multi-row INSERT ... ON CONFLICT を発行
+            for i in range(0, len(data_list), chunk_size):
+                chunk = data_list[i : i + chunk_size]
+
+                # 事前に必須フィールドの検証を行い、無効なレコードは除外する
+                valid_chunk: List[dict] = []
+                for data in chunk:
+                    required_fields = [
+                        "symbol",
+                        self.time_column,
+                        "open",
+                        "high",
+                        "low",
+                        "close",
+                    ]
+                    missing_fields: List[str] = []
+                    for field in required_fields:
+                        if field not in data:
+                            missing_fields.append(field)
+                    if missing_fields:
+                        logger.warning(
+                            "Skipping invalid upsert (missing=%s): %s",
+                            missing_fields,
+                            data,
+                        )
+                        continue
+                    valid_chunk.append(data)
+
+                if not valid_chunk:
+                    # このチャンクに有効なレコードがない場合はスキップ
+                    continue
+
                 try:
-                    await self.upsert_single(data)
-                    success_count += 1
-                except Exception as e:
-                    # 単一レコードのUPSERTで例外が起きた場合はログを記録して次のレコードへ進む
-                    error_info = {
-                        "data": data,
-                        "error": str(e),
-                        "timeframe": self.timeframe,
+                    stmt = insert(self.model).values(valid_chunk)
+
+                    conflict_columns = ["symbol", self.time_column]
+                    update_values = {
+                        "open": stmt.excluded.open,
+                        "high": stmt.excluded.high,
+                        "low": stmt.excluded.low,
+                        "close": stmt.excluded.close,
+                        "adj_close": stmt.excluded.adj_close,
+                        "volume": stmt.excluded.volume,
+                        "updated_at": func.now(),
                     }
-                    logger.warning("Failed to upsert data: %s", error_info)
+
+                    stmt = stmt.on_conflict_do_update(
+                        index_elements=conflict_columns, set_=update_values
+                    )
+
+                    await self.session.execute(stmt)
+
+                    # 実行成功と見なしてチャンク内の有効件数を成功カウントに加える
+                    success_count += len(valid_chunk)
+
+                except Exception as chunk_exc:
+                    # チャンク単位で失敗した場合、逐次upsertにフォールバック
+                    logger.exception(
+                        "Chunk upsert failed for %s: %s",
+                        self.timeframe,
+                        chunk_exc,
+                    )
+                    for data in valid_chunk:
+                        try:
+                            await self.upsert_single(data)
+                            success_count += 1
+                        except Exception as e:
+                            error_info = {
+                                "data": data,
+                                "error": str(e),
+                                "timeframe": self.timeframe,
+                            }
+                            logger.warning(
+                                "Failed to upsert data: %s", error_info
+                            )
 
             logger.info(
                 "Bulk UPSERT executed (no commit): %s/%s succeeded for %s",
