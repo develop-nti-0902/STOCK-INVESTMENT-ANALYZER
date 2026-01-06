@@ -54,6 +54,7 @@ async def _commit_with_rollback(session, context: str, job_id: int) -> None:
             )
 
 
+# pylint: disable=too-many-locals
 def _job_to_response_dict(job) -> dict:
     """ORM の `BatchExecution` インスタンスを API レスポンス用 dict に変換するヘルパー.
 
@@ -434,6 +435,7 @@ async def process_jpx_all_stocks(
                     pending_tasks.clear()
 
 
+# pylint: disable=too-many-locals,too-many-branches,too-many-statements
 async def process_jpx_all_stocks_multi(
     job_id: int, params: dict, service: StockPriceService
 ) -> None:
@@ -470,7 +472,7 @@ async def process_jpx_all_stocks_multi(
         try:
             # 銘柄リスト取得
             if service.stock_master_service is None:
-                raise ServiceError("StockMasterService is required")
+                raise ServiceError(message="StockMasterService is required")
 
             market = params.get("market")
             if market:
