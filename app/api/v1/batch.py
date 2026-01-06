@@ -15,6 +15,7 @@ from app.repositories.batch_execution_repository import (
     BatchExecutionRepository,
 )
 from app.schemas.batch import BatchExecutionResponse, BatchJobParams, JobType
+from app.schemas.stock_data import StockPriceCreate
 from app.services.market_data.stock_price import StockPriceService
 from app.utils.database import get_session_maker
 
@@ -433,11 +434,13 @@ async def process_jpx_all_stocks_multi(
             failed = 0
             errors = []
 
+            timeframe_param = cast(str, params.get("timeframe") or "1d")
+
             async with BatchExecutionContext(
                 service.batch_service,
                 job_type="jpx_all_multi",
                 params={
-                    "timeframe": params.get("timeframe"),
+                    "timeframe": timeframe_param,
                     "market": market,
                     "list_batch_size": list_batch_size,
                 },
@@ -449,7 +452,7 @@ async def process_jpx_all_stocks_multi(
                     # fetch_multi_yfinance は Dict[symbol, List[StockData]] を返す
                     results = await service.fetcher.fetch_multi_yfinance(
                         chunk,
-                        timeframe=params.get("timeframe"),
+                        timeframe=timeframe_param,
                         start_date=params.get("start_date"),
                         end_date=params.get("end_date"),
                     )
@@ -473,7 +476,7 @@ async def process_jpx_all_stocks_multi(
 
                         try:
                             records = service.converter.to_saver_records(
-                                valid_models
+                                cast(List[StockPriceCreate], valid_models)
                             )
                         except (
                             Exception
