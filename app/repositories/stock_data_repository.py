@@ -174,7 +174,7 @@ class StockDataRepository(BaseRepository, ABC):
 
     async def upsert_bulk(
         self, data_list: List[dict], chunk_size: int = 5000
-    ) -> int:
+    ) -> int:  # pylint: disable=too-many-locals
         """複数レコードの UPSERT をチャンク単位でまとめて実行する.
 
         Args:
@@ -230,6 +230,7 @@ class StockDataRepository(BaseRepository, ABC):
                     stmt = insert(self.model).values(valid_chunk)
 
                     conflict_columns = ["symbol", self.time_column]
+                    # pylint: disable=not-callable
                     update_values = {
                         "open": stmt.excluded.open,
                         "high": stmt.excluded.high,

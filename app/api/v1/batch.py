@@ -3,19 +3,21 @@ from __future__ import annotations
 import asyncio as _asyncio
 import logging
 from datetime import date, datetime
-from typing import List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi import status as http_status
 
 from app.api.dependencies.repositories import get_batch_execution_repository
 from app.api.dependencies.services import get_stock_price_service
+from app.exceptions.business import ServiceError
 from app.exceptions.database import RecordNotFoundError
 from app.repositories.batch_execution_repository import (
     BatchExecutionRepository,
 )
 from app.schemas.batch import BatchExecutionResponse, BatchJobParams, JobType
 from app.schemas.stock_data import StockPriceCreate
+from app.services.batch.batch_execution_service import BatchExecutionContext
 from app.services.market_data.stock_price import StockPriceService
 from app.utils.database import get_session_maker
 
@@ -94,6 +96,65 @@ def _job_to_response_dict(job) -> dict:
         "started_at": start_time.isoformat() if start_time else None,
         "finished_at": end_time.isoformat() if end_time else None,
     }
+
+
+async def _process_chunk_multi(
+    chunk: List[str],
+    service: StockPriceService,
+    timeframe_param: str,
+    params: dict,
+) -> tuple[int, int, List[Dict[str, Any]]]:
+    """チャンク単位の処理を切り出したヘルパー。
+
+    Returns:
+        success_inc, failed_inc, errors_list
+    """
+    success_inc = 0
+    failed_inc = 0
+    errors: List[Dict[str, Any]] = []
+
+    # fetch
+    results = await service.fetcher.fetch_multi_yfinance(
+        chunk,
+        timeframe=timeframe_param,
+        start_date=params.get("start_date"),
+        end_date=params.get("end_date"),
+    )
+
+    payloads: List[Dict[str, Any]] = []
+    for sym, sd_list in results.items():
+        valid_models: List[Any] = []
+        for sd in sd_list:
+            res = service.validator.validate(sd)
+            if res.is_valid:
+                valid_models.append(sd)
+
+        if not valid_models:
+            failed_inc += 1
+            errors.append({"symbol": sym, "errors": ["no valid data"]})
+            continue
+
+        try:
+            records = service.converter.to_saver_records(
+                cast(List[StockPriceCreate], valid_models)
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            failed_inc += 1
+            errors.append({"symbol": sym, "errors": [str(exc)]})
+            continue
+
+        payloads.append(
+            {"symbol": sym, "timeframe": timeframe_param, "records": records}
+        )
+
+    if payloads:
+        try:
+            await service.saver.save_batch(payloads)
+            success_inc += len(payloads)
+        except Exception:
+            failed_inc += len(payloads)
+
+    return success_inc, failed_inc, errors
 
 
 async def _await_pending_tasks(
@@ -409,7 +470,7 @@ async def process_jpx_all_stocks_multi(
         try:
             # 銘柄リスト取得
             if service.stock_master_service is None:
-                raise Exception("StockMasterService is required")
+                raise ServiceError("StockMasterService is required")
 
             market = params.get("market")
             if market:
@@ -426,9 +487,7 @@ async def process_jpx_all_stocks_multi(
             total = len(symbols)
             list_batch_size = int(params.get("list_batch_size") or 50)
 
-            from app.services.batch.batch_execution_service import (
-                BatchExecutionContext,
-            )
+            # BatchExecutionContext imported at module level
 
             success = 0
             failed = 0
@@ -448,68 +507,17 @@ async def process_jpx_all_stocks_multi(
                 # 銘柄を list_batch_size ごとのチャンクに分割し、fetch_multi_yfinance を呼ぶ
                 for i in range(0, total, list_batch_size):
                     chunk = symbols[i : i + list_batch_size]
-
-                    # fetch_multi_yfinance は Dict[symbol, List[StockData]] を返す
-                    results = await service.fetcher.fetch_multi_yfinance(
-                        chunk,
-                        timeframe=timeframe_param,
-                        start_date=params.get("start_date"),
-                        end_date=params.get("end_date"),
+                    # チャンク処理をヘルパーに委譲
+                    s_inc, f_inc, errs = await _process_chunk_multi(
+                        chunk, service, timeframe_param, params
                     )
-
-                    # 銘柄ごとに payload を作成してバッチ保存の準備を行う
-                    payloads = []
-                    for sym, sd_list in results.items():
-                        # 検証
-                        valid_models = []
-                        for sd in sd_list:
-                            res = service.validator.validate(sd)
-                            if res.is_valid:
-                                valid_models.append(sd)
-
-                        if not valid_models:
-                            failed += 1
-                            errors.append(
-                                {"symbol": sym, "errors": ["no valid data"]}
-                            )
-                            continue
-
-                        try:
-                            records = service.converter.to_saver_records(
-                                cast(List[StockPriceCreate], valid_models)
-                            )
-                        except (
-                            Exception
-                        ) as exc:  # pragma: no cover - defensive
-                            failed += 1
-                            errors.append(
-                                {"symbol": sym, "errors": [str(exc)]}
-                            )
-                            continue
-
-                        payloads.append(
-                            {
-                                "symbol": sym,
-                                "timeframe": params.get("timeframe"),
-                                "records": records,
-                            }
-                        )
-
-                    if payloads:
-                        try:
-                            _ = await service.saver.save_batch(payloads)
-                            # saved はペイロード全体で保存された行数（整数）
-                            success += len(payloads)
-                        except (
-                            Exception
-                        ) as exc:  # pragma: no cover - defensive
-                            logger.exception(
-                                "Failed to save batch payloads: %s", exc
-                            )
-                            failed += len(payloads)
+                    success += s_inc
+                    failed += f_inc
+                    if errs:
+                        errors.extend(errs)
 
                     # 進捗コールバックの呼び出しとコンテキスト更新
-                    if _sync_progress_cb:
+                    if _sync_progress_cb is not None:
                         try:
                             _sync_progress_cb(
                                 {
