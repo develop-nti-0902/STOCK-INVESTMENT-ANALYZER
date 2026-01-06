@@ -172,9 +172,10 @@ class StockDataRepository(BaseRepository, ABC):
             )
             raise StockDataError(message=f"Failed to upsert data: {e}") from e
 
+    # pylint: disable=too-many-locals
     async def upsert_bulk(
         self, data_list: List[dict], chunk_size: int = 5000
-    ) -> int:  # pylint: disable=too-many-locals
+    ) -> int:
         """複数レコードの UPSERT をチャンク単位でまとめて実行する.
 
         Args:
