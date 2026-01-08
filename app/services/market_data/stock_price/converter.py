@@ -31,35 +31,6 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
         """初期化"""
         super().__init__()
 
-    def to_pydantic(self, data: Any) -> StockPriceCreate:
-        """
-        現状は継承不要なので未実装
-        """
-        raise NotImplementedError(
-            "to_pydantic is not implemented for StockPriceConverter."
-            " Implement when needed."
-        )
-
-    def from_pydantic(self, model: StockPriceCreate) -> Dict[str, Any]:
-        """
-        現状は継承不要なので未実装
-        """
-        raise NotImplementedError(
-            "from_pydantic is not implemented for StockPriceConverter."
-            " Implement when needed."
-        )
-
-    def from_dataframe(
-        self, df: Any, *args, **kwargs
-    ) -> List[StockPriceCreate]:
-        """
-        現状は継承不要なので未実装
-        """
-        raise NotImplementedError(
-            "from_dataframe is not implemented for StockPriceConverter."
-            " Implement when needed."
-        )
-
     def _validate_data(self, df: pd.DataFrame) -> None:
         """
         DataFrameのデータ検証
@@ -113,3 +84,32 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
         複数の StockPriceCreate を Saver 用の辞書リストに変換します。
         """
         return [self.to_saver_record(m) for m in models]
+
+    def to_pydantic(self, data: Any) -> StockPriceCreate:
+        """
+        現状は継承不要なので未実装
+        """
+        raise NotImplementedError(
+            "to_pydantic is not implemented for StockPriceConverter."
+            " Implement when needed."
+        )
+
+    def from_pydantic(self, model: StockPriceCreate) -> Dict[str, Any]:
+        """
+        現状は継承不要なので未実装
+        """
+        raise NotImplementedError(
+            "from_pydantic is not implemented for StockPriceConverter."
+            " Implement when needed."
+        )
+
+    def from_dataframe(
+        self, df: Any, *args, **kwargs
+    ) -> List[StockPriceCreate]:
+        """
+        現状は継承不要なので未実装
+        """
+        raise NotImplementedError(
+            "from_dataframe is not implemented for StockPriceConverter."
+            " Implement when needed."
+        )
