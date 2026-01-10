@@ -103,7 +103,7 @@ async def _process_chunk_multi(
     chunk: List[str],
     service: StockPriceService,
     timeframe_param: str,
-    params: dict,
+    _params: dict,
 ) -> tuple[int, int, List[Dict[str, Any]]]:
     """チャンク単位の処理を切り出したヘルパー。
 
