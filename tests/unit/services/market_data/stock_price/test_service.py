@@ -126,8 +126,6 @@ class TestStockPriceService:
         self.mock_fetcher.fetch_single.assert_called_once_with(
             symbol=symbol,
             timeframe=timeframe,
-            start_date=start_date,
-            end_date=end_date,
         )
         assert self.mock_validator.validate.call_count == 2
         # Saver に渡されたペイロードは実装により形式が変わるため、構造を確認する
@@ -390,10 +388,16 @@ class TestStockPriceService:
             symbol, timeframe, "2024-01-01", "2024-01-31"
         )
 
-        # fetch_single に渡された start_date/end_date が date 型に変換されていること
-        called_kwargs = self.mock_fetcher.fetch_single.call_args[1]
-        assert isinstance(called_kwargs.get("start_date"), date)
-        assert isinstance(called_kwargs.get("end_date"), date)
+        # fetch_single は start_date/end_date を受け取らなくなったため、
+        # 呼び出しは symbol と timeframe のみで行われることを確認する
+        self.mock_fetcher.fetch_single.assert_called_once_with(
+            symbol=symbol, timeframe=timeframe
+        )
+
+        # ただし日付正規化ユーティリティは残っているので個別に確認する
+        assert self.service._normalize_date_param("2024-01-01") == date(
+            2024, 1, 1
+        )
 
     @pytest.mark.asyncio
     async def test_fetch_all_jpx_stocks_success_and_progress_callback(self):

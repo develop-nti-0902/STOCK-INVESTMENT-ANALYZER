@@ -206,7 +206,10 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
 
         except Exception as e:
             logger.error(
-                f"Failed to save stock data for {symbol} ({timeframe}): {e}"
+                "Failed to save stock data for %s (%s): %s",
+                symbol,
+                timeframe,
+                e,
             )
             raise
 
@@ -249,7 +252,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         for symbol, timeframe_data in data_dict.items():
             result = task_results[idx]
             if isinstance(result, Exception):
-                logger.error(f"Failed to save symbol {symbol}: {result}")
+                logger.error("Failed to save symbol %s: %s", symbol, result)
                 for tf in timeframe_data.keys():
                     results[f"{symbol}_{tf}"] = 0
             else:
@@ -484,7 +487,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 )
 
         except Exception as e:
-            logger.error(f"Failed to prepare data for DB: {e}")
+            logger.error("Failed to prepare data for DB: %s", e)
             raise
 
     def _convert_dataframe_to_db_records(
@@ -558,7 +561,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 records.append(record)
 
             except (ValueError, TypeError) as e:
-                logger.warning(f"Skipping invalid row: {e}")
+                logger.warning("Skipping invalid row: %s", e)
                 continue
 
         return records
@@ -625,7 +628,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 records.append(record)
 
             except (KeyError, ValueError, TypeError) as e:
-                logger.warning(f"Skipping invalid item: {e}")
+                logger.warning("Skipping invalid item: %s", e)
                 continue
 
         return records

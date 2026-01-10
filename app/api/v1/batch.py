@@ -115,11 +115,9 @@ async def _process_chunk_multi(
     errors: List[Dict[str, Any]] = []
 
     # fetch
-    results = await service.fetcher.fetch_multi_yfinance(
+    results = await service.fetcher.fetch_batch(
         chunk,
         timeframe=timeframe_param,
-        start_date=params.get("start_date"),
-        end_date=params.get("end_date"),
     )
 
     payloads: List[Dict[str, Any]] = []

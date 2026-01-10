@@ -193,19 +193,16 @@ class StockPriceService:
             StockPriceServiceResult: 処理結果
         """
         logger.info(
-            f"Starting single stock data fetch and save: {symbol}, {timeframe}"
+            "Starting single stock data fetch and save: %s, %s",
+            symbol,
+            timeframe,
         )
 
         try:
             # 1. データ取得
-            start_param = self._normalize_date_param(start_date)
-            end_param = self._normalize_date_param(end_date)
-
             stock_data_list = await self.fetcher.fetch_single(
                 symbol=symbol,
                 timeframe=timeframe,
-                start_date=start_param,
-                end_date=end_param,
             )
 
             if not stock_data_list:
@@ -230,7 +227,9 @@ class StockPriceService:
                 validation_results.append(result)
                 if not result.is_valid:
                     logger.warning(
-                        f"Validation failed for {symbol}: {result.errors}"
+                        "Validation failed for %s: %s",
+                        symbol,
+                        result.errors,
                     )
 
             # 検証失敗のデータを除外
@@ -290,7 +289,7 @@ class StockPriceService:
             )
 
         except YahooFinanceError as e:
-            logger.error(f"Yahoo Finance error for {symbol}: {e}")
+            logger.error("Yahoo Finance error for %s: %s", symbol, e)
             return StockPriceServiceResult(
                 success=False,
                 symbol=symbol,
@@ -299,7 +298,7 @@ class StockPriceService:
             )
 
         except StockDataValidationError as e:
-            logger.error(f"Validation error for {symbol}: {e}")
+            logger.error("Validation error for %s: %s", symbol, e)
             return StockPriceServiceResult(
                 success=False,
                 symbol=symbol,
@@ -308,7 +307,7 @@ class StockPriceService:
             )
 
         except Exception as e:
-            logger.exception(f"Unexpected error processing {symbol}")
+            logger.exception("Unexpected error processing %s", symbol)
             return StockPriceServiceResult(
                 success=False,
                 symbol=symbol,
@@ -359,7 +358,7 @@ class StockPriceService:
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 symbol = symbols[i]
-                logger.error(f"Exception processing {symbol}: {result}")
+                logger.error("Exception processing %s: %s", symbol, result)
                 processed_results.append(
                     StockPriceServiceResult(
                         success=False,
@@ -548,17 +547,16 @@ class StockPriceService:
         Returns:
             StockDataWrapper or None: 取得した株価データ
         """
-        logger.info(f"Fetching stock data (read-only): {symbol}, {timeframe}")
+        logger.info(
+            "Fetching stock data (read-only): %s, %s",
+            symbol,
+            timeframe,
+        )
 
         try:
-            start_param = self._normalize_date_param(start_date)
-            end_param = self._normalize_date_param(end_date)
-
             stock_data_list = await self.fetcher.fetch_single(
                 symbol=symbol,
                 timeframe=timeframe,
-                start_date=start_param,
-                end_date=end_param,
             )
 
             # List[StockData] を DataFrame に変換して返す
@@ -574,5 +572,5 @@ class StockPriceService:
                 return None
 
         except Exception:
-            logger.exception(f"Error fetching stock data for {symbol}")
+            logger.exception("Error fetching stock data for %s", symbol)
             return None
