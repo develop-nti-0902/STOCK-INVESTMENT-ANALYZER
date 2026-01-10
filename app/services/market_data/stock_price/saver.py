@@ -80,13 +80,11 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
             max_concurrent_batches=max_concurrent_batches,
         )
         self.session = session
-        self.repositories: Dict[str, Any] = {}
+        self.repositories: Dict[str, StockDataRepository] = {}
 
         # Repositoryインスタンスの初期化
         for timeframe, repo_class in self.TIMEFRAME_REPOSITORIES.items():
-            self.repositories[timeframe] = repo_class(
-                self.session
-            )  # type: ignore
+            self.repositories[timeframe] = repo_class(self.session)
 
     async def save(self, data: Dict[str, Any], **kwargs: Any) -> bool:
         """
@@ -96,20 +94,12 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
             data: 保存するデータ（symbol, timeframe, recordsを含むDict）
             **kwargs: 追加パラメータ
 
-        Returns:
-            bool: 保存成功の場合True
+        Notes:
+            実処理では `save_batch` を使用しているため、
+            単体の `save` は派生クラスで必要に応じて実装してください。
         """
-        symbol = data.get("symbol")
-        timeframe = data.get("timeframe")
-        records = data.get("records", [])
-
-        if not symbol or not timeframe or not records:
-            return False
-
-        # recordsをDataFrameに変換
-        df = pd.DataFrame(records)
-        return await self.save_single_stock_data(
-            symbol, timeframe, df, **kwargs
+        raise NotImplementedError(
+            "save is not implemented for saver. Implement when needed."
         )
 
     async def save_batch(
@@ -141,91 +131,20 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 grouped_data[symbol][timeframe] = []
             grouped_data[symbol][timeframe].extend(records)
 
-        result = await self.save_batch_stocks(grouped_data, **kwargs)
+        result = await self.save_batch_stocks(grouped_data)
         return sum(result.values())
-
-    async def save_single_stock_data(
-        self,
-        symbol: str,
-        timeframe: str,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
-        **kwargs: Any,
-    ) -> bool:
-        """
-        株価データを保存
-
-        DataFrameまたは辞書のリストを受け取り、指定されたタイムフレームのRepositoryに保存します。
-
-        Args:
-            symbol: 銘柄コード
-            timeframe: タイムフレーム ('1m', '5m', '15m', '30m',
-                       '1h', '1d', '1wk', '1mo')
-            data: 保存するデータ（DataFrameまたは辞書のリスト）
-            **kwargs: 追加パラメータ
-
-        Returns:
-            bool: 保存成功の場合True
-
-        Raises:
-            ValueError: 無効なタイムフレームまたはデータ形式の場合
-
-        注意:
-            このメソッドはFastAPIから注入されたセッション（self.session）を使用します。
-            トランザクションのコミットは、FastAPIのget_db()が自動的に行います。
-            エラーが発生した場合は、例外を上位層に伝播させてください（get_db()が自動ロールバック）。
-        """
-        try:
-            # Repository選択
-            repository = self._select_repository(timeframe)
-            if not repository:
-                raise FieldValidationError(
-                    message=f"Unsupported timeframe: {timeframe}"
-                )
-
-            # データ変換
-            db_records = self._prepare_data_for_db(symbol, data)
-
-            if not db_records:
-                logger.warning(
-                    "No valid data to save for symbol %s, " "timeframe %s",
-                    symbol,
-                    timeframe,
-                )
-                return False
-
-            # 一括保存
-            saved_count: int = await repository.upsert_bulk(db_records)
-            logger.info(
-                "Saved %s records for symbol %s, " "timeframe %s",
-                saved_count,
-                symbol,
-                timeframe,
-            )
-
-            return saved_count > 0
-
-        except Exception as e:
-            logger.error(
-                "Failed to save stock data for %s (%s): %s",
-                symbol,
-                timeframe,
-                e,
-            )
-            raise
 
     async def save_batch_stocks(
         self,
         data_dict: Dict[
             str, Dict[str, Union[pd.DataFrame, List[Dict[str, Any]]]]
         ],
-        **kwargs: Any,
     ) -> Dict[str, int]:
         """
         複数銘柄の株価データを並列保存
 
         Args:
             data_dict: {symbol: {timeframe: data}} の形式
-            **kwargs: 追加パラメータ
 
         Returns:
             Dict[str, int]: {symbol: 保存件数} の形式
@@ -239,27 +158,41 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         """
         results: Dict[str, int] = {}
 
-        # シンボル単位でタスクを作成し、各シンボル内で全タイムフレームを処理して
-        # 最後に一度だけコミット/ロールバックする（銘柄ごとにコミット）
-        tasks = []
-        for symbol, timeframe_data in data_dict.items():
-            tasks.append(self._save_symbol_async(symbol, timeframe_data))
+        # self.max_concurrent_batches ごとにチャンク分割して順次処理する。
+        symbols_items = list(data_dict.items())
+        if not symbols_items:
+            return results
 
-        task_results = await asyncio.gather(*tasks, return_exceptions=True)
+        # 並列数を増やして高速化（10 → 20）
+        batch_size = max(1, getattr(self, "max_concurrent_batches", 20))
 
-        # 結果集計: 各シンボル側がタイムフレームごとの保存件数辞書を返す想定
-        idx = 0
-        for symbol, timeframe_data in data_dict.items():
-            result = task_results[idx]
-            if isinstance(result, Exception):
-                logger.error("Failed to save symbol %s: %s", symbol, result)
-                for tf in timeframe_data.keys():
-                    results[f"{symbol}_{tf}"] = 0
-            else:
-                per_symbol: Dict[str, int] = cast(Dict[str, int], result)
-                for tf in timeframe_data.keys():
-                    results[f"{symbol}_{tf}"] = per_symbol.get(tf, 0)
-            idx += 1
+        for i in range(0, len(symbols_items), batch_size):
+            batch = symbols_items[i : i + batch_size]
+            # バッチ内は並列実行して高速化する
+            tasks = [
+                self._save_symbol_async(symbol, timeframe_data)
+                for symbol, timeframe_data in batch
+            ]
+
+            task_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # バッチ結果を集計
+            for idx, (symbol, timeframe_data) in enumerate(batch):
+                result = task_results[idx]
+                if isinstance(result, Exception):
+                    logger.error(
+                        "Failed to save symbol %s: %s", symbol, result
+                    )
+                    for tf in timeframe_data.keys():
+                        results[f"{symbol}_{tf}"] = 0
+                else:
+                    per_symbol: Dict[str, int] = cast(Dict[str, int], result)
+                    for tf in timeframe_data.keys():
+                        results[f"{symbol}_{tf}"] = per_symbol.get(tf, 0)
+
+            # バッチ処理後にローカル参照を解放してメモリ圧を下げる
+            del tasks
+            del task_results
 
         return results
 
@@ -440,7 +373,9 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                     )
                 return 0
 
-    def _select_repository(self, timeframe: str) -> Optional[Any]:
+    def _select_repository(
+        self, timeframe: str
+    ) -> Optional[StockDataRepository]:
         """
         タイムフレームに応じたRepositoryを選択
 

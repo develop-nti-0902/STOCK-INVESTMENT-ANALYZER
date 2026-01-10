@@ -174,48 +174,6 @@ class TestStockPriceSaver:
             saver._prepare_data_for_db("7203", "invalid_data")
 
     @pytest.mark.asyncio
-    async def test_save_stock_data_success(self, saver, mock_session):
-        """株価データ保存成功テスト"""
-        # モックRepositoryの設定
-        mock_repo = AsyncMock()
-        mock_repo.upsert_bulk.return_value = 1
-        saver.repositories["1d"] = mock_repo
-
-        # テストデータ
-        data = {
-            "timestamp": ["2023-01-01 09:00:00"],
-            "open": [100.0],
-            "high": [105.0],
-            "low": [95.0],
-            "close": [102.0],
-            "volume": [1000],
-        }
-        df = pd.DataFrame(data)
-
-        result = await saver.save_single_stock_data("7203", "1d", df)
-
-        assert result is True
-        mock_repo.upsert_bulk.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_save_stock_data_invalid_timeframe(self, saver):
-        """無効なタイムフレームのエラーテスト"""
-        data = {
-            "timestamp": ["2023-01-01 09:00:00"],
-            "open": [100.0],
-            "high": [105.0],
-            "low": [95.0],
-            "close": [102.0],
-            "volume": [1000],
-        }
-        df = pd.DataFrame(data)
-
-        with pytest.raises(
-            FieldValidationError, match="Unsupported timeframe"
-        ):
-            await saver.save_single_stock_data("7203", "invalid", df)
-
-    @pytest.mark.asyncio
     async def test_save_multiple_stocks(self, saver, mock_session):
         """複数銘柄保存テスト"""
         from unittest.mock import AsyncMock, patch
@@ -300,6 +258,19 @@ class TestStockPriceSaver:
         # saveメソッドの存在確認
         assert hasattr(saver, "save")
         assert hasattr(saver, "save_batch")
+
+        # 実処理では save_batch を使うため、単体の save は未実装であることを期待する
+        import pytest
+
+        with pytest.raises(NotImplementedError):
+            # call with minimal payload
+            import asyncio
+
+            asyncio.run(
+                saver.save(
+                    {"symbol": "7203", "timeframe": "1d", "records": []}
+                )
+            )
 
     @pytest.mark.asyncio
     async def test_save_batch_base_interface(self, saver, mock_session):
