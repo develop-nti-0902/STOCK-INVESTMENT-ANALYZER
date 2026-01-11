@@ -1,0 +1,4 @@
+.container { padding:12px }
+.headerCard { display:flex; justify-content:space-between; align-items:center }
+.statsGrid { display:flex; gap:12px }
+.backLink { background:transparent; border:none; cursor:pointer }

@@ -1,0 +1,42 @@
+.scoreCircle {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+}
+
+.sm {
+  width: 2rem;
+  height: 2rem;
+  font-size: var(--text-xs);
+}
+
+.md {
+  width: 3rem;
+  height: 3rem;
+  font-size: var(--text-lg);
+}
+
+.lg {
+  width: 4rem;
+  height: 4rem;
+  font-size: var(--text-2xl);
+}
+
+.scoreHigh {
+  background-color: var(--color-success);
+}
+
+.scoreMedium {
+  background-color: var(--color-primary);
+}
+
+.scoreLow {
+  background-color: var(--color-warning);
+}
+
+.scoreVeryLow {
+  background-color: var(--color-danger);
+}

@@ -1,0 +1,278 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--spacing-md);
+}
+
+.statCard {
+  background-color: white;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.statLabel {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.statValue {
+  font-size: var(--text-3xl);
+  font-weight: bold;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.statValue.positive {
+  color: var(--color-success);
+}
+
+.statValue.info {
+  color: var(--color-primary);
+}
+
+.statPercent {
+  font-size: var(--text-sm);
+  color: var(--color-success);
+}
+
+.badgeContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: var(--spacing-sm);
+}
+
+.overallBadge {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: 9999px;
+  font-size: var(--text-2xl);
+  font-weight: bold;
+  color: white;
+}
+
+.badgeExcellent {
+  background-color: #059669;
+}
+
+.badgeGood {
+  background-color: var(--color-primary);
+}
+
+.badgeFair {
+  background-color: var(--color-warning);
+}
+
+.badgePoor {
+  background-color: var(--color-danger);
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--spacing-lg);
+}
+
+.holdingsCard,
+.sectorCard,
+.radarCard,
+.alertsCard,
+.newsCard {
+  background-color: white;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.cardTitle {
+  font-size: var(--text-lg);
+  font-weight: bold;
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.holdingsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.holdingItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm);
+  background-color: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.holdingInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.favoriteBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.favoriteActive {
+  fill: #fbbf24;
+  color: #fbbf24;
+}
+
+.favoriteInactive {
+  color: var(--color-text-light);
+}
+
+.stockName {
+  font-weight: bold;
+}
+
+.sector {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.holdingStats {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.priceInfo {
+  text-align: right;
+}
+
+.price {
+  font-weight: bold;
+}
+
+.plPositive {
+  color: var(--color-success);
+  font-size: var(--text-sm);
+}
+
+.plNegative {
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+.scores {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.sectorLegend {
+  margin-top: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+}
+
+.legendLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.legendColor {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: var(--radius-sm);
+}
+
+.legendValue {
+  font-weight: bold;
+}
+
+.bottomGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-lg);
+}
+
+.sideColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.alertIcon {
+  color: var(--color-warning);
+}
+
+.alertsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.alertItem {
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  border-left: 4px solid;
+}
+
+.alertHigh {
+  border-color: var(--color-danger);
+  background-color: #fef2f2;
+}
+
+.alertMedium {
+  border-color: var(--color-warning);
+  background-color: #fefce8;
+}
+
+.alertMessage {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.newsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.newsItem {
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.newsItem:hover {
+  background-color: var(--color-bg-tertiary);
+}
+
+.newsDate {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.newsTitle {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}

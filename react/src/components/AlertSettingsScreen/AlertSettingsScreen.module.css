@@ -1,0 +1,4 @@
+.container { padding:12px }
+.alertItem { padding:8px; border-radius:6px }
+.alertHigh { border-left:4px solid #ef4444; background:#fff7f7 }
+.alertMedium { border-left:4px solid #f59e0b; background:#fffbf0 }

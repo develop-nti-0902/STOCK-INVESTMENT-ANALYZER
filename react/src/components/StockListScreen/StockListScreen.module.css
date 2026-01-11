@@ -1,0 +1,184 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.searchBar {
+  background-color: white;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.searchInput {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.sectorSelect {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+}
+
+.sectorSelect:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.csvButton {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-weight: 500;
+}
+
+.csvButton:hover {
+  background-color: #2563eb;
+}
+
+.tableContainer {
+  background-color: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  font-size: var(--text-sm);
+  border-collapse: collapse;
+}
+
+.tableHead {
+  background-color: #374151;
+  color: white;
+}
+
+.th {
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-align: left;
+  font-weight: 600;
+}
+
+.th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.th.sortable:hover {
+  background-color: #4b5563;
+}
+
+.alignRight {
+  text-align: right;
+}
+
+.alignCenter {
+  text-align: center;
+}
+
+.tableRow {
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.2s;
+}
+
+.tableRow:hover {
+  background-color: #eff6ff;
+}
+
+.td {
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.favoriteBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.favoriteActive {
+  fill: #fbbf24;
+  color: #fbbf24;
+}
+
+.favoriteInactive {
+  color: var(--color-text-light);
+}
+
+.stockCode {
+  font-weight: bold;
+}
+
+.stockName {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.price {
+  font-weight: bold;
+}
+
+.change {
+  font-weight: bold;
+}
+
+.positive {
+  color: var(--color-success);
+}
+
+.negative {
+  color: var(--color-danger);
+}
+
+.sector {
+  font-size: var(--text-xs);
+}
+
+.detailButton {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  padding: 0;
+}
+
+.detailButton:hover {
+  color: #1e40af;
+}
+
+.footer {
+  background-color: white;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footerText {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
