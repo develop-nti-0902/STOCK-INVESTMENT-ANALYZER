@@ -3,17 +3,47 @@ import { ArrowLeft, TrendingUp, TrendingDown, Activity, Shield, DollarSign } fro
 import ScoreCircle from '../common/ScoreCircle'
 import styles from './StockDetailScreen.module.css'
 
-export default function StockDetailScreen({ stock, isFavorite, toggleFavorite, setCurrentScreen }) {
-  if (!stock) {
+export default function StockDetailScreen({ selectedStock, setCurrentScreen }) {
+  if (!selectedStock) {
     return (
       <div className={styles.container}>
-        <p className={styles.noStock}>銘柄が選択されていません。</p>
-        <button onClick={() => setCurrentScreen('list')} className={styles.backButton}>
-          <ArrowLeft size={18} />
-          一覧に戻る
-        </button>
+        <div className={styles.emptyState}>
+          <p className={styles.noStock}>銘柄が選択されていません。</p>
+          <button onClick={() => setCurrentScreen('list')} className={styles.backButton}>
+            <ArrowLeft size={18} />
+            一覧に戻る
+          </button>
+        </div>
       </div>
     )
+  }
+
+  // データの存在チェックとデフォルト値
+  const stock = {
+    code: selectedStock.code || '',
+    name: selectedStock.name || '',
+    sector: selectedStock.sector || '',
+    price: selectedStock.price || 0,
+    change: selectedStock.change || 0,
+    fundamental: selectedStock.fundamental || 0,
+    supply: selectedStock.supply || 0,
+    risk: selectedStock.risk || 0,
+    overall: selectedStock.overall || 0,
+    per: selectedStock.per || 0,
+    pbr: selectedStock.pbr || 0,
+    roe: selectedStock.roe || 0,
+    dividendYield: selectedStock.dividendYield || 0,
+    volumeRatio: selectedStock.volumeRatio || 0,
+    marginRatio: selectedStock.marginRatio || 0,
+    foreignOwnership: selectedStock.foreignOwnership || 0,
+    volatility: selectedStock.volatility || 0,
+    beta: selectedStock.beta || 1.0,
+    valuation: selectedStock.valuation || {
+      label: '不明',
+      color: '#6b7280',
+      score: 50,
+      reasons: ['データが不足しています']
+    }
   }
 
   return (

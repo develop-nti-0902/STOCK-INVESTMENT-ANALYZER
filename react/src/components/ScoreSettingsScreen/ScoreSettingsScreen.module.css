@@ -41,6 +41,7 @@
 .sliderHeader {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: var(--spacing-sm);
 }
 
@@ -49,44 +50,51 @@
   font-weight: bold;
 }
 
-.sliderValue {
+.sliderValueBlue {
   font-size: var(--text-2xl);
   font-weight: bold;
-  color: var(--color-primary);
+  color: #3b82f6;
 }
 
-.valueGreen {
-  color: var(--color-success);
+.sliderValueGreen {
+  font-size: var(--text-2xl);
+  font-weight: bold;
+  color: #10b981;
 }
 
-.valueOrange {
-  color: var(--color-warning);
+.sliderValueOrange {
+  font-size: var(--text-2xl);
+  font-weight: bold;
+  color: #f97316;
 }
 
 .slider {
   width: 100%;
   height: 0.75rem;
   border-radius: var(--radius-lg);
+  outline: none;
+  -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
 }
 
 .slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
   appearance: none;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 50%;
   background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   cursor: pointer;
 }
 
 .slider::-moz-range-thumb {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 50%;
   background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   cursor: pointer;
   border: none;
 }
@@ -95,16 +103,17 @@
   padding: var(--spacing-md);
   border-radius: var(--radius-md);
   margin-bottom: var(--spacing-lg);
+  text-align: center;
 }
 
 .totalValid {
   background-color: #f0fdf4;
-  border: 2px solid var(--color-success);
+  border: 2px solid #10b981;
 }
 
 .totalInvalid {
   background-color: #fef2f2;
-  border: 2px solid var(--color-danger);
+  border: 2px solid #ef4444;
 }
 
 .totalLabel {
@@ -119,21 +128,21 @@
 }
 
 .totalValid .totalValue {
-  color: var(--color-success);
+  color: #10b981;
 }
 
 .totalInvalid .totalValue {
-  color: var(--color-danger);
+  color: #ef4444;
 }
 
 .errorMessage {
-  color: var(--color-danger);
+  color: #ef4444;
   font-size: var(--text-sm);
   margin-top: var(--spacing-sm);
 }
 
 .successMessage {
-  color: var(--color-success);
+  color: #10b981;
   font-size: var(--text-sm);
   margin-top: var(--spacing-sm);
 }
@@ -150,10 +159,11 @@
   font-weight: bold;
   cursor: pointer;
   border: none;
+  transition: background-color 0.2s;
 }
 
 .saveButton {
-  background-color: var(--color-primary);
+  background-color: #3b82f6;
   color: white;
 }
 
@@ -193,8 +203,10 @@
 }
 
 .presetButton:hover {
-  border-color: var(--color-primary);
+  border-color: #3b82f6;
   background-color: #eff6ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .presetTitle {
@@ -223,22 +235,22 @@
 
 .presetValueBlue {
   font-weight: bold;
-  color: var(--color-primary);
+  color: #3b82f6;
 }
 
 .presetValueGreen {
   font-weight: bold;
-  color: var(--color-success);
+  color: #10b981;
 }
 
 .presetValueOrange {
   font-weight: bold;
-  color: var(--color-warning);
+  color: #f97316;
 }
 
 .hintCard {
   background-color: #eff6ff;
-  border-left: 4px solid var(--color-primary);
+  border-left: 4px solid #3b82f6;
   padding: var(--spacing-lg);
   border-radius: var(--radius-md);
 }
@@ -256,4 +268,5 @@
   gap: var(--spacing-xs);
   list-style: none;
   padding: 0;
+  margin: 0;
 }

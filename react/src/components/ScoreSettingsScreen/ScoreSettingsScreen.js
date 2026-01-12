@@ -1,9 +1,12 @@
 import React from 'react';
 import styles from './ScoreSettingsScreen.module.css';
 
-export default function ScoreSettingsScreen({ scoreWeights, setScoreWeights }) {
+export default function ScoreSettingsScreen({ scoreWeights = { fundamental: 40, supply: 40, risk: 20 }, setScoreWeights }) {
   const handleWeightChange = (key, value) => {
-    setScoreWeights({...scoreWeights, [key]: parseInt(value)});
+    const numValue = parseInt(value) || 0;
+    if (setScoreWeights) {
+      setScoreWeights({...scoreWeights, [key]: numValue});
+    }
   };
 
   const presets = {
@@ -12,8 +15,24 @@ export default function ScoreSettingsScreen({ scoreWeights, setScoreWeights }) {
     dividend: { fundamental: 50, supply: 30, risk: 20 }
   };
 
-  const total = scoreWeights.fundamental + scoreWeights.supply + scoreWeights.risk;
+  const total = (scoreWeights?.fundamental || 0) + (scoreWeights?.supply || 0) + (scoreWeights?.risk || 0);
   const isValid = total === 100;
+
+  const getSliderBackground = (value, color) => {
+    return `linear-gradient(to right, ${color} 0%, ${color} ${value}%, #e5e7eb ${value}%, #e5e7eb 100%)`;
+  };
+
+  const applyPreset = (preset) => {
+    if (setScoreWeights) {
+      setScoreWeights(preset);
+    }
+  };
+
+  const resetToDefault = () => {
+    if (setScoreWeights) {
+      setScoreWeights({ fundamental: 40, supply: 40, risk: 20 });
+    }
+  };
 
   return (
     <div className={styles.container}>
@@ -24,7 +43,7 @@ export default function ScoreSettingsScreen({ scoreWeights, setScoreWeights }) {
           <div className={styles.sliderGroup}>
             <div className={styles.sliderHeader}>
               <label className={styles.sliderLabel}>ファンダメンタル</label>
-              <span className={styles.sliderValue}>{scoreWeights.fundamental}%</span>
+              <span className={styles.sliderValueBlue}>{scoreWeights.fundamental}%</span>
             </div>
             <input
               type="range"
@@ -33,16 +52,14 @@ export default function ScoreSettingsScreen({ scoreWeights, setScoreWeights }) {
               value={scoreWeights.fundamental}
               onChange={(e) => handleWeightChange('fundamental', e.target.value)}
               className={styles.slider}
-              style={{
-                background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${scoreWeights.fundamental}%, #bfdbfe ${scoreWeights.fundamental}%, #bfdbfe 100%)`
-              }}
+              style={{ background: getSliderBackground(scoreWeights.fundamental, '#3b82f6') }}
             />
           </div>
 
           <div className={styles.sliderGroup}>
             <div className={styles.sliderHeader}>
               <label className={styles.sliderLabel}>需給</label>
-              <span className={`${styles.sliderValue} ${styles.valueGreen}`}>{scoreWeights.supply}%</span>
+              <span className={styles.sliderValueGreen}>{scoreWeights.supply}%</span>
             </div>
             <input
               type="range"
@@ -51,16 +68,14 @@ export default function ScoreSettingsScreen({ scoreWeights, setScoreWeights }) {
               value={scoreWeights.supply}
               onChange={(e) => handleWeightChange('supply', e.target.value)}
               className={styles.slider}
-              style={{
-                background: `linear-gradient(to right, #10b981 0%, #10b981 ${scoreWeights.supply}%, #d1fae5 ${scoreWeights.supply}%, #d1fae5 100%)`
-              }}
+              style={{ background: getSliderBackground(scoreWeights.supply, '#10b981') }}
             />
           </div>
 
           <div className={styles.sliderGroup}>
             <div className={styles.sliderHeader}>
               <label className={styles.sliderLabel}>リスク</label>
-              <span className={`${styles.sliderValue} ${styles.valueOrange}`}>{scoreWeights.risk}%</span>
+              <span className={styles.sliderValueOrange}>{scoreWeights.risk}%</span>
             </div>
             <input
               type="range"
@@ -69,18 +84,14 @@ export default function ScoreSettingsScreen({ scoreWeights, setScoreWeights }) {
               value={scoreWeights.risk}
               onChange={(e) => handleWeightChange('risk', e.target.value)}
               className={styles.slider}
-              style={{
-                background: `linear-gradient(to right, #f97316 0%, #f97316 ${scoreWeights.risk}%, #fed7aa ${scoreWeights.risk}%, #fed7aa 100%)`
-              }}
+              style={{ background: getSliderBackground(scoreWeights.risk, '#f97316') }}
             />
           </div>
         </div>
 
         <div className={`${styles.totalBox} ${isValid ? styles.totalValid : styles.totalInvalid}`}>
           <div className={styles.totalLabel}>合計</div>
-          <div className={styles.totalValue}>
-            {total}%
-          </div>
+          <div className={styles.totalValue}>{total}%</div>
           {!isValid && (
             <div className={styles.errorMessage}>
               ※ 合計が100%になるように調整してください（現在: {total > 100 ? `+${total - 100}` : total - 100}%）
@@ -97,11 +108,16 @@ export default function ScoreSettingsScreen({ scoreWeights, setScoreWeights }) {
           <button
             disabled={!isValid}
             className={`${styles.saveButton} ${!isValid ? styles.buttonDisabled : ''}`}
+            onClick={() => {
+              if (isValid) {
+                alert('設定を保存しました');
+              }
+            }}
           >
             保存
           </button>
           <button
-            onClick={() => setScoreWeights({ fundamental: 40, supply: 40, risk: 20 })}
+            onClick={resetToDefault}
             className={styles.resetButton}
           >
             初期化
@@ -113,7 +129,7 @@ export default function ScoreSettingsScreen({ scoreWeights, setScoreWeights }) {
         <h3 className={styles.cardTitle}>プリセット</h3>
         <div className={styles.presetGrid}>
           <button
-            onClick={() => setScoreWeights(presets.longTerm)}
+            onClick={() => applyPreset(presets.longTerm)}
             className={styles.presetButton}
           >
             <div className={styles.presetTitle}>📈 長期投資家モード</div>
@@ -135,7 +151,7 @@ export default function ScoreSettingsScreen({ scoreWeights, setScoreWeights }) {
           </button>
 
           <button
-            onClick={() => setScoreWeights(presets.shortTerm)}
+            onClick={() => applyPreset(presets.shortTerm)}
             className={styles.presetButton}
           >
             <div className={styles.presetTitle}>⚡ 短期トレーダーモード</div>
@@ -157,7 +173,7 @@ export default function ScoreSettingsScreen({ scoreWeights, setScoreWeights }) {
           </button>
 
           <button
-            onClick={() => setScoreWeights(presets.dividend)}
+            onClick={() => applyPreset(presets.dividend)}
             className={styles.presetButton}
           >
             <div className={styles.presetTitle}>💰 配当投資モード</div>

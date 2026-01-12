@@ -227,10 +227,6 @@ export default function App() {
     )
   }
 
-  const updateScoreWeights = (newWeights) => {
-    setScoreWeights(newWeights)
-  }
-
   // ----------------
   // データ定義
   // ----------------
@@ -379,9 +375,71 @@ export default function App() {
       marginRatio: h.marginRatio,
       foreignOwnership: h.foreignOwnership,
       volatility: h.volatility,
-      beta: h.beta
+      beta: h.beta,
+      marketCap: 10000000 // ダミー値
     }))
   }, [portfolioData.holdings])
+
+  // ----------------
+  // 画面レンダリング関数
+  // ----------------
+  const renderScreen = () => {
+    switch (currentScreen) {
+      case 'dashboard':
+        return (
+          <DashboardScreen
+            portfolioData={portfolioData}
+            favorites={favorites}
+            toggleFavorite={toggleFavorite}
+          />
+        )
+      
+      case 'list':
+        return (
+          <StockListScreen
+            stockList={stockList}
+            favorites={favorites}
+            toggleFavorite={toggleFavorite}
+            setSelectedStock={setSelectedStock}
+            setCurrentScreen={setCurrentScreen}
+          />
+        )
+      
+      case 'detail':
+        return (
+          <StockDetailScreen
+            selectedStock={selectedStock}
+            setCurrentScreen={setCurrentScreen}
+          />
+        )
+      
+      case 'history':
+        return <TradeHistoryScreen />
+      
+      case 'settings':
+        return (
+          <ScoreSettingsScreen
+            scoreWeights={scoreWeights}
+            setScoreWeights={setScoreWeights}
+          />
+        )
+      
+      case 'data':
+        return <DataConnectionScreen />
+      
+      case 'alerts':
+        return <AlertSettingsScreen />
+      
+      default:
+        return (
+          <DashboardScreen
+            portfolioData={portfolioData}
+            favorites={favorites}
+            toggleFavorite={toggleFavorite}
+          />
+        )
+    }
+  }
 
   // ----------------
   // レンダリング
@@ -393,54 +451,9 @@ export default function App() {
         setCurrentScreen={setCurrentScreen} 
       />
       
-      {currentScreen === 'dashboard' && (
-        <DashboardScreen
-          portfolioData={portfolioData}
-          stockList={stockList}
-          favorites={favorites}
-          toggleFavorite={toggleFavorite}
-          setSelectedStock={setSelectedStock}
-          setCurrentScreen={setCurrentScreen}
-        />
-      )}
-      
-      {currentScreen === 'list' && (
-        <StockListScreen
-          stockList={stockList}
-          favorites={favorites}
-          toggleFavorite={toggleFavorite}
-          setSelectedStock={setSelectedStock}
-          setCurrentScreen={setCurrentScreen}
-        />
-      )}
-      
-      {currentScreen === 'detail' && (
-        <StockDetailScreen
-          stock={selectedStock}
-          isFavorite={favorites.includes(selectedStock?.code)}
-          toggleFavorite={toggleFavorite}
-          setCurrentScreen={setCurrentScreen}
-        />
-      )}
-      
-      {currentScreen === 'history' && (
-        <TradeHistoryScreen />
-      )}
-      
-      {currentScreen === 'settings' && (
-        <ScoreSettingsScreen
-          weights={scoreWeights}
-          onUpdateWeights={updateScoreWeights}
-        />
-      )}
-      
-      {currentScreen === 'data' && (
-        <DataConnectionScreen />
-      )}
-      
-      {currentScreen === 'alerts' && (
-        <AlertSettingsScreen />
-      )}
+      <div className={styles.content}>
+        {renderScreen()}
+      </div>
     </div>
   )
 }

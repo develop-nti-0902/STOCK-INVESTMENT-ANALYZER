@@ -1,1 +1,10 @@
-.appRoot { min-height: 100vh; }
+.app {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+}
+
+.content {
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 2rem;
+}
