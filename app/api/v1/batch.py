@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import asyncio as _asyncio
 import logging
-from datetime import date, datetime
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi import status as http_status
@@ -376,12 +375,6 @@ async def process_jpx_all_stocks(
         try:
             result = await service.fetch_all_jpx_stocks(
                 timeframe=cast(str, params.get("timeframe")),
-                start_date=cast(
-                    Union[date, datetime, str], params.get("start_date")
-                ),
-                end_date=cast(
-                    Union[date, datetime, str], params.get("end_date")
-                ),
                 market=params.get("market"),
                 progress_callback=_sync_progress_cb,
             )
