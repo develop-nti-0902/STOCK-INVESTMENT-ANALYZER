@@ -15,6 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 STOCK_SQL="${SCRIPT_DIR}/sql/create_stock_tables.sql"
 MGMT_SQL="${SCRIPT_DIR}/sql/create_management_tables.sql"
+USER_SQL="${SCRIPT_DIR}/sql/create_user_tables.sql"
 
 # Configuration priority (highest to lowest):
 # 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER DB_PASSWORD
@@ -215,6 +216,13 @@ if [[ -f "$STOCK_SQL" ]]; then
     psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -v db_user="${DB_USER}" -f "$STOCK_SQL" || echo "[WARN] Failed to apply $STOCK_SQL (check SQL file and permissions)"
 else
     echo "[WARN] $STOCK_SQL not found; skipping stock tables apply"
+fi
+
+if [[ -f "$USER_SQL" ]]; then
+    echo "Applying user tables schema: $USER_SQL"
+    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -v db_user="${DB_USER}" -f "$USER_SQL" || echo "[WARN] Failed to apply $USER_SQL (check SQL file and permissions)"
+else
+    echo "[WARN] $USER_SQL not found; skipping user tables apply"
 fi
 
 echo ""
