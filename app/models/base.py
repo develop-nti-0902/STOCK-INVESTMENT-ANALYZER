@@ -45,6 +45,13 @@ class Base(DeclarativeBase):
             cls.__tablename__ = _camel_to_snake(cls.__name__)
         super().__init_subclass__(**kwargs)
 
+    def __repr__(self) -> str:  # pragma: no cover - trivial
+        # モデルインスタンスの簡易表現。`id` があれば含める。
+        ident = getattr(self, "id", None)
+        if ident is not None:
+            return f"<{self.__class__.__name__} id={ident!r}>"
+        return f"<{self.__class__.__name__}>"
+
 
 class SerialPKMixin:
     """整数の自動増分 ID を提供する mixin.
@@ -57,6 +64,10 @@ class SerialPKMixin:
         Integer, primary_key=True, autoincrement=True
     )
 
+    def __repr__(self) -> str:  # pragma: no cover - trivial
+        ident = getattr(self, "id", None)
+        return f"<{self.__class__.__name__} id={ident!r}>"
+
 
 class UUIDPKMixin:
     """UUID をプライマリキーにするモデル向け mixin.
@@ -68,6 +79,10 @@ class UUIDPKMixin:
     id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+
+    def __repr__(self) -> str:  # pragma: no cover - trivial
+        ident = getattr(self, "id", None)
+        return f"<{self.__class__.__name__} id={ident!r}>"
 
 
 class TimestampMixin:
@@ -103,6 +118,11 @@ class TimestampMixin:
         if "updated_at" not in kwargs or kwargs.get("updated_at") is None:
             kwargs["updated_at"] = now
         super().__init__(*args, **kwargs)
+
+    def __repr__(self) -> str:  # pragma: no cover - trivial
+        # created_at/updated_at を含めず簡潔に表現
+        ident = getattr(self, "id", None)
+        return f"<{self.__class__.__name__} id={ident!r}>"
 
 
 __all__ = ["Base", "SerialPKMixin", "UUIDPKMixin", "TimestampMixin"]
