@@ -220,8 +220,7 @@ class StockDataRepository(BaseRepository, ABC):
             # PostgreSQLのパラメータ制限(32767)を考慮
             # 安全マージンとして3000レコード(24000パラメータ)を上限とする
             max_records_per_query = 3000
-            params_per_record = 8
-            total_params = len(valid_data) * params_per_record
+            total_params = len(valid_data) * 8
 
             if total_params > 24000:  # 3000レコード × 8カラム
                 logger.info(
