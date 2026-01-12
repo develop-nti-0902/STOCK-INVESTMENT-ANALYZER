@@ -16,8 +16,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, SerialPKMixin, TimestampMixin
 
-# pylint: disable=too-few-public-methods
-
 
 class _CommonPriceColumns:
     """共通の価格カラム定義をまとめたヘルパークラス（継承用）.

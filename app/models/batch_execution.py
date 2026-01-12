@@ -9,7 +9,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 from .base import Base, SerialPKMixin, TimestampMixin
 
 
-# pylint: disable=too-few-public-methods
 class BatchExecution(SerialPKMixin, TimestampMixin, Base):
     """バッチ処理実行のサマリを記録するモデル.
 

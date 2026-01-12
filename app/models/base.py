@@ -29,7 +29,7 @@ def _camel_to_snake(name: str) -> str:
     return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
 
-class Base(DeclarativeBase):  # pylint: disable=too-few-public-methods
+class Base(DeclarativeBase):
     """プロジェクト共通の Declarative base.
 
     - 自動でテーブル名をスネークケースに変換して設定する
@@ -39,16 +39,14 @@ class Base(DeclarativeBase):  # pylint: disable=too-few-public-methods
         サブクラスで `__tablename__` を明示しなければ、自動でクラス名から生成します。
     """
 
-    def __init_subclass__(
-        cls, **kwargs: Any
-    ) -> None:  # type: ignore[override]
+    def __init_subclass__(cls, **kwargs: Any) -> None:
         # サブクラスで明示的に__tablename__がなければ自動でスネークケースを付与
         if "__tablename__" not in cls.__dict__:
             cls.__tablename__ = _camel_to_snake(cls.__name__)
         super().__init_subclass__(**kwargs)
 
 
-class SerialPKMixin:  # pylint: disable=too-few-public-methods
+class SerialPKMixin:
     """整数の自動増分 ID を提供する mixin.
 
     Attributes:
@@ -60,7 +58,7 @@ class SerialPKMixin:  # pylint: disable=too-few-public-methods
     )
 
 
-class UUIDPKMixin:  # pylint: disable=too-few-public-methods
+class UUIDPKMixin:
     """UUID をプライマリキーにするモデル向け mixin.
 
     Attributes:
@@ -72,7 +70,7 @@ class UUIDPKMixin:  # pylint: disable=too-few-public-methods
     )
 
 
-class TimestampMixin:  # pylint: disable=too-few-public-methods
+class TimestampMixin:
     """作成/更新時刻の共通カラムを提供する mixin.
 
     Attributes:
