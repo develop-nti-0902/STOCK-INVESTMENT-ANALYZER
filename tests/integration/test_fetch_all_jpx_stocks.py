@@ -19,6 +19,7 @@ from app.services.market_data.stock_price.fetcher import StockPriceFetcher
 from app.services.market_data.stock_price.saver import StockPriceSaver
 from app.services.market_data.stock_price.service import StockPriceService
 from app.services.market_data.stock_price.validator import StockPriceValidator
+from app.utils.logger import get_default_logger
 from tests.integration.utils import (
     TEST_SYMBOLS,
     cleanup_database,
@@ -85,12 +86,7 @@ async def test_fetch_all_jpx_stocks_persists_1d(monkeypatch):
         )
 
         summary = await service.fetch_all_jpx_stocks(
-            timeframe="1d",
-            start_date=None,
-            end_date=None,
-            market=None,
-            max_concurrent=5,
-            batch_size=5,
+            timeframe="1d", market=None, max_concurrent=5, batch_size=5
         )
 
         # サマリに対象銘柄数が含まれていることを確認
@@ -163,12 +159,7 @@ async def test_fetch_all_jpx_stocks_persists_1h(monkeypatch):
         )
 
         await service.fetch_all_jpx_stocks(
-            timeframe="1h",
-            start_date=None,
-            end_date=None,
-            market=None,
-            max_concurrent=5,
-            batch_size=5,
+            timeframe="1h", market=None, max_concurrent=5, batch_size=5
         )
 
     async with session_maker() as verify_session:
@@ -234,12 +225,7 @@ async def test_fetch_all_jpx_stocks_persists_1mo(monkeypatch):
         )
 
         await service.fetch_all_jpx_stocks(
-            timeframe="1mo",
-            start_date=None,
-            end_date=None,
-            market=None,
-            max_concurrent=5,
-            batch_size=5,
+            timeframe="1mo", market=None, max_concurrent=5, batch_size=5
         )
 
     async with session_maker() as verify_session:
@@ -305,12 +291,7 @@ async def test_fetch_all_jpx_stocks_persists_1wk(monkeypatch):
         )
 
         await service.fetch_all_jpx_stocks(
-            timeframe="1wk",
-            start_date=None,
-            end_date=None,
-            market=None,
-            max_concurrent=5,
-            batch_size=5,
+            timeframe="1wk", market=None, max_concurrent=5, batch_size=5
         )
 
     async with session_maker() as verify_session:
@@ -376,12 +357,7 @@ async def test_fetch_all_jpx_stocks_persists_1m(monkeypatch):
         )
 
         await service.fetch_all_jpx_stocks(
-            timeframe="1m",
-            start_date=None,
-            end_date=None,
-            market=None,
-            max_concurrent=5,
-            batch_size=5,
+            timeframe="1m", market=None, max_concurrent=5, batch_size=5
         )
 
     async with session_maker() as verify_session:
@@ -447,12 +423,7 @@ async def test_fetch_all_jpx_stocks_persists_5m(monkeypatch):
         )
 
         await service.fetch_all_jpx_stocks(
-            timeframe="5m",
-            start_date=None,
-            end_date=None,
-            market=None,
-            max_concurrent=5,
-            batch_size=5,
+            timeframe="5m", market=None, max_concurrent=5, batch_size=5
         )
 
     async with session_maker() as verify_session:
@@ -518,12 +489,7 @@ async def test_fetch_all_jpx_stocks_persists_15m(monkeypatch):
         )
 
         await service.fetch_all_jpx_stocks(
-            timeframe="15m",
-            start_date=None,
-            end_date=None,
-            market=None,
-            max_concurrent=5,
-            batch_size=5,
+            timeframe="15m", market=None, max_concurrent=5, batch_size=5
         )
 
     async with session_maker() as verify_session:
@@ -589,12 +555,7 @@ async def test_fetch_all_jpx_stocks_persists_30m(monkeypatch):
         )
 
         await service.fetch_all_jpx_stocks(
-            timeframe="30m",
-            start_date=None,
-            end_date=None,
-            market=None,
-            max_concurrent=5,
-            batch_size=5,
+            timeframe="30m", market=None, max_concurrent=5, batch_size=5
         )
 
     async with session_maker() as verify_session:
@@ -641,6 +602,9 @@ async def test_fetch_batch_persists_1d(monkeypatch):
 
     engine = await setup_test_database(monkeypatch, Stocks1d)
     await register_test_symbols(TEST_SYMBOLS)
+
+    # Ensure global/app logger is initialized so module loggers write to file
+    get_default_logger()
 
     fetcher = StockPriceFetcher()
 

@@ -259,11 +259,12 @@ async def test_process_jpx_all_stocks_success(monkeypatch):
     # 提供された進捗コールバックを呼び、結果カウントを返すフェイクサービス
     class FakeService:
         async def fetch_all_jpx_stocks(
-            self, timeframe, start_date, end_date, market, progress_callback
+            self, timeframe, market=None, progress_callback=None
         ):
             # 進捗コールバックを数回呼ぶ
-            progress_callback({"progress": 10})
-            progress_callback({"progress": 50})
+            if progress_callback:
+                progress_callback({"progress": 10})
+                progress_callback({"progress": 50})
             return {"success": "3", "failed": "1"}
 
     service = FakeService()
