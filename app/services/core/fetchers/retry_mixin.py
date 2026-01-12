@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 T = TypeVar("T")
 
 
-class RetryMixin:  # pylint: disable=too-few-public-methods
+class RetryMixin:
     """リトライロジックを提供する Mixin クラス.
 
     Attributes:
@@ -90,7 +90,7 @@ class RetryMixin:  # pylint: disable=too-few-public-methods
                     continue
                 raise last_exception from e
 
-            except Exception as e:  # pylint: disable=broad-exception-caught
+            except Exception as e:
                 # 予期せぬ例外もキャッチして適切に処理
                 # リトライロジックとして、外部API等の未知のエラーを処理するため
                 last_exception = self._handle_retry_exception(

@@ -90,13 +90,13 @@ def handle_service_error(
                 if reraise:
                     raise service_error from e
                 # TODO: エラーログ出力を追加（後で実装）
-                return None  # type: ignore
+                return None
 
         # 関数が非同期かどうかで切り替え
         return (
             async_wrapper
             if inspect.iscoroutinefunction(func)
             else sync_wrapper
-        )  # type: ignore
+        )
 
     return decorator

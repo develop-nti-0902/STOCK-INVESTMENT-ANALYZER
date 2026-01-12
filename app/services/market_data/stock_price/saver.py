@@ -202,7 +202,8 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         timeframe_data: Dict[str, Union[pd.DataFrame, List[Dict[str, Any]]]],
     ) -> Dict[str, int]:
         """
-        銘柄単位で複数タイムフレームをまとめて保存し、最後に一度だけコミット/ロールバックする。
+        銘柄単位で複数タイムフレームをまとめて保存し、
+        最後に一度だけコミット/ロールバックする。
 
         Returns:
             Dict[str,int]: {timeframe: saved_count} の辞書
@@ -269,112 +270,6 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                     )
                 return {tf: 0 for tf in timeframe_data.keys()}
 
-    async def _save_single_stock_async(
-        self,
-        symbol: str,
-        timeframe: str,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
-    ) -> int:
-        """
-        単一銘柄保存の非同期ヘルパー
-
-        Args:
-            symbol: 銘柄コード
-            timeframe: タイムフレーム
-            data: 保存データ
-
-        Returns:
-            int: 保存件数
-        """
-        # 新しいセッションをシンボル単位で作成し、同一セッションの並列使用を避ける
-        repo_class = self.TIMEFRAME_REPOSITORIES.get(timeframe)
-        if not repo_class:
-            logger.error(
-                "Unsupported timeframe for symbol %s: %s", symbol, timeframe
-            )
-            return 0
-
-        db_records = self._prepare_data_for_db(symbol, data)
-        if not db_records:
-            logger.warning(
-                "No DB records prepared for %s (%s)", symbol, timeframe
-            )
-            return 0
-
-        session_maker = get_session_maker()
-        async with session_maker() as session:
-            repository = repo_class(session)
-            try:
-                saved_count = await repository.upsert_bulk(db_records)
-                # Repository層ではコミットしないため、Service層でコミット
-                if saved_count > 0:
-                    await session.commit()
-                    logger.info(
-                        "_save_single_stock_async: %s (%s) saved_count=%s "
-                        "(committed)",
-                        symbol,
-                        timeframe,
-                        saved_count,
-                    )
-                else:
-                    # 診断: saved_count が 0 の場合、コミット/ロールバック前に代表レコードで
-                    # upsert_single を試して例外内容を取得する（セッションはまだ有効）
-                    if db_records:
-                        try:
-                            # upsert_single は例外を投げる設計なので、ここで捕まえてログを出す
-                            await repository.upsert_single(db_records[0])
-                        except Exception as ex_single:
-                            logger.exception(
-                                "Detailed upsert_single error for %s (%s): %s",
-                                symbol,
-                                timeframe,
-                                ex_single,
-                            )
-
-                    # 成功件数が0の場合はトランザクションを明示的にロールバックしてクリーンにする
-                    await session.rollback()
-                    logger.info(
-                        "_save_single_stock_async: %s (%s) saved_count=0 "
-                        "(rolled back)",
-                        symbol,
-                        timeframe,
-                    )
-                return saved_count
-
-            except Exception as e:
-                # 詳細な診断ログを出し、例外を外に投げず 0 を返す
-                logger.exception(
-                    "Exception saving symbol %s (%s): %s",
-                    symbol,
-                    timeframe,
-                    e,
-                )
-                try:
-                    await session.rollback()
-                except Exception as rollback_error:
-                    logger.exception(
-                        "Failed to rollback transaction for symbol %s "
-                        "(%s): %s",
-                        symbol,
-                        timeframe,
-                        rollback_error,
-                    )
-                return 0
-
-    def _select_repository(
-        self, timeframe: str
-    ) -> Optional[StockDataRepository]:
-        """
-        タイムフレームに応じたRepositoryを選択
-
-        Args:
-            timeframe: タイムフレーム識別子
-
-        Returns:
-            Any: 対応するRepositoryインスタンス、存在しない場合はNone
-        """
-        return self.repositories.get(timeframe)
-
     def _prepare_data_for_db(
         self,
         symbol: str,
@@ -434,6 +329,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
             )
 
         records = []
+        skipped = 0
         for _, row in df.iterrows():
             try:
                 # timestampの変換
@@ -441,6 +337,17 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 if timestamp.tz is None:
                     # タイムゾーンなしの場合、JST(Asia/Tokyo)とみなす
                     timestamp = timestamp.tz_localize("Asia/Tokyo")
+
+                # 必須数値フィールドの欠損チェック
+                if (
+                    pd.isna(row.get("open"))
+                    or pd.isna(row.get("high"))
+                    or pd.isna(row.get("low"))
+                    or pd.isna(row.get("close"))
+                    or pd.isna(row.get("volume"))
+                ):
+                    skipped += 1
+                    continue
 
                 record = {
                     "symbol": symbol,
@@ -487,6 +394,13 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 logger.warning("Skipping invalid row: %s", e)
                 continue
 
+        if skipped:
+            logger.warning(
+                "Skipped %d invalid rows for %s due to missing numeric fields",
+                skipped,
+                symbol,
+            )
+
         return records
 
     def _convert_dict_list_to_db_records(
@@ -503,12 +417,29 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
             List[Dict[str, Any]]: DBレコードリスト
         """
         records = []
+        skipped = 0
         for item in data_list:
             try:
                 # timestampの変換
                 timestamp = pd.to_datetime(item["timestamp"])
                 if timestamp.tz is None:
                     timestamp = timestamp.tz_localize("Asia/Tokyo")
+
+                # 必須数値フィールドの欠損チェック
+                if (
+                    item.get("open") is None
+                    or item.get("high") is None
+                    or item.get("low") is None
+                    or item.get("close") is None
+                    or item.get("volume") is None
+                    or pd.isna(item.get("open"))
+                    or pd.isna(item.get("high"))
+                    or pd.isna(item.get("low"))
+                    or pd.isna(item.get("close"))
+                    or pd.isna(item.get("volume"))
+                ):
+                    skipped += 1
+                    continue
 
                 record = {
                     "symbol": symbol,
@@ -554,4 +485,25 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 logger.warning("Skipping invalid item: %s", e)
                 continue
 
+        if skipped:
+            logger.warning(
+                "Skipped %d invalid items for %s: missing numeric fields",
+                skipped,
+                symbol,
+            )
+
         return records
+
+    def _select_repository(
+        self, timeframe: str
+    ) -> Optional[StockDataRepository]:
+        """
+        タイムフレームに応じたRepositoryを選択
+
+        Args:
+            timeframe: タイムフレーム識別子
+
+        Returns:
+            Any: 対応するRepositoryインスタンス、存在しない場合はNone
+        """
+        return self.repositories.get(timeframe)

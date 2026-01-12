@@ -10,7 +10,6 @@ Notes:
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime
 from time import perf_counter
 from typing import (
     TYPE_CHECKING,
@@ -20,7 +19,6 @@ from typing import (
     List,
     NamedTuple,
     Optional,
-    Union,
     cast,
 )
 
@@ -142,43 +140,13 @@ class StockPriceService:
         self.validator = validator
         self.max_concurrent = max_concurrent
         self._semaphore = asyncio.Semaphore(max_concurrent)
-        # 銘柄マスタサービス（オプション）。依存性注入によって渡される想定
         self.stock_master_service = stock_master_service
-        # バッチ実行管理サービス（必須）
         self.batch_service = batch_service
-
-    def _normalize_date_param(
-        self, d: Union[date, datetime, str, None]
-    ) -> Optional[date]:
-        """
-        start_date/end_date パラメータを Optional[date] に正規化します。
-        - datetime -> date
-        - date -> date
-        - ISO 形式の文字列 -> date (失敗時は None)
-        - None -> None
-        """
-        if d is None:
-            return None
-        if isinstance(d, datetime):
-            return d.date()
-        if isinstance(d, date):
-            return d
-        if isinstance(d, str):
-            try:
-                return date.fromisoformat(d)
-            except Exception:
-                try:
-                    return datetime.fromisoformat(d).date()
-                except Exception:
-                    return None
-        return None
 
     async def fetch_and_save_single(
         self,
         symbol: str,
         timeframe: str,
-        start_date: Union[date, datetime, str],
-        end_date: Union[date, datetime, str],
     ) -> StockPriceServiceResult:
         """
         単一銘柄の株価データを取得・変換・検証・保存
@@ -186,8 +154,6 @@ class StockPriceService:
         Args:
             symbol: 銘柄コード
             timeframe: タイムフレーム
-            start_date: 開始日
-            end_date: 終了日
 
         Returns:
             StockPriceServiceResult: 処理結果
@@ -217,7 +183,6 @@ class StockPriceService:
 
             records_processed = len(stock_data_list)
 
-            # List[StockData] を直接使用（fetcherが既にPydanticモデルを返す）
             pydantic_data = stock_data_list
 
             # 3. データ検証
@@ -319,8 +284,6 @@ class StockPriceService:
         self,
         symbols: List[str],
         timeframe: str,
-        start_date: Union[date, datetime, str],
-        end_date: Union[date, datetime, str],
     ) -> List[StockPriceServiceResult]:
         """
         複数銘柄の株価データを並列で取得・保存
@@ -328,8 +291,6 @@ class StockPriceService:
         Args:
             symbols: 銘柄コードリスト
             timeframe: タイムフレーム
-            start_date: 開始日
-            end_date: 終了日
 
         Returns:
             List[StockPriceServiceResult]: 各銘柄の処理結果
@@ -345,8 +306,6 @@ class StockPriceService:
                 return await self.fetch_and_save_single(
                     symbol=symbol,
                     timeframe=timeframe,
-                    start_date=start_date,
-                    end_date=end_date,
                 )
 
         # 並列処理
@@ -388,8 +347,6 @@ class StockPriceService:
     async def fetch_all_jpx_stocks(
         self,
         timeframe: str,
-        start_date: Union[date, datetime, str],
-        end_date: Union[date, datetime, str],
         market: Optional[str] = None,
         max_concurrent: int = 20,
         batch_size: int = 100,
@@ -400,8 +357,6 @@ class StockPriceService:
 
         Args:
             timeframe: タイムフレーム
-            start_date: 開始日
-            end_date: 終了日
             market: 市場フィルタ（省略可）
             max_concurrent: 並列実行数（セマフォ）
             batch_size: バッチ内の銘柄数
@@ -433,6 +388,9 @@ class StockPriceService:
         failed = 0
         errors: List[Dict[str, Any]] = []
 
+        # ローカル import: `batch_execution_service` 側が `StockPriceService` を
+        # 参照している可能性があり、トップレベルで import すると循環参照が
+        # 発生するため関数内で遅延 import しています。
         from app.services.batch.batch_execution_service import (
             BatchExecutionContext,
         )
@@ -448,17 +406,15 @@ class StockPriceService:
 
                 sem = asyncio.Semaphore(max_concurrent)
 
-                async def _process(symbol: str):
+                async def _process(symbol: str, sem=sem):
                     try:
                         async with sem:
                             result = await self.fetch_and_save_single(
                                 symbol=symbol,
                                 timeframe=timeframe,
-                                start_date=start_date,
-                                end_date=end_date,
                             )
                             return result
-                    except Exception as exc:  # pylint: disable=broad-except
+                    except Exception as exc:
                         return StockPriceServiceResult(
                             success=False,
                             symbol=symbol,
@@ -532,8 +488,6 @@ class StockPriceService:
         self,
         symbol: str,
         timeframe: str,
-        start_date: Union[date, datetime, str],
-        end_date: Union[date, datetime, str],
     ) -> Optional[StockDataWrapper]:
         """
         株価データを取得（読み取り専用）
@@ -541,8 +495,6 @@ class StockPriceService:
         Args:
             symbol: 銘柄コード
             timeframe: タイムフレーム
-            start_date: 開始日
-            end_date: 終了日
 
         Returns:
             StockDataWrapper or None: 取得した株価データ

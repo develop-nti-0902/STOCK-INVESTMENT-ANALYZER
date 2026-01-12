@@ -53,7 +53,7 @@ class StockMasterService:
         # フェッチ（リトライなし）
         try:
             data = await self.fetcher.fetch_all()
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception as exc:
             logger.error("Failed to fetch data", extra={"error": str(exc)})
             raise
 
@@ -63,7 +63,11 @@ class StockMasterService:
                 limit_val = int(limit)
                 if limit_val < 0:
                     raise ValueError("limit must be >= 0")
-            except Exception:
+            except (TypeError, ValueError) as exc:
+                logger.error(
+                    "Invalid limit value",
+                    extra={"limit": limit, "error": str(exc)},
+                )
                 raise
             data = data[:limit_val]
 
@@ -85,7 +89,7 @@ class StockMasterService:
             try:
                 affected = await self.repo.bulk_upsert(prepared)
                 total_processed += int(affected or 0)
-            except Exception as exc:  # pylint: disable=broad-except
+            except Exception as exc:
                 logger.error("bulk_upsert failed", extra={"error": str(exc)})
                 raise
 
