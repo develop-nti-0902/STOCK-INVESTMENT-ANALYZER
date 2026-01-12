@@ -12,7 +12,7 @@ from datetime import date, datetime
 from typing import List, Optional, Union, cast
 
 from sqlalchemy import delete as sql_delete
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -133,7 +133,7 @@ class StockDataRepository(BaseRepository, ABC):
                 "close": stmt.excluded.close,
                 "adj_close": stmt.excluded.adj_close,
                 "volume": stmt.excluded.volume,
-                "updated_at": func.now(),  # pylint: disable=not-callable
+                "updated_at": text("now()"),
             }
 
             stmt = stmt.on_conflict_do_update(
@@ -172,7 +172,6 @@ class StockDataRepository(BaseRepository, ABC):
             )
             raise StockDataError(message=f"Failed to upsert data: {e}") from e
 
-    # pylint: disable=too-many-locals
     async def upsert_bulk(self, data_list: List[dict]) -> int:
         """複数レコードの UPSERT を1回のSQL実行でまとめて処理する.
 
@@ -242,7 +241,6 @@ class StockDataRepository(BaseRepository, ABC):
 
                     stmt = insert(self.model).values(chunk)
                     conflict_columns = ["symbol", self.time_column]
-                    # pylint: disable=not-callable
                     update_values = {
                         "open": stmt.excluded.open,
                         "high": stmt.excluded.high,
@@ -250,7 +248,7 @@ class StockDataRepository(BaseRepository, ABC):
                         "close": stmt.excluded.close,
                         "adj_close": stmt.excluded.adj_close,
                         "volume": stmt.excluded.volume,
-                        "updated_at": func.now(),
+                        "updated_at": text("now()"),
                     }
                     stmt = stmt.on_conflict_do_update(
                         index_elements=conflict_columns, set_=update_values
@@ -285,7 +283,6 @@ class StockDataRepository(BaseRepository, ABC):
                 stmt = insert(self.model).values(valid_data)
 
                 conflict_columns = ["symbol", self.time_column]
-                # pylint: disable=not-callable
                 update_values = {
                     "open": stmt.excluded.open,
                     "high": stmt.excluded.high,
@@ -293,7 +290,7 @@ class StockDataRepository(BaseRepository, ABC):
                     "close": stmt.excluded.close,
                     "adj_close": stmt.excluded.adj_close,
                     "volume": stmt.excluded.volume,
-                    "updated_at": func.now(),
+                    "updated_at": text("now()"),
                 }
 
                 stmt = stmt.on_conflict_do_update(
@@ -391,8 +388,9 @@ class StockDataRepository(BaseRepository, ABC):
         Returns:
             int: レコード数
         """
-        # pylint: disable=not-callable
-        query = select(func.count()).where(self.model.symbol == symbol)
+        query = select(text(f"count({self.model.symbol.name})")).where(
+            self.model.symbol == symbol
+        )
         result = await self.session.execute(query)
         return result.scalar_one()
 
