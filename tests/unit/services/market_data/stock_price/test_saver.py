@@ -196,6 +196,13 @@ class TestStockPriceSaver:
             mock_sess = AsyncMock()
             mock_sess.commit = AsyncMock()
             mock_sess.rollback = AsyncMock()
+            # upsert_bulk 内で実行される session.execute の戻り値を用意
+            from unittest.mock import MagicMock
+
+            mock_result = MagicMock()
+            # rowcount を 1 に設定して成功扱いにする
+            mock_result.rowcount = 1
+            mock_sess.execute = AsyncMock(return_value=mock_result)
             try:
                 yield mock_sess
             finally:

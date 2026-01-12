@@ -65,7 +65,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         self,
         session: AsyncSession,
         batch_size: int = 1000,
-        max_concurrent_batches: int = 3,
+        max_concurrent_batches: int = 25,
     ):
         """
         初期化
@@ -234,18 +234,6 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
 
                     repository = repo_class(session)
                     saved_count = await repository.upsert_bulk(db_records)
-
-                    if saved_count == 0 and db_records:
-                        # 診断目的で単一レコードで upsert_single を試す（例外があればログ）
-                        try:
-                            await repository.upsert_single(db_records[0])
-                        except Exception as ex_single:
-                            logger.exception(
-                                "Detailed upsert_single error for %s (%s): %s",
-                                symbol,
-                                timeframe,
-                                ex_single,
-                            )
 
                     results[timeframe] = saved_count
 

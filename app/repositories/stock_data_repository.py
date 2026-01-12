@@ -173,63 +173,74 @@ class StockDataRepository(BaseRepository, ABC):
             raise StockDataError(message=f"Failed to upsert data: {e}") from e
 
     # pylint: disable=too-many-locals
-    async def upsert_bulk(
-        self, data_list: List[dict], chunk_size: int = 5000
-    ) -> int:
-        """複数レコードの UPSERT をチャンク単位でまとめて実行する.
+    async def upsert_bulk(self, data_list: List[dict]) -> int:
+        """複数レコードの UPSERT を1回のSQL実行でまとめて処理する.
 
         Args:
             data_list (List[dict]): UPSERT 対象のデータリスト
-            chunk_size (int): チャンクサイズ（デフォルト: 500）
 
         Returns:
             int: 成功件数
 
         Notes:
             - トランザクション制御は Service 層で行ってください。
-            - 大きなチャンクはメモリ/クエリ長に影響するため適切なサイズを設定してください。
+            - シンボルごとに全データを1回のSQLで処理します。
         """
         if not data_list:
             return 0
 
-        success_count = 0
-
         try:
-            # チャンクごとに multi-row INSERT ... ON CONFLICT を発行
-            for i in range(0, len(data_list), chunk_size):
-                chunk = data_list[i : i + chunk_size]
-
-                # 事前に必須フィールドの検証を行い、無効なレコードは除外する
-                valid_chunk: List[dict] = []
-                for data in chunk:
-                    required_fields = [
-                        "symbol",
-                        self.time_column,
-                        "open",
-                        "high",
-                        "low",
-                        "close",
-                    ]
-                    missing_fields: List[str] = []
-                    for field in required_fields:
-                        if field not in data:
-                            missing_fields.append(field)
-                    if missing_fields:
-                        logger.warning(
-                            "Skipping invalid upsert (missing=%s): %s",
-                            missing_fields,
-                            data,
-                        )
-                        continue
-                    valid_chunk.append(data)
-
-                if not valid_chunk:
-                    # このチャンクに有効なレコードがない場合はスキップ
+            # 事前に必須フィールドの検証を行い、無効なレコードは除外する
+            valid_data: List[dict] = []
+            for data in data_list:
+                required_fields = [
+                    "symbol",
+                    self.time_column,
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                ]
+                missing_fields: List[str] = []
+                for field in required_fields:
+                    if field not in data:
+                        missing_fields.append(field)
+                if missing_fields:
+                    logger.warning(
+                        "Skipping invalid upsert (missing=%s): %s",
+                        missing_fields,
+                        data,
+                    )
                     continue
+                valid_data.append(data)
 
-                try:
-                    stmt = insert(self.model).values(valid_chunk)
+            if not valid_data:
+                logger.info("No valid data to upsert for %s", self.timeframe)
+                return 0
 
+            # PostgreSQLのパラメータ制限(32767)を考慮
+            # 安全マージンとして3000レコード(24000パラメータ)を上限とする
+            max_records_per_query = 3000
+            params_per_record = 8
+            total_params = len(valid_data) * params_per_record
+
+            if total_params > 24000:  # 3000レコード × 8カラム
+                logger.info(
+                    (
+                        "Large dataset for %s: %s records (%s parameters). "
+                        "Splitting into chunks."
+                    ),
+                    self.timeframe,
+                    len(valid_data),
+                    total_params,
+                )
+
+                # チャンクに分割して処理
+                success_count = 0
+                for i in range(0, len(valid_data), max_records_per_query):
+                    chunk = valid_data[i : i + max_records_per_query]
+
+                    stmt = insert(self.model).values(chunk)
                     conflict_columns = ["symbol", self.time_column]
                     # pylint: disable=not-callable
                     update_values = {
@@ -241,43 +252,71 @@ class StockDataRepository(BaseRepository, ABC):
                         "volume": stmt.excluded.volume,
                         "updated_at": func.now(),
                     }
-
                     stmt = stmt.on_conflict_do_update(
                         index_elements=conflict_columns, set_=update_values
                     )
 
-                    await self.session.execute(stmt)
-
-                    # 実行成功と見なしてチャンク内の有効件数を成功カウントに加える
-                    success_count += len(valid_chunk)
-
-                except Exception as chunk_exc:
-                    # チャンク単位で失敗した場合、逐次upsertにフォールバック
-                    logger.exception(
-                        "Chunk upsert failed for %s: %s",
-                        self.timeframe,
-                        chunk_exc,
+                    result = await self.session.execute(stmt)
+                    chunk_count = (
+                        result.rowcount
+                        if hasattr(result, "rowcount") and result.rowcount
+                        else len(chunk)
                     )
-                    for data in valid_chunk:
-                        try:
-                            await self.upsert_single(data)
-                            success_count += 1
-                        except Exception as e:
-                            error_info = {
-                                "data": data,
-                                "error": str(e),
-                                "timeframe": self.timeframe,
-                            }
-                            logger.warning(
-                                "Failed to upsert data: %s", error_info
-                            )
+                    success_count += chunk_count
 
-            logger.info(
-                "Bulk UPSERT executed (no commit): %s/%s succeeded for %s",
-                success_count,
-                len(data_list),
-                self.timeframe,
+                    logger.debug(
+                        "Chunk %s-%s: %s rows affected",
+                        i,
+                        i + len(chunk),
+                        chunk_count,
+                    )
+            else:
+                logger.info(
+                    (
+                        "Starting bulk upsert for %s: %s valid records "
+                        "(out of %s total)"
+                    ),
+                    self.timeframe,
+                    len(valid_data),
+                    len(data_list),
+                )
+
+                # 全データを1回のSQLで実行
+                stmt = insert(self.model).values(valid_data)
+
+                conflict_columns = ["symbol", self.time_column]
+                # pylint: disable=not-callable
+                update_values = {
+                    "open": stmt.excluded.open,
+                    "high": stmt.excluded.high,
+                    "low": stmt.excluded.low,
+                    "close": stmt.excluded.close,
+                    "adj_close": stmt.excluded.adj_close,
+                    "volume": stmt.excluded.volume,
+                    "updated_at": func.now(),
+                }
+
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=conflict_columns, set_=update_values
+                )
+
+                # SQL実行と結果の即座の取得
+                result = await self.session.execute(stmt)
+
+                # 重要: rowcountは結果オブジェクトがクローズされる前に即座に取得する必要がある
+                # セッション内で次の操作が行われるとresultオブジェクトが無効化される可能性がある
+                success_count = (
+                    result.rowcount
+                    if hasattr(result, "rowcount") and result.rowcount
+                    else len(valid_data)
+                )
+
+            msg = (
+                "Bulk UPSERT executed (no commit): "
+                f"{success_count}/{len(data_list)} rows affected "
+                f"for {self.timeframe} (valid_data={len(valid_data)})"
             )
+            logger.info(msg)
 
             return success_count
 
