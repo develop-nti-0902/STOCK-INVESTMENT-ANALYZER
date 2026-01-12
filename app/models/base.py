@@ -29,7 +29,7 @@ def _camel_to_snake(name: str) -> str:
     return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
 
-class Base(DeclarativeBase):  # pylint: disable=too-few-public-methods
+class Base(DeclarativeBase):
     """プロジェクト共通の Declarative base.
 
     - 自動でテーブル名をスネークケースに変換して設定する
@@ -39,16 +39,25 @@ class Base(DeclarativeBase):  # pylint: disable=too-few-public-methods
         サブクラスで `__tablename__` を明示しなければ、自動でクラス名から生成します。
     """
 
-    def __init_subclass__(
-        cls, **kwargs: Any
-    ) -> None:  # type: ignore[override]
+    def __init_subclass__(cls, **kwargs: Any) -> None:
         # サブクラスで明示的に__tablename__がなければ自動でスネークケースを付与
         if "__tablename__" not in cls.__dict__:
             cls.__tablename__ = _camel_to_snake(cls.__name__)
         super().__init_subclass__(**kwargs)
 
+    def __repr__(self) -> str:  # pragma: no cover - trivial
+        # モデルインスタンスの簡易表現。`id` があれば含める。
+        ident = getattr(self, "id", None)
+        if ident is not None:
+            return f"<{self.__class__.__name__} id={ident!r}>"
+        return f"<{self.__class__.__name__}>"
 
-class SerialPKMixin:  # pylint: disable=too-few-public-methods
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返すユーティリティメソッド。テストやログで便利。"""
+        return self.__class__.__name__
+
+
+class SerialPKMixin:
     """整数の自動増分 ID を提供する mixin.
 
     Attributes:
@@ -59,8 +68,15 @@ class SerialPKMixin:  # pylint: disable=too-few-public-methods
         Integer, primary_key=True, autoincrement=True
     )
 
+    def __repr__(self) -> str:  # pragma: no cover - trivial
+        ident = getattr(self, "id", None)
+        return f"<{self.__class__.__name__} id={ident!r}>"
 
-class UUIDPKMixin:  # pylint: disable=too-few-public-methods
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        return self.__class__.__name__
+
+
+class UUIDPKMixin:
     """UUID をプライマリキーにするモデル向け mixin.
 
     Attributes:
@@ -71,8 +87,15 @@ class UUIDPKMixin:  # pylint: disable=too-few-public-methods
         PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
 
+    def __repr__(self) -> str:  # pragma: no cover - trivial
+        ident = getattr(self, "id", None)
+        return f"<{self.__class__.__name__} id={ident!r}>"
 
-class TimestampMixin:  # pylint: disable=too-few-public-methods
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        return self.__class__.__name__
+
+
+class TimestampMixin:
     """作成/更新時刻の共通カラムを提供する mixin.
 
     Attributes:
@@ -105,6 +128,14 @@ class TimestampMixin:  # pylint: disable=too-few-public-methods
         if "updated_at" not in kwargs or kwargs.get("updated_at") is None:
             kwargs["updated_at"] = now
         super().__init__(*args, **kwargs)
+
+    def __repr__(self) -> str:  # pragma: no cover - trivial
+        # created_at/updated_at を含めず簡潔に表現
+        ident = getattr(self, "id", None)
+        return f"<{self.__class__.__name__} id={ident!r}>"
+
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        return self.__class__.__name__
 
 
 __all__ = ["Base", "SerialPKMixin", "UUIDPKMixin", "TimestampMixin"]

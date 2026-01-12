@@ -16,8 +16,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, SerialPKMixin, TimestampMixin
 
-# pylint: disable=too-few-public-methods
-
 
 class _CommonPriceColumns:
     """共通の価格カラム定義をまとめたヘルパークラス（継承用）.
@@ -38,6 +36,14 @@ class _CommonPriceColumns:
     # 調整終値 (yfinance の `Adj Close`) を格納するためのカラム
     adj_close: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=True)
     volume: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+
+    def price_fields(self) -> list[str]:  # pragma: no cover - trivial
+        """価格系のカラム名リストを返すヘルパー（テスト/デバッグ用）。"""
+        return ["open", "high", "low", "close", "adj_close", "volume"]
+
+    def has_adj_close(self) -> bool:  # pragma: no cover - trivial
+        """このモデルが調整終値(`adj_close`)カラムを持つかを示すフラグ（常にTrue）。"""
+        return True
 
 
 class Stocks1m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
@@ -67,6 +73,10 @@ class Stocks1m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         Index("idx_stocks_1m_timestamp", "timestamp"),
     )
 
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返す（ログやテストで利用）。"""
+        return self.__class__.__name__
+
 
 class Stocks5m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     """5分足の株価データモデル.
@@ -94,6 +104,9 @@ class Stocks5m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         Index("idx_stocks_5m_timestamp", "timestamp"),
     )
 
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        return self.__class__.__name__
+
 
 class Stocks15m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     """15分足の株価データモデル."""
@@ -115,6 +128,9 @@ class Stocks15m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         ),
         Index("idx_stocks_15m_timestamp", "timestamp"),
     )
+
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        return self.__class__.__name__
 
 
 class Stocks30m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
@@ -142,6 +158,9 @@ class Stocks30m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         Index("idx_stocks_30m_timestamp", "timestamp"),
     )
 
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        return self.__class__.__name__
+
 
 class Stocks1h(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     """1時間足の株価データモデル."""
@@ -163,6 +182,9 @@ class Stocks1h(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         ),
         Index("idx_stocks_1h_timestamp", "timestamp"),
     )
+
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        return self.__class__.__name__
 
 
 class Stocks1d(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
@@ -186,6 +208,9 @@ class Stocks1d(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         Index("idx_stocks_1d_timestamp", "timestamp"),
     )
 
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        return self.__class__.__name__
+
 
 class Stocks1wk(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     """週足の株価データモデル."""
@@ -208,6 +233,9 @@ class Stocks1wk(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         Index("idx_stocks_1wk_timestamp", "timestamp"),
     )
 
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        return self.__class__.__name__
+
 
 class Stocks1mo(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     """月足の株価データモデル."""
@@ -229,6 +257,9 @@ class Stocks1mo(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         ),
         Index("idx_stocks_1mo_timestamp", "timestamp"),
     )
+
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        return self.__class__.__name__
 
 
 # Exported names are managed in `app/models/__init__.py`

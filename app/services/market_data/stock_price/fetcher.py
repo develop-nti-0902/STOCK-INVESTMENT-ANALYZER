@@ -9,8 +9,7 @@ Notes:
 
 import asyncio
 import re
-from datetime import date, timedelta
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional
 
 import pandas as pd
 import yfinance as yf
@@ -40,26 +39,13 @@ class TimeframeMapping:
         "1mo": "1mo",  # 1月足
     }
 
-    # 各タイムフレームの最大取得期間（日数）
-    # maxの場合は全期間を意味する
-    MAX_PERIODS: Dict[str, Union[int, str]] = {
-        "1m": 7,  # 過去7日間
-        "5m": 30,  # 過去30日間（Yahoo Financeの制限に合わせて短く設定）
-        "15m": 30,  # 過去30日間（Yahoo Financeの制限に合わせて短く設定）
-        "30m": 30,  # 過去30日間（Yahoo Financeの制限に合わせて短く設定）
-        "1h": 365,  # 過去365日間（約1年、Yahoo Financeの制限に合わせて短く設定）
-        "1d": "max",  # 全期間
-        "1wk": "max",  # 全期間
-        "1mo": "max",  # 全期間
-    }
-
     # yfinanceのperiodパラメータマッピング
     PERIOD_MAPPINGS = {
-        "1m": None,  # period使用せずstart/endを使用
-        "5m": None,  # period使用せずstart/endを使用
-        "15m": None,  # period使用せずstart/endを使用
-        "30m": None,  # period使用せずstart/endを使用
-        "1h": None,  # period使用せずstart/endを使用
+        "1m": "7d",  # period使用せずstart/endを使用
+        "5m": "30d",  # period使用せずstart/endを使用
+        "15m": "30d",  # period使用せずstart/endを使用
+        "30m": "30d",  # period使用せずstart/endを使用
+        "1h": "365d",  # period使用せずstart/endを使用
         "1d": "max",  # 全期間
         "1wk": "max",  # 全期間
         "1mo": "max",  # 全期間
@@ -96,37 +82,6 @@ class TimeframeMapping:
             )
 
         return cls.PERIOD_MAPPINGS[timeframe]
-
-    @classmethod
-    def get_max_period_dates(
-        cls, timeframe: str
-    ) -> Tuple[Optional[date], Optional[date]]:
-        """
-        指定されたタイムフレームの最大期間の日付範囲を取得します。
-
-        Args:
-            timeframe: タイムフレーム
-
-        Returns:
-            Tuple[Optional[date], Optional[date]]: (start_date, end_date)
-            - start_date: 開始日（maxの場合はNone）
-            - end_date: 終了日（常にNoneで今日を意味する）
-        """
-        if timeframe not in cls.MAX_PERIODS:
-            raise FieldValidationError(
-                message=f"Unsupported timeframe: {timeframe}"
-            )
-
-        max_period = cls.MAX_PERIODS[timeframe]
-
-        if max_period == "max":
-            # 全期間の場合はstart_dateをNoneに
-            return None, None
-        else:
-            # 指定日数分の期間
-            end_date = date.today()
-            start_date = end_date - timedelta(days=int(max_period))
-            return start_date, None
 
 
 class StockPriceFetcher(RetryMixin):
@@ -169,8 +124,6 @@ class StockPriceFetcher(RetryMixin):
         """
         # kwargsからパラメータを取得
         timeframe = kwargs.get("timeframe", "1d")
-        start_date = kwargs.get("start_date")
-        end_date = kwargs.get("end_date")
 
         # パラメータ検証
         if not identifier or not isinstance(identifier, str):
@@ -186,25 +139,10 @@ class StockPriceFetcher(RetryMixin):
             ) from e
 
         # fetch_single を呼び出して重複を避ける
-        remaining_kwargs = kwargs.copy()
-        remaining_kwargs.pop("timeframe", None)
-        remaining_kwargs.pop("start_date", None)
-        remaining_kwargs.pop("end_date", None)
-        return await self.fetch_single(
-            symbol=identifier,
-            timeframe=timeframe,
-            start_date=start_date,
-            end_date=end_date,
-            **remaining_kwargs,
-        )
+        return await self.fetch_single(symbol=identifier, timeframe=timeframe)
 
     async def fetch_single(
-        self,
-        symbol: str,
-        timeframe: str = "1d",
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-        **kwargs,
+        self, symbol: str, timeframe: str = "1d"
     ) -> List[StockData]:
         """
         単一銘柄の株価データを取得します。
@@ -213,9 +151,6 @@ class StockPriceFetcher(RetryMixin):
             symbol: 銘柄コード（例: "7203.T"）
             timeframe: タイムフレーム
                 ("1m", "5m", "15m", "30m", "1h", "1d", "1wk", "1mo"）
-            start_date: 開始日（指定なしの場合は最大期間）
-            end_date: 終了日（指定なしの場合は今日）
-            **kwargs: 追加パラメータ
 
         Returns:
             List[StockData]: 株価データのリスト
@@ -239,31 +174,16 @@ class StockPriceFetcher(RetryMixin):
                 message=f"Invalid timeframe: {timeframe}"
             ) from e
 
-        # start_dateとend_dateが指定されていない場合は最大期間を設定
-        if start_date is None and end_date is None:
-            start_date, end_date = TimeframeMapping.get_max_period_dates(
-                timeframe
-            )
-            logger.debug(
-                f"Max period dates for {timeframe}: "
-                f"start={start_date}, end={end_date}"
-            )
-
-        # リトライ付きでデータ取得
+        # リトライ付きでデータ取得（start/end は内部で使わない）
         return await self._retry_async(
             lambda: self._fetch_single_symbol(
-                symbol, yfinance_interval, start_date, end_date, timeframe
+                symbol, yfinance_interval, timeframe
             ),
             "fetch_single",
         )
 
     async def fetch_batch(
-        self,
-        symbols: List[str],
-        timeframe: str = "1d",
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-        **kwargs,
+        self, symbols: List[str], timeframe: str = "1d"
     ) -> Dict[str, List[StockData]]:
         """
         複数銘柄の株価データを並列取得します。
@@ -271,9 +191,6 @@ class StockPriceFetcher(RetryMixin):
         Args:
             symbols: 銘柄コードのリスト
             timeframe: タイムフレーム
-            start_date: 開始日（指定なしの場合は最大期間）
-            end_date: 終了日（指定なしの場合は今日）
-            **kwargs: 追加パラメータ
 
         Returns:
             Dict[str, List[StockData]]: 銘柄コードをキーとした株価データ辞書
@@ -286,45 +203,18 @@ class StockPriceFetcher(RetryMixin):
                 message="Symbols must be a non-empty list"
             )
 
-        # start_dateとend_dateが指定されていない場合は最大期間を設定
-        if start_date is None and end_date is None:
-            start_date, end_date = TimeframeMapping.get_max_period_dates(
-                timeframe
-            )
-
-        # 各銘柄の取得タスクを作成
-        tasks = []
-        for symbol in symbols:
-            task = self.fetch_single(
-                symbol=symbol,
-                timeframe=timeframe,
-                start_date=start_date,
-                end_date=end_date,
-                **kwargs,
-            )
-            tasks.append(task)
-
-        # 並列実行
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # 結果を辞書にまとめる
-        result_dict: Dict[str, List[StockData]] = {}
-        for symbol, result in zip(symbols, results):
-            if isinstance(result, Exception):
-                logger.error(f"Failed to fetch data for {symbol}: {result}")
-                result_dict[symbol] = []
-            else:
-                # result is List[StockData] here
-                result_dict[symbol] = result  # type: ignore[assignment]
-
-        return result_dict
+        # fetch_batch は複数銘柄一括取得の責務を持つため、
+        # 一括最適化処理である内部メソッド `_fetch_multi_symbol` に
+        # 委譲して一元化する。
+        return await self._retry_async(
+            lambda: self._fetch_multi_symbol(symbols, timeframe),
+            "fetch_batch",
+        )
 
     async def _fetch_single_symbol(
         self,
         symbol: str,
         interval: str,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
         timeframe: Optional[str] = None,
     ) -> List[StockData]:
         """
@@ -333,8 +223,6 @@ class StockPriceFetcher(RetryMixin):
         Args:
             symbol: 銘柄コード
             interval: yfinance interval
-            start_date: 開始日
-            end_date: 終了日
             timeframe: タイムフレーム（period判定用）
 
         Returns:
@@ -347,7 +235,6 @@ class StockPriceFetcher(RetryMixin):
             try:
                 # 日本株はDBでは接尾辞なしで管理しているため、
                 # yfinance 呼び出し時のみ ".T" を付与する。
-                # 日本株判定は銘柄が数字のみで構成されている場合とする。
                 if isinstance(symbol, str) and re.fullmatch(r"\d+", symbol):
                     # 数字のみ（日本株）: DBの値は ".T" なしを期待する
                     if "." in symbol:
@@ -367,78 +254,51 @@ class StockPriceFetcher(RetryMixin):
                     None, lambda: yf.Ticker(yf_symbol)
                 )
 
-                # データ取得
-                # periodパラメータを使用するか判定
-                period = None
-                if timeframe:
-                    try:
-                        period = TimeframeMapping.get_period(timeframe)
-                    except ValueError:
-                        pass  # 無視してstart/endを使用
+                # データ取得: period のみを利用
+                if timeframe is None:
+                    raise FieldValidationError(
+                        message=("Missing timeframe for yfinance period")
+                    )
 
-                if period:
-                    # periodを使用する場合
-                    logger.debug(
-                        f"Fetching data for {yf_symbol}: period={period}, "
-                        f"interval={interval}"
-                    )
-                    hist = await loop.run_in_executor(
-                        None,
-                        lambda: ticker.history(
-                            period=period,
-                            interval=interval,
-                            prepost=False,  # 取引時間外データを除外
-                            actions=False,  # 配当・分割情報を除外
-                        ),
-                    )
-                else:
-                    # start/endを使用する場合
-                    logger.debug(
-                        "Fetching data for %s: interval=%s start=%s end=%s",
-                        yf_symbol,
-                        interval,
-                        start_date,
-                        end_date,
-                    )
-                    hist = await loop.run_in_executor(
-                        None,
-                        lambda: ticker.history(
-                            interval=interval,
-                            start=start_date,
-                            end=end_date,
-                            prepost=False,  # 取引時間外データを除外
-                            actions=False,  # 配当・分割情報を除外
-                        ),
-                    )
+                try:
+                    period = TimeframeMapping.get_period(timeframe)
+                except FieldValidationError as e:
+                    raise FieldValidationError(
+                        message=(
+                            f"Unsupported timeframe for period: {timeframe}"
+                        )
+                    ) from e
+
+                logger.debug(
+                    "Fetching data for %s: period=%s, interval=%s",
+                    yf_symbol,
+                    period,
+                    interval,
+                )
+                hist = await loop.run_in_executor(
+                    None,
+                    lambda: ticker.history(
+                        period=period,
+                        interval=interval,
+                        prepost=False,  # 取引時間外データを除外
+                        actions=False,  # 配当・分割情報を除外
+                    ),
+                )
 
                 if hist.empty:
                     logger.warning(
-                        f"No data found for symbol: {symbol} (initial request)"
+                        "No data found for symbol: %s (initial request)",
+                        symbol,
                     )
-                    # フォールバック: period を指定して再試行する（例: 5y -> 1y）
-                    try:
-                        logger.debug(
-                            "Attempting fallback fetch with period=5y"
-                        )
-                        hist = await loop.run_in_executor(
-                            None,
-                            lambda: ticker.history(
-                                period="5y",
-                                interval=interval,
-                                prepost=False,
-                                actions=False,
-                            ),
-                        )
-                    except Exception:
-                        # フォールバック失敗は無視して空結果を返す
-                        logger.debug("Fallback fetch failed for %s", symbol)
-
-                    if hist.empty:
-                        logger.warning(
-                            "No data found for symbol after fallback: %s",
-                            symbol,
-                        )
-                        return []
+                    # フォールバックによる再試行は行わず、ログ出力のみ行って空結果を返す
+                    logger.debug(
+                        (
+                            "No fallback for single-symbol fetch; returning "
+                            "empty result for %s"
+                        ),
+                        symbol,
+                    )
+                    return []
 
                 # DataFrameをStockDataリストに変換
                 return self._parse_yfinance_data(hist, symbol)
@@ -452,6 +312,146 @@ class StockPriceFetcher(RetryMixin):
                     message=f"Failed to fetch data for {symbol} due to an "
                     "internal error."
                 ) from e
+
+    async def _fetch_multi_symbol(
+        self,
+        symbols: List[str],
+        timeframe: str = "1d",
+    ) -> Dict[str, List[StockData]]:
+        """
+        内部用: 複数銘柄を yfinance の一括ダウンロードで取得する実装。
+
+        `fetch_multi_yfinance` の実ロジックをこちらに移し、`fetch_batch`
+        からもこのメソッドを使うことで責務を一元化します。
+        """
+        if not symbols or not isinstance(symbols, list):
+            raise FieldValidationError(
+                message="Symbols must be a non-empty list"
+            )
+
+        try:
+            interval = TimeframeMapping.get_yfinance_interval(timeframe)
+        except FieldValidationError as e:
+            raise FieldValidationError(
+                message=f"Invalid timeframe: {timeframe}"
+            ) from e
+
+        yf_symbols: List[str] = []
+        yf_to_orig: Dict[str, str] = {}
+        for s in symbols:
+            if isinstance(s, str) and re.fullmatch(r"\d+", s):
+                if "." in s:
+                    raise FieldValidationError(
+                        message=(
+                            "Japanese stock symbol must be provided "
+                            "without suffix '.T'"
+                        )
+                    )
+                yf_s = f"{s}.T"
+            else:
+                yf_s = s
+            yf_symbols.append(yf_s)
+            yf_to_orig[yf_s] = s
+
+        async with self.semaphore:
+            loop = asyncio.get_event_loop()
+            try:
+                tickers_str = " ".join(yf_symbols)
+                tickers_obj = await loop.run_in_executor(
+                    None, lambda: yf.Tickers(tickers_str)
+                )
+
+                period = None
+                try:
+                    period = TimeframeMapping.get_period(timeframe)
+                except FieldValidationError:
+                    period = None
+
+                if period:
+                    hist = await loop.run_in_executor(
+                        None,
+                        lambda: tickers_obj.history(
+                            period=period,
+                            interval=interval,
+                            prepost=False,
+                            actions=False,
+                        ),
+                    )
+                else:
+                    hist = await loop.run_in_executor(
+                        None,
+                        lambda: tickers_obj.history(
+                            interval=interval,
+                            prepost=False,
+                            actions=False,
+                        ),
+                    )
+
+                if hist.empty:
+                    logger.warning(
+                        "No data found for requested symbols (initial)"
+                    )
+                    try:
+                        hist = await loop.run_in_executor(
+                            None,
+                            lambda: tickers_obj.history(
+                                period="5y",
+                                interval=interval,
+                                prepost=False,
+                                actions=False,
+                            ),
+                        )
+                    except Exception:
+                        logger.debug(
+                            "Fallback fetch failed for multi-symbol request"
+                        )
+
+                    if hist.empty:
+                        return {s: [] for s in symbols}
+
+                results: Dict[str, List[StockData]] = {}
+
+                for yf_s in yf_symbols:
+                    orig = yf_to_orig.get(yf_s, yf_s)
+                    try:
+                        # MultiIndex (attribute, ticker) から当該ティッカー部分を切り出す
+                        if isinstance(hist.columns, pd.MultiIndex):
+                            try:
+                                df_sym = hist.xs(
+                                    yf_s, axis=1, level=1, drop_level=True
+                                )
+                            except Exception:
+                                cols = [
+                                    c
+                                    for c in hist.columns
+                                    if len(c) > 1 and c[1] == yf_s
+                                ]
+                                if not cols:
+                                    results[orig] = []
+                                    continue
+                                df_sym = hist.loc[:, cols]
+                                df_sym.columns = [c[0] for c in cols]
+                        else:
+                            # 単一銘柄または yfinance の戻りが既に単一インデックスの場合
+                            df_sym = hist.copy()
+
+                        parsed = self._parse_yfinance_data(df_sym, orig)
+                        results[orig] = parsed
+                    except Exception as e:
+                        logger.exception(
+                            "Failed to parse multi data for %s: %s", yf_s, e
+                        )
+                        results[orig] = []
+
+                return results
+
+            except Exception as e:
+                msg = (
+                    "Failed to fetch multiple symbols due to an "
+                    "internal error."
+                )
+                logger.exception(msg)
+                raise YahooFinanceError(message=msg) from e
 
     def _parse_yfinance_data(
         self, data: pd.DataFrame, symbol: str
@@ -498,7 +498,10 @@ class StockPriceFetcher(RetryMixin):
 
             except (ValueError, ValidationError) as e:
                 logger.warning(
-                    f"Failed to parse data for {symbol} on {index.date()}: {e}"
+                    "Failed to parse data for %s on %s: %s",
+                    symbol,
+                    index.date(),
+                    e,
                 )
                 continue  # 個別のデータ変換失敗はスキップ
 
@@ -531,12 +534,12 @@ class StockPriceFetcher(RetryMixin):
             symbol: エラーが発生した銘柄コード
             error: 発生した例外
         """
-        logger.error(f"Error fetching data for {symbol}: {error}")
+        logger.error("Error fetching data for %s: %s", symbol, error)
 
         # Yahoo Finance特有のエラーハンドリング
         if isinstance(error, YahooFinanceError):
             # APIレート制限などの場合の特別処理
-            logger.warning(f"Yahoo Finance API error for {symbol}: {error}")
+            logger.warning("Yahoo Finance API error for %s: %s", symbol, error)
         else:
             # その他のエラー
-            logger.error(f"Unexpected error for {symbol}: {error}")
+            logger.error("Unexpected error for %s: %s", symbol, error)

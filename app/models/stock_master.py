@@ -9,8 +9,6 @@ from __future__ import annotations
 from typing import Optional
 
 from sqlalchemy import Index, Integer, String
-
-# pylint: disable=too-few-public-methods
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, SerialPKMixin, TimestampMixin
@@ -115,7 +113,7 @@ class StockMaster(SerialPKMixin, TimestampMixin, Base):
         """
         self.stock_name = value
 
-    def __repr__(self) -> str:  # pragma: no cover - trivial
+    def __repr__(self) -> str:
         return (
             "<StockMaster(stock_code="
             f"{self.stock_code!r}, stock_name={self.stock_name!r})>"

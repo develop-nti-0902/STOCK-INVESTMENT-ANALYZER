@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.exceptions import HTTPException, RequestValidationError
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.exceptions import (
@@ -58,6 +59,9 @@ logger = get_logger(__name__)
 # 起動時に設定を一度だけ読み込み、アプリ状態に保持
 app.state.settings = get_settings()
 
+# 静的ファイルのマウント
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 # 例外ハンドラの登録
 app.add_exception_handler(
     AppException,
@@ -87,6 +91,16 @@ try:
 except ImportError:
     # 初期セットアップでは `app.api` が未実装の可能性があるため、
     # モジュール未検出（ImportError）の場合は無視します。
+    pass
+
+# 管理画面ルーターの登録
+try:
+    from app.api.admin import batch
+
+    router: APIRouter = batch.router
+    app.include_router(router)
+except ImportError:
+    # 管理画面が未実装の場合は無視
     pass
 
 

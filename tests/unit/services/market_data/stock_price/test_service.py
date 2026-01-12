@@ -17,6 +17,7 @@ from app.services.market_data.stock_price.service import (
     StockPriceServiceResult,
 )
 from app.services.market_data.stock_price.validator import StockPriceValidator
+from tests.unit.helpers.date_utils import normalize_date_param
 
 
 class TestStockPriceService:
@@ -65,8 +66,6 @@ class TestStockPriceService:
         # テストデータ
         symbol = "7203.T"
         timeframe = "1d"
-        start_date = date(2024, 1, 1)
-        end_date = date(2024, 1, 31)
 
         # モックの戻り値設定
         mock_stock_data_list = [
@@ -110,9 +109,7 @@ class TestStockPriceService:
         self.mock_saver.save_batch = AsyncMock(return_value=2)
 
         # テスト実行
-        result = await self.service.fetch_and_save_single(
-            symbol, timeframe, start_date, end_date
-        )
+        result = await self.service.fetch_and_save_single(symbol, timeframe)
 
         # 検証
         assert result.success is True
@@ -126,8 +123,6 @@ class TestStockPriceService:
         self.mock_fetcher.fetch_single.assert_called_once_with(
             symbol=symbol,
             timeframe=timeframe,
-            start_date=start_date,
-            end_date=end_date,
         )
         assert self.mock_validator.validate.call_count == 2
         # Saver に渡されたペイロードは実装により形式が変わるため、構造を確認する
@@ -156,9 +151,7 @@ class TestStockPriceService:
         # 空のリストを返す
         self.mock_fetcher.fetch_single = AsyncMock(return_value=[])
 
-        result = await self.service.fetch_and_save_single(
-            symbol, timeframe, date(2024, 1, 1), date(2024, 1, 31)
-        )
+        result = await self.service.fetch_and_save_single(symbol, timeframe)
 
         assert result.success is True
         assert result.records_processed == 0
@@ -199,9 +192,7 @@ class TestStockPriceService:
             return_value=MagicMock(is_valid=False, errors=["Validation error"])
         )
 
-        result = await self.service.fetch_and_save_single(
-            symbol, timeframe, date(2024, 1, 1), date(2024, 1, 31)
-        )
+        result = await self.service.fetch_and_save_single(symbol, timeframe)
 
         assert result.success is False
         assert result.records_processed == 1
@@ -236,7 +227,7 @@ class TestStockPriceService:
         )
 
         results = await self.service.fetch_and_save_multiple(
-            symbols, timeframe, date(2024, 1, 1), date(2024, 1, 31)
+            symbols, timeframe
         )
 
         assert len(results) == 2
@@ -272,9 +263,7 @@ class TestStockPriceService:
             return_value=mock_stock_data_list
         )
 
-        result = await self.service.get_stock_data(
-            symbol, timeframe, date(2024, 1, 1), date(2024, 1, 31)
-        )
+        result = await self.service.get_stock_data(symbol, timeframe)
 
         assert result is not None
         assert result.symbol == symbol
@@ -291,9 +280,7 @@ class TestStockPriceService:
             side_effect=Exception("API Error")
         )
 
-        result = await self.service.get_stock_data(
-            symbol, timeframe, date(2024, 1, 1), date(2024, 1, 31)
-        )
+        result = await self.service.get_stock_data(symbol, timeframe)
 
         assert result is None
 
@@ -309,9 +296,7 @@ class TestStockPriceService:
             side_effect=YahooFinanceError()
         )
 
-        result = await self.service.fetch_and_save_single(
-            symbol, timeframe, date(2024, 1, 1), date(2024, 1, 31)
-        )
+        result = await self.service.fetch_and_save_single(symbol, timeframe)
 
         assert result.success is False
         assert any("Yahoo Finance API error" in e for e in result.errors)
@@ -339,9 +324,7 @@ class TestStockPriceService:
             side_effect=StockDataValidationError()
         )
 
-        result = await self.service.fetch_and_save_single(
-            symbol, timeframe, date(2024, 1, 1), date(2024, 1, 31)
-        )
+        result = await self.service.fetch_and_save_single(symbol, timeframe)
 
         assert result.success is False
         assert any("Data validation error" in e for e in result.errors)
@@ -356,9 +339,7 @@ class TestStockPriceService:
             side_effect=Exception("boom")
         )
 
-        result = await self.service.fetch_and_save_single(
-            symbol, timeframe, date(2024, 1, 1), date(2024, 1, 31)
-        )
+        result = await self.service.fetch_and_save_single(symbol, timeframe)
 
         assert result.success is False
         assert any("Unexpected error" in e for e in result.errors)
@@ -386,14 +367,16 @@ class TestStockPriceService:
         self.mock_saver.save_batch = AsyncMock(return_value=1)
 
         # 日付をISO形式の文字列で渡す
-        await self.service.fetch_and_save_single(
-            symbol, timeframe, "2024-01-01", "2024-01-31"
+        await self.service.fetch_and_save_single(symbol, timeframe)
+
+        # fetch_single は start_date/end_date を受け取らなくなったため、
+        # 呼び出しは symbol と timeframe のみで行われることを確認する
+        self.mock_fetcher.fetch_single.assert_called_once_with(
+            symbol=symbol, timeframe=timeframe
         )
 
-        # fetch_single に渡された start_date/end_date が date 型に変換されていること
-        called_kwargs = self.mock_fetcher.fetch_single.call_args[1]
-        assert isinstance(called_kwargs.get("start_date"), date)
-        assert isinstance(called_kwargs.get("end_date"), date)
+        # ただし日付正規化ユーティリティは残っているので個別に確認する
+        assert normalize_date_param("2024-01-01") == date(2024, 1, 1)
 
     @pytest.mark.asyncio
     async def test_fetch_all_jpx_stocks_success_and_progress_callback(self):
@@ -438,8 +421,6 @@ class TestStockPriceService:
 
         summary = await self.service.fetch_all_jpx_stocks(
             timeframe="1d",
-            start_date=date(2024, 1, 1),
-            end_date=date(2024, 1, 31),
             progress_callback=progress_cb,
             max_concurrent=2,
             batch_size=100,

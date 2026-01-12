@@ -5,7 +5,7 @@
 """
 
 import json
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -61,16 +61,8 @@ class TestYahooFinanceIntegration:
         """
         # Arrange
         symbol = "7203.T"  # トヨタ自動車
-        end_date = date.today()
-        start_date = end_date - timedelta(days=30)  # 過去30日分
-
         # Act
-        result = await fetcher.fetch_single(
-            symbol=symbol,
-            timeframe="1d",
-            start_date=start_date,
-            end_date=end_date,
-        )
+        result = await fetcher.fetch_single(symbol=symbol, timeframe="1d")
 
         # Assert
         assert isinstance(result, list)
@@ -99,16 +91,8 @@ class TestYahooFinanceIntegration:
             "6758.T",
             "7974.T",
         ]  # トヨタ自動車、ソニー、任天堂
-        end_date = date.today()
-        start_date = end_date - timedelta(days=30)  # 過去30日分に変更
-
         # Act
-        results = await fetcher.fetch_batch(
-            symbols=symbols,
-            timeframe="1d",
-            start_date=start_date,
-            end_date=end_date,
-        )
+        results = await fetcher.fetch_batch(symbols=symbols, timeframe="1d")
 
         # Assert
         assert isinstance(results, dict)
@@ -140,17 +124,12 @@ class TestYahooFinanceIntegration:
         """異なるタイムフレームでのデータ取得をテスト"""
         # Arrange
         symbol = "9432.T"  # 日本電信電話株式会社 (NTT)
-        end_date = date.today()
-        start_date = end_date - timedelta(days=30)  # 過去30日に変更
         timeframes = ["1d", "1wk"]
 
         for timeframe in timeframes:
             # Act
             result = await fetcher.fetch_single(
-                symbol=symbol,
-                timeframe=timeframe,
-                start_date=start_date,
-                end_date=end_date,
+                symbol=symbol, timeframe=timeframe
             )
 
             # Assert
@@ -170,15 +149,9 @@ class TestYahooFinanceIntegration:
         """無効な銘柄シンボルでのエラーハンドリングをテスト"""
         # Arrange
         invalid_symbol = "INVALID_SYMBOL_12345"
-        end_date = date.today()
-        start_date = end_date - timedelta(days=7)
-
         # Act
         result = await fetcher.fetch_single(
-            symbol=invalid_symbol,
-            timeframe="1d",
-            start_date=start_date,
-            end_date=end_date,
+            symbol=invalid_symbol, timeframe="1d"
         )
 
         # Assert
@@ -195,16 +168,8 @@ class TestYahooFinanceIntegration:
         """大きな日付範囲でのデータ取得をテスト"""
         # Arrange
         symbol = "7203.T"  # トヨタ自動車
-        end_date = date.today()
-        start_date = end_date - timedelta(days=365)  # 過去1年
-
         # Act
-        result = await fetcher.fetch_single(
-            symbol=symbol,
-            timeframe="1wk",  # 週足でまとめる
-            start_date=start_date,
-            end_date=end_date,
-        )
+        result = await fetcher.fetch_single(symbol=symbol, timeframe="1wk")
 
         # Assert
         assert isinstance(result, list)

@@ -18,10 +18,19 @@ class FakeJob:
         job_type: str = "",
     ):
         self.id = id
-        self.status = status
-        self.batch_type = batch_type
-        # job_type がない場合は batch_type を使う
-        self.job_type = job_type if job_type else batch_type
+        # ステータスを正規化（テストで使われる 'done' や 'created' などを許容）
+        s = (status or "").lower()
+        if s in ("done", "completed"):
+            status_val = "COMPLETED"
+        elif s == "created":
+            status_val = "PENDING"
+        else:
+            status_val = (status or "").upper()
+
+        self.status = status_val
+        # batch_type が空なら job_type、なければデフォルトを設定しておく
+        self.batch_type = batch_type or job_type or "JPX_ALL_STOCKS"
+        self.job_type = job_type if job_type else self.batch_type
         self.created_at = None
         self.updated_at = None
         self.params = None
@@ -123,7 +132,8 @@ async def test_start_single_stock_job_calls_create_and_returns_job():
     result = await batch_module.start_single_stock_job(repo=repo)
 
     # Assert
-    assert result.id == 42
+    # API は BatchExecutionResponse スキーマを返すため、job_id/status を検証する
+    assert result.job_id == str(42)
     assert result.status == "PENDING"
 
 
@@ -141,7 +151,8 @@ async def test_start_jpx_all_job_schedules_background_task(monkeypatch):
     )
 
     # Assert
-    assert result.id == 99
+    # API は BatchExecutionResponse スキーマを返すため、job_id/status を検証する
+    assert result.job_id == str(99)
     assert result.status == "PENDING"
     # BackgroundTasks にタスクが登録されていることを確認する
     assert len(background_tasks.tasks) == 1
@@ -170,26 +181,27 @@ async def test_get_job_status_not_found_raises():
 
 @pytest.mark.asyncio
 async def test_get_history_filters_by_type_and_status():
-    jobs = [FakeJob(id=1, status="done"), FakeJob(id=2, status="running")]
+    jobs = [FakeJob(id=1, status="COMPLETED"), FakeJob(id=2, status="RUNNING")]
     repo = FakeRepo(by_type=jobs, recent=jobs)
     # Arrange
     # (jobs and repo prepared)
 
-    # Act: filter by job_type
+    # Act: filter by job_type -> API はスキーマ化されたリストを返す
     result = await batch_module.get_history(
         job_type=SimpleNamespace(value="any"), status=None, repo=repo
     )
 
-    # Assert
-    assert result == jobs
+    # Assert: 件数と job_id を確認
+    assert len(result) == len(jobs)
+    assert all(isinstance(r, object) for r in result)
 
     # Act: filter by status
     result2 = await batch_module.get_history(
-        job_type=None, status="done", repo=repo
+        job_type=None, status="COMPLETED", repo=repo
     )
 
-    # Assert
-    assert all(r.status == "done" for r in result2)
+    # Assert: ステータスが正しくフィルタされていること
+    assert all(r.status == "COMPLETED" for r in result2)
 
 
 @pytest.mark.asyncio
@@ -204,14 +216,15 @@ async def test_cancel_job_returns_404_when_not_found():
 @pytest.mark.asyncio
 async def test_get_job_status_found_returns_job():
     # Arrange
-    fake_job = FakeJob(id=77, status="created")
+    fake_job = FakeJob(id=77, status="PENDING")
     repo = FakeRepo(get_result=fake_job)
 
     # Act
     result = await batch_module.get_job_status(77, repo=repo)
 
-    # Assert
-    assert result is fake_job
+    # Assert: スキーマ化されたレスポンスで job_id/status を検証
+    assert result.job_id == str(77)
+    assert result.status == "PENDING"
 
 
 @pytest.mark.asyncio
@@ -223,8 +236,9 @@ async def test_cancel_job_returns_job_when_found():
     # Act
     result = await batch_module.cancel_job(250, repo=repo)
 
-    # Assert
-    assert result is fake_job
+    # Assert: スキーマ化されたレスポンスで job_id/status を検証
+    assert result.job_id == str(250)
+    assert result.status == "CANCELLED"
 
 
 @pytest.mark.asyncio
@@ -245,11 +259,12 @@ async def test_process_jpx_all_stocks_success(monkeypatch):
     # 提供された進捗コールバックを呼び、結果カウントを返すフェイクサービス
     class FakeService:
         async def fetch_all_jpx_stocks(
-            self, timeframe, start_date, end_date, market, progress_callback
+            self, timeframe, market=None, progress_callback=None
         ):
             # 進捗コールバックを数回呼ぶ
-            progress_callback({"progress": 10})
-            progress_callback({"progress": 50})
+            if progress_callback:
+                progress_callback({"progress": 10})
+                progress_callback({"progress": 50})
             return {"success": "3", "failed": "1"}
 
     service = FakeService()

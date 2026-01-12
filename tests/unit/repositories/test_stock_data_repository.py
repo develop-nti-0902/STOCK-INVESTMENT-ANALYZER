@@ -157,7 +157,9 @@ class TestStockDataRepository:
 
         # モック設定
         mock_result = MagicMock()
-        mock_result.rowcount = 1
+        # DBドライバによっては複数レコード挿入時に rowcount が正確でないため
+        # None にしてリポジトリ側のフォールバック動作(len(valid_data))を検証する
+        mock_result.rowcount = None
         mock_result.inserted_primary_key = [1]
         repo_1m.session.execute.return_value = mock_result
 

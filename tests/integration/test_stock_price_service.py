@@ -4,8 +4,6 @@ StockPriceService統合テスト
 株価データ収集サービスの統合動作をテストします。
 """
 
-from datetime import date
-
 import pytest
 
 from app.services.market_data.stock_price import (
@@ -78,10 +76,24 @@ class TestStockPriceServiceIntegration:
             index=pd.date_range("2024-01-01", periods=2),
         )
 
-        # Converterで変換
-        pydantic_data = self.converter.from_dataframe(
-            df=df, symbol="7203.T", timeframe="1d"
-        )
+        # このコードベースでは `Converter.from_dataframe` は実装されていないため、
+        # DataFrame の行から手動で Pydantic モデルを構築します。
+        from app.schemas.stock_data import StockPriceCreate
+
+        pydantic_data = []
+        for idx, row in df.iterrows():
+            pydantic_data.append(
+                StockPriceCreate(
+                    symbol="7203.T",
+                    trade_date=idx.to_pydatetime(),
+                    open_price=float(row["Open"]),
+                    high=float(row["High"]),
+                    low=float(row["Low"]),
+                    close=float(row["Close"]),
+                    volume=int(row["Volume"]),
+                    adj_close=float(row["Adj Close"]),
+                )
+            )
 
         assert len(pydantic_data) == 2
 
@@ -90,13 +102,13 @@ class TestStockPriceServiceIntegration:
             result = self.validator.validate(item)
             assert result.is_valid, f"Validation failed: {result.errors}"
 
-        # Dict変換
-        dict_data = [
-            self.converter.from_pydantic(item) for item in pydantic_data
-        ]
+        # 辞書への変換 — Saver 用の形式に変換するため `to_saver_records` を使用する
+        dict_data = self.converter.to_saver_records(pydantic_data)
         assert len(dict_data) == 2
         assert all(isinstance(d, dict) for d in dict_data)
-        assert all("symbol" in d for d in dict_data)
+        # `to_saver_records` は `timestamp`, `open` 等の Saver フレンドリな辞書を返す
+        assert all("timestamp" in d for d in dict_data)
+        assert all("open" in d for d in dict_data)
 
     @pytest.mark.asyncio
     async def test_validator_comprehensive(self):
@@ -187,10 +199,7 @@ class TestStockPriceServiceIntegration:
 
         # テスト実行
         result = await service.fetch_and_save_single(
-            symbol="7203.T",
-            timeframe="1d",
-            start_date=date(2024, 1, 1),
-            end_date=date(2024, 1, 31),
+            symbol="7203.T", timeframe="1d"
         )
 
         # 検証
@@ -254,10 +263,7 @@ class TestStockPriceServiceIntegration:
 
         # テスト実行
         results = await service.fetch_and_save_multiple(
-            symbols=symbols,
-            timeframe="1d",
-            start_date=date(2024, 1, 1),
-            end_date=date(2024, 1, 31),
+            symbols=symbols, timeframe="1d"
         )
 
         # 検証
@@ -321,10 +327,7 @@ class TestStockPriceServiceIntegration:
 
         # テスト実行
         results = await service.fetch_and_save_multiple(
-            symbols=symbols,
-            timeframe="1d",
-            start_date=date(2024, 1, 1),
-            end_date=date(2024, 1, 31),
+            symbols=symbols, timeframe="1d"
         )
 
         # 検証
@@ -384,10 +387,7 @@ class TestStockPriceServiceIntegration:
 
         # テスト実行
         results = await service.fetch_and_save_multiple(
-            symbols=symbols,
-            timeframe="1d",
-            start_date=date(2024, 1, 1),
-            end_date=date(2024, 1, 31),
+            symbols=symbols, timeframe="1d"
         )
 
         # 検証
@@ -443,10 +443,7 @@ class TestStockPriceServiceIntegration:
 
         # テスト実行
         result = await service.fetch_and_save_single(
-            symbol="7203.T",
-            timeframe="1d",
-            start_date=date(2024, 1, 1),
-            end_date=date(2024, 1, 31),
+            symbol="7203.T", timeframe="1d"
         )
 
         # 検証: yfinance raw dataはバイパスされるため、検証は成功する
@@ -500,10 +497,7 @@ class TestStockPriceServiceIntegration:
 
         # テスト実行（様々な日付形式）
         result = await service.fetch_and_save_single(
-            symbol="7203.T",
-            timeframe="1d",
-            start_date="2024-01-01",  # ISO文字列
-            end_date=datetime(2024, 1, 31, tzinfo=timezone.utc),  # datetime
+            symbol="7203.T", timeframe="1d"
         )
 
         # 検証
@@ -535,10 +529,7 @@ class TestStockPriceServiceIntegration:
 
         # テスト実行
         result = await service.fetch_and_save_single(
-            symbol="7203.T",
-            timeframe="1d",
-            start_date=date(2024, 1, 1),
-            end_date=date(2024, 1, 31),
+            symbol="7203.T", timeframe="1d"
         )
 
         # 検証
@@ -572,10 +563,7 @@ class TestStockPriceServiceIntegration:
 
         # テスト実行
         result = await service.fetch_and_save_single(
-            symbol="7203.T",
-            timeframe="1d",
-            start_date=date(2024, 1, 1),
-            end_date=date(2024, 1, 31),
+            symbol="7203.T", timeframe="1d"
         )
 
         # 検証（データがない場合の警告）
@@ -625,12 +613,7 @@ class TestStockPriceServiceIntegration:
         )
 
         # テスト実行
-        result = await service.get_stock_data(
-            symbol="7203.T",
-            timeframe="1d",
-            start_date=date(2024, 1, 1),
-            end_date=date(2024, 1, 31),
-        )
+        result = await service.get_stock_data(symbol="7203.T", timeframe="1d")
 
         # 検証
         assert result is not None
