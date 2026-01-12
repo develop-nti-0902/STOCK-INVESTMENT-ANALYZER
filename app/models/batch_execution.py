@@ -63,5 +63,15 @@ class BatchExecution(SerialPKMixin, TimestampMixin, Base):
         Index("idx_batch_executions_start_time", "start_time"),
     )
 
+    def to_dict(self) -> dict:
+        """モデルの簡易辞書表現を返す（ログ / テスト用）。"""
+        return {
+            "id": getattr(self, "id", None),
+            "batch_type": getattr(self, "batch_type", None),
+            "status": getattr(self, "status", None),
+            "start_time": getattr(self, "start_time", None),
+            "end_time": getattr(self, "end_time", None),
+        }
+
 
 __all__ = ["BatchExecution"]

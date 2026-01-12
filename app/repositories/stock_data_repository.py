@@ -239,27 +239,7 @@ class StockDataRepository(BaseRepository, ABC):
                 for i in range(0, len(valid_data), max_records_per_query):
                     chunk = valid_data[i : i + max_records_per_query]
 
-                    stmt = insert(self.model).values(chunk)
-                    conflict_columns = ["symbol", self.time_column]
-                    update_values = {
-                        "open": stmt.excluded.open,
-                        "high": stmt.excluded.high,
-                        "low": stmt.excluded.low,
-                        "close": stmt.excluded.close,
-                        "adj_close": stmt.excluded.adj_close,
-                        "volume": stmt.excluded.volume,
-                        "updated_at": text("now()"),
-                    }
-                    stmt = stmt.on_conflict_do_update(
-                        index_elements=conflict_columns, set_=update_values
-                    )
-
-                    result = await self.session.execute(stmt)
-                    chunk_count = (
-                        result.rowcount
-                        if hasattr(result, "rowcount") and result.rowcount
-                        else len(chunk)
-                    )
+                    chunk_count = await self._execute_insert(chunk)
                     success_count += chunk_count
 
                     logger.debug(
@@ -280,33 +260,7 @@ class StockDataRepository(BaseRepository, ABC):
                 )
 
                 # 全データを1回のSQLで実行
-                stmt = insert(self.model).values(valid_data)
-
-                conflict_columns = ["symbol", self.time_column]
-                update_values = {
-                    "open": stmt.excluded.open,
-                    "high": stmt.excluded.high,
-                    "low": stmt.excluded.low,
-                    "close": stmt.excluded.close,
-                    "adj_close": stmt.excluded.adj_close,
-                    "volume": stmt.excluded.volume,
-                    "updated_at": text("now()"),
-                }
-
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=conflict_columns, set_=update_values
-                )
-
-                # SQL実行と結果の即座の取得
-                result = await self.session.execute(stmt)
-
-                # 重要: rowcountは結果オブジェクトがクローズされる前に即座に取得する必要がある
-                # セッション内で次の操作が行われるとresultオブジェクトが無効化される可能性がある
-                success_count = (
-                    result.rowcount
-                    if hasattr(result, "rowcount") and result.rowcount
-                    else len(valid_data)
-                )
+                success_count = await self._execute_insert(valid_data)
 
             msg = (
                 "Bulk UPSERT executed (no commit): "
@@ -322,6 +276,33 @@ class StockDataRepository(BaseRepository, ABC):
             raise StockDataError(
                 message=f"Failed to bulk upsert data: {e}"
             ) from e
+
+    async def _execute_insert(self, chunk: List[dict]) -> int:
+        """チャンク用のUPSERT文を構築して実行するヘルパー。"""
+        stmt = insert(self.model).values(chunk)
+        update_values = self._build_update_values(stmt)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["symbol", self.time_column], set_=update_values
+        )
+
+        result = await self.session.execute(stmt)
+        return (
+            result.rowcount
+            if hasattr(result, "rowcount") and result.rowcount
+            else len(chunk)
+        )
+
+    def _build_update_values(self, stmt):
+        """ON CONFLICT の更新マッピングを構築するヘルパー。"""
+        return {
+            "open": stmt.excluded.open,
+            "high": stmt.excluded.high,
+            "low": stmt.excluded.low,
+            "close": stmt.excluded.close,
+            "adj_close": stmt.excluded.adj_close,
+            "volume": stmt.excluded.volume,
+            "updated_at": text("now()"),
+        }
 
     async def get_by_symbol_and_range(
         self,

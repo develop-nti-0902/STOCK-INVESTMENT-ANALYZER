@@ -185,6 +185,10 @@ class RetryMixin:
         if backoff_factor is not None:
             self.backoff_factor = backoff_factor
 
+    def should_retry(self, error: Exception) -> bool:
+        """公開メソッド: 与えられた例外がリトライ対象か判定する。テストや外部からの判定で利用可。"""
+        return self._is_retryable_error(error)
+
     def _handle_retry_exception(
         self, e: Exception, attempt: int, operation_name: str
     ) -> Optional[Exception]:
