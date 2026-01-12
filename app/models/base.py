@@ -52,6 +52,10 @@ class Base(DeclarativeBase):
             return f"<{self.__class__.__name__} id={ident!r}>"
         return f"<{self.__class__.__name__}>"
 
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返すユーティリティメソッド。テストやログで便利。"""
+        return self.__class__.__name__
+
 
 class SerialPKMixin:
     """整数の自動増分 ID を提供する mixin.
@@ -68,6 +72,9 @@ class SerialPKMixin:
         ident = getattr(self, "id", None)
         return f"<{self.__class__.__name__} id={ident!r}>"
 
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        return self.__class__.__name__
+
 
 class UUIDPKMixin:
     """UUID をプライマリキーにするモデル向け mixin.
@@ -83,6 +90,9 @@ class UUIDPKMixin:
     def __repr__(self) -> str:  # pragma: no cover - trivial
         ident = getattr(self, "id", None)
         return f"<{self.__class__.__name__} id={ident!r}>"
+
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        return self.__class__.__name__
 
 
 class TimestampMixin:
@@ -123,6 +133,9 @@ class TimestampMixin:
         # created_at/updated_at を含めず簡潔に表現
         ident = getattr(self, "id", None)
         return f"<{self.__class__.__name__} id={ident!r}>"
+
+    def model_name(self) -> str:  # pragma: no cover - trivial
+        return self.__class__.__name__
 
 
 __all__ = ["Base", "SerialPKMixin", "UUIDPKMixin", "TimestampMixin"]
