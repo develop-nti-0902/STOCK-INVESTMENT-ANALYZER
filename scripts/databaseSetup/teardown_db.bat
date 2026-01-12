@@ -17,6 +17,7 @@ REM       and this script does not attempt to drop tables inside the database.
 
 set SCRIPT_DIR=%~dp0
 for %%I in ("%SCRIPT_DIR%..\\..") do set REPO_ROOT=%%~fI\
+set DROP_USER_SQL=%SCRIPT_DIR%sql\drop_user_tables.sql
 
 REM Configuration priority (highest to lowest):
 REM 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER
@@ -151,6 +152,10 @@ set /p DB_EXISTS=<"%TEMP%\db_check.txt"
 set "DB_EXISTS=%DB_EXISTS: =%"
 if "%DB_EXISTS%"=="1" (
     REM Disconnect existing connections before dropping
+    if exist "%DROP_USER_SQL%" (
+        echo Applying drop-user schema before database drop: %DROP_USER_SQL%
+        psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -f "%DROP_USER_SQL%" 2>NUL || echo [WARN] Failed to apply %DROP_USER_SQL% (check SQL file and permissions)
+    )
     psql -U %PGUSER% -h %PGHOST% -c "REVOKE CONNECT ON DATABASE \"!DB_NAME!\" FROM public;" 2>NUL || echo [WARN] Could not revoke connects
     psql -U %PGUSER% -h %PGHOST% -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '!DB_NAME!' AND pid <> pg_backend_pid();" 2>NUL || echo [WARN] Could not terminate connections
     psql -U %PGUSER% -h %PGHOST% -c "DROP DATABASE IF EXISTS \"!DB_NAME!\";" 2>"%TEMP%\db_drop_err.txt"

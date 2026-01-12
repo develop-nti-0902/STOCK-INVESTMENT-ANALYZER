@@ -17,6 +17,7 @@ set SCRIPT_DIR=%~dp0
 for %%I in ("%SCRIPT_DIR%..\\..") do set REPO_ROOT=%%~fI\
 set STOCK_SQL=%SCRIPT_DIR%sql\create_stock_tables.sql
 set MGMT_SQL=%SCRIPT_DIR%sql\create_management_tables.sql
+set USER_SQL=%SCRIPT_DIR%sql\create_user_tables.sql
 
 REM Configuration priority (highest to lowest):
 REM 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER DB_PASSWORD
@@ -229,6 +230,14 @@ if not exist "%STOCK_SQL%" (
     echo Applying stock tables schema: %STOCK_SQL%
     psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -v db_user=%DB_USER% -f "%STOCK_SQL%"
     if errorlevel 1 echo [WARN] Failed to apply %STOCK_SQL% (check SQL file and permissions)
+)
+
+if not exist "%USER_SQL%" (
+    echo [WARN] %USER_SQL% not found; skipping user tables apply
+) else (
+    echo Applying user tables schema: %USER_SQL%
+    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -v db_user=%DB_USER% -f "%USER_SQL%"
+    if errorlevel 1 echo [WARN] Failed to apply %USER_SQL% (check SQL file and permissions)
 )
 
 endlocal

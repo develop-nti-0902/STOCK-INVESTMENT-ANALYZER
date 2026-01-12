@@ -15,6 +15,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+DROP_USER_SQL="${SCRIPT_DIR}/sql/drop_user_tables.sql"
 
 # Configuration priority (highest to lowest):
 # 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER
@@ -141,6 +142,10 @@ echo "[3/6] Dropping database if exists..."
 
 DB_EXISTS=$(psql -U "${PGUSER}" -h "${PGHOST}" -t -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}';" 2>&1 | tr -d '[:space:]')
 if [[ "$DB_EXISTS" == "1" ]]; then
+    if [[ -f "$DROP_USER_SQL" ]]; then
+        echo "Applying drop-user schema before database drop: $DROP_USER_SQL"
+        psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -f "$DROP_USER_SQL" || echo "[WARN] Failed to apply $DROP_USER_SQL (check SQL file and permissions)"
+    fi
     # Disconnect existing connections before dropping
     psql -U "${PGUSER}" -h "${PGHOST}" -c "REVOKE CONNECT ON DATABASE \"${DB_NAME}\" FROM public;" 2>/dev/null || echo "[WARN] Could not revoke connects"
     psql -U "${PGUSER}" -h "${PGHOST}" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}' AND pid <> pg_backend_pid();" 2>/dev/null || echo "[WARN] Could not terminate connections"
