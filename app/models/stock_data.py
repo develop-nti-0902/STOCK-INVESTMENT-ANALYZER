@@ -41,6 +41,10 @@ class _CommonPriceColumns:
         """価格系のカラム名リストを返すヘルパー（テスト/デバッグ用）。"""
         return ["open", "high", "low", "close", "adj_close", "volume"]
 
+    def has_adj_close(self) -> bool:  # pragma: no cover - trivial
+        """このモデルが調整終値(`adj_close`)カラムを持つかを示すフラグ（常にTrue）。"""
+        return True
+
 
 class Stocks1m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     """1分足の株価データモデル.
