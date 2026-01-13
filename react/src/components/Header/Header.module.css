@@ -1,52 +1,212 @@
+/* ヘッダー */
 .header {
-  background-color: #1f2937;
+  background-color: var(--color-primary, #3b82f6);
   color: white;
-  padding: var(--spacing-md);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .container {
-  max-width: 80rem;
+  max-width: 1400px;
   margin: 0 auto;
+  padding: 0 20px;
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
+  height: 64px;
 }
 
 .title {
-  font-size: var(--text-2xl);
-  font-weight: bold;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
 }
 
+/* メニュー */
 .menu {
   display: flex;
-  gap: var(--spacing-md);
+  align-items: center;
+  gap: 8px;
 }
 
 .menuItem {
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-md);
-  background: transparent;
+  padding: 8px 16px;
+  background: none;
   border: none;
-  color: white;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s;
+  border-radius: 6px;
+  transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .menuItem:hover {
-  background-color: #374151;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
 }
 
 .menuItem.active {
-  background-color: var(--color-primary);
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
 }
 
 .iconButton {
+  padding: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .smallText {
-  font-size: var(--text-sm);
+  font-size: 13px;
+}
+
+/* ユーザーメニュー */
+.userMenuContainer {
+  position: relative;
+  margin-left: 8px;
+}
+
+.userMenuButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.userMenuButton:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.userName {
+  font-weight: 500;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevronUp {
+  transform: rotate(180deg);
+}
+
+/* ドロップダウンメニュー */
+.userMenuDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 240px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  z-index: 1000;
+}
+
+.userInfo {
+  padding: 16px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.userInfoName {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.userInfoEmail {
+  font-size: 13px;
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.userMenuItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  text-align: left;
+}
+
+.userMenuItem:hover {
+  background: #f3f4f6;
+}
+
+.userMenuDivider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 4px 0;
+}
+
+.logoutButton {
+  color: #dc2626;
+}
+
+.logoutButton:hover {
+  background: #fee2e2;
+}
+
+/* オーバーレイ */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+/* レスポンシブ */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 12px;
+  }
+
+  .title {
+    font-size: 16px;
+  }
+
+  .menu {
+    gap: 4px;
+  }
+
+  .menuItem {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  .userName {
+    display: none;
+  }
+
+  .userMenuButton {
+    padding: 8px;
+  }
+
+  .userMenuDropdown {
+    right: -12px;
+  }
 }

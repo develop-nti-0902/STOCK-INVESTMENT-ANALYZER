@@ -3,15 +3,15 @@ import { ArrowLeft, TrendingUp, TrendingDown, Activity, Shield, DollarSign } fro
 import ScoreCircle from '../common/ScoreCircle'
 import styles from './StockDetailScreen.module.css'
 
-export default function StockDetailScreen({ selectedStock, setCurrentScreen }) {
+export default function StockDetailScreen({ selectedStock, setCurrentScreen, previousScreen }) {
   if (!selectedStock) {
     return (
       <div className={styles.container}>
         <div className={styles.emptyState}>
           <p className={styles.noStock}>銘柄が選択されていません。</p>
-          <button onClick={() => setCurrentScreen('list')} className={styles.backButton}>
+          <button onClick={() => setCurrentScreen(previousScreen || 'list')} className={styles.backButton}>
             <ArrowLeft size={18} />
-            一覧に戻る
+            {previousScreen === 'dashboard' ? 'ダッシュボードに戻る' : '一覧に戻る'}
           </button>
         </div>
       </div>
@@ -46,13 +46,17 @@ export default function StockDetailScreen({ selectedStock, setCurrentScreen }) {
     }
   }
 
+  const handleBack = () => {
+    setCurrentScreen(previousScreen || 'list')
+  }
+
   return (
     <div className={styles.container}>
       {/* ヘッダー */}
       <div className={styles.header}>
-        <button onClick={() => setCurrentScreen('list')} className={styles.backButton}>
+        <button onClick={handleBack} className={styles.backButton}>
           <ArrowLeft size={18} />
-          一覧に戻る
+          {previousScreen === 'dashboard' ? 'ダッシュボードに戻る' : '一覧に戻る'}
         </button>
       </div>
 

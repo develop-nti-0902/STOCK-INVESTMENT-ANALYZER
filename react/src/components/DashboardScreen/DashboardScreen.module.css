@@ -1,12 +1,17 @@
+/* ダッシュボード */
 .dashboard {
+  padding: var(--spacing-lg);
+  max-width: 1400px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
 }
 
+/* 統計カードグリッド */
 .statsGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--spacing-md);
 }
 
@@ -21,6 +26,7 @@
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
   margin-bottom: var(--spacing-sm);
+  font-weight: 600;
 }
 
 .statValue {
@@ -36,57 +42,38 @@
   color: var(--color-success);
 }
 
+.statValue.negative {
+  color: var(--color-danger);
+}
+
 .statValue.info {
   color: var(--color-primary);
 }
 
 .statPercent {
   font-size: var(--text-sm);
+  font-weight: 600;
+  margin-top: var(--spacing-xs);
+}
+
+.statPercent.positive {
   color: var(--color-success);
 }
 
-.badgeContainer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: var(--spacing-sm);
+.statPercent.negative {
+  color: var(--color-danger);
 }
 
-.overallBadge {
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: 9999px;
-  font-size: var(--text-2xl);
-  font-weight: bold;
-  color: white;
-}
-
-.badgeExcellent {
-  background-color: #059669;
-}
-
-.badgeGood {
-  background-color: var(--color-primary);
-}
-
-.badgeFair {
-  background-color: var(--color-warning);
-}
-
-.badgePoor {
-  background-color: var(--color-danger);
-}
-
+/* メインコンテンツグリッド */
 .mainGrid {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: var(--spacing-lg);
 }
 
+/* カード共通 */
 .holdingsCard,
-.sectorCard,
-.radarCard,
-.alertsCard,
-.newsCard {
+.sectorCard {
   background-color: white;
   padding: var(--spacing-lg);
   border-radius: var(--radius-lg);
@@ -100,8 +87,10 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  color: var(--color-text-primary);
 }
 
+/* 保有銘柄一覧 */
 .holdingsList {
   display: flex;
   flex-direction: column;
@@ -112,9 +101,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-sm);
+  padding: var(--spacing-md);
   background-color: var(--color-bg-tertiary);
   border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.holdingItem:hover {
+  background-color: #e5e7eb;
+  transform: translateX(4px);
 }
 
 .holdingInfo {
@@ -127,11 +123,18 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.favoriteBtn:hover {
+  transform: scale(1.1);
 }
 
 .favoriteActive {
-  fill: #fbbf24;
   color: #fbbf24;
 }
 
@@ -141,42 +144,103 @@
 
 .stockName {
   font-weight: bold;
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
 }
 
 .sector {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
 .holdingStats {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
+  gap: var(--spacing-lg);
 }
 
-.priceInfo {
-  text-align: right;
+/* 価格カラム */
+.priceColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  min-width: 120px;
+}
+
+.priceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.priceLabel {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  min-width: 32px;
 }
 
 .price {
   font-weight: bold;
+  color: var(--color-text-primary);
+  font-size: var(--text-base);
+}
+
+.priceSecondary {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+/* 損益カラム */
+.plColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: right;
+  min-width: 100px;
 }
 
 .plPositive {
   color: var(--color-success);
-  font-size: var(--text-sm);
+  font-weight: 600;
 }
 
 .plNegative {
   color: var(--color-danger);
-  font-size: var(--text-sm);
+  font-weight: 600;
 }
 
-.scores {
+/* ラインカラム */
+.lineColumn {
   display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  min-width: 110px;
+}
+
+.lineRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--spacing-sm);
 }
 
+.lineLabel {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  min-width: 32px;
+}
+
+.lineValue {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* セクター別配分 */
 .sectorLegend {
   margin-top: var(--spacing-md);
   display: flex;
@@ -189,6 +253,7 @@
   align-items: center;
   justify-content: space-between;
   font-size: var(--text-sm);
+  padding: var(--spacing-xs) 0;
 }
 
 .legendLabel {
@@ -198,81 +263,85 @@
 }
 
 .legendColor {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: 12px;
+  height: 12px;
   border-radius: var(--radius-sm);
 }
 
 .legendValue {
   font-weight: bold;
+  color: var(--color-text-primary);
 }
 
-.bottomGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-lg);
+/* レスポンシブ */
+@media (max-width: 1024px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .holdingStats {
+    gap: var(--spacing-md);
+  }
 }
 
-.sideColumn {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
+@media (max-width: 768px) {
+  .holdingStats {
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+  }
+
+  .priceColumn,
+  .plColumn,
+  .lineColumn {
+    min-width: auto;
+  }
 }
 
-.alertIcon {
-  color: var(--color-warning);
-}
+@media (max-width: 640px) {
+  .dashboard {
+    padding: var(--spacing-md);
+  }
 
-.alertsList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
 
-.alertItem {
-  padding: var(--spacing-sm);
-  border-radius: var(--radius-md);
-  border-left: 4px solid;
-}
+  .statValue {
+    font-size: var(--text-2xl);
+  }
 
-.alertHigh {
-  border-color: var(--color-danger);
-  background-color: #fef2f2;
-}
+  .holdingItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+  }
 
-.alertMedium {
-  border-color: var(--color-warning);
-  background-color: #fefce8;
-}
+  .holdingStats {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-sm);
+  }
 
-.alertMessage {
-  font-size: var(--text-sm);
-  font-weight: 500;
-}
+  .priceColumn,
+  .plColumn,
+  .lineColumn {
+    width: 100%;
+  }
 
-.newsList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
+  .priceRow,
+  .lineRow {
+    justify-content: space-between;
+  }
 
-.newsItem {
-  padding: var(--spacing-sm);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.newsItem:hover {
-  background-color: var(--color-bg-tertiary);
-}
-
-.newsDate {
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-}
-
-.newsTitle {
-  font-size: var(--text-sm);
-  font-weight: 500;
+  .plColumn {
+    text-align: left;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+  }
 }

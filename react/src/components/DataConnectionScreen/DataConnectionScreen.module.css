@@ -252,32 +252,6 @@
   margin-top: var(--spacing-sm);
 }
 
-.warningBox {
-  background-color: #fefce8;
-  border-left: 4px solid var(--color-warning);
-  padding: var(--spacing-lg);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--spacing-lg);
-}
-
-.warningTitle {
-  font-weight: bold;
-  margin-bottom: var(--spacing-sm);
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.warningList {
-  font-size: var(--text-sm);
-  color: #374151;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  list-style: none;
-  padding: 0;
-}
-
 .buttons {
   display: flex;
   gap: var(--spacing-md);

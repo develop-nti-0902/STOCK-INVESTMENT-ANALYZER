@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import Header from './components/Header/Header'
+import LoginScreen from './components/LoginScreen/LoginScreen'
 import DashboardScreen from './components/DashboardScreen/DashboardScreen'
 import StockListScreen from './components/StockListScreen/StockListScreen'
 import TradeHistoryScreen from './components/TradeHistoryScreen/TradeHistoryScreen'
@@ -207,7 +208,9 @@ export default function App() {
   // ----------------
   // State管理
   // ----------------
+  const [currentUser, setCurrentUser] = useState(null)
   const [currentScreen, setCurrentScreen] = useState('dashboard')
+  const [previousScreen, setPreviousScreen] = useState('list')
   const [favorites, setFavorites] = useState([])
   const [selectedStock, setSelectedStock] = useState(null)
   const [scoreWeights, setScoreWeights] = useState({
@@ -219,12 +222,42 @@ export default function App() {
   // ----------------
   // イベントハンドラー
   // ----------------
+  const handleLogin = (user) => {
+    setCurrentUser(user)
+    // ユーザーごとのデータを読み込む処理をここに追加
+    // 例: loadUserData(user.id)
+  }
+
+  const handleLogout = () => {
+    setCurrentUser(null)
+    setCurrentScreen('dashboard')
+    setPreviousScreen('list')
+    setFavorites([])
+    setSelectedStock(null)
+    // その他のユーザーデータをクリア
+  }
+
+  // 画面遷移の拡張ハンドラー（遷移元を記録）
+  const handleSetCurrentScreen = (screen, from) => {
+    if (from) {
+      setPreviousScreen(from)
+    }
+    setCurrentScreen(screen)
+  }
+
+  // ----------------
+  // イベントハンドラー
+  // ----------------
   const toggleFavorite = (code) => {
     setFavorites((prev) => 
       prev.includes(code) 
         ? prev.filter((c) => c !== code) 
         : [...prev, code]
     )
+  }
+
+  const updateScoreWeights = (newWeights) => {
+    setScoreWeights(newWeights)
   }
 
   // ----------------
@@ -375,85 +408,74 @@ export default function App() {
       marginRatio: h.marginRatio,
       foreignOwnership: h.foreignOwnership,
       volatility: h.volatility,
-      beta: h.beta,
-      marketCap: 10000000 // ダミー値
+      beta: h.beta
     }))
   }, [portfolioData.holdings])
 
   // ----------------
-  // 画面レンダリング関数
-  // ----------------
-  const renderScreen = () => {
-    switch (currentScreen) {
-      case 'dashboard':
-        return (
-          <DashboardScreen
-            portfolioData={portfolioData}
-            favorites={favorites}
-            toggleFavorite={toggleFavorite}
-          />
-        )
-      
-      case 'list':
-        return (
-          <StockListScreen
-            stockList={stockList}
-            favorites={favorites}
-            toggleFavorite={toggleFavorite}
-            setSelectedStock={setSelectedStock}
-            setCurrentScreen={setCurrentScreen}
-          />
-        )
-      
-      case 'detail':
-        return (
-          <StockDetailScreen
-            selectedStock={selectedStock}
-            setCurrentScreen={setCurrentScreen}
-          />
-        )
-      
-      case 'history':
-        return <TradeHistoryScreen />
-      
-      case 'settings':
-        return (
-          <ScoreSettingsScreen
-            scoreWeights={scoreWeights}
-            setScoreWeights={setScoreWeights}
-          />
-        )
-      
-      case 'data':
-        return <DataConnectionScreen />
-      
-      case 'alerts':
-        return <AlertSettingsScreen />
-      
-      default:
-        return (
-          <DashboardScreen
-            portfolioData={portfolioData}
-            favorites={favorites}
-            toggleFavorite={toggleFavorite}
-          />
-        )
-    }
-  }
-
-  // ----------------
   // レンダリング
   // ----------------
+  // ログインしていない場合はログイン画面を表示
+  if (!currentUser) {
+    return <LoginScreen onLogin={handleLogin} />
+  }
+
   return (
     <div className={styles.app}>
       <Header 
         currentScreen={currentScreen} 
-        setCurrentScreen={setCurrentScreen} 
+        setCurrentScreen={handleSetCurrentScreen}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
       
-      <div className={styles.content}>
-        {renderScreen()}
-      </div>
+      {currentScreen === 'dashboard' && (
+        <DashboardScreen
+          portfolioData={portfolioData}
+          stockList={stockList}
+          favorites={favorites}
+          toggleFavorite={toggleFavorite}
+          setSelectedStock={setSelectedStock}
+          setCurrentScreen={handleSetCurrentScreen}
+        />
+      )}
+      
+      {currentScreen === 'list' && (
+        <StockListScreen
+          stockList={stockList}
+          favorites={favorites}
+          toggleFavorite={toggleFavorite}
+          setSelectedStock={setSelectedStock}
+          setCurrentScreen={handleSetCurrentScreen}
+        />
+      )}
+      
+      {currentScreen === 'detail' && (
+        <StockDetailScreen
+          selectedStock={selectedStock}
+          setCurrentScreen={handleSetCurrentScreen}
+          previousScreen={previousScreen}
+        />
+      )}
+      
+      {currentScreen === 'history' && (
+        <TradeHistoryScreen />
+      )}
+      
+      {currentScreen === 'settings' && (
+        <ScoreSettingsScreen
+          weights={scoreWeights}
+          onUpdateWeights={updateScoreWeights}
+        />
+      )}
+      
+      {currentScreen === 'data' && (
+        <DataConnectionScreen />
+      )}
+      
+      {currentScreen === 'alerts' && (
+        <AlertSettingsScreen />
+      )}
     </div>
   )
 }

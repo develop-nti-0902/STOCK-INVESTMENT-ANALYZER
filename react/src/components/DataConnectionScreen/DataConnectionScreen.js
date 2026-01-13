@@ -31,45 +31,6 @@ export default function DataConnectionScreen() {
       <div className={styles.mainCard}>
         <h3 className={styles.title}>データ連携設定</h3>
         
-        <div className={styles.uploadSection}>
-          <Upload size={48} className={styles.uploadIcon} />
-          <h4 className={styles.uploadTitle}>CSVファイルアップロード</h4>
-          <p className={styles.uploadDescription}>
-            楽天証券・SBI証券の取引履歴CSVに対応しています
-          </p>
-          <button className={styles.uploadButton}>
-            ファイルを選択
-          </button>
-          <p className={styles.uploadNote}>
-            対応フォーマット: CSV（Shift-JIS / UTF-8）
-          </p>
-        </div>
-
-        <div className={styles.brokerSection}>
-          <h4 className={styles.brokerTitle}>
-            <CheckCircle className={styles.checkIcon} />
-            証券会社対応状況
-          </h4>
-          <div className={styles.brokerGrid}>
-            <div className={styles.brokerItem}>
-              <span>楽天証券</span>
-              <span className={styles.badgeSupported}>対応済み</span>
-            </div>
-            <div className={styles.brokerItem}>
-              <span>SBI証券</span>
-              <span className={styles.badgeSupported}>対応済み</span>
-            </div>
-            <div className={styles.brokerItem}>
-              <span>マネックス証券</span>
-              <span className={styles.badgePending}>準備中</span>
-            </div>
-            <div className={styles.brokerItem}>
-              <span>松井証券</span>
-              <span className={styles.badgePending}>準備中</span>
-            </div>
-          </div>
-        </div>
-
         <div className={styles.apiSection}>
           <h4 className={styles.apiTitle}>自動取得API設定</h4>
           <div className={styles.apiList}>
@@ -142,16 +103,6 @@ export default function DataConnectionScreen() {
           <p className={styles.frequencyDescription}>
             {getFrequencyDescription()}
           </p>
-        </div>
-
-        <div className={styles.warningBox}>
-          <h4 className={styles.warningTitle}>⚠️ 注意事項</h4>
-          <ul className={styles.warningList}>
-            <li>• API接続には別途API利用料が発生する場合があります</li>
-            <li>• リアルタイム更新は市場営業時間のみ有効です</li>
-            <li>• データ取得に失敗した場合は前回のデータを表示します</li>
-            <li>• CSVインポート時は既存データとの重複にご注意ください</li>
-          </ul>
         </div>
 
         <div className={styles.buttons}>
