@@ -109,7 +109,7 @@ const PRESET_FILTERS = {
   }
 };
 
-export default function StockListScreen({ stockList, favorites, setSelectedStock, setCurrentScreen, onRegisterStocks }) {
+export default function StockListScreen({ stockList, setSelectedStock, setCurrentScreen, onRegisterStocks }) {
   // 検索・フィルター State
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSector, setFilterSector] = useState('');
@@ -916,9 +916,6 @@ export default function StockListScreen({ stockList, favorites, setSelectedStock
       <div className={styles.footer}>
         <div className={styles.footerText}>
           全{filteredStocks.length}件を表示 ({selectedStocks.length}件選択中)
-        </div>
-        <div className={styles.footerText}>
-          ソート: {getSortLabel()} ({sortDir === 'asc' ? '昇順' : '降順'})
         </div>
       </div>
 

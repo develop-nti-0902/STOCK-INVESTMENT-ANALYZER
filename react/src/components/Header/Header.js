@@ -35,14 +35,6 @@ export default function Header({ currentScreen, setCurrentScreen, currentUser, o
           ))}
           
           <button
-            onClick={() => setCurrentScreen('settings')}
-            className={`${styles.menuItem} ${styles.iconButton} ${currentScreen === 'settings' ? styles.active : ''}`}
-            title="スコア設定"
-          >
-            <Settings size={20} />
-          </button>
-          
-          <button
             onClick={() => setCurrentScreen('data')}
             className={`${styles.menuItem} ${currentScreen === 'data' ? styles.active : ''}`}
             title="データ連携"
