@@ -1,21 +1,25 @@
 #!/usr/bin/env bash
 # =============================================================================
-# PostgreSQL development database setup (Linux/macOS)
+# PostgreSQL development database setup with Alembic (Linux/macOS)
 # Location: scripts/databaseSetup/setup_db.sh
 # Usage: Run this script directly or call it from other setup scripts
+#
+# このスクリプトはAlembicを使用してデータベースを初期化します。
+# 従来のSQLファイル実行方式は廃止され、すべてAlembicマイグレーションで管理されます。
 # =============================================================================
 
 set -euo pipefail
 
 # This script uses the local psql client to create the database and user,
-# and applies the initial schema from `create_stock_tables.sql` and
-# `create_management_tables.sql` if present.
+# then applies the schema using Alembic migrations (alembic upgrade head).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-STOCK_SQL="${SCRIPT_DIR}/sql/create_stock_tables.sql"
-MGMT_SQL="${SCRIPT_DIR}/sql/create_management_tables.sql"
-USER_SQL="${SCRIPT_DIR}/sql/create_user_tables.sql"
+
+# 従来のSQLファイル（非推奨、参考用として保持）
+# STOCK_SQL="${SCRIPT_DIR}/sql/create_stock_tables.sql"
+# MGMT_SQL="${SCRIPT_DIR}/sql/create_management_tables.sql"
+# USER_SQL="${SCRIPT_DIR}/sql/create_user_tables.sql"
 
 # Configuration priority (highest to lowest):
 # 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER DB_PASSWORD
@@ -195,36 +199,54 @@ else
 fi
 
 # Grant privileges
-psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};" 2>/dev/null || echo "[WARN] Could not grant privileges"
+psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};" 2>/dev/null || echo "[WARN] Could not grant database privileges"
+psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -c "GRANT ALL ON SCHEMA public TO ${DB_USER};" 2>/dev/null || echo "[WARN] Could not grant schema privileges"
+psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -c "GRANT CREATE ON SCHEMA public TO ${DB_USER};" 2>/dev/null || echo "[WARN] Could not grant create privileges"
 
-# Apply initial schema if present
-echo "[6/6] Applying initial schema (if present) and finishing..."
+# Apply Alembic migrations
+echo "[6/6] Applying Alembic migrations..."
+echo ""
 
-# Set client encoding to UTF8 for psql
-export PGCLIENTENCODING=UTF8
+cd "${REPO_ROOT}"
 
-if [[ -f "$MGMT_SQL" ]]; then
-    echo "Applying management tables schema: $MGMT_SQL"
-    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -v db_user="${DB_USER}" -f "$MGMT_SQL" || echo "[WARN] Failed to apply $MGMT_SQL (check SQL file and permissions)"
+# Pythonコマンドの検出
+if [[ -f ".venv/bin/python" ]]; then
+    PYTHON_CMD=".venv/bin/python"
+elif [[ -f "venv/bin/python" ]]; then
+    PYTHON_CMD="venv/bin/python"
 else
-    echo "[WARN] $MGMT_SQL not found; skipping management tables apply"
+    PYTHON_CMD="python3"
 fi
 
-# Apply stock tables after management tables to satisfy FK dependencies
-if [[ -f "$STOCK_SQL" ]]; then
-    echo "Applying stock tables schema: $STOCK_SQL"
-    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -v db_user="${DB_USER}" -f "$STOCK_SQL" || echo "[WARN] Failed to apply $STOCK_SQL (check SQL file and permissions)"
-else
-    echo "[WARN] $STOCK_SQL not found; skipping stock tables apply"
-fi
+echo "Using Python: ${PYTHON_CMD}"
 
-if [[ -f "$USER_SQL" ]]; then
-    echo "Applying user tables schema: $USER_SQL"
-    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -v db_user="${DB_USER}" -f "$USER_SQL" || echo "[WARN] Failed to apply $USER_SQL (check SQL file and permissions)"
-else
-    echo "[WARN] $USER_SQL not found; skipping user tables apply"
-fi
+# Alembicがインストールされているか確認
+"${PYTHON_CMD}" -m alembic --version &>/dev/null || {
+    echo "[ERROR] Alembic not found. Please install it:"
+    echo "  ${PYTHON_CMD} -m pip install alembic"
+    exit 1
+}
+
+# マイグレーションを最新バージョンまで適用
+echo "Running: ${PYTHON_CMD} -m alembic upgrade head"
+"${PYTHON_CMD}" -m alembic upgrade head || {
+    echo ""
+    echo "[ERROR] Alembic migration failed"
+    echo "Please check:"
+    echo "  - Database connection settings in .env"
+    echo "  - alembic/env.py configuration"
+    echo "  - Migration files in alembic/versions/"
+    exit 1
+}
 
 echo ""
-echo "[SUCCESS] Database setup script finished."
+echo "========================================"
+echo "[SUCCESS] Database setup completed!"
+echo "========================================"
+echo "Database: ${DB_NAME}"
+echo "Schema: Applied via Alembic migrations"
+echo ""
+echo "[NOTE] SQL files in sql/ directory are kept for reference only."
+echo "       All schema changes should now be managed through Alembic."
+echo "========================================"
 exit 0

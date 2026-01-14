@@ -1,21 +1,23 @@
 #!/usr/bin/env bash
 # =============================================================================
-# PostgreSQL development database teardown (Linux/macOS)
+# PostgreSQL development database teardown with Alembic (Linux/macOS)
 # Location: scripts/databaseSetup/teardown_db.sh
 # Usage: Run this script directly or call it from other setup scripts
+#
+# このスクリプトはAlembicマイグレーションを使用してデータベースをダウングレードし、
+# 最終的にデータベース、ユーザー、テーブルスペースを削除します。
 # =============================================================================
 
 set -euo pipefail
 
-# This script uses the local psql client to drop the database, user, and tablespace,
-# and optionally removes the data directory created during setup.
-# NOTE: The teardown removes the entire database specified by DB_NAME.
-#       Because the database is dropped, deleting individual tables is unnecessary
-#       and this script does not attempt to drop tables inside the database.
+# This script first applies Alembic downgrade (alembic downgrade base),
+# then drops the database, user, and tablespace.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-DROP_USER_SQL="${SCRIPT_DIR}/sql/drop_user_tables.sql"
+
+# 従来のDROP SQLファイル（非推奨、参考用として保持）
+# DROP_USER_SQL="${SCRIPT_DIR}/sql/drop_user_tables.sql"
 
 # Configuration priority (highest to lowest):
 # 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER
@@ -138,15 +140,26 @@ if [[ -n "${DB_DATA_DIR:-}" ]] && [[ -n "${SKIP_TABLESPACE:-}" ]]; then
 fi
 
 # Drop database if exists
-echo "[3/6] Dropping database if exists..."
+echo "[3/6] Running Alembic downgrade (if database exists)..."
+
+cd "${REPO_ROOT}"
+
+# Pythonコマンドの検出
+if [[ -f ".venv/bin/python" ]]; then
+    PYTHON_CMD=".venv/bin/python"
+elif [[ -f "venv/bin/python" ]]; then
+    PYTHON_CMD="venv/bin/python"
+else
+    PYTHON_CMD="python3"
+fi
 
 DB_EXISTS=$(psql -U "${PGUSER}" -h "${PGHOST}" -t -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}';" 2>&1 | tr -d '[:space:]')
+
 if [[ "$DB_EXISTS" == "1" ]]; then
-    if [[ -f "$DROP_USER_SQL" ]]; then
-        echo "Applying drop-user schema before database drop: $DROP_USER_SQL"
-        psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -f "$DROP_USER_SQL" || echo "[WARN] Failed to apply $DROP_USER_SQL (check SQL file and permissions)"
-    fi
-    # Disconnect existing connections before dropping
+    echo "Database ${DB_NAME} exists, running Alembic downgrade..."
+    "${PYTHON_CMD}" -m alembic downgrade base 2>/dev/null || echo "[WARN] Alembic downgrade failed or not initialized"
+
+    # 接続を切断してから削除
     psql -U "${PGUSER}" -h "${PGHOST}" -c "REVOKE CONNECT ON DATABASE \"${DB_NAME}\" FROM public;" 2>/dev/null || echo "[WARN] Could not revoke connects"
     psql -U "${PGUSER}" -h "${PGHOST}" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}' AND pid <> pg_backend_pid();" 2>/dev/null || echo "[WARN] Could not terminate connections"
     psql -U "${PGUSER}" -h "${PGHOST}" -c "DROP DATABASE IF EXISTS \"${DB_NAME}\";" 2>/dev/null || {
@@ -198,5 +211,13 @@ psql -U "${PGUSER}" -h "${PGHOST}" -c "DO \$\$ BEGIN IF EXISTS (SELECT FROM pg_c
 }
 
 echo ""
-echo "[SUCCESS] Database teardown script finished."
+echo "========================================"
+echo "[SUCCESS] Database teardown completed!"
+echo "========================================"
+echo "Database: ${DB_NAME}"
+echo "Schema: Downgraded via Alembic (base)"
+echo ""
+echo "[NOTE] SQL files in sql/ directory are kept for reference only."
+echo "       All schema changes are now managed through Alembic."
+echo "========================================"
 exit 0
