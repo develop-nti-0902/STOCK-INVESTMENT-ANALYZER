@@ -165,10 +165,5 @@ async def test_fetch_and_store_integration(monkeypatch):
         except Exception as e:  # pragma: no cover - artifact write
             logger.error("Failed to write artifact: %s", e)
 
-    # Cleanup: drop tables (best-effort)
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-    except Exception:
-        # テーブル削除失敗は無視（テスト自体は成功している）
-        pass
+    # Cleanup: データクリアのみ実施（Alembic管理下なのでテーブル削除しない）
+    # 他のテストとの干渉を避けるため、テストデータは残さない設計が望ましい

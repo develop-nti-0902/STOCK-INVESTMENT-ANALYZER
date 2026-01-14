@@ -1,23 +1,27 @@
 @echo off
 chcp 65001 >nul 2>&1
 REM =============================================================================
-REM PostgreSQL development database setup (Windows)
+REM PostgreSQL development database setup with Alembic (Windows)
 REM Location: scripts\databaseSetup\setup_db.bat
 REM Usage: Run this script directly or call it from other setup scripts
 REM NOTE: Save this file as UTF-8 without BOM. A BOM can be interpreted as commands by CMD.
+REM
+REM このスクリプトはAlembicを使用してデータベースを初期化します。
+REM 従来のSQLファイル実行方式は廃止され、すべてAlembicマイグレーションで管理されます。
 REM =============================================================================
 
 setlocal enabledelayedexpansion
 
 REM This script uses the local psql client to create the database and user,
-REM and applies the initial schema from `create_stock_tables.sql` and
-REM `create_management_tables.sql` if present.
+REM then applies the schema using Alembic migrations (alembic upgrade head).
 
 set SCRIPT_DIR=%~dp0
 for %%I in ("%SCRIPT_DIR%..\\..") do set REPO_ROOT=%%~fI\
-set STOCK_SQL=%SCRIPT_DIR%sql\create_stock_tables.sql
-set MGMT_SQL=%SCRIPT_DIR%sql\create_management_tables.sql
-set USER_SQL=%SCRIPT_DIR%sql\create_user_tables.sql
+
+REM 従来のSQLファイル（非推奨、参考用として保持）
+REM set STOCK_SQL=%SCRIPT_DIR%sql\create_stock_tables.sql
+REM set MGMT_SQL=%SCRIPT_DIR%sql\create_management_tables.sql
+REM set USER_SQL=%SCRIPT_DIR%sql\create_user_tables.sql
 
 REM Configuration priority (highest to lowest):
 REM 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER DB_PASSWORD
@@ -207,41 +211,58 @@ if not "%DB_EXISTS%"=="1" (
 )
 
 REM Grant privileges
-psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -c "GRANT ALL PRIVILEGES ON DATABASE %DB_NAME% TO %DB_USER%;" 2>NUL || echo [WARN] Could not grant privileges
+psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -c "GRANT ALL PRIVILEGES ON DATABASE %DB_NAME% TO %DB_USER%;" 2>NUL || echo [WARN] Could not grant database privileges
+psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -c "GRANT ALL ON SCHEMA public TO %DB_USER%;" 2>NUL || echo [WARN] Could not grant schema privileges
+psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -c "GRANT CREATE ON SCHEMA public TO %DB_USER%;" 2>NUL || echo [WARN] Could not grant create privileges
 
-REM Apply initial schema if present
-echo [6/6] Applying initial schema (if present) and finishing...
+REM Apply Alembic migrations
+echo [6/6] Applying Alembic migrations...
+echo.
 
-REM Set client encoding to UTF8 for psql
-set PGCLIENTENCODING=UTF8
+cd "%REPO_ROOT%"
 
-REM Apply management tables first (stock_master), then stock tables that reference it
-if not exist "%MGMT_SQL%" (
-    echo [WARN] %MGMT_SQL% not found; skipping management tables apply
+REM Pythonの仮想環境を探す
+if exist ".venv\Scripts\python.exe" (
+    set "PYTHON_CMD=.venv\Scripts\python.exe"
+) else if exist "venv\Scripts\python.exe" (
+    set "PYTHON_CMD=venv\Scripts\python.exe"
 ) else (
-    echo Applying management tables schema: %MGMT_SQL%
-    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -v db_user=%DB_USER% -f "%MGMT_SQL%"
-    if errorlevel 1 echo [WARN] Failed to apply %MGMT_SQL% (check SQL file and permissions)
+    set "PYTHON_CMD=python"
 )
 
-if not exist "%STOCK_SQL%" (
-    echo [WARN] %STOCK_SQL% not found; skipping stock tables apply
-) else (
-    echo Applying stock tables schema: %STOCK_SQL%
-    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -v db_user=%DB_USER% -f "%STOCK_SQL%"
-    if errorlevel 1 echo [WARN] Failed to apply %STOCK_SQL% (check SQL file and permissions)
+echo Using Python: !PYTHON_CMD!
+
+REM Alembicがインストールされているか確認
+!PYTHON_CMD! -m alembic --version >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Alembic not found. Please install it:
+    echo   !PYTHON_CMD! -m pip install alembic
+    exit /b 1
 )
 
-if not exist "%USER_SQL%" (
-    echo [WARN] %USER_SQL% not found; skipping user tables apply
-) else (
-    echo Applying user tables schema: %USER_SQL%
-    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -v db_user=%DB_USER% -f "%USER_SQL%"
-    if errorlevel 1 echo [WARN] Failed to apply %USER_SQL% (check SQL file and permissions)
+REM マイグレーションを最新バージョンまで適用
+echo Running: !PYTHON_CMD! -m alembic upgrade head
+!PYTHON_CMD! -m alembic upgrade head
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Alembic migration failed
+    echo Please check:
+    echo   - Database connection settings in .env
+    echo   - alembic/env.py configuration
+    echo   - Migration files in alembic/versions/
+    exit /b 1
 )
 
 endlocal
 
 echo.
-echo [SUCCESS] Database setup script finished.
+echo ========================================
+echo [SUCCESS] Database setup completed!
+echo ========================================
+echo Database: %DB_NAME%
+echo Schema: Applied via Alembic migrations
+echo.
+echo [NOTE] SQL files in sql/ directory are kept for reference only.
+echo       All schema changes should now be managed through Alembic.
+echo ========================================
 exit /b 0

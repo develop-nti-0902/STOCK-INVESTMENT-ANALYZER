@@ -1,23 +1,25 @@
 @echo off
 chcp 65001 >nul 2>&1
 REM =============================================================================
-REM PostgreSQL development database teardown (Windows)
+REM PostgreSQL development database teardown with Alembic (Windows)
 REM Location: scripts\databaseSetup\teardown_db.bat
 REM Usage: Run this script directly or call it from other setup scripts
 REM NOTE: Save this file as UTF-8 without BOM. A BOM can be interpreted as commands by CMD.
+REM
+REM このスクリプトはAlembicマイグレーションを使用してデータベースをダウングレードし、
+ REM 最終的にデータベース、ユーザー、テーブルスペースを削除します。
 REM =============================================================================
 
 setlocal enabledelayedexpansion
 
-REM This script uses the local psql client to drop the database, user, and tablespace,
-REM and optionally removes the data directory created during setup.
-REM NOTE: The teardown removes the entire database specified by DB_NAME.
-REM       Because the database is dropped, deleting individual tables is unnecessary
-REM       and this script does not attempt to drop tables inside the database.
+REM This script first applies Alembic downgrade (alembic downgrade base),
+REM then drops the database, user, and tablespace.
 
 set SCRIPT_DIR=%~dp0
 for %%I in ("%SCRIPT_DIR%..\\..") do set REPO_ROOT=%%~fI\
-set DROP_USER_SQL=%SCRIPT_DIR%sql\drop_user_tables.sql
+
+REM 従来のDROP SQLファイル（非推奨、参考用として保持）
+REM set DROP_USER_SQL=%SCRIPT_DIR%sql\drop_user_tables.sql
 
 REM Configuration priority (highest to lowest):
 REM 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER
@@ -145,17 +147,28 @@ if NOT "%DB_DATA_DIR%"=="" (
 )
 
 REM Drop database if exists
-echo [3/6] Dropping database if exists...
+echo [3/6] Running Alembic downgrade (if database exists)...
+
+cd "%REPO_ROOT%"
+
+REM Pythonの仮想環境を探す
+if exist ".venv\Scripts\python.exe" (
+    set "PYTHON_CMD=.venv\Scripts\python.exe"
+) else if exist "venv\Scripts\python.exe" (
+    set "PYTHON_CMD=venv\Scripts\python.exe"
+) else (
+    set "PYTHON_CMD=python"
+)
 
 psql -U %PGUSER% -h %PGHOST% -t -c "SELECT 1 FROM pg_database WHERE datname='!DB_NAME!';" > "%TEMP%\db_check.txt" 2>&1
 set /p DB_EXISTS=<"%TEMP%\db_check.txt"
 set "DB_EXISTS=%DB_EXISTS: =%"
+
 if "%DB_EXISTS%"=="1" (
-    REM Disconnect existing connections before dropping
-    if exist "%DROP_USER_SQL%" (
-        echo Applying drop-user schema before database drop: %DROP_USER_SQL%
-        psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -f "%DROP_USER_SQL%" 2>NUL || echo [WARN] Failed to apply %DROP_USER_SQL% (check SQL file and permissions)
-    )
+    echo Database !DB_NAME! exists, running Alembic downgrade...
+    !PYTHON_CMD! -m alembic downgrade base 2>nul || echo [WARN] Alembic downgrade failed or not initialized
+
+    REM 接続を切断してから削除
     psql -U %PGUSER% -h %PGHOST% -c "REVOKE CONNECT ON DATABASE \"!DB_NAME!\" FROM public;" 2>NUL || echo [WARN] Could not revoke connects
     psql -U %PGUSER% -h %PGHOST% -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '!DB_NAME!' AND pid <> pg_backend_pid();" 2>NUL || echo [WARN] Could not terminate connections
     psql -U %PGUSER% -h %PGHOST% -c "DROP DATABASE IF EXISTS \"!DB_NAME!\";" 2>"%TEMP%\db_drop_err.txt"
@@ -216,5 +229,13 @@ if not errorlevel 1 (
 endlocal
 
 echo.
-echo [SUCCESS] Database teardown script finished.
+echo ========================================
+echo [SUCCESS] Database teardown completed!
+echo ========================================
+echo Database: %DB_NAME%
+echo Schema: Downgraded via Alembic (base)
+echo.
+echo [NOTE] SQL files in sql/ directory are kept for reference only.
+echo        All schema changes are now managed through Alembic.
+echo ========================================
 exit /b 0

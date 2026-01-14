@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import List, Type
 
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 import app.utils.database as db_mod
@@ -139,8 +139,26 @@ async def register_test_symbols(symbols: List[str]) -> None:
 
 
 async def cleanup_database(engine: AsyncEngine) -> None:
+    """テストデータベースのクリーンアップ（Alembic対応）。
+
+    Alembic管理下のため、テーブル削除ではなく全テーブルのデータをTRUNCATEでクリア。
+    外部キー制約を考慮してCASCADEオプションを使用。
+    """
     try:
         async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
+            # 全テーブルのデータをクリア（外部キー制約を無視してCASCADE）
+            # alembic_versionは残す（マイグレーション履歴を保持）
+            await conn.execute(
+                text(
+                    """
+                    TRUNCATE TABLE
+                        stocks_1m, stocks_5m, stocks_15m, stocks_30m,
+                        stocks_1h, stocks_1d, stocks_1wk, stocks_1mo,
+                        batch_executions, stock_master
+                    CASCADE
+                    """
+                )
+            )
     except Exception:
+        # クリーンアップ失敗は無視（テスト自体の成否には影響しない）
         pass
