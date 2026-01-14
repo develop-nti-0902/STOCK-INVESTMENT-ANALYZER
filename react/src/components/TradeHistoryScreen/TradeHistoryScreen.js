@@ -3,12 +3,14 @@ import { Upload } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import styles from './TradeHistoryScreen.module.css';
 
-export default function TradeHistoryScreen() {
+export default function TradeHistoryScreen(props) {
+  const initialData = props.initialData || {};
+  
   const [tradeForm, setTradeForm] = useState({
     type: '買',
-    code: '',
-    quantity: '',
-    price: '',
+    code: initialData.code || '',
+    quantity: initialData.shares || '',
+    price: initialData.price || '',
     fee: '',
     account: 'NISA'
   });
@@ -58,81 +60,6 @@ export default function TradeHistoryScreen() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.formCard}>
-        <h3 className={styles.cardTitle}>取引入力</h3>
-        <div className={styles.formGrid}>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>売買区分</label>
-            <select
-              value={tradeForm.type}
-              onChange={(e) => handleInputChange('type', e.target.value)}
-              className={styles.select}
-            >
-              <option>買</option>
-              <option>売</option>
-            </select>
-          </div>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>銘柄コード</label>
-            <input
-              type="text"
-              value={tradeForm.code}
-              onChange={(e) => handleInputChange('code', e.target.value)}
-              className={styles.input}
-              placeholder="7203"
-            />
-          </div>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>数量</label>
-            <input
-              type="number"
-              value={tradeForm.quantity}
-              onChange={(e) => handleInputChange('quantity', e.target.value)}
-              className={styles.input}
-            />
-          </div>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>取得単価</label>
-            <input
-              type="number"
-              value={tradeForm.price}
-              onChange={(e) => handleInputChange('price', e.target.value)}
-              className={styles.input}
-            />
-          </div>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>手数料</label>
-            <input
-              type="number"
-              value={tradeForm.fee}
-              onChange={(e) => handleInputChange('fee', e.target.value)}
-              className={styles.input}
-            />
-          </div>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>口座区分</label>
-            <select
-              value={tradeForm.account}
-              onChange={(e) => handleInputChange('account', e.target.value)}
-              className={styles.select}
-            >
-              <option>NISA</option>
-              <option>特定</option>
-              <option>一般</option>
-            </select>
-          </div>
-        </div>
-        <div className={styles.formButtons}>
-          <button onClick={handleSubmit} className={styles.submitButton}>
-            登録
-          </button>
-          <button className={styles.importButton}>
-            <Upload size={18} />
-            CSVインポート
-          </button>
-        </div>
-      </div>
-
       <div className={styles.chartCard}>
         <h3 className={styles.cardTitle}>月次損益推移</h3>
         <ResponsiveContainer width="100%" height={350}>

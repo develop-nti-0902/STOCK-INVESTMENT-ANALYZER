@@ -20,7 +20,7 @@ export default function DashboardScreen({ portfolioData, stockList, favorites, t
           <div className={styles.statLabel}>総評価額</div>
           <div className={styles.statValue}>¥{portfolioData.totalValue.toLocaleString()}</div>
         </div>
-        
+
         <div className={styles.statCard}>
           <div className={styles.statLabel}>含み損益</div>
           <div className={`${styles.statValue} ${portfolioData.unrealizedPL > 0 ? styles.positive : styles.negative}`}>
@@ -31,7 +31,7 @@ export default function DashboardScreen({ portfolioData, stockList, favorites, t
             {portfolioData.unrealizedPLPercent > 0 ? '+' : ''}{portfolioData.unrealizedPLPercent}%
           </div>
         </div>
-        
+
         <div className={styles.statCard}>
           <div className={styles.statLabel}>年間実現損益</div>
           <div className={`${styles.statValue} ${styles.info}`}>
@@ -47,8 +47,8 @@ export default function DashboardScreen({ portfolioData, stockList, favorites, t
           <h3 className={styles.cardTitle}>保有銘柄一覧</h3>
           <div className={styles.holdingsList}>
             {portfolioData.holdings.map((stock) => (
-              <div 
-                key={stock.code} 
+              <div
+                key={stock.code}
                 className={styles.holdingItem}
                 onClick={() => {
                   setSelectedStock(stockList.find(s => s.code === stock.code));
@@ -56,19 +56,6 @@ export default function DashboardScreen({ portfolioData, stockList, favorites, t
                 }}
               >
                 <div className={styles.holdingInfo}>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavorite(stock.code);
-                    }} 
-                    className={styles.favoriteBtn}
-                  >
-                    <Star 
-                      size={18} 
-                      className={favorites.includes(stock.code) ? styles.favoriteActive : styles.favoriteInactive}
-                      fill={favorites.includes(stock.code) ? 'currentColor' : 'none'}
-                    />
-                  </button>
                   <div>
                     <div className={styles.stockName}>{stock.code} {stock.name}</div>
                     <div className={styles.sector}>{stock.sector}</div>
@@ -114,12 +101,12 @@ export default function DashboardScreen({ portfolioData, stockList, favorites, t
           <h3 className={styles.cardTitle}>セクター別配分</h3>
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
-              <Pie 
-                data={sectorData} 
-                cx="50%" 
-                cy="50%" 
-                outerRadius={80} 
-                dataKey="value" 
+              <Pie
+                data={sectorData}
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                dataKey="value"
                 label={({ name, value }) => `${value}%`}
               >
                 {sectorData.map((entry, index) => (
