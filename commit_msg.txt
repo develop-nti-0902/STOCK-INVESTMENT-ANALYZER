@@ -1,8 +1,0 @@
-﻿feat(db): 初期マイグレーションとセットアップスクリプト追加
-
-- Alembic初期マイグレーションを追加 (alembic/versions/4e581533f2e4_initial_database_schema.py)
-- DBセットアップマイグレーションスクリプトを追加 (scripts/databaseSetup/)
-- テストユーティリティと関連修正を追加 (tests/integration/utils.py, tests/integration/test_stock_master_service.py)
-- ドキュメント更新 (scripts/databaseSetup/ANALYSIS.md)
-
-Refs: #168, #172
