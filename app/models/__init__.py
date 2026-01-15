@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from .account_portfolios import AccountPortfolios
+from .account_transactions import AccountTransactions
+from .accounts import Account
 from .base import Base, TimestampMixin
 from .batch_execution import BatchExecution
 from .stock_analyst_recommendations import StockAnalystRecommendations
@@ -32,7 +35,10 @@ from .stock_splits import StockSplits
 __all__ = [
     "Base",
     "TimestampMixin",
+    "Account",
+    "AccountPortfolios",
     "StockMaster",
+    "AccountTransactions",
     "StockFinancialsQuarterly",
     "StockBalanceSheetQuarterly",
     "StockCashflowQuarterly",

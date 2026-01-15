@@ -102,7 +102,7 @@ PostgreSQL Server
     │   ├── stocks_1d                # 日足
     │   ├── stocks_1wk               # 週足
     │   └── stocks_1mo               # 月足
-    └── 管理データテーブル（17 実装済み + 5 未実装 / ユーザ関連は参考スクリプト）
+    └── 管理データテーブル（20 実装済み + 2 未実装）
         ├── stock_master             # 銘柄マスタ ✅実装済み
         ├── batch_executions         # バッチ実行情報 ✅実装済み
         ├── stock_basic_info         # 企業基本情報 ✅実装済み
@@ -122,9 +122,9 @@ PostgreSQL Server
         ├── stock_insider_transactions # インサイダー取引情報 ✅ 実装済み
         ├── stock_master_updates     # 銘柄更新履歴 ⚠️未実装
         ├── batch_execution_details  # バッチ実行詳細 ⚠️未実装
-        ├── accounts                 # ユーザ/アカウント（認証・ポートフォリオ） ⚠️未実装
-        ├── account_transactions     # 取引履歴（参考SQL） ⚠️未実装
-        └── account_portfolios       # ポートフォリオ（参考SQL） ⚠️未実装
+        ├── accounts                 # ユーザ/アカウント（認証・ポートフォリオ） ✅実装済み
+        ├── account_transactions     # 取引履歴 ✅実装済み
+        └── account_portfolios       # ポートフォリオ ✅実装済み
 ```
 
 ### 依存関係
@@ -172,9 +172,9 @@ graph TB
     MgmtTables --> StockShares[stock_shares_outstanding]
     MgmtTables --> MasterUpdates[stock_master_updates (未実装)]
     MgmtTables --> BatchDetails[batch_execution_details (未実装)]
-    MgmtTables --> Accounts[accounts (参考SQL)]
-    MgmtTables --> UserTx[account_transactions (参考SQL)]
-    MgmtTables --> UserPortfolios[account_portfolios (参考SQL)]
+    MgmtTables --> Accounts[accounts]
+    MgmtTables --> UserTx[account_transactions]
+    MgmtTables --> UserPortfolios[account_portfolios]
 
     StockTables --> Disk1[ディスクストレージ<br/>株価データ]
     MgmtTables --> Disk2[ディスクストレージ<br/>管理データ]
@@ -917,7 +917,7 @@ CREATE INDEX idx_batch_execution_details_batch_stock
 
 #### accounts（ユーザ / アカウント）
 
-> **実装ステータス**: ⚠️ **未実装（ドキュメント上の新命名）** - 既存スクリプト `scripts/databaseSetup/sql/create_user_tables.sql` は旧名 (`users`, `user_transactions`, `user_portfolios`) を定義しています。今後 Alembic リビジョンを作成する際は本仕様の新命名（`accounts` / `account_transactions` / `account_portfolios`）へマイグレーションまたはリネームを行ってください。
+> **実装ステータス**: ✅ **実装済み** - `app/models/accounts.py` に SQLAlchemy モデルを追加しました。Alembic リビジョンによるマイグレーション準備済みです。
 
 **用途**: アプリケーションのユーザ管理（認証情報、ログインID、作成/更新日時）。
 
@@ -939,7 +939,7 @@ CREATE INDEX IF NOT EXISTS idx_accounts_username ON accounts (username);
 
 #### account_transactions（アカウント取引履歴）
 
-> **実装ステータス**: ⚠️ **未実装（ドキュメント上の新命名）** - 既存スクリプトは旧名を使用しています。Alembicで導入する際は新命名を採用してください。
+> **実装ステータス**: ✅ **実装済み** - `app/models/account_transactions.py` に SQLAlchemy モデルを追加しました。Alembic リビジョンによるマイグレーション準備済みです。
 
 **用途**: アカウント（ユーザ）ごとの売買履歴を記録し、ポートフォリオ計算・履歴表示・課金レポート等に利用します。
 
@@ -968,7 +968,7 @@ CREATE INDEX IF NOT EXISTS idx_account_transactions_account_symbol_date ON accou
 
 #### account_portfolios（アカウント保有ポートフォリオ）
 
-> **実装ステータス**: ⚠️ **未実装（ドキュメント上の新命名）** - 既存スクリプトは旧名を使用しています。Alembicで導入する際は新命名を採用してください。
+> **実装ステータス**: ✅ **実装済み** - `app/models/account_portfolios.py` に SQLAlchemy モデルを追加しました。Alembic リビジョンによるマイグレーション準備済みです。
 
 **用途**: アカウントごとの保有株式のスナップショット（数量、平均取得単価、合計コスト、損益計算など）を保存します。
 
