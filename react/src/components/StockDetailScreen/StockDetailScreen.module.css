@@ -1,0 +1,267 @@
+/* ---------- レイアウト全体 ---------- */
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;              /* セクション間の余白 */
+  padding: 24px 16px;     /* 画面端との余白 */
+  max-width: 960px;       /* 横幅を中央に収める */
+  margin: 0 auto;
+}
+
+/* ---------- 空状態 ---------- */
+.emptyState {
+  background-color: white;
+  padding: 28px 20px;
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+
+.noStock {
+  font-size: var(--text-lg);
+  color: var(--color-text-secondary);
+  margin-bottom: 12px;
+}
+
+/* ---------- ヘッダー ---------- */
+.header {
+  margin-bottom: 12px;
+}
+
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.backButton:hover {
+  background-color: #2563eb;
+}
+
+/* ---------- タイトルカード ---------- */
+.titleSection {
+  background-color: white;
+  padding: 18px 20px;      /* 内側余白を控えめに */
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.title {
+  font-size: var(--text-3xl);
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.sector {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+/* ---------- 価格表示 ---------- */
+.priceSection {
+  text-align: right;
+}
+
+.currentPrice {
+  font-size: var(--text-4xl);
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.priceChangePositive,
+.priceChangeNegative {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  font-size: var(--text-lg);
+  font-weight: bold;
+}
+
+.priceChangePositive {
+  color: var(--color-success);
+}
+
+.priceChangeNegative {
+  color: var(--color-danger);
+}
+
+/* ---------- セクションカード共通 ---------- */
+.section {
+  background-color: white;
+  padding: 18px 20px;
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  margin: 2px 0;           /* カード同士の余白 */
+}
+
+/* ---------- セクションタイトル ---------- */
+.sectionTitle {
+  font-size: var(--text-xl);
+  font-weight: bold;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- バリュエーション ---------- */
+.valuationCard {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.valuationBadge {
+  padding: 16px;
+  border-radius: 14px;
+  text-align: center;
+  min-width: 200px;
+}
+
+.valuationLabel {
+  font-size: var(--text-2xl);
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.valuationScore {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+/* ---------- 理由リスト ---------- */
+.valuationReasons {
+  flex: 1;
+}
+
+.reasonsTitle {
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.reasonsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reasonsList li {
+  padding-left: 12px;
+  position: relative;
+}
+
+.reasonsList li:before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--color-primary);
+  font-weight: bold;
+}
+
+/* ---------- スコアカード ---------- */
+.scoreGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.scoreCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 14px;
+  background-color: var(--color-bg-tertiary);
+  border-radius: 14px;
+}
+
+.scoreLabel {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+
+.scoreValue {
+  font-size: var(--text-2xl);
+  font-weight: bold;
+  margin-top: 8px;
+}
+
+/* ---------- 指標グリッド ---------- */
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.metricCard {
+  padding: 14px 16px;
+  background-color: var(--color-bg-tertiary);
+  border-radius: 14px;
+  border-left: 4px solid var(--color-primary);
+}
+
+.metricLabel {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.metricValue {
+  font-size: var(--text-2xl);
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.metricDescription {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+/* ---------- サマリー ---------- */
+.summaryCard {
+  background-color: var(--color-bg-tertiary);
+  padding: 16px 20px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.summaryRow:last-child {
+  border-bottom: none;
+}
+
+.summaryLabel {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.summaryValue {
+  font-size: var(--text-lg);
+  font-weight: bold;
+}

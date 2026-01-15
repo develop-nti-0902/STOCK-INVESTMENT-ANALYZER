@@ -1,0 +1,214 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing-lg) * 1.4);
+  max-width: 1200px;        /* 画面中央に収める幅 */
+  margin: 0 auto;           /* 中央寄せ */
+  padding: 0 var(--spacing-xl); /* 左右余白 */
+}
+
+/* カード共通 */
+.formCard,
+.chartCard,
+.historyCard {
+  background-color: white;
+  padding: calc(var(--spacing-xl)); /* 内側余白を増加 */
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+/* タイトル周り */
+.cardTitle {
+  font-size: var(--text-lg);
+  font-weight: bold;
+  margin-bottom: calc(var(--spacing-lg));
+}
+
+/* フォームグリッド */
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: calc(var(--spacing-lg)); /* フィールドの間隔UP */
+  margin-bottom: calc(var(--spacing-lg));
+}
+
+/* ラベルセット */
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs); /* ラベルと入力欄の間に余白 */
+}
+
+.label {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+/* 入力部品 */
+.input,
+.select {
+  padding: calc(var(--spacing-md)) calc(var(--spacing-lg)); /* 余白増 */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+}
+
+/* フォーカス */
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* ボタン行 */
+.formButtons {
+  display: flex;
+  gap: var(--spacing-lg);
+  margin-top: var(--spacing-md);
+}
+
+/* ボタン */
+.submitButton {
+  padding: var(--spacing-sm) var(--spacing-xl);
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.submitButton:hover {
+  background-color: #2563eb;
+}
+
+/* サマリー */
+.summaryGrid {
+  margin-top: calc(var(--spacing-lg));
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: calc(var(--spacing-lg));
+}
+
+.summaryCard {
+  padding: calc(var(--spacing-lg));
+  background-color: #eff6ff;
+  border-radius: var(--radius-md);
+}
+
+.summaryPositive {
+  background-color: #f0fdf4;
+}
+
+.summaryNegative {
+  background-color: #fef2f2;
+}
+
+.summaryLabel {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.summaryValue {
+  font-size: var(--text-2xl);
+  font-weight: bold;
+  margin-top: var(--spacing-xs);
+}
+
+.summaryCard .summaryValue {
+  color: var(--color-primary);
+}
+
+.summaryPositive .summaryValue {
+  color: var(--color-success);
+}
+
+.summaryNegative .summaryValue {
+  color: var(--color-danger);
+}
+
+/* テーブル */
+.tableContainer {
+  overflow-x: auto;
+  margin-top: calc(var(--spacing-lg));
+}
+
+.table {
+  width: 100%;
+  font-size: var(--text-sm);
+  border-collapse: separate;         /* ← 変更 */
+  border-spacing: 0 6px;             /* ← 行間に余白追加 */
+}
+
+/* ヘッダー */
+.tableHead {
+  background-color: var(--color-bg-tertiary);
+}
+
+.th {
+  padding: calc(var(--spacing-md));
+  text-align: left;
+  font-weight: 600;
+}
+
+/* 行 */
+.tableRow {
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.2s;
+}
+
+.tableRow:hover {
+  background-color: var(--color-bg-tertiary);
+}
+
+/* セル */
+.td {
+  padding: calc(var(--spacing-md) * 1.1); /* セルに余白追加 */
+}
+
+.alignRight {
+  text-align: right;
+}
+
+/* 小さめ文字 */
+.dateCell {
+  font-size: var(--text-xs);
+}
+
+/* バッジ */
+.badgeBuy,
+.badgeSell {
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: bold;
+}
+
+.badgeBuy {
+  background-color: #fef2f2;
+  color: #991b1b;
+}
+
+.badgeSell {
+  background-color: #eff6ff;
+  color: #1e40af;
+}
+
+.stockCode {
+  font-weight: bold;
+}
+
+.stockName {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.total {
+  font-weight: bold;
+}
+
+.accountCell {
+  font-size: var(--text-xs);
+}
