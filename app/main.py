@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
 from fastapi.exceptions import HTTPException, RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -58,6 +59,18 @@ logger = get_logger(__name__)
 
 # 起動時に設定を一度だけ読み込み、アプリ状態に保持
 app.state.settings = get_settings()
+
+# CORS設定 (React開発サーバーからのアクセスを許可)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",  # React開発サーバー
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # 静的ファイルのマウント
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
