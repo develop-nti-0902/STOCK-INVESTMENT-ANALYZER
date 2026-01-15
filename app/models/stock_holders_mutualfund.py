@@ -1,3 +1,10 @@
+"""投資信託保有情報モデル。
+
+このモジュールは `stock_holders_mutualfund` テーブルに対応します.
+"""
+
+# pylint: disable=too-few-public-methods
+
 from typing import Optional
 
 from sqlalchemy import Date, Index, Numeric, String

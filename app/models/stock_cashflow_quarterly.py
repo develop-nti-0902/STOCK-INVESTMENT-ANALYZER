@@ -3,6 +3,8 @@
 `stock_cashflow_quarterly` テーブルに対応する SQLAlchemy モデルを定義します。
 """
 
+# pylint: disable=too-few-public-methods
+
 from __future__ import annotations
 
 from typing import Optional

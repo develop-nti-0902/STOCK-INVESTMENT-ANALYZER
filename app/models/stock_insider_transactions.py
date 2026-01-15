@@ -1,3 +1,10 @@
+"""内部者取引情報モデル。
+
+このモジュールは `stock_insider_transactions` テーブルに対応します.
+"""
+
+# pylint: disable=too-few-public-methods
+
 from typing import Optional
 
 from sqlalchemy import Date, Index, Numeric, String, Text
