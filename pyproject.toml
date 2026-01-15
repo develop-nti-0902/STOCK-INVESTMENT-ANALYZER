@@ -53,10 +53,18 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 79
+# Exclude the development "work" directory from formatting checks
+exclude = '''/(
+    |\.git
+    |\.venv
+    |work
+)'''
 
 [tool.isort]
 profile = "black"
 line_length = 79
+# Skip the development "work" directory from isort checks
+skip = ["work"]
 
 [tool.mypy]
 python_version = "3.14"
