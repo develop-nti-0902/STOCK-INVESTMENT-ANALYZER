@@ -40,6 +40,9 @@ related_docs:
       - [stock\_master\_updates（銘柄更新履歴）](#stock_master_updates銘柄更新履歴)
       - [batch\_executions（バッチ実行情報）](#batch_executionsバッチ実行情報)
       - [batch\_execution\_details（バッチ実行詳細）](#batch_execution_detailsバッチ実行詳細)
+      - [accounts（ユーザ / アカウント）](#accountsユーザ--アカウント)
+      - [account\_transactions（アカウント取引履歴）](#account_transactionsアカウント取引履歴)
+      - [account\_portfolios（アカウント保有ポートフォリオ）](#account_portfoliosアカウント保有ポートフォリオ)
   - [4. 接続管理](#4-接続管理)
     - [4.1 データベース接続](#41-データベース接続)
     - [4.2 トランザクション管理](#42-トランザクション管理)
@@ -99,7 +102,7 @@ PostgreSQL Server
     │   ├── stocks_1d                # 日足
     │   ├── stocks_1wk               # 週足
     │   └── stocks_1mo               # 月足
-    └── 管理データテーブル（14 実装済み + 5 未実装）
+    └── 管理データテーブル（17 実装済み + 5 未実装 / ユーザ関連は参考スクリプト）
         ├── stock_master             # 銘柄マスタ ✅実装済み
         ├── batch_executions         # バッチ実行情報 ✅実装済み
         ├── stock_basic_info         # 企業基本情報 ✅実装済み
@@ -118,7 +121,10 @@ PostgreSQL Server
         ├── stock_holders_mutualfund  # 投信／ファンド保有情報 ✅ 実装済み
         ├── stock_insider_transactions # インサイダー取引情報 ✅ 実装済み
         ├── stock_master_updates     # 銘柄更新履歴 ⚠️未実装
-        └── batch_execution_details  # バッチ実行詳細 ⚠️未実装
+        ├── batch_execution_details  # バッチ実行詳細 ⚠️未実装
+        ├── accounts                 # ユーザ/アカウント（認証・ポートフォリオ） ⚠️未実装
+        ├── account_transactions     # 取引履歴（参考SQL） ⚠️未実装
+        └── account_portfolios       # ポートフォリオ（参考SQL） ⚠️未実装
 ```
 
 ### 依存関係
@@ -144,7 +150,7 @@ graph TB
     PG --> DB[(stock_investment_db)]
 
     DB --> StockTables[株価データテーブル x8]
-    DB --> MgmtTables[管理データテーブル x14]
+    DB --> MgmtTables[管理データテーブル x17]
 
     %% 管理テーブルの内訳
     MgmtTables --> StockMaster[stock_master]
@@ -166,6 +172,9 @@ graph TB
     MgmtTables --> StockShares[stock_shares_outstanding]
     MgmtTables --> MasterUpdates[stock_master_updates (未実装)]
     MgmtTables --> BatchDetails[batch_execution_details (未実装)]
+    MgmtTables --> Accounts[accounts (参考SQL)]
+    MgmtTables --> UserTx[account_transactions (参考SQL)]
+    MgmtTables --> UserPortfolios[account_portfolios (参考SQL)]
 
     StockTables --> Disk1[ディスクストレージ<br/>株価データ]
     MgmtTables --> Disk2[ディスクストレージ<br/>管理データ]
@@ -904,6 +913,84 @@ CREATE INDEX idx_batch_execution_details_stock_code
     ON batch_execution_details (stock_code);
 CREATE INDEX idx_batch_execution_details_batch_stock
     ON batch_execution_details (batch_execution_id, stock_code);
+```
+
+#### accounts（ユーザ / アカウント）
+
+> **実装ステータス**: ⚠️ **未実装（ドキュメント上の新命名）** - 既存スクリプト `scripts/databaseSetup/sql/create_user_tables.sql` は旧名 (`users`, `user_transactions`, `user_portfolios`) を定義しています。今後 Alembic リビジョンを作成する際は本仕様の新命名（`accounts` / `account_transactions` / `account_portfolios`）へマイグレーションまたはリネームを行ってください。
+
+**用途**: アプリケーションのユーザ管理（認証情報、ログインID、作成/更新日時）。
+
+**カラム定義:**
+
+| カラム名          | 型                       | 制約               | 説明                   |
+| ----------------- | ------------------------ | ------------------ | ---------------------- |
+| `id`              | SERIAL / INTEGER         | PK, Auto Increment | レコードID（主キー）   |
+| `username`        | VARCHAR(50)              | NOT NULL, UNIQUE   | ユーザ名（ログインID） |
+| `hashed_password` | VARCHAR(255)             | NOT NULL           | ハッシュ化パスワード   |
+| `created_at`      | TIMESTAMP WITH TIME ZONE | DEFAULT now()      | 作成日時               |
+| `updated_at`      | TIMESTAMP WITH TIME ZONE | DEFAULT now()      | 更新日時               |
+
+**インデックス:**
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_accounts_username ON accounts (username);
+```
+
+#### account_transactions（アカウント取引履歴）
+
+> **実装ステータス**: ⚠️ **未実装（ドキュメント上の新命名）** - 既存スクリプトは旧名を使用しています。Alembicで導入する際は新命名を採用してください。
+
+**用途**: アカウント（ユーザ）ごとの売買履歴を記録し、ポートフォリオ計算・履歴表示・課金レポート等に利用します。
+
+**カラム定義:**
+
+| カラム名           | 型                       | 制約                                                | 説明                  |
+| ------------------ | ------------------------ | --------------------------------------------------- | --------------------- |
+| `id`               | SERIAL / INTEGER         | PK, Auto Increment                                  | レコードID            |
+| `account_id`       | INTEGER                  | NOT NULL, FK → `accounts(id)` ON DELETE CASCADE     | アカウントID          |
+| `symbol`           | VARCHAR(20)              | NOT NULL                                            | 銘柄コード            |
+| `transaction_type` | VARCHAR(4)               | NOT NULL CHECK (transaction_type IN ('BUY','SELL')) | 取引種別（BUY/SELL）  |
+| `quantity`         | NUMERIC(15,4)            | NOT NULL                                            | 取引数量              |
+| `price`            | NUMERIC(15,2)            | NOT NULL                                            | 取引価格（1株あたり） |
+| `total_amount`     | NUMERIC(20,2)            | NOT NULL                                            | 合計金額              |
+| `commission`       | NUMERIC(10,2)            | DEFAULT 0                                           | 手数料                |
+| `transaction_date` | TIMESTAMP WITH TIME ZONE | NOT NULL                                            | 取引日時              |
+| `notes`            | TEXT                     | Nullable                                            | 補足情報              |
+| `created_at`       | TIMESTAMP WITH TIME ZONE | DEFAULT now()                                       | 作成日時              |
+| `updated_at`       | TIMESTAMP WITH TIME ZONE | DEFAULT now()                                       | 更新日時              |
+
+**インデックス:**
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_account_transactions_account_symbol_date ON account_transactions (account_id, symbol, transaction_date);
+```
+
+#### account_portfolios（アカウント保有ポートフォリオ）
+
+> **実装ステータス**: ⚠️ **未実装（ドキュメント上の新命名）** - 既存スクリプトは旧名を使用しています。Alembicで導入する際は新命名を採用してください。
+
+**用途**: アカウントごとの保有株式のスナップショット（数量、平均取得単価、合計コスト、損益計算など）を保存します。
+
+**カラム定義:**
+
+| カラム名            | 型                       | 制約                                            | 説明             |
+| ------------------- | ------------------------ | ----------------------------------------------- | ---------------- |
+| `id`                | SERIAL / INTEGER         | PK, Auto Increment                              | レコードID       |
+| `account_id`        | INTEGER                  | NOT NULL, FK → `accounts(id)` ON DELETE CASCADE | アカウントID     |
+| `symbol`            | VARCHAR(20)              | NOT NULL                                        | 銘柄コード       |
+| `quantity`          | NUMERIC(15,4)            | NOT NULL, DEFAULT 0                             | 保有数量         |
+| `average_price`     | NUMERIC(15,2)            | NOT NULL, DEFAULT 0                             | 平均取得単価     |
+| `total_cost`        | NUMERIC(20,2)            | NOT NULL, DEFAULT 0                             | 合計コスト       |
+| `stop_loss_price`   | NUMERIC(15,2)            | Nullable                                        | ストップロス価格 |
+| `take_profit_price` | NUMERIC(15,2)            | Nullable                                        | 利食い目標価格   |
+| `created_at`        | TIMESTAMP WITH TIME ZONE | DEFAULT now()                                   | 作成日時         |
+| `updated_at`        | TIMESTAMP WITH TIME ZONE | DEFAULT now()                                   | 更新日時         |
+
+**インデックス:**
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_account_portfolios_account_id ON account_portfolios (account_id);
 ```
 
 ---
