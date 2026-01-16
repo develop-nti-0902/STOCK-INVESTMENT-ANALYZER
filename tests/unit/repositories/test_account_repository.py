@@ -81,9 +81,9 @@ async def test_update_last_login_found(repository, mock_session):
     repository.get = AsyncMock(return_value=existing)
     mock_session.flush = AsyncMock()
 
-    from datetime import datetime
+    from datetime import datetime, timezone
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     res = await repository.update_last_login(3, now)
     assert res is existing
     assert existing.last_login == now

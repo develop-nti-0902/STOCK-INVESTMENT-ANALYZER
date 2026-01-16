@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from jose import jwt
@@ -27,7 +27,7 @@ def create_access_token(
     secret = getattr(settings, "SECRET_KEY", "secret")
     algorithm = getattr(settings, "ALGORITHM", "HS256")
     expire_minutes = getattr(settings, "ACCESS_TOKEN_EXPIRE_MINUTES", 30)
-    expire = datetime.utcnow() + (
+    expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=expire_minutes)
     )
     to_encode: Dict[str, Any] = {"sub": subject, "exp": expire}
