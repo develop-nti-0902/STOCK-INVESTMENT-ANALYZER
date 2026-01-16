@@ -25,12 +25,12 @@ async def get_current_user(
     token = credentials.credentials
     try:
         payload = auth_service.decode_access_token(token)
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="無効な認証トークンです",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from exc
 
     user_id: Optional[str] = payload.get("sub")
     if user_id is None:
