@@ -138,6 +138,7 @@ async def test_get_by_market_and_search_return_list():
     mock_session = AsyncMock()
     repo = StockMasterRepository(session=mock_session)
 
+    # Arrange: 期待結果とフェイク実行結果を準備
     expected1 = object()
     expected2 = object()
 
@@ -145,9 +146,11 @@ async def test_get_by_market_and_search_return_list():
     fake_result.scalars.return_value.all.return_value = [expected1, expected2]
     mock_session.execute.return_value = fake_result
 
+    # Act: 市場検索と全文検索を実行
     res_market = await repo.get_by_market("Prime")
     res_search = await repo.search("Test")
 
+    # Assert: 両方とも期待リストを返す
     assert res_market == [expected1, expected2]
     assert res_search == [expected1, expected2]
 
@@ -158,7 +161,9 @@ async def test_upsert_is_not_supported():
     repo = StockMasterRepository(session=mock_session)
 
     data = {"stock_code": "ZZZ", "stock_name": "Z"}
+    # Arrange: リクエストデータを用意
 
+    # Act / Assert: upsert は未サポートのため NotImplementedError を送出
     with pytest.raises(NotImplementedError):
         await repo.upsert(data)
 
