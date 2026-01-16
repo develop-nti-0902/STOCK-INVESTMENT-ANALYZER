@@ -72,3 +72,19 @@ class StockDataValidationError(BusinessError):
     default_message = "Stock data validation failed"
     default_error_code = "STOCK_DATA_VALIDATION_ERROR"
     default_status_code = 422
+
+
+class DuplicateEmailError(BusinessError):
+    """メールアドレスの重複エラー"""
+
+    default_message = "Email already registered"
+    default_error_code = "DUPLICATE_EMAIL"
+    default_status_code = 409
+
+
+class InvalidCredentialsError(BusinessError):
+    """認証情報不正エラー"""
+
+    default_message = "Invalid email or password"
+    default_error_code = "INVALID_CREDENTIALS"
+    default_status_code = 401
