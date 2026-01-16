@@ -28,7 +28,7 @@ async def get_current_user(
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="無効な認証トークンです",
+            detail=f"無効な認証トークンです: {str(exc)}",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 

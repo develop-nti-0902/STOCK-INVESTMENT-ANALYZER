@@ -21,6 +21,15 @@ const statusMessage = document.getElementById('status-message');
 // API エンドポイント（環境に応じて変更可能）
 const API_BASE_URL = '/api/v1';
 
+// ユーザー操作用 DOM 要素
+const userEmailInput = document.getElementById('user-email');
+const userPasswordInput = document.getElementById('user-password');
+const userDisplayNameInput = document.getElementById('user-display-name');
+const userRegisterBtn = document.getElementById('user-register-btn');
+const userLoginBtn = document.getElementById('user-login-btn');
+const userProfileBtn = document.getElementById('user-profile-btn');
+const userLogoutBtn = document.getElementById('user-logout-btn');
+
 /**
  * ステータスメッセージを表示
  * @param {string} message - 表示するメッセージ
@@ -106,6 +115,109 @@ function formatDateTime(dateTimeStr) {
     const seconds = String(date.getSeconds()).padStart(2, '0');
 
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+/**
+ * 認証ヘッダを取得
+ */
+function getAuthHeaders() {
+    const token = localStorage.getItem('admin_auth_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
+}
+
+/**
+ * ユーザー登録 (POST /auth/register)
+ */
+async function registerUser() {
+    if (!userEmailInput || !userPasswordInput) return showStatus('メールとパスワードを入力してください', 'warning');
+
+    const payload = {
+        email: userEmailInput.value,
+        password: userPasswordInput.value,
+        display_name: userDisplayNameInput ? userDisplayNameInput.value : undefined,
+    };
+
+    try {
+        const resp = await fetch(`${API_BASE_URL}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await resp.json();
+        if (resp.ok) {
+            showStatus(`登録成功: ${data.email || data.id}`, 'success');
+        } else {
+            showStatus(`登録失敗: ${data.error?.message || data.detail || data.message || resp.status}`, 'error');
+        }
+    } catch (err) {
+        console.error('registerUser error', err);
+        showStatus('登録時にエラーが発生しました', 'error');
+    }
+}
+
+/**
+ * ログイン (POST /auth/login) - トークンを localStorage に保存
+ */
+async function loginUser() {
+    if (!userEmailInput || !userPasswordInput) return showStatus('メールとパスワードを入力してください', 'warning');
+
+    const payload = { email: userEmailInput.value, password: userPasswordInput.value };
+
+    try {
+        const resp = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            const token = data.access_token;
+            localStorage.setItem('admin_auth_token', token);
+            showStatus('ログイン成功（トークンを保存しました）', 'success');
+        } else {
+            showStatus(`ログイン失敗: ${data.error?.message || data.detail || data.message || resp.status}`, 'error');
+        }
+    } catch (err) {
+        console.error('loginUser error', err);
+        showStatus('ログイン時にエラーが発生しました', 'error');
+    }
+}
+
+/**
+ * プロフィール取得 (GET /accounts/me)
+ */
+async function getProfile() {
+    const token = localStorage.getItem('admin_auth_token');
+    if (!token) {
+        showStatus('ログインが必要です。先にログインしてください。', 'warning');
+        return;
+    }
+
+    try {
+        const headers = getAuthHeaders();
+        console.log('Fetching profile with headers:', headers);
+        const resp = await fetch(`${API_BASE_URL}/accounts/me`, { headers });
+        const data = await resp.json();
+        if (resp.ok) {
+            showStatus(`プロフィール: ${data.email || data.id} / ${data.display_name || '-'} `, 'success');
+        } else {
+            showStatus(`取得失敗: ${data.error?.message || data.detail || data.message || resp.status}`, 'error');
+        }
+    } catch (err) {
+        console.error('getProfile error', err);
+        showStatus('プロフィール取得時にエラーが発生しました', 'error');
+    }
+}
+
+/**
+ * ログアウト
+ */
+function logoutUser() {
+    localStorage.removeItem('admin_auth_token');
+    showStatus('ログアウトしました', 'info');
 }
 
 /**
@@ -302,6 +414,12 @@ function initialize() {
         loadBatchHistory();
     });
     batchTypeSelect.addEventListener('change', onBatchTypeChange);
+
+    // ユーザー操作ボタンのイベント
+    if (userRegisterBtn) userRegisterBtn.addEventListener('click', registerUser);
+    if (userLoginBtn) userLoginBtn.addEventListener('click', loginUser);
+    if (userProfileBtn) userProfileBtn.addEventListener('click', getProfile);
+    if (userLogoutBtn) userLogoutBtn.addEventListener('click', logoutUser);
 
     // 初回の履歴読み込み
     loadBatchHistory();

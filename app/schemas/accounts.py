@@ -58,14 +58,14 @@ class AccountResponse(BaseModel):
 
     id: int
     email: str
-    display_name: str
+    full_name: Optional[str] = Field(None, serialization_alias="display_name")
     is_active: bool
     is_superuser: bool
     last_login: Optional[datetime]
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class TokenResponse(BaseModel):

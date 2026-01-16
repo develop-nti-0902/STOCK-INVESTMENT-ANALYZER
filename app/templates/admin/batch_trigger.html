@@ -114,6 +114,34 @@
                 </div>
             </section>
 
+            <!-- ユーザー操作セクション -->
+            <section class="user-api-section">
+                <h2>ユーザー操作</h2>
+                <div class="user-controls">
+                    <div class="control-group">
+                        <label for="user-email">Email</label>
+                        <input id="user-email" class="form-control" type="email" placeholder="email@example.com">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="user-password">Password</label>
+                        <input id="user-password" class="form-control" type="password" placeholder="password">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="user-display-name">表示名</label>
+                        <input id="user-display-name" class="form-control" type="text" placeholder="Taro Yamada">
+                    </div>
+
+                    <div class="user-action-buttons">
+                        <button id="user-register-btn" class="btn btn-primary">ユーザー作成 (register)</button>
+                        <button id="user-login-btn" class="btn btn-secondary">ログイン (login)</button>
+                        <button id="user-profile-btn" class="btn btn-info">プロフィール取得 (me)</button>
+                        <button id="user-logout-btn" class="btn">ログアウト</button>
+                    </div>
+                </div>
+            </section>
+
             <!-- ステータス表示 -->
             <section class="status-section">
                 <div id="status-message" class="status-message hidden"></div>

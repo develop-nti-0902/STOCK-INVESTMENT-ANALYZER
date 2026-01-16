@@ -63,7 +63,7 @@ async def register_user(
     data = {
         "email": email,
         "hashed_password": hashed,
-        "display_name": display_name or email,
+        "full_name": display_name or email,
         "provider": "local",
         "is_active": True,
         "is_superuser": False,
