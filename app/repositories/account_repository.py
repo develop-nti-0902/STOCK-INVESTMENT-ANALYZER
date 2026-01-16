@@ -99,6 +99,7 @@ class AccountRepository(BaseRepository[Account]):
             )
             return True
         except SQLAlchemyError:
+            logger.exception("Failed to deactivate account id=%s", account_id)
             raise
 
 
