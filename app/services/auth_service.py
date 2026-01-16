@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
-from jose import JWTError, jwt
+from jose import jwt
 from passlib.context import CryptContext
 
 from app.repositories.account_repository import AccountRepository
@@ -38,11 +38,8 @@ def decode_access_token(token: str) -> Dict[str, Any]:
     settings = get_settings()
     secret = getattr(settings, "SECRET_KEY", "secret")
     algorithm = getattr(settings, "ALGORITHM", "HS256")
-    try:
-        payload = jwt.decode(token, secret, algorithms=[algorithm])
-        return payload
-    except JWTError:
-        raise
+    payload = jwt.decode(token, secret, algorithms=[algorithm])
+    return payload
 
 
 async def authenticate_user(
