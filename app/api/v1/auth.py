@@ -60,9 +60,11 @@ async def login(
     )
     # 更新は非ブロッキング（DB上で記録）
     try:
-        await repo.update_last_login(
-            getattr(user, "id", None), datetime.now(timezone.utc)
-        )
+        user_id = getattr(user, "id", None)
+        if user_id is not None:
+            await repo.update_last_login(
+                int(user_id), datetime.now(timezone.utc)
+            )
     except Exception:
         # ログのために黙殺し、トークン発行自体は成功扱いとする
         pass
