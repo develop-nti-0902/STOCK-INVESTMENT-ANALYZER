@@ -7,6 +7,11 @@ FastAPIのDependsパターンを使用したRepositoryとService提供を定義�
 仕様書: docs/architecture/layers/data_access_layer.md 3.3章
 """
 
+from .auth import (
+    get_current_active_user,
+    get_current_superuser,
+    get_current_user,
+)
 from .repositories import (
     get_base_repository,
     get_batch_execution_repository,
@@ -29,4 +34,7 @@ __all__ = [
     "get_stock_price_validator",
     "get_stock_price_saver",
     "get_stock_price_service",
+    "get_current_user",
+    "get_current_active_user",
+    "get_current_superuser",
 ]

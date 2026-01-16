@@ -1,6 +1,14 @@
 # Pydantic schemas package
 from pydantic import BaseModel
 
+from app.schemas.accounts import (  # noqa: F401
+    AccountLoginRequest,
+    AccountRegisterRequest,
+    AccountResponse,
+    AccountUpdateRequest,
+    PasswordChangeRequest,
+    TokenResponse,
+)
 from app.schemas.base import (
     BaseRequestSchema,
     BaseResponseSchema,
@@ -46,3 +54,15 @@ __all__ = [
     "StockPrice1WK",
     "StockPrice1MO",
 ]
+
+# accounts schemas
+__all__.extend(
+    [
+        "AccountRegisterRequest",
+        "AccountLoginRequest",
+        "AccountUpdateRequest",
+        "PasswordChangeRequest",
+        "AccountResponse",
+        "TokenResponse",
+    ]
+)
