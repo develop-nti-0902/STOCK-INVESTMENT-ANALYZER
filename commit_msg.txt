@@ -1,6 +1,0 @@
-test(integration): 統合テストを修正
-
-- テストの期待値とユーティリティを更新
-- Yahoo Finance統合テストの調整
-
-Refs: #193, #198
