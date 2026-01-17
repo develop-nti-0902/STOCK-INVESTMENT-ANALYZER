@@ -1,6 +1,10 @@
-from typing import List, Optional
+from datetime import datetime, timezone
+from typing import List, Optional, Set
 
 from app.repositories.stock_master_repository import StockMasterRepository
+from app.repositories.stock_master_updates_repository import (
+    StockMasterUpdatesRepository,
+)
 from app.services.market_data.stock_master.fetcher import StockMasterFetcher
 from app.utils.logger import get_logger
 
@@ -24,6 +28,7 @@ class StockMasterService:
         self,
         repo: StockMasterRepository,
         fetcher: Optional[StockMasterFetcher] = None,
+        updates_repo: Optional[StockMasterUpdatesRepository] = None,
     ):
         """Initialize the service.
 
@@ -34,6 +39,8 @@ class StockMasterService:
         """
         self.repo = repo
         self.fetcher = fetcher or StockMasterFetcher()
+        # 更新サマリを記録するためのオプショナルなリポジトリ
+        self.updates_repo = updates_repo
 
     async def fetch_and_store(
         self, *, batch_size: int = 500, limit: Optional[int] = None
@@ -180,17 +187,102 @@ class StockMasterService:
         Raises:
             Exception: 内部で発生した例外を透過します.
         """
+        record_id = None
         try:
-            updated_count = await self.fetch_and_store()
+            # 差分計算のために現在の既存シンボルを取得する
+            existing_symbols: Set[str] = set()
+            if self.updates_repo:
+                try:
+                    existing_symbols = set(
+                        await self.repo.get_all_active_symbols()
+                    )
+                except Exception:
+                    existing_symbols = set()
+
+            # updates_repo がある場合、実行中のサマリレコードを作成する
+            if self.updates_repo:
+                rec = await self.updates_repo.create_summary(
+                    {
+                        "update_type": "refresh",
+                        "total_stocks": 0,
+                        "status": "running",
+                        "added_stocks": 0,
+                        "updated_stocks": 0,
+                        "removed_stocks": 0,
+                    }
+                )
+                record_id = getattr(rec, "id", None)
+
+            # データを取得（既存挙動を保持するためリトライは行わない）
+            data = await self.fetcher.fetch_all()
+
+            # サマリ用にシンボル集合を計算する
+            new_symbols = []
+            for item in data:
+                if not hasattr(item, "model_dump"):
+                    raise TypeError(
+                        "Expected Pydantic v2 model with model_dump(),"
+                        f" got {type(item)!r}"
+                    )
+                dumped = item.model_dump(exclude_none=True)
+                # dump した辞書に `stock_code` があると仮定する
+                code = dumped.get("stock_code") or dumped.get("symbol")
+                if code:
+                    new_symbols.append(code)
+
+            new_set = set(new_symbols)
+            total = len(new_symbols)
+            added = len(new_set - existing_symbols)
+            updated = len(new_set & existing_symbols)
+            removed = len(existing_symbols - new_set)
+
+            # fetch_and_store と同様にバッチで upsert を行う
+            total_processed = 0
+            batch_size = 500
+            for i in range(0, len(data), batch_size):
+                batch = data[i : i + batch_size]
+                prepared = [
+                    item.model_dump(exclude_none=True) for item in batch
+                ]
+                affected = await self.repo.bulk_upsert(prepared)
+                total_processed += int(affected or 0)
+
+            # サマリを成功として更新する
+            if self.updates_repo and record_id is not None:
+                await self.updates_repo.update_status(
+                    record_id,
+                    "success",
+                    {
+                        "completed_at": datetime.now(timezone.utc),
+                        "total_stocks": total,
+                        "added_stocks": added,
+                        "updated_stocks": updated,
+                        "removed_stocks": removed,
+                    },
+                )
+
             logger.info(
                 "Stock master refreshed",
-                extra={"updated_count": updated_count},
+                extra={"updated_count": total_processed},
             )
-            return updated_count
+            return total_processed
         except Exception as exc:
             logger.error(
                 "Failed to refresh stock master", extra={"error": str(exc)}
             )
+            # 可能であれば更新テーブル上で失敗をマークする
+            if self.updates_repo and record_id is not None:
+                try:
+                    await self.updates_repo.update_status(
+                        record_id,
+                        "failed",
+                        {
+                            "completed_at": datetime.now(timezone.utc),
+                            "error_message": str(exc),
+                        },
+                    )
+                except Exception:
+                    logger.exception("Failed to mark summary as failed")
             raise
 
     async def reset_stock_master(self) -> int:
@@ -203,7 +295,18 @@ class StockMasterService:
             Exception: リポジトリ操作中に発生した例外を透過します.
         """
         try:
+            # 銘柄マスタのレコードを削除する
             deleted_count = await self.repo.delete_all()
+
+            # updates_repo があればサマリも削除する
+            if self.updates_repo:
+                try:
+                    await self.updates_repo.delete_by_reset()
+                except Exception:
+                    logger.exception(
+                        "Failed to delete stock_master_updates during reset"
+                    )
+
             logger.info(
                 "Stock master reset completed",
                 extra={"deleted_count": deleted_count},
