@@ -75,7 +75,9 @@ class StockMasterUpdatesRepository(BaseRepository[StockMasterUpdates]):
             stmt = sql_delete(self.model)
             result = await self.session.execute(stmt)
 
-            deleted_count = result.rowcount or 0
+            # mypy 対応:
+            # Result が静的に 'rowcount' を持たない可能性があるため getattr を使用
+            deleted_count = int(getattr(result, "rowcount", 0) or 0)
             logger.info(
                 "Deleted %d stock_master_updates records", deleted_count
             )
