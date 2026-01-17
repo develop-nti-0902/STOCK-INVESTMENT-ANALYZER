@@ -57,7 +57,7 @@ class FakeRepo:
         self._recent = recent or []
         self._cancel_result = cancel_result
 
-    async def create_job(self, batch_type: str):
+    async def create_job(self, batch_type: str, params: dict = None):
         return self._create_job_result
 
     async def get(self, job_id: int):
@@ -308,3 +308,130 @@ async def test_process_jpx_all_stocks_failure_marks_failed(monkeypatch):
 
     # 失敗時にはリポジトリのステータスが failed に更新されているはず
     assert (13, "failed") in fake_repo.updated_status
+
+
+@pytest.mark.asyncio
+async def test_run_jpx_all_multi_sequence_returns_pending_response():
+    """JPX全銘柄マルチ順次実行エンドポイントが正しくジョブを作成して
+    PENDINGステータスで返すことを確認する."""
+    # Arrange
+    fake_job = FakeJob(id=123, status="PENDING", job_type="JPX_ALL_STOCKS")
+    repo = FakeRepo(create_job_result=fake_job)
+    background_tasks = BackgroundTasks()
+
+    # batch_size を持つリクエストパラメータ
+    class FakeSequenceParams:
+        batch_size = 50
+
+        def model_dump(self):
+            return {"batch_size": self.batch_size}
+
+    # Act
+    result = await batch_module.run_jpx_all_multi_sequence(
+        params=FakeSequenceParams(),
+        background_tasks=background_tasks,
+        repo=repo,
+        service=None,
+    )
+
+    # Assert
+    assert result.job_id == "123"
+    assert result.overall_status == "PENDING"
+    assert result.results == []
+    # バックグラウンドタスクが登録されていることを確認
+    assert len(background_tasks.tasks) == 1
+
+
+@pytest.mark.asyncio
+async def test_process_jpx_all_multi_sequence_executes_all_timeframes(
+    monkeypatch,
+):
+    """順次実行処理が1d→1m→1hを正しく実行することを確認する."""
+    fake_repo = FakeRepoProcess()
+    monkeypatch.setattr(
+        batch_module, "BatchExecutionRepository", lambda session: fake_repo
+    )
+    dummy_session = object()
+    monkeypatch.setattr(
+        batch_module, "get_session_maker", lambda: SessionMaker(dummy_session)
+    )
+
+    executed_timeframes = []
+
+    # _execute_single_timeframe をモックして実行されたタイムフレームを記録
+    async def mock_execute_timeframe(job_id, timeframe, batch_size, service):
+        executed_timeframes.append(timeframe)
+        return {
+            "timeframe": timeframe,
+            "status": "completed",
+            "success_count": 10,
+            "failed_count": 0,
+            "error_message": None,
+            "started_at": "2026-01-17T00:00:00",
+            "finished_at": "2026-01-17T00:10:00",
+        }
+
+    monkeypatch.setattr(
+        batch_module, "_execute_single_timeframe", mock_execute_timeframe
+    )
+
+    # Act
+    await batch_module.process_jpx_all_multi_sequence(
+        job_id=999, batch_size=50, service=None
+    )
+
+    # Assert
+    assert executed_timeframes == ["1d", "1m", "1h"]
+    assert (999, "running") in fake_repo.updated_status
+    # 全タイムフレーム完了後にmark_completedが呼ばれている
+    assert fake_repo.mark_completed_args == (999, 30, 0)
+
+
+@pytest.mark.asyncio
+async def test_process_jpx_all_multi_sequence_handles_partial_failure(
+    monkeypatch,
+):
+    """一部のタイムフレームが失敗しても処理が継続されることを確認する."""
+    fake_repo = FakeRepoProcess()
+    monkeypatch.setattr(
+        batch_module, "BatchExecutionRepository", lambda session: fake_repo
+    )
+    dummy_session = object()
+    monkeypatch.setattr(
+        batch_module, "get_session_maker", lambda: SessionMaker(dummy_session)
+    )
+
+    # 2番目のタイムフレーム（1m）を失敗させる
+    async def mock_execute_timeframe(job_id, timeframe, batch_size, service):
+        if timeframe == "1m":
+            return {
+                "timeframe": timeframe,
+                "status": "failed",
+                "success_count": 0,
+                "failed_count": 5,
+                "error_message": "Test error",
+                "started_at": "2026-01-17T00:00:00",
+                "finished_at": "2026-01-17T00:10:00",
+            }
+        return {
+            "timeframe": timeframe,
+            "status": "completed",
+            "success_count": 10,
+            "failed_count": 0,
+            "error_message": None,
+            "started_at": "2026-01-17T00:00:00",
+            "finished_at": "2026-01-17T00:10:00",
+        }
+
+    monkeypatch.setattr(
+        batch_module, "_execute_single_timeframe", mock_execute_timeframe
+    )
+
+    # Act
+    await batch_module.process_jpx_all_multi_sequence(
+        job_id=888, batch_size=50, service=None
+    )
+
+    # Assert
+    # 1dで10成功、1mで5失敗、1hで10成功 = 計20成功、5失敗
+    assert fake_repo.mark_completed_args == (888, 20, 5)
