@@ -250,6 +250,10 @@ async function executeBatch() {
             // JPX 全銘柄取得（マルチ）API
             url = `${API_BASE_URL}/batch/stock-data/jpx-all/multi`;
             method = 'POST';
+        } else if (batchType === 'jpx_all_multi_sequence') {
+            // JPX バッチ連続実行 API
+            url = `${API_BASE_URL}/batch/stock-data/jpx-all/multi/run_sequence`;
+            method = 'POST';
         } else {
             // stock-master 用 API (refresh / reset)
             url = `${API_BASE_URL}/stock-master/${batchType}`;
@@ -284,6 +288,10 @@ async function executeBatch() {
         } else if (batchType === 'jpx_all_multi') {
             const listBatchSize = listBatchSizeInput ? parseInt(listBatchSizeInput.value, 10) : 50;
             const payload = { timeframe: timeframe, list_batch_size: listBatchSize };
+            fetchOptions.body = JSON.stringify(payload);
+        } else if (batchType === 'jpx_all_multi_sequence') {
+            const listBatchSize = listBatchSizeInput ? parseInt(listBatchSizeInput.value, 10) : 50;
+            const payload = { batch_size: listBatchSize };
             fetchOptions.body = JSON.stringify(payload);
         }
 
@@ -394,6 +402,11 @@ function onBatchTypeChange() {
         batchSizeGroup.style.display = 'none';
         if (sampleSizeGroup) sampleSizeGroup.style.display = 'none';
         if (timeframeGroup) timeframeGroup.style.display = 'flex';
+        if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'flex';
+    } else if (batchType === 'jpx_all_multi_sequence') {
+        batchSizeGroup.style.display = 'none';
+        if (sampleSizeGroup) sampleSizeGroup.style.display = 'none';
+        if (timeframeGroup) timeframeGroup.style.display = 'none';
         if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'flex';
     } else {
         batchSizeGroup.style.display = 'none';
