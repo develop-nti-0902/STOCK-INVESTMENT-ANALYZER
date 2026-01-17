@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio as _asyncio
 import logging
+from datetime import datetime as dt
 from typing import Any, Dict, List, Optional, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -300,7 +301,7 @@ async def start_jpx_all_job(
 
     # バックグラウンドタスクを登録して既存の StockPriceService を呼び出す
     background_tasks.add_task(
-        process_jpx_all_stocks, job.id, params.model_dump(), service
+        process_jpx_all_stocks, int(job.id), params.model_dump(), service
     )
 
     return BatchExecutionResponse.model_validate(_job_to_response_dict(job))
@@ -328,7 +329,7 @@ async def start_jpx_all_multi_job(
 
     # マルチ取得用のバックグラウンドタスクを登録
     background_tasks.add_task(
-        process_jpx_all_stocks_multi, job.id, params.model_dump(), service
+        process_jpx_all_stocks_multi, int(job.id), params.model_dump(), service
     )
 
     return BatchExecutionResponse.model_validate(_job_to_response_dict(job))
@@ -653,7 +654,7 @@ async def run_jpx_all_multi_sequence(
     )
 
     background_tasks.add_task(
-        process_jpx_all_multi_sequence, job.id, params.batch_size, service
+        process_jpx_all_multi_sequence, int(job.id), params.batch_size, service
     )
 
     return JPXAllMultiSequenceResponse(
@@ -754,8 +755,6 @@ async def _execute_single_timeframe(
     Returns:
         Dict[str, Any]: 実行結果（status, success_count, failed_count等）
     """
-    from datetime import datetime as dt
-
     start_time = dt.now()
     result: Dict[str, Any] = {
         "timeframe": timeframe,
