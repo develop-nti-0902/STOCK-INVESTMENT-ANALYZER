@@ -106,12 +106,11 @@ async def test_fetch_and_store_integration(monkeypatch):
         # 生産物: 全件ダンプを CSV で出力（tests/integration/artifacts/ に保存）
         import csv
         import os
-        from datetime import datetime, timezone
 
         artifacts_dir = os.path.join(os.path.dirname(__file__), "artifacts")
         os.makedirs(artifacts_dir, exist_ok=True)
-        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        out_path = os.path.join(artifacts_dir, f"stock_master_dump_{ts}.csv")
+        # ファイル名に日時を含めず上書き保存する
+        out_path = os.path.join(artifacts_dir, "stock_master_dump.csv")
 
         fieldnames = [
             "id",

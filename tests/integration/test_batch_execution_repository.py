@@ -73,12 +73,11 @@ async def test_create_and_persist_batch_execution(monkeypatch):
         # artifacts 出力
         import csv
         import os
-        from datetime import datetime, timezone
 
         artifacts_dir = os.path.join(os.path.dirname(__file__), "artifacts")
         os.makedirs(artifacts_dir, exist_ok=True)
-        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        fname = f"batch_executions_dump_{ts}.csv"
+        # ファイル名に日時を含めず上書き保存する
+        fname = "batch_executions_dump.csv"
         out_path = os.path.join(artifacts_dir, fname)
 
         fieldnames = [

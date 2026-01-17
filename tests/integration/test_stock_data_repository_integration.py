@@ -10,7 +10,7 @@ UPSERT処理、データ取得、一括保存の動作を検証します。
 
 import csv
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List
 
 import pytest
@@ -201,8 +201,8 @@ async def test_stock_data_1m_upsert_and_retrieve(monkeypatch, artifacts_dir):
         rows = result.scalars().all()
 
         if rows:
-            ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-            filename = f"stock_data_1m_integration_{ts}.csv"
+            # ファイル名に日時を含めず、再実行時は上書き保存する
+            filename = "stock_data_1m_integration.csv"
             filepath = os.path.join(artifacts_dir, filename)
 
             fieldnames = [
@@ -379,8 +379,8 @@ async def test_stock_data_1d_bulk_upsert(monkeypatch, artifacts_dir):
         rows = result.scalars().all()
 
         if rows:
-            ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-            filename = f"stock_data_1d_bulk_upsert_{ts}.csv"
+            # ファイル名に日時を含めず、再実行時は上書き保存する
+            filename = "stock_data_1d_bulk_upsert.csv"
             filepath = os.path.join(artifacts_dir, filename)
 
             fieldnames = [
