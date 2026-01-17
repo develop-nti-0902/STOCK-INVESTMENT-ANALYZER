@@ -57,7 +57,7 @@ class FakeRepo:
         self._recent = recent or []
         self._cancel_result = cancel_result
 
-    async def create_job(self, batch_type: str, params: dict = None):
+    async def create_job(self, batch_type: str, params: dict | None = None):
         return self._create_job_result
 
     async def get(self, job_id: int):
