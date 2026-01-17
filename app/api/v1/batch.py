@@ -654,7 +654,10 @@ async def run_jpx_all_multi_sequence(
     )
 
     background_tasks.add_task(
-        process_jpx_all_multi_sequence, int(job.id), params.batch_size, service
+        process_jpx_all_multi_sequence,
+        int(job.id),
+        int(params.batch_size or 50),
+        service,
     )
 
     return JPXAllMultiSequenceResponse(
