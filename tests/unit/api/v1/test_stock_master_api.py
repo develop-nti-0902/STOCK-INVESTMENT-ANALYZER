@@ -26,6 +26,15 @@ class FakeService:
             raise RuntimeError("fetch failed")
         return self._fetch_and_store_result
 
+    async def refresh_stock_master(self, batch_size: int = 500):
+        # refresh_stock_master または fetch_and_store が失敗する設定なら例外を発生
+        if (
+            "refresh_stock_master" in self._raise_on
+            or "fetch_and_store" in self._raise_on
+        ):
+            raise RuntimeError("refresh failed")
+        return self._fetch_and_store_result
+
     async def get_all_active_symbols(self):
         if "get_all_active_symbols" in self._raise_on:
             raise RuntimeError("symbols fail")
@@ -51,9 +60,7 @@ async def test_refresh_stock_master_success():
     service = FakeService(fetch_and_store_result=5)
 
     # Act
-    resp = await stock_master_module.refresh_stock_master(
-        batch_size=100, service=service
-    )
+    resp = await stock_master_module.refresh_stock_master(service=service)
 
     # Assert
     assert resp.updated_count == 5
@@ -67,9 +74,7 @@ async def test_refresh_stock_master_failure_raises_500():
 
     # Act / Assert
     with pytest.raises(ServiceError) as exc:
-        await stock_master_module.refresh_stock_master(
-            batch_size=10, service=service
-        )
+        await stock_master_module.refresh_stock_master(service=service)
 
     assert exc.value.status_code == 500
     assert "Failed to refresh stock master" in exc.value.message

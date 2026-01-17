@@ -59,22 +59,21 @@ class ResetResponse(BaseModel):
     status_code=http_status.HTTP_200_OK,
 )
 async def refresh_stock_master(
-    batch_size: int = Query(500, gt=0, le=5000, description="Batch size"),
     service: StockMasterService = Depends(get_stock_master_service),
 ) -> RefreshResponse:
     """銘柄マスタを最新情報で更新.
 
     JPXから最新の銘柄情報を取得してDBに保存します。
+    更新履歴も stock_master_updates テーブルに記録されます。
 
     Args:
-        batch_size (int): バッチ処理のサイズ（デフォルト: 500）
         service (StockMasterService): 銘柄マスタサービス
 
     Returns:
         RefreshResponse: 更新結果
     """
     try:
-        updated_count = await service.fetch_and_store(batch_size=batch_size)
+        updated_count = await service.refresh_stock_master()
         return RefreshResponse(
             message="Stock master refresh completed",
             updated_count=updated_count,
