@@ -1,6 +1,5 @@
 import csv
 import os
-from datetime import datetime, timezone
 from typing import List, Type
 
 import pytest
@@ -35,18 +34,18 @@ def write_csv_artifact(
     """
     artifacts_dir = os.path.join(os.path.dirname(__file__), "artifacts")
     os.makedirs(artifacts_dir, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    # 出力ファイル名に日時を含めず、再実行時は上書きされるようにする
     if filename:
         out_path = os.path.join(artifacts_dir, filename)
     else:
         if test_name:
             out_path = os.path.join(
                 artifacts_dir,
-                f"{test_name}_stocks_{timeframe}_multiple_{ts}.csv",
+                f"{test_name}_stocks_{timeframe}_multiple.csv",
             )
         else:
             out_path = os.path.join(
-                artifacts_dir, f"stocks_{timeframe}_multiple_{ts}.csv"
+                artifacts_dir, f"stocks_{timeframe}_multiple.csv"
             )
 
     try:

@@ -5,6 +5,7 @@ from .account_transactions import AccountTransactions
 from .accounts import Account
 from .base import Base, TimestampMixin
 from .batch_execution import BatchExecution
+from .batch_execution_details import BatchExecutionDetails
 from .stock_analyst_recommendations import StockAnalystRecommendations
 from .stock_balance_sheet_annual import StockBalanceSheetAnnual
 from .stock_balance_sheet_quarterly import StockBalanceSheetQuarterly
@@ -29,6 +30,7 @@ from .stock_holders_institutional import StockHoldersInstitutional
 from .stock_holders_mutualfund import StockHoldersMutualfund
 from .stock_insider_transactions import StockInsiderTransactions
 from .stock_master import StockMaster
+from .stock_master_updates import StockMasterUpdates
 from .stock_shares_outstanding import StockSharesOutstanding
 from .stock_splits import StockSplits
 
@@ -68,4 +70,6 @@ __all__ = [
     "Stocks1wk",
     "Stocks1mo",
     "BatchExecution",
+    "StockMasterUpdates",
+    "BatchExecutionDetails",
 ]

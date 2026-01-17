@@ -22,7 +22,7 @@ related_docs:
     - [依存関係](#依存関係)
   - [3. データベーススキーマ](#3-データベーススキーマ)
     - [3.1 株価データテーブル（8テーブル）](#31-株価データテーブル8テーブル)
-    - [3.2 管理データテーブル（2テーブル）](#32-管理データテーブル2テーブル)
+    - [3.2 管理データテーブル（22 テーブル）](#32-管理データテーブル22-テーブル)
       - [stock\_master（銘柄マスタ）](#stock_master銘柄マスタ)
       - [stock\_basic\_info（企業基本情報）](#stock_basic_info企業基本情報)
       - [stock\_financial\_info（企業財務情報）](#stock_financial_info企業財務情報)
@@ -102,7 +102,7 @@ PostgreSQL Server
     │   ├── stocks_1d                # 日足
     │   ├── stocks_1wk               # 週足
     │   └── stocks_1mo               # 月足
-    └── 管理データテーブル（20 実装済み + 2 未実装）
+    └── 管理データテーブル（22 実装済み）
         ├── stock_master             # 銘柄マスタ ✅実装済み
         ├── batch_executions         # バッチ実行情報 ✅実装済み
         ├── stock_basic_info         # 企業基本情報 ✅実装済み
@@ -120,8 +120,8 @@ PostgreSQL Server
         ├── stock_holders_institutional # 機関投資家保有情報 ✅実装済み
         ├── stock_holders_mutualfund  # 投信／ファンド保有情報 ✅ 実装済み
         ├── stock_insider_transactions # インサイダー取引情報 ✅ 実装済み
-        ├── stock_master_updates     # 銘柄更新履歴 ⚠️未実装
-        ├── batch_execution_details  # バッチ実行詳細 ⚠️未実装
+        ├── stock_master_updates     # 銘柄更新履歴 ✅実装済み
+        ├── batch_execution_details  # バッチ実行詳細 ✅実装済み
         ├── accounts                 # ユーザ/アカウント（認証・ポートフォリオ） ✅実装済み
         ├── account_transactions     # 取引履歴 ✅実装済み
         └── account_portfolios       # ポートフォリオ ✅実装済み
@@ -170,8 +170,8 @@ graph TB
     MgmtTables --> MutualFundHolders[stock_holders_mutualfund]
     MgmtTables --> InsiderTx[stock_insider_transactions]
     MgmtTables --> StockShares[stock_shares_outstanding]
-    MgmtTables --> MasterUpdates[stock_master_updates (未実装)]
-    MgmtTables --> BatchDetails[batch_execution_details (未実装)]
+    MgmtTables --> MasterUpdates[stock_master_updates]
+    MgmtTables --> BatchDetails[batch_execution_details]
     MgmtTables --> Accounts[accounts]
     MgmtTables --> UserTx[account_transactions]
     MgmtTables --> UserPortfolios[account_portfolios]
@@ -249,10 +249,9 @@ CREATE INDEX idx_stocks_{interval}_symbol_timestamp_desc
 
 ---
 
-### 3.2 管理データテーブル（2テーブル）
+### 3.2 管理データテーブル（22 テーブル）
 
-> **Note**: 現在のプロジェクトでは、SQLAlchemyモデルとして実装されているのは`stock_master`と`batch_executions`の2テーブルのみです。
-> `stock_master_updates`と`batch_execution_details`のテーブル定義はSQLスクリプトに存在しますが、アプリケーション層での実装は未完了です。
+> **Note**: 管理データテーブル群はアプリケーション層でほぼ実装済みです。`stock_master_updates` と `batch_execution_details` も SQLAlchemy モデルとして追加済みで、Alembic マイグレーションを作成すればマイグレーション適用可能です。
 
 #### stock_master（銘柄マスタ）
 
@@ -837,7 +836,7 @@ CREATE INDEX idx_stock_splits_date ON stock_splits (split_date);
 
 #### stock_master_updates（銘柄更新履歴）
 
-> **実装ステータス**: ⚠️ **未実装** - SQLスクリプトに定義されていますが、SQLAlchemyモデルは未作成です。
+> **実装ステータス**: ✅ **実装済み** - SQLスクリプトに定義され、アプリケーション層にSQLAlchemyモデルを追加しました。
 
 **用途**: 銘柄マスタの更新履歴記録
 
@@ -883,36 +882,39 @@ CREATE INDEX idx_batch_executions_batch_type ON batch_executions (batch_type);
 CREATE INDEX idx_batch_executions_start_time ON batch_executions (start_time);
 ```
 
-#### batch_execution_details（バッチ実行詳細）
+#### batch_execution_details（バッチ実行進捗: タイムフレーム集計）
 
-> **実装ステータス**: ⚠️ **未実装** - SQLスクリプトに定義されていますが、SQLAlchemyモデルは未作成です。
+> **実装ステータス**: ✅ **実装済み** - SQLAlchemyモデルをアプリケーション層に追加しました。
 
-**用途**: バッチ処理の銘柄ごとの詳細記録
+**用途**: バッチ処理の進捗をタイムフレーム（例: `1d`, `1h`, `1m`）単位で集計して記録します。個別銘柄ごとの逐次書き込みを避け、APIでの進捗照会を低コストにするための設計です。
 
-**カラム定義:**
+**カラム定義（主なもの）:**
 
-| カラム名             | 型            | 制約               | 説明                                              |
-| -------------------- | ------------- | ------------------ | ------------------------------------------------- |
-| `id`                 | INTEGER       | PK, Auto Increment | 詳細レコードID                                    |
-| `batch_execution_id` | INTEGER       | NOT NULL           | バッチID（外部キー）                              |
-| `stock_code`         | VARCHAR(10)   | NOT NULL           | 銘柄コード                                        |
-| `status`             | VARCHAR(20)   | NOT NULL           | ステータス（pending/processing/completed/failed） |
-| `start_time`         | TIMESTAMP(TZ) | Nullable           | 開始日時                                          |
-| `end_time`           | TIMESTAMP(TZ) | Nullable           | 終了日時                                          |
-| `error_message`      | TEXT          | Nullable           | エラーメッセージ                                  |
-| `records_inserted`   | INTEGER       | DEFAULT 0          | 挿入されたレコード数                              |
-| `created_at`         | TIMESTAMP(TZ) | DEFAULT now()      | 作成日時                                          |
+| カラム名             | 型            | 制約                | 説明                                        |
+| -------------------- | ------------- | ------------------- | ------------------------------------------- |
+| `id`                 | INTEGER       | PK, Auto Increment  | 詳細レコードID                              |
+| `batch_execution_id` | INTEGER       | NOT NULL            | バッチID（外部キー）                        |
+| `interval`           | VARCHAR(20)   | Nullable            | タイムフレーム（例: `1d`, `1h`, `1m`）      |
+| `total_stocks`       | INTEGER       | NOT NULL, DEFAULT 0 | 当該インターバルの総対象銘柄数              |
+| `processed_stocks`   | INTEGER       | NOT NULL, DEFAULT 0 | 現在まで処理済みの銘柄数                    |
+| `successful_stocks`  | INTEGER       | NOT NULL, DEFAULT 0 | 成功した銘柄数                              |
+| `failed_stocks`      | INTEGER       | NOT NULL, DEFAULT 0 | 失敗した銘柄数                              |
+| `status`             | VARCHAR(20)   | Nullable            | ステータス（running/completed/failed など） |
+| `start_time`         | TIMESTAMP(TZ) | Nullable            | 処理開始時刻                                |
+| `end_time`           | TIMESTAMP(TZ) | Nullable            | 処理終了時刻                                |
+| `error_message`      | TEXT          | Nullable            | エラーメッセージ                            |
+| `created_at`         | TIMESTAMP(TZ) | DEFAULT now()       | 作成日時                                    |
 
-**インデックス:**
-```sql
+**インデックス（想定）:**
+```
 CREATE INDEX idx_batch_execution_details_batch_id
     ON batch_execution_details (batch_execution_id);
+CREATE INDEX idx_batch_execution_details_interval
+    ON batch_execution_details (interval);
 CREATE INDEX idx_batch_execution_details_status
     ON batch_execution_details (status);
-CREATE INDEX idx_batch_execution_details_stock_code
-    ON batch_execution_details (stock_code);
-CREATE INDEX idx_batch_execution_details_batch_stock
-    ON batch_execution_details (batch_execution_id, stock_code);
+CREATE INDEX idx_batch_execution_details_batch_interval
+    ON batch_execution_details (batch_execution_id, interval);
 ```
 
 #### accounts（ユーザ / アカウント）

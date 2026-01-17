@@ -5,7 +5,6 @@
 """
 
 import json
-from datetime import date
 from pathlib import Path
 
 import pytest
@@ -23,8 +22,8 @@ class TestYahooFinanceIntegration:
         """テストデータをartifactsとして保存"""
         self.artifacts_dir.mkdir(exist_ok=True)
 
-        timestamp = date.today().strftime("%Y%m%d")
-        filename_parts = [test_name, timestamp]
+        # 日付をファイル名に含めず、再実行時は上書き保存する
+        filename_parts = [test_name]
         if symbol:
             filename_parts.append(symbol)
         if timeframe:

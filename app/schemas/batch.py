@@ -248,6 +248,58 @@ class BatchExecutionResponse(BaseResponseSchema, BatchExecutionBase):
     """
 
 
+class JPXAllMultiSequenceRequest(BaseRequestSchema):
+    """JPX全銘柄マルチ取得の順次実行リクエスト.
+
+    Attributes:
+        batch_size (Optional[int]): 一度に処理する銘柄数（デフォルト: 50）
+    """
+
+    batch_size: Optional[int] = Field(
+        50, description="一度に処理する銘柄数", ge=1, le=200
+    )
+
+
+class TimeframeResult(BaseModel):
+    """各タイムフレームの実行結果.
+
+    Attributes:
+        timeframe (str): タイムフレーム（1d/1m/1h）
+        status (str): 実行ステータス
+        success_count (int): 成功件数
+        failed_count (int): 失敗件数
+        error_message (Optional[str]): エラーメッセージ
+        started_at (Optional[str]): 開始時刻（ISO-8601）
+        finished_at (Optional[str]): 終了時刻（ISO-8601）
+    """
+
+    timeframe: str = Field(..., description="タイムフレーム")
+    status: str = Field(..., description="実行ステータス")
+    success_count: int = Field(0, description="成功件数", ge=0)
+    failed_count: int = Field(0, description="失敗件数", ge=0)
+    error_message: Optional[str] = Field(None, description="エラーメッセージ")
+    started_at: Optional[str] = Field(None, description="開始時刻（ISO-8601）")
+    finished_at: Optional[str] = Field(
+        None, description="終了時刻（ISO-8601）"
+    )
+
+
+class JPXAllMultiSequenceResponse(BaseResponseSchema):
+    """JPX全銘柄マルチ取得の順次実行レスポンス.
+
+    Attributes:
+        job_id (str): ジョブID
+        overall_status (str): 全体のステータス
+        results (List[TimeframeResult]): 各タイムフレームの実行結果
+    """
+
+    job_id: str = Field(..., description="ジョブID")
+    overall_status: str = Field(..., description="全体のステータス")
+    results: List[TimeframeResult] = Field(
+        default_factory=list, description="各タイムフレームの実行結果"
+    )
+
+
 __all__ = [
     "SingleStockDataRequest",
     "JPXAllStocksRequest",
@@ -263,4 +315,7 @@ __all__ = [
     "BatchExecutionCreate",
     "BatchExecutionUpdate",
     "BatchExecutionResponse",
+    "JPXAllMultiSequenceRequest",
+    "TimeframeResult",
+    "JPXAllMultiSequenceResponse",
 ]
