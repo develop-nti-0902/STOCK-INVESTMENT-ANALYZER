@@ -41,5 +41,15 @@ class StockMasterUpdates(SerialPKMixin, Base):
         DateTime(timezone=True), nullable=True
     )
 
+    def to_dict(self) -> dict:
+        """モデルのフィールドを辞書で返す."""
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
+    def duration_seconds(self) -> Optional[int]:
+        """開始から完了までの秒数を返す。完了していなければ None を返す。"""
+        if self.completed_at is None:
+            return None
+        return int((self.completed_at - self.started_at).total_seconds())
+
 
 __all__ = ["StockMasterUpdates"]

@@ -63,6 +63,14 @@ class BatchExecutionDetails(SerialPKMixin, Base):
         "BatchExecution", backref="details", passive_deletes=True
     )
 
+    def to_dict(self) -> dict:
+        """モデルのフィールドを辞書で返す."""
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
+    def progress_summary(self) -> str:
+        """簡易的な進捗要約を返す。例: '12/100 processed'"""
+        return f"{self.processed_stocks}/{self.total_stocks} processed"
+
     __table_args__ = (
         Index("idx_batch_execution_details_batch_id", "batch_execution_id"),
         Index("idx_batch_execution_details_interval", "interval"),
