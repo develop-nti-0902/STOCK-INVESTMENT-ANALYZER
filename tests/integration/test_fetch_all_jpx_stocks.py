@@ -132,6 +132,518 @@ async def test_fetch_all_jpx_stocks_persists_1d(monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_fetch_batch_persists_1m(monkeypatch):
+    engine = await setup_test_database(monkeypatch, Stocks1m)
+    await register_test_symbols(TEST_SYMBOLS)
+
+    fetcher = StockPriceFetcher()
+
+    # fetch_batch を呼び出して複数銘柄を一括取得
+    results = await fetcher.fetch_batch(TEST_SYMBOLS, timeframe="1m")
+
+    session_maker = db_mod.get_session_maker()
+
+    async with session_maker() as session:
+        saver = StockPriceSaver(session=session)
+
+        data_list = []
+        for symbol, stock_datas in results.items():
+            records = []
+            for sd in stock_datas:
+                records.append(
+                    {
+                        "timestamp": sd.trade_date,
+                        "open": sd.open_price,
+                        "high": sd.high,
+                        "low": sd.low,
+                        "close": sd.close,
+                        "volume": sd.volume,
+                        "adj_close": sd.adj_close,
+                    }
+                )
+
+            if records:
+                data_list.append(
+                    {"symbol": symbol, "timeframe": "1m", "records": records}
+                )
+
+        saved_count = await saver.save_batch(data_list)
+        assert isinstance(saved_count, int)
+
+    async with session_maker() as verify_session:
+        all_rows = []
+        for symbol in TEST_SYMBOLS:
+            q = await verify_session.execute(
+                select(Stocks1m).where(Stocks1m.symbol == symbol)
+            )
+            rows = q.scalars().all()
+            all_rows.extend(rows)
+
+        assert len(all_rows) >= 0
+
+        fieldnames = [
+            "id",
+            "symbol",
+            "timestamp",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "adj_close",
+            "created_at",
+            "updated_at",
+        ]
+        write_csv_artifact(
+            all_rows,
+            "1m",
+            fieldnames,
+            use_date=False,
+            test_name="test_fetch_batch_persists_1m",
+        )
+
+    await cleanup_database(engine)
+
+
+@pytest.mark.anyio
+async def test_fetch_batch_persists_5m(monkeypatch):
+    engine = await setup_test_database(monkeypatch, Stocks5m)
+    await register_test_symbols(TEST_SYMBOLS)
+
+    fetcher = StockPriceFetcher()
+
+    results = await fetcher.fetch_batch(TEST_SYMBOLS, timeframe="5m")
+
+    session_maker = db_mod.get_session_maker()
+
+    async with session_maker() as session:
+        saver = StockPriceSaver(session=session)
+
+        data_list = []
+        for symbol, stock_datas in results.items():
+            records = []
+            for sd in stock_datas:
+                records.append(
+                    {
+                        "timestamp": sd.trade_date,
+                        "open": sd.open_price,
+                        "high": sd.high,
+                        "low": sd.low,
+                        "close": sd.close,
+                        "volume": sd.volume,
+                        "adj_close": sd.adj_close,
+                    }
+                )
+
+            if records:
+                data_list.append(
+                    {"symbol": symbol, "timeframe": "5m", "records": records}
+                )
+
+        saved_count = await saver.save_batch(data_list)
+        assert isinstance(saved_count, int)
+
+    async with session_maker() as verify_session:
+        all_rows = []
+        for symbol in TEST_SYMBOLS:
+            q = await verify_session.execute(
+                select(Stocks5m).where(Stocks5m.symbol == symbol)
+            )
+            rows = q.scalars().all()
+            all_rows.extend(rows)
+
+        assert len(all_rows) >= 0
+
+        fieldnames = [
+            "id",
+            "symbol",
+            "timestamp",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "adj_close",
+            "created_at",
+            "updated_at",
+        ]
+        write_csv_artifact(
+            all_rows,
+            "5m",
+            fieldnames,
+            use_date=False,
+            test_name="test_fetch_batch_persists_5m",
+        )
+
+    await cleanup_database(engine)
+
+
+@pytest.mark.anyio
+async def test_fetch_batch_persists_15m(monkeypatch):
+    engine = await setup_test_database(monkeypatch, Stocks15m)
+    await register_test_symbols(TEST_SYMBOLS)
+
+    fetcher = StockPriceFetcher()
+
+    results = await fetcher.fetch_batch(TEST_SYMBOLS, timeframe="15m")
+
+    session_maker = db_mod.get_session_maker()
+
+    async with session_maker() as session:
+        saver = StockPriceSaver(session=session)
+
+        data_list = []
+        for symbol, stock_datas in results.items():
+            records = []
+            for sd in stock_datas:
+                records.append(
+                    {
+                        "timestamp": sd.trade_date,
+                        "open": sd.open_price,
+                        "high": sd.high,
+                        "low": sd.low,
+                        "close": sd.close,
+                        "volume": sd.volume,
+                        "adj_close": sd.adj_close,
+                    }
+                )
+
+            if records:
+                data_list.append(
+                    {"symbol": symbol, "timeframe": "15m", "records": records}
+                )
+
+        saved_count = await saver.save_batch(data_list)
+        assert isinstance(saved_count, int)
+
+    async with session_maker() as verify_session:
+        all_rows = []
+        for symbol in TEST_SYMBOLS:
+            q = await verify_session.execute(
+                select(Stocks15m).where(Stocks15m.symbol == symbol)
+            )
+            rows = q.scalars().all()
+            all_rows.extend(rows)
+
+        assert len(all_rows) >= 0
+
+        fieldnames = [
+            "id",
+            "symbol",
+            "timestamp",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "adj_close",
+            "created_at",
+            "updated_at",
+        ]
+        write_csv_artifact(
+            all_rows,
+            "15m",
+            fieldnames,
+            use_date=False,
+            test_name="test_fetch_batch_persists_15m",
+        )
+
+    await cleanup_database(engine)
+
+
+@pytest.mark.anyio
+async def test_fetch_batch_persists_30m(monkeypatch):
+    engine = await setup_test_database(monkeypatch, Stocks30m)
+    await register_test_symbols(TEST_SYMBOLS)
+
+    fetcher = StockPriceFetcher()
+
+    results = await fetcher.fetch_batch(TEST_SYMBOLS, timeframe="30m")
+
+    session_maker = db_mod.get_session_maker()
+
+    async with session_maker() as session:
+        saver = StockPriceSaver(session=session)
+
+        data_list = []
+        for symbol, stock_datas in results.items():
+            records = []
+            for sd in stock_datas:
+                records.append(
+                    {
+                        "timestamp": sd.trade_date,
+                        "open": sd.open_price,
+                        "high": sd.high,
+                        "low": sd.low,
+                        "close": sd.close,
+                        "volume": sd.volume,
+                        "adj_close": sd.adj_close,
+                    }
+                )
+
+            if records:
+                data_list.append(
+                    {"symbol": symbol, "timeframe": "30m", "records": records}
+                )
+
+        saved_count = await saver.save_batch(data_list)
+        assert isinstance(saved_count, int)
+
+    async with session_maker() as verify_session:
+        all_rows = []
+        for symbol in TEST_SYMBOLS:
+            q = await verify_session.execute(
+                select(Stocks30m).where(Stocks30m.symbol == symbol)
+            )
+            rows = q.scalars().all()
+            all_rows.extend(rows)
+
+        assert len(all_rows) >= 0
+
+        fieldnames = [
+            "id",
+            "symbol",
+            "timestamp",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "adj_close",
+            "created_at",
+            "updated_at",
+        ]
+        write_csv_artifact(
+            all_rows,
+            "30m",
+            fieldnames,
+            use_date=False,
+            test_name="test_fetch_batch_persists_30m",
+        )
+
+    await cleanup_database(engine)
+
+
+@pytest.mark.anyio
+async def test_fetch_batch_persists_1h(monkeypatch):
+    engine = await setup_test_database(monkeypatch, Stocks1h)
+    await register_test_symbols(TEST_SYMBOLS)
+
+    fetcher = StockPriceFetcher()
+
+    results = await fetcher.fetch_batch(TEST_SYMBOLS, timeframe="1h")
+
+    session_maker = db_mod.get_session_maker()
+
+    async with session_maker() as session:
+        saver = StockPriceSaver(session=session)
+
+        data_list = []
+        for symbol, stock_datas in results.items():
+            records = []
+            for sd in stock_datas:
+                records.append(
+                    {
+                        "timestamp": sd.trade_date,
+                        "open": sd.open_price,
+                        "high": sd.high,
+                        "low": sd.low,
+                        "close": sd.close,
+                        "volume": sd.volume,
+                        "adj_close": sd.adj_close,
+                    }
+                )
+
+            if records:
+                data_list.append(
+                    {"symbol": symbol, "timeframe": "1h", "records": records}
+                )
+
+        saved_count = await saver.save_batch(data_list)
+        assert isinstance(saved_count, int)
+
+    async with session_maker() as verify_session:
+        all_rows = []
+        for symbol in TEST_SYMBOLS:
+            q = await verify_session.execute(
+                select(Stocks1h).where(Stocks1h.symbol == symbol)
+            )
+            rows = q.scalars().all()
+            all_rows.extend(rows)
+
+        assert len(all_rows) >= 0
+
+        fieldnames = [
+            "id",
+            "symbol",
+            "timestamp",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "adj_close",
+            "created_at",
+            "updated_at",
+        ]
+        write_csv_artifact(
+            all_rows,
+            "1h",
+            fieldnames,
+            use_date=False,
+            test_name="test_fetch_batch_persists_1h",
+        )
+
+    await cleanup_database(engine)
+
+
+@pytest.mark.anyio
+async def test_fetch_batch_persists_1wk(monkeypatch):
+    engine = await setup_test_database(monkeypatch, Stocks1wk)
+    await register_test_symbols(TEST_SYMBOLS)
+
+    fetcher = StockPriceFetcher()
+
+    results = await fetcher.fetch_batch(TEST_SYMBOLS, timeframe="1wk")
+
+    session_maker = db_mod.get_session_maker()
+
+    async with session_maker() as session:
+        saver = StockPriceSaver(session=session)
+
+        data_list = []
+        for symbol, stock_datas in results.items():
+            records = []
+            for sd in stock_datas:
+                records.append(
+                    {
+                        "timestamp": sd.trade_date,
+                        "open": sd.open_price,
+                        "high": sd.high,
+                        "low": sd.low,
+                        "close": sd.close,
+                        "volume": sd.volume,
+                        "adj_close": sd.adj_close,
+                    }
+                )
+
+            if records:
+                data_list.append(
+                    {"symbol": symbol, "timeframe": "1wk", "records": records}
+                )
+
+        saved_count = await saver.save_batch(data_list)
+        assert isinstance(saved_count, int)
+
+    async with session_maker() as verify_session:
+        all_rows = []
+        for symbol in TEST_SYMBOLS:
+            q = await verify_session.execute(
+                select(Stocks1wk).where(Stocks1wk.symbol == symbol)
+            )
+            rows = q.scalars().all()
+            all_rows.extend(rows)
+
+        assert len(all_rows) >= 0
+
+        fieldnames = [
+            "id",
+            "symbol",
+            "timestamp",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "adj_close",
+            "created_at",
+            "updated_at",
+        ]
+        write_csv_artifact(
+            all_rows,
+            "1wk",
+            fieldnames,
+            use_date=False,
+            test_name="test_fetch_batch_persists_1wk",
+        )
+
+    await cleanup_database(engine)
+
+
+@pytest.mark.anyio
+async def test_fetch_batch_persists_1mo(monkeypatch):
+    engine = await setup_test_database(monkeypatch, Stocks1mo)
+    await register_test_symbols(TEST_SYMBOLS)
+
+    fetcher = StockPriceFetcher()
+
+    results = await fetcher.fetch_batch(TEST_SYMBOLS, timeframe="1mo")
+
+    session_maker = db_mod.get_session_maker()
+
+    async with session_maker() as session:
+        saver = StockPriceSaver(session=session)
+
+        data_list = []
+        for symbol, stock_datas in results.items():
+            records = []
+            for sd in stock_datas:
+                records.append(
+                    {
+                        "timestamp": sd.trade_date,
+                        "open": sd.open_price,
+                        "high": sd.high,
+                        "low": sd.low,
+                        "close": sd.close,
+                        "volume": sd.volume,
+                        "adj_close": sd.adj_close,
+                    }
+                )
+
+            if records:
+                data_list.append(
+                    {"symbol": symbol, "timeframe": "1mo", "records": records}
+                )
+
+        saved_count = await saver.save_batch(data_list)
+        assert isinstance(saved_count, int)
+
+    async with session_maker() as verify_session:
+        all_rows = []
+        for symbol in TEST_SYMBOLS:
+            q = await verify_session.execute(
+                select(Stocks1mo).where(Stocks1mo.symbol == symbol)
+            )
+            rows = q.scalars().all()
+            all_rows.extend(rows)
+
+        assert len(all_rows) >= 0
+
+        fieldnames = [
+            "id",
+            "symbol",
+            "timestamp",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "adj_close",
+            "created_at",
+            "updated_at",
+        ]
+        write_csv_artifact(
+            all_rows,
+            "1mo",
+            fieldnames,
+            use_date=False,
+            test_name="test_fetch_batch_persists_1mo",
+        )
+
+    await cleanup_database(engine)
+
+
+@pytest.mark.anyio
 async def test_fetch_all_jpx_stocks_persists_1h(monkeypatch):
     engine = await setup_test_database(monkeypatch, Stocks1h)
     await register_test_symbols(TEST_SYMBOLS)
