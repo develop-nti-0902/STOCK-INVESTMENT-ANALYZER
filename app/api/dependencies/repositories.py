@@ -34,7 +34,7 @@ def get_base_repository(
     # 注意: BaseRepositoryはABCなので、実際には具象クラスを使用する必要がある
     # ここではプレースホルダとして汎用的なリポジトリを返します。
     # 実運用では特定モデル向けの具象Repository（例: StockRepository）を使用してください。
-    return BaseRepository(session=db)  # type: ignore
+    return BaseRepository(session=db)
 
 
 def get_stock_master_repository(

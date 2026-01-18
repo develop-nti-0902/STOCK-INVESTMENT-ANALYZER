@@ -1,22 +1,25 @@
 @echo off
 chcp 65001 >nul 2>&1
 REM =============================================================================
-REM PostgreSQL development database teardown (Windows)
+REM PostgreSQL development database teardown with Alembic (Windows)
 REM Location: scripts\databaseSetup\teardown_db.bat
 REM Usage: Run this script directly or call it from other setup scripts
 REM NOTE: Save this file as UTF-8 without BOM. A BOM can be interpreted as commands by CMD.
+REM
+REM This script uses Alembic migrations to downgrade the database,
+REM and then drops the database, user, and tablespace.
 REM =============================================================================
 
 setlocal enabledelayedexpansion
 
-REM This script uses the local psql client to drop the database, user, and tablespace,
-REM and optionally removes the data directory created during setup.
-REM NOTE: The teardown removes the entire database specified by DB_NAME.
-REM       Because the database is dropped, deleting individual tables is unnecessary
-REM       and this script does not attempt to drop tables inside the database.
+REM This script first applies Alembic downgrade (alembic downgrade base),
+REM then drops the database, user, and tablespace.
 
 set SCRIPT_DIR=%~dp0
 for %%I in ("%SCRIPT_DIR%..\\..") do set REPO_ROOT=%%~fI\
+
+REM 従来のDROP SQLファイル（非推奨、参考用として保持）
+REM set DROP_USER_SQL=%SCRIPT_DIR%sql\drop_user_tables.sql
 
 REM Configuration priority (highest to lowest):
 REM 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER
@@ -90,7 +93,7 @@ REM Check for psql in PATH
 echo [1/6] Checking PostgreSQL installation...
 
 where psql >nul 2>&1
-if errorlevel 1 (
+if %errorlevel% neq 0 (
     echo [ERROR] psql ^(PostgreSQL client^) not found in PATH.
     echo Install PostgreSQL client or add it to PATH, then retry.
     exit /b 1
@@ -144,17 +147,32 @@ if NOT "%DB_DATA_DIR%"=="" (
 )
 
 REM Drop database if exists
-echo [3/6] Dropping database if exists...
+echo [3/6] Running Alembic downgrade (if database exists)...
+
+cd "%REPO_ROOT%"
+
+REM Detect Python virtual environment
+if exist ".venv\Scripts\python.exe" (
+    set "PYTHON_CMD=.venv\Scripts\python.exe"
+) else if exist "venv\Scripts\python.exe" (
+    set "PYTHON_CMD=venv\Scripts\python.exe"
+) else (
+    set "PYTHON_CMD=python"
+)
 
 psql -U %PGUSER% -h %PGHOST% -t -c "SELECT 1 FROM pg_database WHERE datname='!DB_NAME!';" > "%TEMP%\db_check.txt" 2>&1
 set /p DB_EXISTS=<"%TEMP%\db_check.txt"
 set "DB_EXISTS=%DB_EXISTS: =%"
+
 if "%DB_EXISTS%"=="1" (
-    REM Disconnect existing connections before dropping
+    echo Database !DB_NAME! exists, running Alembic downgrade...
+    !PYTHON_CMD! -m alembic downgrade base 2>nul || echo [WARN] Alembic downgrade failed or not initialized
+
+    REM Terminate connections before dropping database
     psql -U %PGUSER% -h %PGHOST% -c "REVOKE CONNECT ON DATABASE \"!DB_NAME!\" FROM public;" 2>NUL || echo [WARN] Could not revoke connects
     psql -U %PGUSER% -h %PGHOST% -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '!DB_NAME!' AND pid <> pg_backend_pid();" 2>NUL || echo [WARN] Could not terminate connections
     psql -U %PGUSER% -h %PGHOST% -c "DROP DATABASE IF EXISTS \"!DB_NAME!\";" 2>"%TEMP%\db_drop_err.txt"
-    if errorlevel 1 (
+    if %errorlevel% neq 0 (
         echo [ERROR] Failed to drop database !DB_NAME!
         exit /b 1
     )
@@ -171,7 +189,7 @@ if not "%SKIP_TABLESPACE%"=="" (
 REM Drop tablespace (use IF EXISTS for simplicity)
 echo Attempting to drop tablespace stock_data_space...
 psql -U %PGUSER% -h %PGHOST% -c "DROP TABLESPACE IF EXISTS stock_data_space;" 2>nul
-if not errorlevel 1 (
+if %errorlevel% equ 0 (
     echo Tablespace dropped or did not exist
 ) else (
     echo [WARN] Could not drop tablespace (may be in use or insufficient privileges)
@@ -202,14 +220,23 @@ echo [6/6] Dropping user (if exists) and finishing...
 
 echo Attempting to drop user %DB_USER%...
 psql -U %PGUSER% -h %PGHOST% -c "DO $$ BEGIN IF EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '%DB_USER%') THEN ALTER ROLE %DB_USER% WITH NOLOGIN; DROP OWNED BY %DB_USER% CASCADE; DROP ROLE IF EXISTS %DB_USER%; RAISE NOTICE 'User dropped'; ELSE RAISE NOTICE 'User does not exist'; END IF; END$$;" 2>nul
-if not errorlevel 1 (
+if %errorlevel% equ 0 (
     echo User dropped or did not exist
 ) else (
-    echo [WARN] Could not drop user (may need superuser privileges)
+    echo [ERROR] Could not drop user (may need superuser privileges^)
+    exit /b 1
 )
 
 endlocal
 
 echo.
-echo [SUCCESS] Database teardown script finished.
+echo ========================================
+echo [SUCCESS] Database teardown completed!
+echo ========================================
+echo Database: %DB_NAME%
+echo Schema: Downgraded via Alembic (base)
+echo.
+echo [NOTE] SQL files in sql/ directory are kept for reference only.
+echo        All schema changes are now managed through Alembic.
+echo ========================================
 exit /b 0

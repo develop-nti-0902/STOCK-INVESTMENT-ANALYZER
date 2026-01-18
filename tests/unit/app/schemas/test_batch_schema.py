@@ -64,3 +64,68 @@ def test_response_includes_base_fields():
     )
     assert resp.id == 1
     assert resp.job_type == batch_schemas.JobType.JPX_ALL_STOCKS
+
+
+def test_jpx_all_multi_sequence_request_default_batch_size():
+    """JPXAllMultiSequenceRequestのデフォルトbatch_sizeが50であることを確認."""
+    req = batch_schemas.JPXAllMultiSequenceRequest()
+    assert req.batch_size == 50
+
+
+def test_jpx_all_multi_sequence_request_custom_batch_size():
+    """JPXAllMultiSequenceRequestがカスタムbatch_sizeを受け付けることを確認."""
+    req = batch_schemas.JPXAllMultiSequenceRequest(batch_size=100)
+    assert req.batch_size == 100
+
+
+def test_jpx_all_multi_sequence_request_batch_size_bounds():
+    """batch_sizeが範囲外の値を拒否することを確認."""
+    with pytest.raises(ValidationError):
+        batch_schemas.JPXAllMultiSequenceRequest(batch_size=0)
+
+    with pytest.raises(ValidationError):
+        batch_schemas.JPXAllMultiSequenceRequest(batch_size=201)
+
+
+def test_timeframe_result_creation():
+    """TimeframeResultが正しく作成できることを確認."""
+    result = batch_schemas.TimeframeResult(
+        timeframe="1d",
+        status="completed",
+        success_count=100,
+        failed_count=5,
+        error_message=None,
+        started_at="2026-01-17T00:00:00",
+        finished_at="2026-01-17T00:10:00",
+    )
+    assert result.timeframe == "1d"
+    assert result.status == "completed"
+    assert result.success_count == 100
+    assert result.failed_count == 5
+
+
+def test_jpx_all_multi_sequence_response_creation():
+    """JPXAllMultiSequenceResponseが正しく作成できることを確認."""
+    response = batch_schemas.JPXAllMultiSequenceResponse(
+        job_id="123",
+        overall_status="COMPLETED",
+        results=[
+            batch_schemas.TimeframeResult(
+                timeframe="1d",
+                status="completed",
+                success_count=100,
+                failed_count=0,
+            ),
+            batch_schemas.TimeframeResult(
+                timeframe="1m",
+                status="completed",
+                success_count=95,
+                failed_count=5,
+            ),
+        ],
+    )
+    assert response.job_id == "123"
+    assert response.overall_status == "COMPLETED"
+    assert len(response.results) == 2
+    assert response.results[0].timeframe == "1d"
+    assert response.results[1].timeframe == "1m"

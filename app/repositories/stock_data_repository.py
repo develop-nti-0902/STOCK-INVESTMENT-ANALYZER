@@ -12,7 +12,7 @@ from datetime import date, datetime
 from typing import List, Optional, Union, cast
 
 from sqlalchemy import delete as sql_delete
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -133,7 +133,7 @@ class StockDataRepository(BaseRepository, ABC):
                 "close": stmt.excluded.close,
                 "adj_close": stmt.excluded.adj_close,
                 "volume": stmt.excluded.volume,
-                "updated_at": func.now(),  # pylint: disable=not-callable
+                "updated_at": text("now()"),
             }
 
             stmt = stmt.on_conflict_do_update(
@@ -173,7 +173,7 @@ class StockDataRepository(BaseRepository, ABC):
             raise StockDataError(message=f"Failed to upsert data: {e}") from e
 
     async def upsert_bulk(self, data_list: List[dict]) -> int:
-        """複数レコードの UPSERT を一括で実行する.
+        """複数レコードの UPSERT を1回のSQL実行でまとめて処理する.
 
         Args:
             data_list (List[dict]): UPSERT 対象のデータリスト
@@ -181,38 +181,92 @@ class StockDataRepository(BaseRepository, ABC):
         Returns:
             int: 成功件数
 
-        Raises:
-            RuntimeError: 一括処理に失敗した場合
-
         Notes:
-            トランザクション制御は Service 層で行ってください。
+            - トランザクション制御は Service 層で行ってください。
+            - シンボルごとに全データを1回のSQLで処理します。
         """
         if not data_list:
             return 0
 
-        success_count = 0
-
         try:
-            # 全データをUPSERT
+            # 事前に必須フィールドの検証を行い、無効なレコードは除外する
+            valid_data: List[dict] = []
             for data in data_list:
-                try:
-                    await self.upsert_single(data)
-                    success_count += 1
-                except Exception as e:
-                    # 単一レコードのUPSERTで例外が起きた場合はログを記録して次のレコードへ進む
-                    error_info = {
-                        "data": data,
-                        "error": str(e),
-                        "timeframe": self.timeframe,
-                    }
-                    logger.warning("Failed to upsert data: %s", error_info)
+                required_fields = [
+                    "symbol",
+                    self.time_column,
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                ]
+                missing_fields: List[str] = []
+                for field in required_fields:
+                    if field not in data:
+                        missing_fields.append(field)
+                if missing_fields:
+                    logger.warning(
+                        "Skipping invalid upsert (missing=%s): %s",
+                        missing_fields,
+                        data,
+                    )
+                    continue
+                valid_data.append(data)
 
-            logger.info(
-                "Bulk UPSERT executed (no commit): %s/%s succeeded for %s",
-                success_count,
-                len(data_list),
-                self.timeframe,
+            if not valid_data:
+                logger.info("No valid data to upsert for %s", self.timeframe)
+                return 0
+
+            # PostgreSQLのパラメータ制限(32767)を考慮
+            # 安全マージンとして3000レコード(24000パラメータ)を上限とする
+            max_records_per_query = 3000
+            total_params = len(valid_data) * 8
+
+            if total_params > 24000:  # 3000レコード × 8カラム
+                logger.info(
+                    (
+                        "Large dataset for %s: %s records (%s parameters). "
+                        "Splitting into chunks."
+                    ),
+                    self.timeframe,
+                    len(valid_data),
+                    total_params,
+                )
+
+                # チャンクに分割して処理
+                success_count = 0
+                for i in range(0, len(valid_data), max_records_per_query):
+                    chunk = valid_data[i : i + max_records_per_query]
+
+                    chunk_count = await self._execute_insert(chunk)
+                    success_count += chunk_count
+
+                    logger.debug(
+                        "Chunk %s-%s: %s rows affected",
+                        i,
+                        i + len(chunk),
+                        chunk_count,
+                    )
+            else:
+                logger.info(
+                    (
+                        "Starting bulk upsert for %s: %s valid records "
+                        "(out of %s total)"
+                    ),
+                    self.timeframe,
+                    len(valid_data),
+                    len(data_list),
+                )
+
+                # 全データを1回のSQLで実行
+                success_count = await self._execute_insert(valid_data)
+
+            msg = (
+                "Bulk UPSERT executed (no commit): "
+                f"{success_count}/{len(data_list)} rows affected "
+                f"for {self.timeframe} (valid_data={len(valid_data)})"
             )
+            logger.info(msg)
 
             return success_count
 
@@ -221,6 +275,33 @@ class StockDataRepository(BaseRepository, ABC):
             raise StockDataError(
                 message=f"Failed to bulk upsert data: {e}"
             ) from e
+
+    async def _execute_insert(self, chunk: List[dict]) -> int:
+        """チャンク用のUPSERT文を構築して実行するヘルパー。"""
+        stmt = insert(self.model).values(chunk)
+        update_values = self._build_update_values(stmt)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["symbol", self.time_column], set_=update_values
+        )
+
+        result = await self.session.execute(stmt)
+        return (
+            result.rowcount
+            if hasattr(result, "rowcount") and result.rowcount
+            else len(chunk)
+        )
+
+    def _build_update_values(self, stmt):
+        """ON CONFLICT の更新マッピングを構築するヘルパー。"""
+        return {
+            "open": stmt.excluded.open,
+            "high": stmt.excluded.high,
+            "low": stmt.excluded.low,
+            "close": stmt.excluded.close,
+            "adj_close": stmt.excluded.adj_close,
+            "volume": stmt.excluded.volume,
+            "updated_at": text("now()"),
+        }
 
     async def get_by_symbol_and_range(
         self,
@@ -287,8 +368,9 @@ class StockDataRepository(BaseRepository, ABC):
         Returns:
             int: レコード数
         """
-        # pylint: disable=not-callable
-        query = select(func.count()).where(self.model.symbol == symbol)
+        query = select(text(f"count({self.model.symbol.name})")).where(
+            self.model.symbol == symbol
+        )
         result = await self.session.execute(query)
         return result.scalar_one()
 

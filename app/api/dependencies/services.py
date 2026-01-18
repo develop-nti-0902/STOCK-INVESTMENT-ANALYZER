@@ -13,6 +13,9 @@ from app.repositories.batch_execution_repository import (
     BatchExecutionRepository,
 )
 from app.repositories.stock_master_repository import StockMasterRepository
+from app.repositories.stock_master_updates_repository import (
+    StockMasterUpdatesRepository,
+)
 from app.services.batch.batch_execution_service import BatchExecutionService
 from app.services.market_data.stock_master import StockMasterService
 from app.services.market_data.stock_price import (
@@ -108,18 +111,36 @@ def get_stock_master_repository(
     return StockMasterRepository(session=db)
 
 
+def get_stock_master_updates_repository(
+    db: AsyncSession = Depends(get_db),
+) -> StockMasterUpdatesRepository:
+    """StockMasterUpdatesRepository を提供する依存性プロバイダ.
+
+    Args:
+        db (AsyncSession): 非同期DBセッション
+
+    Returns:
+        StockMasterUpdatesRepository: 銘柄マスタ更新履歴のリポジトリ
+    """
+    return StockMasterUpdatesRepository(session=db)
+
+
 def get_stock_master_service(
     repo: StockMasterRepository = Depends(get_stock_master_repository),
+    updates_repo: StockMasterUpdatesRepository = Depends(
+        get_stock_master_updates_repository
+    ),
 ) -> StockMasterService:
     """StockMasterService を提供する依存性プロバイダ.
 
     Args:
         repo (StockMasterRepository): 銘柄マスタリポジトリ
+        updates_repo (StockMasterUpdatesRepository): 銘柄マスタ更新履歴リポジトリ
 
     Returns:
         StockMasterService: 銘柄マスタ関連のビジネスロジックサービス
     """
-    return StockMasterService(repo=repo)
+    return StockMasterService(repo=repo, updates_repo=updates_repo)
 
 
 def get_stock_price_service(

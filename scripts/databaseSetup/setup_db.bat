@@ -1,22 +1,27 @@
 @echo off
 chcp 65001 >nul 2>&1
 REM =============================================================================
-REM PostgreSQL development database setup (Windows)
+REM PostgreSQL development database setup with Alembic (Windows)
 REM Location: scripts\databaseSetup\setup_db.bat
 REM Usage: Run this script directly or call it from other setup scripts
 REM NOTE: Save this file as UTF-8 without BOM. A BOM can be interpreted as commands by CMD.
+REM
+REM This script initializes the database using Alembic.
+REM The previous SQL file execution method is deprecated, and everything is now managed via Alembic migrations.
 REM =============================================================================
 
 setlocal enabledelayedexpansion
 
 REM This script uses the local psql client to create the database and user,
-REM and applies the initial schema from `create_stock_tables.sql` and
-REM `create_management_tables.sql` if present.
+REM then applies the schema using Alembic migrations (alembic upgrade head).
 
 set SCRIPT_DIR=%~dp0
 for %%I in ("%SCRIPT_DIR%..\\..") do set REPO_ROOT=%%~fI\
-set STOCK_SQL=%SCRIPT_DIR%sql\create_stock_tables.sql
-set MGMT_SQL=%SCRIPT_DIR%sql\create_management_tables.sql
+
+REM 従来のSQLファイル（非推奨、参考用として保持）
+REM set STOCK_SQL=%SCRIPT_DIR%sql\create_stock_tables.sql
+REM set MGMT_SQL=%SCRIPT_DIR%sql\create_management_tables.sql
+REM set USER_SQL=%SCRIPT_DIR%sql\create_user_tables.sql
 
 REM Configuration priority (highest to lowest):
 REM 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER DB_PASSWORD
@@ -92,7 +97,7 @@ REM Check for psql in PATH
 echo [1/6] Checking PostgreSQL installation...
 
 where psql >nul 2>&1
-if errorlevel 1 (
+if %errorlevel% neq 0 (
     echo [ERROR] psql ^(PostgreSQL client^) not found in PATH.
     echo Install PostgreSQL client or add it to PATH, then retry.
     exit /b 1
@@ -152,8 +157,12 @@ if NOT "%DB_DATA_DIR%"=="" (
 REM Create database user (ignore if exists)
 echo [3/6] Creating database user (if not exists)...
 
-psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -c "DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '%DB_USER%') THEN CREATE USER %DB_USER% WITH PASSWORD '%DB_PASSWORD%'; END IF; END$$;" 2>NUL
-if errorlevel 1 echo [WARN] Could not create user (you may need to run as a superuser or provide correct postgres password)
+psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -c "DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '%DB_USER%') THEN CREATE USER %DB_USER% WITH LOGIN PASSWORD '%DB_PASSWORD%'; ELSE ALTER ROLE %DB_USER% WITH LOGIN; END IF; END$$;"
+if %errorlevel% neq 0 (
+    echo [ERROR] Could not create or update user
+    exit /b 1
+)
+echo User created or updated successfully
 
 echo [4/6] Preparing tablespace directory and tablespace...
 if not "%SKIP_TABLESPACE%"=="" (
@@ -163,11 +172,14 @@ if not "%SKIP_TABLESPACE%"=="" (
 set "DB_FULL_PATH=!DB_DATA_DIR!\!DB_NAME!"
     if not exist "!DB_FULL_PATH!" (
         echo Creating directory: !DB_FULL_PATH!
-        mkdir "!DB_FULL_PATH!"
-        if errorlevel 1 (
-            echo [ERROR] Failed to create directory %DB_FULL_PATH%
+        mkdir "!DB_FULL_PATH!" 2>nul
+        if not exist "!DB_FULL_PATH!" (
+            echo [ERROR] Failed to create directory !DB_FULL_PATH!
             exit /b 1
         )
+        echo Directory created successfully
+    ) else (
+        echo Directory !DB_FULL_PATH! already exists
     )
 
     REM Check for existing tablespace (use temp file to avoid complex for/f parsing issues)
@@ -176,8 +188,12 @@ set "DB_FULL_PATH=!DB_DATA_DIR!\!DB_NAME!"
     set "TS_CHECK=%TS_CHECK: =%"
     if not "%TS_CHECK%"=="1" (
         echo Creating tablespace stock_data_space at !DB_FULL_PATH!
-        psql -U %PGUSER% -h %PGHOST% -c "CREATE TABLESPACE stock_data_space OWNER %PGUSER% LOCATION '!DB_FULL_PATH!';" 2>"%TEMP%\ts_create_err.txt"
-        if errorlevel 1 echo [WARN] Failed to create tablespace (it may already exist or you may lack privileges)
+        psql -U %PGUSER% -h %PGHOST% -c "CREATE TABLESPACE stock_data_space OWNER %PGUSER% LOCATION '!DB_FULL_PATH!';"
+        if !errorlevel! neq 0 (
+            echo [ERROR] Failed to create tablespace
+            exit /b 1
+        )
+        echo Tablespace created successfully
     ) else (
         echo Tablespace stock_data_space already exists
     )
@@ -195,44 +211,70 @@ if not "%DB_EXISTS%"=="1" (
         psql -U %PGUSER% -h %PGHOST% -c "CREATE DATABASE !DB_NAME! WITH OWNER = %PGUSER% ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>"%TEMP%\db_create_err.txt"
     ) else (
         REM Create database with custom tablespace
-        psql -U %PGUSER% -h %PGHOST% -c "CREATE DATABASE !DB_NAME! WITH OWNER = %PGUSER% ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TABLESPACE = stock_data_space TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>"%TEMP%\db_create_err.txt"
+        psql -U %PGUSER% -h %PGHOST% -c "CREATE DATABASE !DB_NAME! WITH OWNER = %PGUSER% ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TABLESPACE = stock_data_space TEMPLATE = template0 CONNECTION LIMIT = -1;"
     )
-    if errorlevel 1 (
+    if !errorlevel! neq 0 (
         echo [ERROR] Failed to create database
         exit /b 1
     )
+    echo Database created successfully
 ) else (
     echo Database %DB_NAME% already exists
 )
 
 REM Grant privileges
-psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -c "GRANT ALL PRIVILEGES ON DATABASE %DB_NAME% TO %DB_USER%;" 2>NUL || echo [WARN] Could not grant privileges
+psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -c "GRANT ALL PRIVILEGES ON DATABASE %DB_NAME% TO %DB_USER%;" 2>NUL || echo [WARN] Could not grant database privileges
+psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -c "GRANT ALL ON SCHEMA public TO %DB_USER%;" 2>NUL || echo [WARN] Could not grant schema privileges
+psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -c "GRANT CREATE ON SCHEMA public TO %DB_USER%;" 2>NUL || echo [WARN] Could not grant create privileges
 
-REM Apply initial schema if present
-echo [6/6] Applying initial schema (if present) and finishing...
+REM Apply Alembic migrations
+echo [6/6] Applying Alembic migrations...
+echo.
 
-REM Set client encoding to UTF8 for psql
-set PGCLIENTENCODING=UTF8
+cd "%REPO_ROOT%"
 
-REM Apply management tables first (stock_master), then stock tables that reference it
-if not exist "%MGMT_SQL%" (
-    echo [WARN] %MGMT_SQL% not found; skipping management tables apply
+REM Detect Python virtual environment
+if exist ".venv\Scripts\python.exe" (
+    set "PYTHON_CMD=.venv\Scripts\python.exe"
+) else if exist "venv\Scripts\python.exe" (
+    set "PYTHON_CMD=venv\Scripts\python.exe"
 ) else (
-    echo Applying management tables schema: %MGMT_SQL%
-    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -v db_user=%DB_USER% -f "%MGMT_SQL%"
-    if errorlevel 1 echo [WARN] Failed to apply %MGMT_SQL% (check SQL file and permissions)
+    set "PYTHON_CMD=python"
 )
 
-if not exist "%STOCK_SQL%" (
-    echo [WARN] %STOCK_SQL% not found; skipping stock tables apply
-) else (
-    echo Applying stock tables schema: %STOCK_SQL%
-    psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -d %DB_NAME% -v db_user=%DB_USER% -f "%STOCK_SQL%"
-    if errorlevel 1 echo [WARN] Failed to apply %STOCK_SQL% (check SQL file and permissions)
+echo Using Python: !PYTHON_CMD!
+
+REM Check if Alembic is installed
+!PYTHON_CMD! -m alembic --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] Alembic not found. Please install it:
+    echo   !PYTHON_CMD! -m pip install alembic
+    exit /b 1
+)
+
+REM Apply migrations to the latest version
+echo Running: !PYTHON_CMD! -m alembic upgrade head
+!PYTHON_CMD! -m alembic upgrade head
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] Alembic migration failed
+    echo Please check:
+    echo   - Database connection settings in .env
+    echo   - alembic/env.py configuration
+    echo   - Migration files in alembic/versions/
+    exit /b 1
 )
 
 endlocal
 
 echo.
-echo [SUCCESS] Database setup script finished.
+echo ========================================
+echo [SUCCESS] Database setup completed!
+echo ========================================
+echo Database: %DB_NAME%
+echo Schema: Applied via Alembic migrations
+echo.
+echo [NOTE] SQL files in sql/ directory are kept for reference only.
+echo       All schema changes should now be managed through Alembic.
+echo ========================================
 exit /b 0

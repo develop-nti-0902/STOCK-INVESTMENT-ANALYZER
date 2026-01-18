@@ -1,10 +1,9 @@
 import csv
 import os
-from datetime import datetime, timezone
 from typing import List, Type
 
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 import app.utils.database as db_mod
@@ -35,18 +34,18 @@ def write_csv_artifact(
     """
     artifacts_dir = os.path.join(os.path.dirname(__file__), "artifacts")
     os.makedirs(artifacts_dir, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    # 出力ファイル名に日時を含めず、再実行時は上書きされるようにする
     if filename:
         out_path = os.path.join(artifacts_dir, filename)
     else:
         if test_name:
             out_path = os.path.join(
                 artifacts_dir,
-                f"{test_name}_stocks_{timeframe}_multiple_{ts}.csv",
+                f"{test_name}_stocks_{timeframe}_multiple.csv",
             )
         else:
             out_path = os.path.join(
-                artifacts_dir, f"stocks_{timeframe}_multiple_{ts}.csv"
+                artifacts_dir, f"stocks_{timeframe}_multiple.csv"
             )
 
     try:
@@ -82,16 +81,16 @@ def write_csv_artifact(
 
 # 共通テストヘルパーと定数
 TEST_SYMBOLS: List[str] = [
-    "7203",
-    "6758",
-    "9432",
-    "9984",
-    "8306",
-    "6861",
-    "6098",
-    "7974",
-    "6954",
-    "4063",
+    "1301",
+    "1305",
+    "1306",
+    "1308",
+    "1309",
+    "130A",
+    "1311",
+    "1319",
+    "1397",
+    "1399",
 ]
 
 
@@ -139,8 +138,26 @@ async def register_test_symbols(symbols: List[str]) -> None:
 
 
 async def cleanup_database(engine: AsyncEngine) -> None:
+    """テストデータベースのクリーンアップ（Alembic対応）。
+
+    Alembic管理下のため、テーブル削除ではなく全テーブルのデータをTRUNCATEでクリア。
+    外部キー制約を考慮してCASCADEオプションを使用。
+    """
     try:
         async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
+            # 全テーブルのデータをクリア（外部キー制約を無視してCASCADE）
+            # alembic_versionは残す（マイグレーション履歴を保持）
+            await conn.execute(
+                text(
+                    """
+                    TRUNCATE TABLE
+                        stocks_1m, stocks_5m, stocks_15m, stocks_30m,
+                        stocks_1h, stocks_1d, stocks_1wk, stocks_1mo,
+                        batch_executions, stock_master
+                    CASCADE
+                    """
+                )
+            )
     except Exception:
+        # クリーンアップ失敗は無視（テスト自体の成否には影響しない）
         pass

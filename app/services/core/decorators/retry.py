@@ -104,6 +104,6 @@ def retry_on_error(
             async_wrapper
             if inspect.iscoroutinefunction(func)
             else sync_wrapper
-        )  # type: ignore
+        )
 
     return decorator

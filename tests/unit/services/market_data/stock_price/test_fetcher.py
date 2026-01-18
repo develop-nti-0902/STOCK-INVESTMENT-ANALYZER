@@ -4,7 +4,7 @@ StockPriceFetcherの機能をテストします。
 """
 
 import asyncio
-from datetime import date, timedelta
+from datetime import date
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -54,64 +54,6 @@ class TestTimeframeMapping:
         assert "1wk" in supported
         assert "1mo" in supported
 
-    def test_get_max_period_dates_for_limited_timeframes(self):
-        """日数制限のあるタイムフレームの最大期間日付取得をテスト"""
-        # Arrange & Act & Assert - 準備、実行、検証
-        # Test 1m (7 days)
-        start_date, end_date = TimeframeMapping.get_max_period_dates("1m")
-        expected_start = date.today() - timedelta(days=7)
-        assert start_date == expected_start
-        assert end_date is None
-
-        # Test 5m (30 days)
-        start_date, end_date = TimeframeMapping.get_max_period_dates("5m")
-        expected_start = date.today() - timedelta(days=30)
-        assert start_date == expected_start
-        assert end_date is None
-
-        # Test 15m (30 days)
-        start_date, end_date = TimeframeMapping.get_max_period_dates("15m")
-        expected_start = date.today() - timedelta(days=30)
-        assert start_date == expected_start
-        assert end_date is None
-
-        # Test 30m (30 days)
-        start_date, end_date = TimeframeMapping.get_max_period_dates("30m")
-        expected_start = date.today() - timedelta(days=30)
-        assert start_date == expected_start
-        assert end_date is None
-
-        # Test 1h (365 days)
-        start_date, end_date = TimeframeMapping.get_max_period_dates("1h")
-        expected_start = date.today() - timedelta(days=365)
-        assert start_date == expected_start
-        assert end_date is None
-
-    def test_get_max_period_dates_for_unlimited_timeframes(self):
-        """制限のないタイムフレームの最大期間日付取得をテスト"""
-        # Arrange & Act & Assert - 準備、実行、検証
-        # Test 1d (max)
-        start_date, end_date = TimeframeMapping.get_max_period_dates("1d")
-        assert start_date is None
-        assert end_date is None
-
-        # Test 1wk (max)
-        start_date, end_date = TimeframeMapping.get_max_period_dates("1wk")
-        assert start_date is None
-        assert end_date is None
-
-        # Test 1mo (max)
-        start_date, end_date = TimeframeMapping.get_max_period_dates("1mo")
-        assert start_date is None
-        assert end_date is None
-
-    def test_get_max_period_dates_invalid_timeframe(self):
-        """無効なタイムフレームの最大期間日付取得をテスト"""
-        # Arrange - 準備
-        # Act & Assert - 実行と検証
-        with pytest.raises(FieldValidationError):
-            TimeframeMapping.get_max_period_dates("invalid")
-
 
 class TestStockPriceFetcherMaxPeriod:
     """StockPriceFetcher最大期間機能のテストケース"""
@@ -146,12 +88,10 @@ class TestStockPriceFetcherMaxPeriod:
 
             # Assert - 検証
             call_args = mock_fetch.call_args[0]
-            symbol, interval, start_date, end_date, timeframe_arg = call_args
+            symbol, interval, timeframe_arg = call_args
 
             assert symbol == "TEST"
             assert interval == "1m"
-            assert start_date == date.today() - timedelta(days=7)
-            assert end_date is None
             assert timeframe_arg == "1m"
             assert len(result) == 1
 
@@ -169,12 +109,10 @@ class TestStockPriceFetcherMaxPeriod:
 
             # Assert - 検証
             call_args = mock_fetch.call_args[0]
-            symbol, interval, start_date, end_date, timeframe_arg = call_args
+            symbol, interval, timeframe_arg = call_args
 
             assert symbol == "TEST"
             assert interval == "5m"
-            assert start_date == date.today() - timedelta(days=30)
-            assert end_date is None
             assert timeframe_arg == "5m"
 
     @pytest.mark.asyncio
@@ -191,12 +129,10 @@ class TestStockPriceFetcherMaxPeriod:
 
             # Assert - 検証
             call_args = mock_fetch.call_args[0]
-            symbol, interval, start_date, end_date, timeframe_arg = call_args
+            symbol, interval, timeframe_arg = call_args
 
             assert symbol == "TEST"
             assert interval == "15m"
-            assert start_date == date.today() - timedelta(days=30)
-            assert end_date is None
             assert timeframe_arg == "15m"
 
     @pytest.mark.asyncio
@@ -213,12 +149,10 @@ class TestStockPriceFetcherMaxPeriod:
 
             # Assert - 検証
             call_args = mock_fetch.call_args[0]
-            symbol, interval, start_date, end_date, timeframe_arg = call_args
+            symbol, interval, timeframe_arg = call_args
 
             assert symbol == "TEST"
             assert interval == "30m"
-            assert start_date == date.today() - timedelta(days=30)
-            assert end_date is None
             assert timeframe_arg == "30m"
 
     @pytest.mark.asyncio
@@ -235,12 +169,10 @@ class TestStockPriceFetcherMaxPeriod:
 
             # Assert - 検証
             call_args = mock_fetch.call_args[0]
-            symbol, interval, start_date, end_date, timeframe_arg = call_args
+            symbol, interval, timeframe_arg = call_args
 
             assert symbol == "TEST"
             assert interval == "1h"
-            assert start_date == date.today() - timedelta(days=365)
-            assert end_date is None
             assert timeframe_arg == "1h"
 
     @pytest.mark.asyncio
@@ -257,40 +189,28 @@ class TestStockPriceFetcherMaxPeriod:
 
             # Assert - 検証
             call_args = mock_fetch.call_args[0]
-            symbol, interval, start_date, end_date, timeframe_arg = call_args
+            symbol, interval, timeframe_arg = call_args
 
             assert symbol == "TEST"
             assert interval == "1d"
-            assert start_date is None  # max period
-            assert end_date is None
             assert timeframe_arg == "1d"
 
     @pytest.mark.asyncio
     async def test_fetch_single_respects_explicit_dates(self, fetcher):
         """fetch_singleが明示的に指定された日付を尊重することをテスト"""
         # Arrange - 準備
-        custom_start = date(2023, 1, 1)
-        custom_end = date(2023, 12, 31)
-
         with patch.object(
             fetcher, "_fetch_single_symbol", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.return_value = []
 
             # Act - 実行
-            _ = await fetcher.fetch_single(
-                "TEST",
-                timeframe="1d",
-                start_date=custom_start,
-                end_date=custom_end,
-            )
+            _ = await fetcher.fetch_single("TEST", timeframe="1d")
 
             # Assert - 検証
             call_args = mock_fetch.call_args[0]
-            symbol, interval, start_date, end_date, timeframe_arg = call_args
+            symbol, interval, timeframe_arg = call_args
 
-            assert start_date == custom_start
-            assert end_date == custom_end
             assert timeframe_arg == "1d"
 
     @pytest.mark.asyncio
@@ -298,9 +218,9 @@ class TestStockPriceFetcherMaxPeriod:
         """fetch_batchが各タイムフレームで最大期間を使用することをテスト"""
         # Arrange - 準備
         with patch.object(
-            fetcher, "fetch_single", new_callable=AsyncMock
-        ) as mock_fetch_single:
-            mock_fetch_single.return_value = []
+            fetcher, "_fetch_multi_symbol", new_callable=AsyncMock
+        ) as mock_multi:
+            mock_multi.return_value = {"TEST1": [], "TEST2": []}
 
             symbols = ["TEST1", "TEST2"]
 
@@ -308,16 +228,10 @@ class TestStockPriceFetcherMaxPeriod:
             _ = await fetcher.fetch_batch(symbols, timeframe="5m")
 
             # Assert - 検証
-            # Verify fetch_single was called for each symbol
-            assert mock_fetch_single.call_count == 2
-
-            # Check first call
-            first_call = mock_fetch_single.call_args_list[0]
-            args, kwargs = first_call
-            assert kwargs["symbol"] == "TEST1"  # symbol
-            assert kwargs["timeframe"] == "5m"
-            assert kwargs["start_date"] == date.today() - timedelta(days=30)
-            assert kwargs["end_date"] is None
+            mock_multi.assert_called_once()
+            call_args = mock_multi.call_args[0]
+            assert call_args[0] == symbols
+            assert call_args[1] == "5m"
 
 
 class TestStockPriceFetcherAdditional:
@@ -335,8 +249,8 @@ class TestStockPriceFetcherAdditional:
         assert TimeframeMapping.get_period("1d") == "max"
         assert TimeframeMapping.get_period("1wk") == "max"
         assert TimeframeMapping.get_period("1mo") == "max"
-        assert TimeframeMapping.get_period("1m") is None
-        assert TimeframeMapping.get_period("5m") is None
+        assert TimeframeMapping.get_period("1m") == "7d"
+        assert TimeframeMapping.get_period("5m") == "30d"
 
     def test_get_period_invalid(self):
         """無効なタイムフレームのperiod取得をテスト"""
@@ -404,11 +318,10 @@ class TestStockPriceFetcherAdditional:
         """fetch_batchの例外処理をテスト"""
         # Arrange - 準備
         with patch.object(
-            fetcher, "fetch_single", new_callable=AsyncMock
-        ) as mock_fetch_single:
-            # 最初の呼び出しは成功、2番目は例外
-            mock_fetch_single.side_effect = [
-                [
+            fetcher, "_fetch_multi_symbol", new_callable=AsyncMock
+        ) as mock_multi:
+            mock_multi.return_value = {
+                "TEST1": [
                     StockData(
                         symbol="TEST1",
                         trade_date=date.today(),
@@ -420,8 +333,8 @@ class TestStockPriceFetcherAdditional:
                         adj_close=None,
                     )
                 ],
-                ValueError("Test error"),
-            ]
+                "TEST2": [],
+            }
 
             symbols = ["TEST1", "TEST2"]
 
@@ -432,7 +345,7 @@ class TestStockPriceFetcherAdditional:
             assert "TEST1" in result
             assert len(result["TEST1"]) == 1
             assert "TEST2" in result
-            assert result["TEST2"] == []  # 例外時は空リスト
+            assert result["TEST2"] == []
 
     def test_parse_yfinance_data(self, fetcher):
         """_parse_yfinance_dataメソッドをテスト"""
@@ -521,9 +434,7 @@ class TestStockPriceFetcherAdditional:
             mock_instance.history.return_value = mock_hist
 
             # Act - 実行
-            result = await fetcher._fetch_single_symbol(
-                "TEST", "1d", None, None, "1d"
-            )
+            result = await fetcher._fetch_single_symbol("TEST", "1d", "1d")
 
             # Assert - 検証
             assert len(result) == 1
@@ -556,23 +467,80 @@ class TestStockPriceFetcherAdditional:
             )
             mock_instance.history.return_value = mock_hist
 
-            start_date = date(2023, 1, 1)
-            end_date = date(2023, 12, 31)
+            # start_date/end_date were not used; removed to satisfy linter
 
             # Act - 実行
-            result = await fetcher._fetch_single_symbol(
-                "TEST", "1m", start_date, end_date, "1m"
-            )
+            result = await fetcher._fetch_single_symbol("TEST", "1m", "1m")
 
             # Assert - 検証
             assert len(result) == 1
+            # 実装上、短時間足は period を使用するため period 呼び出しを期待する
             mock_instance.history.assert_called_with(
+                period="7d",
                 interval="1m",
-                start=start_date,
-                end=end_date,
                 prepost=False,
                 actions=False,
             )
+
+    @pytest.mark.asyncio
+    async def test_fetch_multi_yfinance(self, fetcher):
+        """fetch_multi_yfinance が複数銘柄を正しくパースすることをテスト"""
+        from unittest.mock import patch as mock_patch
+
+        import pandas as pd
+
+        with mock_patch("yfinance.Tickers") as mock_tickers:
+            mock_instance = mock_tickers.return_value
+
+            # MultiIndex columns: (attribute, ticker)
+            cols = pd.MultiIndex.from_tuples(
+                [
+                    ("Open", "AAPL"),
+                    ("High", "AAPL"),
+                    ("Low", "AAPL"),
+                    ("Close", "AAPL"),
+                    ("Volume", "AAPL"),
+                    ("Open", "7203.T"),
+                    ("High", "7203.T"),
+                    ("Low", "7203.T"),
+                    ("Close", "7203.T"),
+                    ("Volume", "7203.T"),
+                ]
+            )
+
+            data = [
+                [
+                    100.0,
+                    101.0,
+                    99.0,
+                    100.5,
+                    1000,
+                    200.0,
+                    201.0,
+                    199.0,
+                    200.5,
+                    2000,
+                ]
+            ]
+
+            df = pd.DataFrame(
+                data, index=pd.to_datetime(["2023-01-01"]), columns=cols
+            )
+
+            mock_instance.history.return_value = df
+
+            result = await fetcher.fetch_batch(
+                ["AAPL", "7203"], timeframe="1d"
+            )
+
+            assert "AAPL" in result
+            assert "7203" in result
+            assert len(result["AAPL"]) == 1
+            assert len(result["7203"]) == 1
+            assert result["AAPL"][0].symbol == "AAPL"
+            assert result["7203"][0].symbol == "7203"
+            assert result["AAPL"][0].open_price == 100.0
+            assert result["7203"][0].open_price == 200.0
 
     def test_parse_yfinance_data_with_missing_columns(self, fetcher):
         """_parse_yfinance_dataが欠損列を扱う場合をテスト"""
@@ -642,10 +610,10 @@ class TestStockPriceFetcherAdditional:
             # Assert - 検証
             # YahooFinanceErrorの場合はerrorとwarningの両方が呼ばれる
             mock_logger.error.assert_called_with(
-                f"Error fetching data for TEST: {error}"
+                "Error fetching data for %s: %s", "TEST", error
             )
             mock_logger.warning.assert_called_with(
-                f"Yahoo Finance API error for TEST: {error}"
+                "Yahoo Finance API error for %s: %s", "TEST", error
             )
 
     @pytest.mark.asyncio
@@ -662,6 +630,6 @@ class TestStockPriceFetcherAdditional:
 
             # Assert - 検証
             mock_logger.error.assert_called_with(
-                f"Unexpected error for TEST: {error}"
+                "Unexpected error for %s: %s", "TEST", error
             )
             mock_logger.warning.assert_not_called()

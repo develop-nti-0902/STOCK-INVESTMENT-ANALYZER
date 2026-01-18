@@ -109,9 +109,7 @@ class BulkSaverMixin(BaseSaver[T], Generic[T]):
 
                     return saved_count
 
-                except (
-                    Exception
-                ) as e:  # pylint: disable=broad-exception-caught
+                except Exception as e:
                     logger.error(
                         "Failed to save chunk %s: %s",
                         chunk_index + 1,

@@ -158,6 +158,32 @@ class Settings(BaseSettings):
         description="Max concurrent requests (default: 10)",
     )
 
+    # CORS設定: 開発時は localhost をデフォルトで許可する
+    CORS_ALLOW_ORIGINS: list[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ],
+        description=(
+            "Allowed origins for CORS. In environment variables, "
+            "provide a comma-separated list"
+        ),
+    )
+
+    CORS_ALLOW_CREDENTIALS: bool = Field(
+        True, description="Whether to allow credentials in CORS responses"
+    )
+
+    CORS_ALLOW_METHODS: list[str] = Field(
+        default_factory=lambda: ["*"],
+        description="Allowed HTTP methods for CORS",
+    )
+
+    CORS_ALLOW_HEADERS: list[str] = Field(
+        default_factory=lambda: ["*"],
+        description="Allowed HTTP headers for CORS",
+    )
+
     # バッチ処理設定
     batch: BatchProcessingSettings = Field(
         default_factory=BatchProcessingSettings

@@ -59,22 +59,21 @@ class ResetResponse(BaseModel):
     status_code=http_status.HTTP_200_OK,
 )
 async def refresh_stock_master(
-    batch_size: int = Query(500, gt=0, le=5000, description="Batch size"),
     service: StockMasterService = Depends(get_stock_master_service),
 ) -> RefreshResponse:
     """銘柄マスタを最新情報で更新.
 
     JPXから最新の銘柄情報を取得してDBに保存します。
+    更新履歴も stock_master_updates テーブルに記録されます。
 
     Args:
-        batch_size (int): バッチ処理のサイズ（デフォルト: 500）
         service (StockMasterService): 銘柄マスタサービス
 
     Returns:
         RefreshResponse: 更新結果
     """
     try:
-        updated_count = await service.fetch_and_store(batch_size=batch_size)
+        updated_count = await service.refresh_stock_master()
         return RefreshResponse(
             message="Stock master refresh completed",
             updated_count=updated_count,
@@ -82,6 +81,45 @@ async def refresh_stock_master(
     except Exception as e:
         raise ServiceError(
             message=f"Failed to refresh stock master: {str(e)}",
+        ) from e
+
+
+@router.post(
+    "/refresh/sample",
+    response_model=RefreshResponse,
+    status_code=http_status.HTTP_200_OK,
+)
+async def refresh_stock_master_sample(
+    sample_size: int = Query(
+        100, gt=0, le=5000, description="Number of symbols to store"
+    ),
+    batch_size: int = Query(500, gt=0, le=5000, description="Batch size"),
+    service: StockMasterService = Depends(get_stock_master_service),
+) -> RefreshResponse:
+    """銘柄マスタの先頭N件のみを取得してDBに保持する（テスト用）。
+
+    Args:
+        sample_size (int): 保存する銘柄件数（デフォルト: 100）
+        batch_size (int): バッチ処理のサイズ（デフォルト: 500）
+        service (StockMasterService): 銘柄マスタサービス
+
+    Returns:
+        RefreshResponse: 更新結果
+    """
+    try:
+        updated_count = await service.refresh_stock_master(
+            limit=sample_size, batch_size=batch_size
+        )
+        return RefreshResponse(
+            message=(
+                f"Stock master sample refresh completed "
+                f"(sample_size={sample_size})"
+            ),
+            updated_count=updated_count,
+        )
+    except Exception as e:
+        raise ServiceError(
+            message=f"Failed to refresh stock master sample: {str(e)}",
         ) from e
 
 

@@ -1,20 +1,25 @@
 #!/usr/bin/env bash
 # =============================================================================
-# PostgreSQL development database setup (Linux/macOS)
+# PostgreSQL development database setup with Alembic (Linux/macOS)
 # Location: scripts/databaseSetup/setup_db.sh
 # Usage: Run this script directly or call it from other setup scripts
+#
+# This script initializes the database using Alembic.
+# The previous SQL file execution method is deprecated, and everything is now managed via Alembic migrations.
 # =============================================================================
 
 set -euo pipefail
 
 # This script uses the local psql client to create the database and user,
-# and applies the initial schema from `create_stock_tables.sql` and
-# `create_management_tables.sql` if present.
+# then applies the schema using Alembic migrations (alembic upgrade head).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-STOCK_SQL="${SCRIPT_DIR}/sql/create_stock_tables.sql"
-MGMT_SQL="${SCRIPT_DIR}/sql/create_management_tables.sql"
+
+# 従来のSQLファイル（非推奨、参考用として保持）
+# STOCK_SQL="${SCRIPT_DIR}/sql/create_stock_tables.sql"
+# MGMT_SQL="${SCRIPT_DIR}/sql/create_management_tables.sql"
+# USER_SQL="${SCRIPT_DIR}/sql/create_user_tables.sql"
 
 # Configuration priority (highest to lowest):
 # 1) Positional arguments: PGHOST PGPORT PGUSER PGPASSWORD DB_NAME DB_USER DB_PASSWORD
@@ -145,7 +150,11 @@ fi
 # Create database user (ignore if exists)
 echo "[3/6] Creating database user (if not exists)..."
 
-psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '${DB_USER}') THEN CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASSWORD}'; END IF; END\$\$;" 2>/dev/null || echo "[WARN] Could not create user (you may need to run as a superuser or provide correct postgres password)"
+psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '${DB_USER}') THEN CREATE USER ${DB_USER} WITH LOGIN PASSWORD '${DB_PASSWORD}'; ELSE ALTER ROLE ${DB_USER} WITH LOGIN; END IF; END\$\$;" || {
+    echo "[ERROR] Could not create or update user"
+    exit 1
+}
+echo "User created or updated successfully"
 
 echo "[4/6] Preparing tablespace directory and tablespace..."
 if [[ -n "${SKIP_TABLESPACE:-}" ]]; then
@@ -159,13 +168,20 @@ else
             echo "[ERROR] Failed to create directory $DB_FULL_PATH"
             exit 1
         }
+        echo "Directory created successfully"
+    else
+        echo "Directory $DB_FULL_PATH already exists"
     fi
 
     # Check for existing tablespace
     TS_CHECK=$(psql -U "${PGUSER}" -h "${PGHOST}" -t -c "SELECT 1 FROM pg_tablespace WHERE spcname='stock_data_space';" 2>&1 | tr -d '[:space:]')
     if [[ "$TS_CHECK" != "1" ]]; then
         echo "Creating tablespace stock_data_space at $DB_FULL_PATH"
-        psql -U "${PGUSER}" -h "${PGHOST}" -c "CREATE TABLESPACE stock_data_space OWNER ${PGUSER} LOCATION '$DB_FULL_PATH';" 2>/dev/null || echo "[WARN] Failed to create tablespace (it may already exist or you may lack privileges)"
+        psql -U "${PGUSER}" -h "${PGHOST}" -c "CREATE TABLESPACE stock_data_space OWNER ${PGUSER} LOCATION '$DB_FULL_PATH';" || {
+            echo "[ERROR] Failed to create tablespace"
+            exit 1
+        }
+        echo "Tablespace created successfully"
     else
         echo "Tablespace stock_data_space already exists"
     fi
@@ -178,45 +194,71 @@ DB_EXISTS=$(psql -U "${PGUSER}" -h "${PGHOST}" -t -c "SELECT 1 FROM pg_database 
 if [[ "$DB_EXISTS" != "1" ]]; then
     if [[ -n "${SKIP_TABLESPACE:-}" ]]; then
         # Create database without tablespace (use default)
-        psql -U "${PGUSER}" -h "${PGHOST}" -c "CREATE DATABASE ${DB_NAME} WITH OWNER = ${PGUSER} ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>/dev/null || {
+        psql -U "${PGUSER}" -h "${PGHOST}" -c "CREATE DATABASE ${DB_NAME} WITH OWNER = ${PGUSER} ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TEMPLATE = template0 CONNECTION LIMIT = -1;" || {
             echo "[ERROR] Failed to create database"
             exit 1
         }
     else
         # Create database with custom tablespace
-        psql -U "${PGUSER}" -h "${PGHOST}" -c "CREATE DATABASE ${DB_NAME} WITH OWNER = ${PGUSER} ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TABLESPACE = stock_data_space TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>/dev/null || {
+        psql -U "${PGUSER}" -h "${PGHOST}" -c "CREATE DATABASE ${DB_NAME} WITH OWNER = ${PGUSER} ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TABLESPACE = stock_data_space TEMPLATE = template0 CONNECTION LIMIT = -1;" || {
             echo "[ERROR] Failed to create database"
             exit 1
         }
     fi
+    echo "Database created successfully"
 else
     echo "Database ${DB_NAME} already exists"
 fi
 
 # Grant privileges
-psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};" 2>/dev/null || echo "[WARN] Could not grant privileges"
+psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};" 2>/dev/null || echo "[WARN] Could not grant database privileges"
+psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -c "GRANT ALL ON SCHEMA public TO ${DB_USER};" 2>/dev/null || echo "[WARN] Could not grant schema privileges"
+psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -c "GRANT CREATE ON SCHEMA public TO ${DB_USER};" 2>/dev/null || echo "[WARN] Could not grant create privileges"
 
-# Apply initial schema if present
-echo "[6/6] Applying initial schema (if present) and finishing..."
+# Apply Alembic migrations
+echo "[6/6] Applying Alembic migrations..."
+echo ""
 
-# Set client encoding to UTF8 for psql
-export PGCLIENTENCODING=UTF8
+cd "${REPO_ROOT}"
 
-if [[ -f "$MGMT_SQL" ]]; then
-    echo "Applying management tables schema: $MGMT_SQL"
-    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -v db_user="${DB_USER}" -f "$MGMT_SQL" || echo "[WARN] Failed to apply $MGMT_SQL (check SQL file and permissions)"
+# Detect Python virtual environment
+if [[ -f ".venv/bin/python" ]]; then
+    PYTHON_CMD=".venv/bin/python"
+elif [[ -f "venv/bin/python" ]]; then
+    PYTHON_CMD="venv/bin/python"
 else
-    echo "[WARN] $MGMT_SQL not found; skipping management tables apply"
+    PYTHON_CMD="python3"
 fi
 
-# Apply stock tables after management tables to satisfy FK dependencies
-if [[ -f "$STOCK_SQL" ]]; then
-    echo "Applying stock tables schema: $STOCK_SQL"
-    psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${DB_NAME}" -v db_user="${DB_USER}" -f "$STOCK_SQL" || echo "[WARN] Failed to apply $STOCK_SQL (check SQL file and permissions)"
-else
-    echo "[WARN] $STOCK_SQL not found; skipping stock tables apply"
-fi
+echo "Using Python: ${PYTHON_CMD}"
+
+# Check if Alembic is installed
+"${PYTHON_CMD}" -m alembic --version &>/dev/null || {
+    echo "[ERROR] Alembic not found. Please install it:"
+    echo "  ${PYTHON_CMD} -m pip install alembic"
+    exit 1
+}
+
+# Apply migrations to the latest version
+echo "Running: ${PYTHON_CMD} -m alembic upgrade head"
+"${PYTHON_CMD}" -m alembic upgrade head || {
+    echo ""
+    echo "[ERROR] Alembic migration failed"
+    echo "Please check:"
+    echo "  - Database connection settings in .env"
+    echo "  - alembic/env.py configuration"
+    echo "  - Migration files in alembic/versions/"
+    exit 1
+}
 
 echo ""
-echo "[SUCCESS] Database setup script finished."
+echo "========================================"
+echo "[SUCCESS] Database setup completed!"
+echo "========================================"
+echo "Database: ${DB_NAME}"
+echo "Schema: Applied via Alembic migrations"
+echo ""
+echo "[NOTE] SQL files in sql/ directory are kept for reference only."
+echo "       All schema changes should now be managed through Alembic."
+echo "========================================"
 exit 0

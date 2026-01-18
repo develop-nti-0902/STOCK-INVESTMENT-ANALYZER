@@ -24,6 +24,11 @@ openpyxl = "^3.1.5"
 requests = "^2.32.5"
 aiohttp = "^3.13"
 yfinance = ">=0.2.54"
+jinja2 = "3.1.6"
+python-multipart = ">=0.0.21"
+python-jose = {extras = ["cryptography"], version = "^3.5.0"}
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+email-validator = "^2.3.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4"
@@ -51,10 +56,18 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 79
+# Exclude the development "work" directory from formatting checks
+exclude = '''/(
+    |\.git
+    |\.venv
+    |work
+)'''
 
 [tool.isort]
 profile = "black"
 line_length = 79
+# Skip the development "work" directory from isort checks
+skip = ["work"]
 
 [tool.mypy]
 python_version = "3.14"

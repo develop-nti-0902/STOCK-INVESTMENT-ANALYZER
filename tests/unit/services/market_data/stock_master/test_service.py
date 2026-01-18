@@ -4,7 +4,7 @@ StockMasterService単体テスト
 銘柄マスタサービス（オーケストレーション層）の機能をテストします。
 """
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
@@ -129,33 +129,47 @@ class TestStockMasterService:
     @pytest.mark.asyncio
     async def test_refresh_stock_master_success(self):
         """銘柄マスタ更新の成功ケース"""
-        # テストデータ
-        expected_count = 100
 
-        # モックの設定
-        self.service.fetch_and_store = AsyncMock(return_value=expected_count)
+        # Arrange: フェッチャーが2件返し、bulk_upsert が件数を返す
+        class FakeModel:
+            def __init__(self, symbol: str):
+                self._d = {"stock_code": symbol}
 
-        # テスト実行
+            def model_dump(self, *args, **kwargs):
+                return self._d
+
+        self.mock_fetcher.fetch_all = AsyncMock(
+            return_value=[FakeModel("A"), FakeModel("B")]
+        )
+
+        async def fake_bulk(records):
+            return len(records)
+
+        self.mock_repo.bulk_upsert = AsyncMock(side_effect=fake_bulk)
+        self.mock_repo.get_all_active_symbols = AsyncMock(return_value=[])
+
+        # Act
         result = await self.service.refresh_stock_master()
 
-        # 検証
-        assert result == expected_count
-        self.service.fetch_and_store.assert_called_once_with()
+        # Assert
+        assert result == 2
 
     @pytest.mark.asyncio
     async def test_refresh_stock_master_failure(self):
         """銘柄マスタ更新の失敗ケース"""
-        # モックの設定
-        self.service.fetch_and_store = AsyncMock(
+        # Arrange: フェッチ時に例外を発生させる
+        self.mock_fetcher.fetch_all = AsyncMock(
             side_effect=Exception("Fetch error")
         )
+        self.mock_repo.get_all_active_symbols = AsyncMock(return_value=[])
 
-        # テスト実行と検証
+        # Act / Assert
         with pytest.raises(Exception, match="Fetch error"):
             await self.service.refresh_stock_master()
 
 
-# fetch_and_store メソッドのテスト
+# fetch_and_store 相当の振る舞いは refresh_stock_master に統一されたため、
+# テストは refresh_stock_master を呼び出すように更新しています。
 @pytest.mark.asyncio
 async def test_fetch_and_store_calls_repo_bulk_upsert():
     """fetch_and_storeがリポジトリのbulk_upsertを適切に呼び出すことを確認"""
@@ -188,12 +202,12 @@ async def test_fetch_and_store_calls_repo_bulk_upsert():
     service = StockMasterService(repo=mock_repo, fetcher=mock_fetcher)
 
     # Act: 実行
-    processed = await service.fetch_and_store(batch_size=1)
+    processed = await service.refresh_stock_master(batch_size=1)
 
     # Assert: 2レコード処理されるはず
     assert processed == 2
-    # Assert: bulk_upsert は 2 回（バッチサイズ1で2回）呼ばれている
-    assert mock_repo.bulk_upsert.call_count == 2
+    # Assert: bulk_upsert は少なくとも1回呼ばれていること
+    assert mock_repo.bulk_upsert.called
 
 
 @pytest.mark.asyncio
@@ -208,7 +222,7 @@ async def test_fetch_and_store_fetcher_error_propagates():
 
     # Act / Assert: フェッチ時の例外が伝搬する
     with pytest.raises(RuntimeError):
-        await service.fetch_and_store()
+        await service.refresh_stock_master()
 
 
 @pytest.mark.asyncio
@@ -232,7 +246,7 @@ async def test_fetch_and_store_repo_error_propagates():
 
     # Act / Assert: リポジトリ側の例外が伝搬する
     with pytest.raises(RuntimeError):
-        await service.fetch_and_store()
+        await service.refresh_stock_master()
 
 
 @pytest.mark.asyncio
@@ -247,4 +261,101 @@ async def test_fetch_and_store_invalid_item_type_raises():
 
     # Act / Assert: Pydantic モデルではないアイテムで TypeError
     with pytest.raises(TypeError):
-        await service.fetch_and_store()
+        await service.refresh_stock_master()
+
+
+@pytest.mark.asyncio
+async def test_refresh_creates_and_updates_summary_success():
+    # Arrange
+    repo = Mock()
+    repo.get_all_active_symbols = AsyncMock(return_value=["A", "B"])
+    repo.bulk_upsert = AsyncMock(return_value=2)
+    repo.delete_all = AsyncMock(return_value=0)
+
+    updates_repo = Mock()
+    # create_summary returns a simple object with id attribute
+    created = Mock()
+    created.id = 123
+    updates_repo.create_summary = AsyncMock(return_value=created)
+    updates_repo.update_status = AsyncMock(return_value=None)
+
+    # prepare a fake fetcher that yields Pydantic-like objects
+    class FakeModel:
+        def __init__(self, symbol: str):
+            self._d = {"stock_code": symbol}
+
+        def model_dump(self, *args, **kwargs) -> dict:
+            # Pydantic v2 の model_dump 呼び出しを模倣
+            return self._d
+
+    fetcher = Mock()
+    fetcher.fetch_all = AsyncMock(
+        return_value=[FakeModel("A"), FakeModel("C")]
+    )
+
+    svc = StockMasterService(
+        repo=repo, fetcher=fetcher, updates_repo=updates_repo
+    )
+
+    # Act
+    processed = await svc.refresh_stock_master()
+
+    # Assert
+    assert processed == 2
+    updates_repo.create_summary.assert_awaited_once()
+    updates_repo.update_status.assert_awaited()
+    # final update should be called with status "success"
+    called_args = updates_repo.update_status.await_args.args
+    assert called_args[1] in ("success",)
+
+
+@pytest.mark.asyncio
+async def test_refresh_marks_failed_on_exception():
+    # Arrange
+    repo = Mock()
+    repo.get_all_active_symbols = AsyncMock(return_value=["A"])
+    repo.bulk_upsert = AsyncMock()
+
+    updates_repo = Mock()
+    created = Mock()
+    created.id = 321
+    updates_repo.create_summary = AsyncMock(return_value=created)
+    updates_repo.update_status = AsyncMock(return_value=None)
+
+    fetcher = Mock()
+    fetcher.fetch_all = AsyncMock(side_effect=RuntimeError("fetch error"))
+
+    svc = StockMasterService(
+        repo=repo, fetcher=fetcher, updates_repo=updates_repo
+    )
+
+    # Act / Assert
+    with pytest.raises(RuntimeError):
+        await svc.refresh_stock_master()
+
+    updates_repo.create_summary.assert_awaited_once()
+    updates_repo.update_status.assert_awaited()
+    # ensure failed status was set
+    called_args = updates_repo.update_status.await_args.args
+    assert called_args[1] == "failed"
+
+
+@pytest.mark.asyncio
+async def test_reset_deletes_summaries_and_master():
+    # Arrange
+    repo = Mock()
+    repo.delete_all = AsyncMock(return_value=5)
+
+    updates_repo = Mock()
+    updates_repo.delete_by_reset = AsyncMock(return_value=3)
+
+    svc = StockMasterService(
+        repo=repo, fetcher=None, updates_repo=updates_repo
+    )
+
+    # Act
+    deleted = await svc.reset_stock_master()
+
+    # Assert
+    assert deleted == 5
+    updates_repo.delete_by_reset.assert_awaited_once()

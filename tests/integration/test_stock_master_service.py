@@ -82,7 +82,7 @@ async def test_fetch_and_store_integration(monkeypatch):
         service = StockMasterService(repo=repo, fetcher=fetcher)
 
         # Repository層はflushのみ実施するため、Service層でcommitが必要
-        processed = await service.fetch_and_store(batch_size=2)
+        processed = await service.refresh_stock_master(batch_size=2)
         await session.commit()
 
         # Assert（検証）: 処理件数がJPXから取得したデータ件数と一致すること
@@ -106,12 +106,11 @@ async def test_fetch_and_store_integration(monkeypatch):
         # 生産物: 全件ダンプを CSV で出力（tests/integration/artifacts/ に保存）
         import csv
         import os
-        from datetime import datetime, timezone
 
         artifacts_dir = os.path.join(os.path.dirname(__file__), "artifacts")
         os.makedirs(artifacts_dir, exist_ok=True)
-        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        out_path = os.path.join(artifacts_dir, f"stock_master_dump_{ts}.csv")
+        # ファイル名に日時を含めず上書き保存する
+        out_path = os.path.join(artifacts_dir, "stock_master_dump.csv")
 
         fieldnames = [
             "id",
@@ -165,10 +164,5 @@ async def test_fetch_and_store_integration(monkeypatch):
         except Exception as e:  # pragma: no cover - artifact write
             logger.error("Failed to write artifact: %s", e)
 
-    # Cleanup: drop tables (best-effort)
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-    except Exception:
-        # テーブル削除失敗は無視（テスト自体は成功している）
-        pass
+    # Cleanup: データクリアのみ実施（Alembic管理下なのでテーブル削除しない）
+    # 他のテストとの干渉を避けるため、テストデータは残さない設計が望ましい

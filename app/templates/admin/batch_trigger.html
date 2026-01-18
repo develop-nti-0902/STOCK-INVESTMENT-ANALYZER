@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>バッチ実行管理 - STOCK INVESTMENT ANALYZER</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>バッチ実行管理</h1>
+            <p class="subtitle">株価データ取得バッチの実行と管理</p>
+        </header>
+
+        <main class="main-content">
+            <!-- バッチ実行セクション -->
+            <section class="batch-trigger-section">
+                <h2>バッチ実行</h2>
+                <div class="batch-control">
+                    <div class="control-group">
+                        <label for="batch-type">バッチ種別</label>
+                        <select id="batch-type" class="form-control">
+                            <option value="refresh">銘柄マスタ更新 (refresh)</option>
+                            <option value="refresh_sample">銘柄マスタ更新（サンプル100件） (refresh_sample)</option>
+                            <option value="jpx_all">JPX 全銘柄取得 (jpx_all)</option>
+                            <option value="jpx_all_multi">JPX 全銘柄取得（マルチ） (jpx_all_multi)</option>
+                            <option value="jpx_all_multi_sequence">JPX バッチ連続実行（1d→1m→1h） (jpx_all_multi_sequence)
+                            </option>
+                            <option value="reset">銘柄マスタリセット (reset)</option>
+                        </select>
+                    </div>
+
+                    <div id="batch-size-group" class="control-group">
+                        <label for="batch-size">バッチサイズ</label>
+                        <select id="batch-size" class="form-control">
+                            <option value="100">100</option>
+                            <option value="500" selected>500 (推奨)</option>
+                            <option value="1000">1000</option>
+                            <option value="2000">2000</option>
+                            <option value="5000">5000</option>
+                        </select>
+                        <small style="color: #6c757d; margin-top: 0.25rem; display: block;">
+                            ※ 銘柄マスタ更新時のバッチ処理サイズ (1-5000)
+                        </small>
+                    </div>
+
+                    <div id="sample-size-group" class="control-group" style="display: none;">
+                        <label for="sample-size">サンプル件数</label>
+                        <input id="sample-size" class="form-control" type="number" min="1" max="5000" value="100">
+                        <small style="color: #6c757d; margin-top: 0.25rem; display: block;">
+                            ※ 銘柄マスタ更新（サンプル）でDBに保持する件数（デフォルト 100）
+                        </small>
+                    </div>
+
+                    <div id="timeframe-group" class="control-group" style="display: none;">
+                        <label for="timeframe">Timeframe</label>
+                        <select id="timeframe" class="form-control">
+                            <option value="1m">1分</option>
+                            <option value="5m" selected>5分</option>
+                            <option value="15m">15分</option>
+                            <option value="30m">30分</option>
+                            <option value="1h">1時間</option>
+                            <option value="1d">1日</option>
+                        </select>
+                        <small style="color: #6c757d; margin-top: 0.25rem; display: block;">
+                            ※ JPX全銘柄取得のタイムフレームを選択
+                        </small>
+                    </div>
+
+                    <div id="list-batch-size-group" class="control-group" style="display: none;">
+                        <label for="list-batch-size">マルチ取得バッチサイズ</label>
+                        <input id="list-batch-size" class="form-control" type="number" min="1" max="500" value="50">
+                        <small style="color: #6c757d; margin-top: 0.25rem; display: block;">
+                            ※ fetch_multi_yfinance に一度に渡す銘柄数 (デフォルト 50)
+                        </small>
+                    </div>
+
+                    <button id="execute-batch-btn" class="btn btn-primary">
+                        <span class="btn-icon">▶</span>
+                        バッチ実行
+                    </button>
+                </div>
+            </section>
+
+            <!-- 実行履歴セクション -->
+            <section class="batch-history-section">
+                <h2>実行履歴</h2>
+                <div class="history-controls">
+                    <button id="refresh-history-btn" class="btn btn-secondary">
+                        <span class="btn-icon">🔄</span>
+                        履歴更新
+                    </button>
+                </div>
+                <div class="table-wrapper">
+                    <table id="batch-history-table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>バッチ種別</th>
+                                <th>ステータス</th>
+                                <th>開始時刻</th>
+                                <th>終了時刻</th>
+                                <th>処理時間</th>
+                                <th>メッセージ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody">
+                            <tr>
+                                <td colspan="7" class="no-data">データがありません</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ユーザー操作セクション -->
+            <section class="user-api-section">
+                <h2>ユーザー操作</h2>
+                <div class="user-controls">
+                    <div class="control-group">
+                        <label for="user-email">Email</label>
+                        <input id="user-email" class="form-control" type="email" placeholder="email@example.com">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="user-password">Password</label>
+                        <input id="user-password" class="form-control" type="password" placeholder="password">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="user-display-name">表示名</label>
+                        <input id="user-display-name" class="form-control" type="text" placeholder="Taro Yamada">
+                    </div>
+
+                    <div class="user-action-buttons">
+                        <button id="user-register-btn" class="btn btn-primary">ユーザー作成 (register)</button>
+                        <button id="user-login-btn" class="btn btn-secondary">ログイン (login)</button>
+                        <button id="user-profile-btn" class="btn btn-info">プロフィール取得 (me)</button>
+                        <button id="user-logout-btn" class="btn">ログアウト</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ステータス表示 -->
+            <section class="status-section">
+                <div id="status-message" class="status-message hidden"></div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2026 STOCK INVESTMENT ANALYZER</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/batch_trigger.js"></script>
+</body>
+
+</html>
