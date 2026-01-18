@@ -82,7 +82,7 @@ async def test_fetch_and_store_integration(monkeypatch):
         service = StockMasterService(repo=repo, fetcher=fetcher)
 
         # Repository層はflushのみ実施するため、Service層でcommitが必要
-        processed = await service.fetch_and_store(batch_size=2)
+        processed = await service.refresh_stock_master(batch_size=2)
         await session.commit()
 
         # Assert（検証）: 処理件数がJPXから取得したデータ件数と一致すること
