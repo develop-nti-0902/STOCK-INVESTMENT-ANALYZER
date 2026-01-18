@@ -21,8 +21,11 @@ export default function Header({ currentScreen, setCurrentScreen, currentUser, o
   return (
     <nav className={styles.header}>
       <div className={styles.container}>
-        <h1 className={styles.title}>株式投資管理システム</h1>
-        
+        <h1 className={styles.title}>
+          株式投資管理<br />
+          システム
+        </h1>
+
         <div className={styles.menu}>
           {menuItems.map((item) => (
             <button
@@ -33,7 +36,7 @@ export default function Header({ currentScreen, setCurrentScreen, currentUser, o
               {item.label}
             </button>
           ))}
-          
+
           <button
             onClick={() => setCurrentScreen('data')}
             className={`${styles.menuItem} ${currentScreen === 'data' ? styles.active : ''}`}
@@ -41,7 +44,7 @@ export default function Header({ currentScreen, setCurrentScreen, currentUser, o
           >
             <span className={styles.smallText}>データ連携</span>
           </button>
-          
+
           <button
             onClick={() => setCurrentScreen('alerts')}
             className={`${styles.menuItem} ${styles.iconButton} ${currentScreen === 'alerts' ? styles.active : ''}`}
@@ -104,8 +107,8 @@ export default function Header({ currentScreen, setCurrentScreen, currentUser, o
 
       {/* オーバーレイ（メニュー外クリックで閉じる） */}
       {showUserMenu && (
-        <div 
-          className={styles.overlay} 
+        <div
+          className={styles.overlay}
           onClick={() => setShowUserMenu(false)}
         />
       )}
