@@ -126,7 +126,8 @@ export default function StockListScreen({ stockList, setSelectedStock, setCurren
   const [equityRatioMin, setEquityRatioMin] = useState('');
   const [sortBy, setSortBy] = useState('overall');
   const [sortDir, setSortDir] = useState('desc');
-  
+  const [showPresetModal, setShowPresetModal] = useState(false);
+
   // 追加フィルター State
   const [marketCapMin, setMarketCapMin] = useState('');
   const [marketCapMax, setMarketCapMax] = useState('');
@@ -137,7 +138,7 @@ export default function StockListScreen({ stockList, setSelectedStock, setCurren
   const [fcfYieldMin, setFcfYieldMin] = useState('');
   const [epsGrowthMin, setEpsGrowthMin] = useState('');
   const [operatingCashFlowMin, setOperatingCashFlowMin] = useState('');
-  
+
   // UI State
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [activePreset, setActivePreset] = useState(null);
@@ -428,29 +429,7 @@ export default function StockListScreen({ stockList, setSelectedStock, setCurren
 
   return (
     <div className={styles.container}>
-      {/* プリセット検索セクション */}
-      <div className={styles.presetSection}>
-        <div className={styles.presetHeader}>
-          <h3 className={styles.presetTitle}>クイック検索</h3>
-          {activePreset && (
-            <div className={styles.activePresetBadge}>
-              適用中: {PRESET_FILTERS[activePreset].name}
-            </div>
-          )}
-        </div>
-        <div className={styles.presetGrid}>
-          {Object.entries(PRESET_FILTERS).map(([key, preset]) => (
-            <button
-              key={key}
-              onClick={() => applyPreset(key)}
-              className={`${styles.presetCard} ${activePreset === key ? styles.presetCardActive : ''}`}
-            >
-              <div className={styles.presetCardTitle}>{preset.name}</div>
-              <div className={styles.presetCardDescription}>{preset.description}</div>
-            </button>
-          ))}
-        </div>
-      </div>
+
 
       {/* 検索・フィルターバー */}
       <div className={styles.searchSection}>
@@ -604,6 +583,20 @@ export default function StockListScreen({ stockList, setSelectedStock, setCurren
         <div className={styles.priceFilter}>
           <div className={styles.priceFilterLeft}>
             <button
+              onClick={() => setShowPresetModal(true)}
+              className={styles.quickSearchButton}
+            >
+              クイック検索
+            </button>
+            {activePreset && (
+              <div className={styles.activePresetBadge}>
+                適用中: {PRESET_FILTERS[activePreset].name}
+                <button onClick={() => { clearAllFilters(); }} className={styles.clearPresetButton}>
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            <button
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               className={styles.advancedFilterToggle}
             >
@@ -619,12 +612,17 @@ export default function StockListScreen({ stockList, setSelectedStock, setCurren
               すべてクリア
             </button>
           </div>
+          {/* 登録ボタン */}
+            <button onClick={handleOpenRegisterModal} className={styles.registerButton} disabled={selectedStocks.length === 0}>
+              <Plus size={18} />
+              選択した銘柄を登録 ({selectedStocks.length})
+            </button>
         </div>
 
         {showAdvancedFilters && (
           <div className={styles.advancedFilters}>
             <div className={styles.advancedFiltersTitle}>詳細フィルター</div>
-            
+
             <div className={styles.filterRow}>
               <div className={styles.filterGroup}>
                 <label className={styles.filterLabel}>時価総額（億円）:</label>
@@ -740,177 +738,178 @@ export default function StockListScreen({ stockList, setSelectedStock, setCurren
         )}
       </div>
 
-      {/* 登録ボタン */}
-      <div className={styles.actionBar}>
-        <button onClick={handleOpenRegisterModal} className={styles.registerButton} disabled={selectedStocks.length === 0}>
-          <Plus size={18} />
-          選択した銘柄を登録 ({selectedStocks.length})
-        </button>
-      </div>
+
 
       {/* テーブル */}
-      <div className={styles.tableContainer}>
-        <table className={styles.table}>
-          <thead className={styles.tableHead}>
-            <tr>
-              <th className={styles.th}>
-                <input
-                  type="checkbox"
-                  checked={selectedStocks.length === filteredStocks.length && filteredStocks.length > 0}
-                  onChange={handleSelectAll}
-                  className={styles.checkbox}
-                />
-              </th>
-              <th className={`${styles.th} ${styles.alignCenter}`}>詳細</th>
-              <th className={`${styles.th} ${styles.sortable}`} onClick={() => handleSort('code')}>
-                銘柄 {sortBy === 'code' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={styles.th}>市場</th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('price')}>
-                現在値 {sortBy === 'price' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('change')}>
-                変動率 {sortBy === 'change' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignCenter}`} onClick={() => handleSort('valuation')}>
-                割安度 {sortBy === 'valuation' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('pbr')}>
-                PBR {sortBy === 'pbr' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('per')}>
-                PER {sortBy === 'per' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('evEbitda')}>
-                EV/EBITDA {sortBy === 'evEbitda' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('dividendYield')}>
-                配当利回り {sortBy === 'dividendYield' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('fcfYield')}>
-                FCF利回り {sortBy === 'fcfYield' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('roe')}>
-                ROE {sortBy === 'roe' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('roa')}>
-                ROA {sortBy === 'roa' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('operatingMargin')}>
-                営業利益率 {sortBy === 'operatingMargin' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('epsGrowth')}>
-                EPS成長率 {sortBy === 'epsGrowth' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('equityRatio')}>
-                自己資本比率 {sortBy === 'equityRatio' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('debtRatio')}>
-                有利子負債倍率 {sortBy === 'debtRatio' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('currentRatio')}>
-                流動比率 {sortBy === 'currentRatio' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('operatingCashFlow')}>
-                営業CF {sortBy === 'operatingCashFlow' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('investingCashFlow')}>
-                投資CF {sortBy === 'investingCashFlow' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('freeCashFlow')}>
-                フリーCF {sortBy === 'freeCashFlow' && (sortDir === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className={styles.th}>セクター</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredStocks.map((stock) => (
-              <tr key={stock.code} className={styles.tableRow}>
-                <td className={styles.td}>
+      {/* テーブルまたは検索結果なし表示 */}
+      {filteredStocks.length === 0 ? (
+        <div className={styles.noResults}>
+          <p className={styles.noResultsText}>検索結果: 0件</p>
+        </div>
+      ) : (
+        <div className={styles.tableContainer}>
+          <table className={styles.table}>
+            <thead className={styles.tableHead}>
+              <tr>
+                <th className={styles.th}>
                   <input
                     type="checkbox"
-                    checked={selectedStocks.includes(stock.code)}
-                    onChange={() => handleSelectStock(stock.code)}
+                    checked={selectedStocks.length === filteredStocks.length && filteredStocks.length > 0}
+                    onChange={handleSelectAll}
                     className={styles.checkbox}
                   />
-                </td>
-                <td className={styles.alignCenter}>
-                  <button
-                    onClick={() => {
-                      setSelectedStock(stock);
-                      setCurrentScreen('detail', 'list');
-                    }}
-                    className={styles.detailButton}
-                    aria-label="詳細を見る"
-                  >
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <circle cx="4" cy="5" r="2" />
-                      <rect x="8" y="4" width="12" height="2" rx="1" />
-                      <circle cx="4" cy="12" r="2" />
-                      <rect x="8" y="11" width="12" height="2" rx="1" />
-                      <circle cx="4" cy="19" r="2" />
-                      <rect x="8" y="18" width="12" height="2" rx="1" />
-                    </svg>
-                  </button>
-                </td>
-                <td className={styles.td}>
-                  <div className={styles.stockCode}>{stock.code}</div>
-                  <div className={styles.stockName}>{stock.name}</div>
-                </td>
-                <td className={styles.td}>
-                  <span className={styles.marketBadge}>{stock.market}</span>
-                </td>
-                <td className={`${styles.td} ${styles.alignRight} ${styles.price}`}>
-                  ¥{stock.price.toLocaleString()}
-                </td>
-                <td className={`${styles.td} ${styles.alignRight} ${styles.change} ${stock.change > 0 ? styles.positive : styles.negative}`}>
-                  {stock.change > 0 ? '+' : ''}{stock.change}%
-                </td>
-                <td className={`${styles.td} ${styles.alignCenter}`}>
-                  <div
-                    className={styles.valuationBadge}
-                    style={{
-                      backgroundColor: `${stock.valuation.color}20`,
-                      color: stock.valuation.color,
-                      border: `1px solid ${stock.valuation.color}40`
-                    }}
-                    title={stock.valuation.reasons.join('\n')}
-                  >
-                    {stock.valuation.label}
-                  </div>
-                </td>
-                <td className={`${styles.td} ${styles.alignRight}`}>{stock.pbr?.toFixed(2) || '-'}</td>
-                <td className={`${styles.td} ${styles.alignRight}`}>{stock.per?.toFixed(2) || '-'}</td>
-                <td className={`${styles.td} ${styles.alignRight}`}>{stock.evEbitda?.toFixed(2) || '-'}</td>
-                <td className={`${styles.td} ${styles.alignRight}`}>{stock.dividendYield?.toFixed(2)}%</td>
-                <td className={`${styles.td} ${styles.alignRight}`}>{stock.fcfYield?.toFixed(2)}%</td>
-                <td className={`${styles.td} ${styles.alignRight}`}>{stock.roe?.toFixed(2)}%</td>
-                <td className={`${styles.td} ${styles.alignRight}`}>{stock.roa?.toFixed(2)}%</td>
-                <td className={`${styles.td} ${styles.alignRight}`}>{stock.operatingMargin?.toFixed(2)}%</td>
-                <td className={`${styles.td} ${styles.alignRight} ${stock.epsGrowth > 0 ? styles.positive : styles.negative}`}>
-                  {stock.epsGrowth > 0 ? '+' : ''}{stock.epsGrowth?.toFixed(2)}%
-                </td>
-                <td className={`${styles.td} ${styles.alignRight}`}>{stock.equityRatio?.toFixed(2)}%</td>
-                <td className={`${styles.td} ${styles.alignRight}`}>{stock.debtRatio?.toFixed(2)}</td>
-                <td className={`${styles.td} ${styles.alignRight}`}>{stock.currentRatio?.toFixed(2)}%</td>
-                <td className={`${styles.td} ${styles.alignRight}`}>{(stock.operatingCashFlow / 1000000).toFixed(0)}M</td>
-                <td className={`${styles.td} ${styles.alignRight} ${stock.investingCashFlow < 0 ? styles.negative : ''}`}>
-                  {(stock.investingCashFlow / 1000000).toFixed(0)}M
-                </td>
-                <td className={`${styles.td} ${styles.alignRight} ${stock.freeCashFlow > 0 ? styles.positive : styles.negative}`}>
-                  {(stock.freeCashFlow / 1000000).toFixed(0)}M
-                </td>
-                <td className={`${styles.td} ${styles.sector}`}>{stock.sector}</td>
+                </th>
+                <th className={`${styles.th} ${styles.alignCenter}`}>詳細</th>
+                <th className={`${styles.th} ${styles.sortable}`} onClick={() => handleSort('code')}>
+                  銘柄 {sortBy === 'code' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={styles.th}>市場</th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('price')}>
+                  現在値 {sortBy === 'price' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('change')}>
+                  変動率 {sortBy === 'change' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignCenter}`} onClick={() => handleSort('valuation')}>
+                  割安度 {sortBy === 'valuation' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('pbr')}>
+                  PBR {sortBy === 'pbr' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('per')}>
+                  PER {sortBy === 'per' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('evEbitda')}>
+                  EV/EBITDA {sortBy === 'evEbitda' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('dividendYield')}>
+                  配当利回り {sortBy === 'dividendYield' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('fcfYield')}>
+                  FCF利回り {sortBy === 'fcfYield' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('roe')}>
+                  ROE {sortBy === 'roe' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('roa')}>
+                  ROA {sortBy === 'roa' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('operatingMargin')}>
+                  営業利益率 {sortBy === 'operatingMargin' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('epsGrowth')}>
+                  EPS成長率 {sortBy === 'epsGrowth' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('equityRatio')}>
+                  自己資本比率 {sortBy === 'equityRatio' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('debtRatio')}>
+                  有利子負債倍率 {sortBy === 'debtRatio' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('currentRatio')}>
+                  流動比率 {sortBy === 'currentRatio' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('operatingCashFlow')}>
+                  営業CF {sortBy === 'operatingCashFlow' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('investingCashFlow')}>
+                  投資CF {sortBy === 'investingCashFlow' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={`${styles.th} ${styles.sortable} ${styles.alignRight}`} onClick={() => handleSort('freeCashFlow')}>
+                  フリーCF {sortBy === 'freeCashFlow' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className={styles.th}>セクター</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {filteredStocks.map((stock) => (
+                <tr key={stock.code} className={styles.tableRow}>
+                  <td className={styles.td}>
+                    <input
+                      type="checkbox"
+                      checked={selectedStocks.includes(stock.code)}
+                      onChange={() => handleSelectStock(stock.code)}
+                      className={styles.checkbox}
+                    />
+                  </td>
+                  <td className={styles.alignCenter}>
+                    <button
+                      onClick={() => {
+                        setSelectedStock(stock);
+                        setCurrentScreen('detail', 'list');
+                      }}
+                      className={styles.detailButton}
+                      aria-label="詳細を見る"
+                    >
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <circle cx="4" cy="5" r="2" />
+                        <rect x="8" y="4" width="12" height="2" rx="1" />
+                        <circle cx="4" cy="12" r="2" />
+                        <rect x="8" y="11" width="12" height="2" rx="1" />
+                        <circle cx="4" cy="19" r="2" />
+                        <rect x="8" y="18" width="12" height="2" rx="1" />
+                      </svg>
+                    </button>
+                  </td>
+                  <td className={styles.td}>
+                    <div className={styles.stockCode}>{stock.code}</div>
+                    <div className={styles.stockName}>{stock.name}</div>
+                  </td>
+                  <td className={styles.td}>
+                    <span className={styles.marketBadge}>{stock.market}</span>
+                  </td>
+                  <td className={`${styles.td} ${styles.alignRight} ${styles.price}`}>
+                    ¥{stock.price.toLocaleString()}
+                  </td>
+                  <td className={`${styles.td} ${styles.alignRight} ${styles.change} ${stock.change > 0 ? styles.positive : styles.negative}`}>
+                    {stock.change > 0 ? '+' : ''}{stock.change}%
+                  </td>
+                  <td className={`${styles.td} ${styles.alignCenter}`}>
+                    <div
+                      className={styles.valuationBadge}
+                      style={{
+                        backgroundColor: `${stock.valuation.color}20`,
+                        color: stock.valuation.color,
+                        border: `1px solid ${stock.valuation.color}40`
+                      }}
+                      title={stock.valuation.reasons.join('\n')}
+                    >
+                      {stock.valuation.label}
+                    </div>
+                  </td>
+                  <td className={`${styles.td} ${styles.alignRight}`}>{stock.pbr?.toFixed(2) || '-'}</td>
+                  <td className={`${styles.td} ${styles.alignRight}`}>{stock.per?.toFixed(2) || '-'}</td>
+                  <td className={`${styles.td} ${styles.alignRight}`}>{stock.evEbitda?.toFixed(2) || '-'}</td>
+                  <td className={`${styles.td} ${styles.alignRight}`}>{stock.dividendYield?.toFixed(2)}%</td>
+                  <td className={`${styles.td} ${styles.alignRight}`}>{stock.fcfYield?.toFixed(2)}%</td>
+                  <td className={`${styles.td} ${styles.alignRight}`}>{stock.roe?.toFixed(2)}%</td>
+                  <td className={`${styles.td} ${styles.alignRight}`}>{stock.roa?.toFixed(2)}%</td>
+                  <td className={`${styles.td} ${styles.alignRight}`}>{stock.operatingMargin?.toFixed(2)}%</td>
+                  <td className={`${styles.td} ${styles.alignRight} ${stock.epsGrowth > 0 ? styles.positive : styles.negative}`}>
+                    {stock.epsGrowth > 0 ? '+' : ''}{stock.epsGrowth?.toFixed(2)}%
+                  </td>
+                  <td className={`${styles.td} ${styles.alignRight}`}>{stock.equityRatio?.toFixed(2)}%</td>
+                  <td className={`${styles.td} ${styles.alignRight}`}>{stock.debtRatio?.toFixed(2)}</td>
+                  <td className={`${styles.td} ${styles.alignRight}`}>{stock.currentRatio?.toFixed(2)}%</td>
+                  <td className={`${styles.td} ${styles.alignRight}`}>{(stock.operatingCashFlow / 1000000).toFixed(0)}M</td>
+                  <td className={`${styles.td} ${styles.alignRight} ${stock.investingCashFlow < 0 ? styles.negative : ''}`}>
+                    {(stock.investingCashFlow / 1000000).toFixed(0)}M
+                  </td>
+                  <td className={`${styles.td} ${styles.alignRight} ${stock.freeCashFlow > 0 ? styles.positive : styles.negative}`}>
+                    {(stock.freeCashFlow / 1000000).toFixed(0)}M
+                  </td>
+                  <td className={`${styles.td} ${styles.sector}`}>{stock.sector}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* フッター */}
       <div className={styles.footer}>
@@ -918,6 +917,37 @@ export default function StockListScreen({ stockList, setSelectedStock, setCurren
           全{filteredStocks.length}件を表示 ({selectedStocks.length}件選択中)
         </div>
       </div>
+
+      {/* クイック検索モーダル */}
+      {showPresetModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowPresetModal(false)}>
+          <div className={styles.presetModal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>クイック検索</h3>
+              <button onClick={() => setShowPresetModal(false)} className={styles.modalCloseButton}>
+                <X size={24} />
+              </button>
+            </div>
+            <div className={styles.presetModalContent}>
+              <div className={styles.presetGrid}>
+                {Object.entries(PRESET_FILTERS).map(([key, preset]) => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      applyPreset(key);
+                      setShowPresetModal(false);
+                    }}
+                    className={`${styles.presetCard} ${activePreset === key ? styles.presetCardActive : ''}`}
+                  >
+                    <div className={styles.presetCardTitle}>{preset.name}</div>
+                    <div className={styles.presetCardDescription}>{preset.description}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 登録モーダル */}
       {showRegisterModal && (

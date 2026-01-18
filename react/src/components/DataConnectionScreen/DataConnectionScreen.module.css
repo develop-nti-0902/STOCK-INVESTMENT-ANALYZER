@@ -1,4 +1,5 @@
 .container {
+  padding: var(--spacing-xl);
   max-width: 64rem;
   margin: 0 auto;
   display: flex;

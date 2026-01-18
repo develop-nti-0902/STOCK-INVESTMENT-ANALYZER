@@ -1,64 +1,78 @@
-/* ヘッダー */
+/* サイドバー */
 .header {
-  background-color: var(--color-primary, #3b82f6);
-  color: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  position: sticky;
+  background-color: #1f2937;
+  color: #f9fafb;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.08);
+  position: fixed;
+  left: 0;
   top: 0;
+  bottom: 0;
+  width: 200px;
   z-index: 100;
+  display: flex;
+  flex-direction: column;
 }
 
 .container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 20px;
+  padding: 32px 20px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 64px;
+  flex-direction: column;
+  height: 100%;
 }
 
 .title {
   font-size: 20px;
   font-weight: 700;
-  margin: 0;
+  margin: 0 0 40px 0;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #374151;
+  color: #f9fafb;
+  letter-spacing: -0.02em;
 }
 
 /* メニュー */
 .menu {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
 }
 
 .menuItem {
-  padding: 8px 16px;
+  padding: 14px 16px;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 14px;
+  color: #9ca3af;
+  font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.2s;
+  border-radius: 10px;
+  transition: all 0.2s ease;
   white-space: nowrap;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .menuItem:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: white;
+  background-color: #374151;
+  color: #f3f4f6;
+  transform: translateX(2px);
 }
 
 .menuItem.active {
-  background-color: rgba(255, 255, 255, 0.2);
-  color: white;
+  background-color: #4b5563;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .iconButton {
-  padding: 8px;
+  padding: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 8px;
 }
 
 .smallText {
@@ -68,64 +82,70 @@
 /* ユーザーメニュー */
 .userMenuContainer {
   position: relative;
-  margin-left: 8px;
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid #374151;
 }
 
 .userMenuButton {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: white;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #374151;
+  border: 1px solid #4b5563;
+  border-radius: 12px;
+  color: #f9fafb;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   font-size: 14px;
+  width: 100%;
 }
 
 .userMenuButton:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: #4b5563;
+  border-color: #6b7280;
+  transform: translateY(-1px);
 }
 
 .userName {
-  font-weight: 500;
-  max-width: 120px;
+  font-weight: 600;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: #f9fafb;
 }
 
 .chevronUp {
   transform: rotate(180deg);
+  transition: transform 0.2s ease;
 }
 
-/* ドロップダウンメニュー */
 .userMenuDropdown {
   position: absolute;
-  top: calc(100% + 8px);
+  bottom: calc(100% + 12px);
+  left: 0;
   right: 0;
-  min-width: 240px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   overflow: hidden;
   z-index: 1000;
+  border: 1px solid #e5e7eb;
 }
 
 .userInfo {
-  padding: 16px;
+  padding: 20px;
   background: #f9fafb;
   border-bottom: 1px solid #e5e7eb;
 }
 
 .userInfoName {
-  font-weight: 600;
+  font-weight: 700;
   color: #1f2937;
-  font-size: 15px;
-  margin-bottom: 4px;
+  font-size: 16px;
+  margin-bottom: 6px;
 }
 
 .userInfoEmail {
@@ -141,13 +161,14 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 14px 20px;
   background: none;
   border: none;
   color: #374151;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
   text-align: left;
 }
 
@@ -158,18 +179,18 @@
 .userMenuDivider {
   height: 1px;
   background: #e5e7eb;
-  margin: 4px 0;
+  margin: 6px 0;
 }
 
 .logoutButton {
   color: #dc2626;
+  font-weight: 600;
 }
 
 .logoutButton:hover {
   background: #fee2e2;
 }
 
-/* オーバーレイ */
 .overlay {
   position: fixed;
   top: 0;
@@ -177,36 +198,57 @@
   right: 0;
   bottom: 0;
   z-index: 999;
+  background: rgba(0, 0, 0, 0.1);
 }
 
 /* レスポンシブ */
 @media (max-width: 768px) {
+  .header {
+    width: 100%;
+    height: auto;
+    bottom: auto;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  }
+
   .container {
-    padding: 0 12px;
+    padding: 16px;
+    flex-direction: row;
+    height: auto;
+    align-items: center;
+    justify-content: space-between;
   }
 
   .title {
-    font-size: 16px;
+    font-size: 18px;
+    margin: 0;
+    padding: 0;
+    border: none;
   }
 
   .menu {
-    gap: 4px;
+    display: none;
   }
 
-  .menuItem {
-    padding: 6px 10px;
-    font-size: 13px;
+  .userMenuContainer {
+    margin-top: 0;
+    padding-top: 0;
+    border: none;
+  }
+
+  .userMenuButton {
+    padding: 10px 12px;
+    width: auto;
   }
 
   .userName {
     display: none;
   }
 
-  .userMenuButton {
-    padding: 8px;
-  }
-
   .userMenuDropdown {
-    right: -12px;
+    right: 0;
+    left: auto;
+    bottom: auto;
+    top: calc(100% + 8px);
+    min-width: 240px;
   }
 }

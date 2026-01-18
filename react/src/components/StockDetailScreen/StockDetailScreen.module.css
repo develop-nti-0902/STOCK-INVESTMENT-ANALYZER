@@ -1,10 +1,11 @@
 /* ---------- レイアウト全体 ---------- */
 .container {
+  padding: var(--spacing-xl);
   display: flex;
   flex-direction: column;
-  gap: 24px;              /* セクション間の余白 */
-  padding: 24px 16px;     /* 画面端との余白 */
-  max-width: 960px;       /* 横幅を中央に収める */
+  gap: 24px;              
+  padding: 24px 16px;     
+  max-width: 960px;       
   margin: 0 auto;
 }
 

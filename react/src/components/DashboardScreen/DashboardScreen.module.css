@@ -1,6 +1,6 @@
 /* ダッシュボード */
 .dashboard {
-  padding: var(--spacing-lg);
+  padding: var(--spacing-xl);
   max-width: 1400px;
   margin: 0 auto;
   display: flex;
@@ -128,18 +128,6 @@
   align-items: center;
   justify-content: center;
   transition: transform 0.2s;
-}
-
-.favoriteBtn:hover {
-  transform: scale(1.1);
-}
-
-.favoriteActive {
-  color: #fbbf24;
-}
-
-.favoriteInactive {
-  color: var(--color-text-light);
 }
 
 .stockName {
