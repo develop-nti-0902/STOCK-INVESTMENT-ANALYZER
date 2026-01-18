@@ -4,8 +4,8 @@
 # Location: scripts/databaseSetup/teardown_db.sh
 # Usage: Run this script directly or call it from other setup scripts
 #
-# このスクリプトはAlembicマイグレーションを使用してデータベースをダウングレードし、
-# 最終的にデータベース、ユーザー、テーブルスペースを削除します。
+# This script uses Alembic migrations to downgrade the database,
+# and then drops the database, user, and tablespace.
 # =============================================================================
 
 set -euo pipefail
@@ -144,7 +144,7 @@ echo "[3/6] Running Alembic downgrade (if database exists)..."
 
 cd "${REPO_ROOT}"
 
-# Pythonコマンドの検出
+# Detect Python virtual environment
 if [[ -f ".venv/bin/python" ]]; then
     PYTHON_CMD=".venv/bin/python"
 elif [[ -f "venv/bin/python" ]]; then
@@ -159,7 +159,7 @@ if [[ "$DB_EXISTS" == "1" ]]; then
     echo "Database ${DB_NAME} exists, running Alembic downgrade..."
     "${PYTHON_CMD}" -m alembic downgrade base 2>/dev/null || echo "[WARN] Alembic downgrade failed or not initialized"
 
-    # 接続を切断してから削除
+    # Terminate connections before dropping database
     psql -U "${PGUSER}" -h "${PGHOST}" -c "REVOKE CONNECT ON DATABASE \"${DB_NAME}\" FROM public;" 2>/dev/null || echo "[WARN] Could not revoke connects"
     psql -U "${PGUSER}" -h "${PGHOST}" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}' AND pid <> pg_backend_pid();" 2>/dev/null || echo "[WARN] Could not terminate connections"
     psql -U "${PGUSER}" -h "${PGHOST}" -c "DROP DATABASE IF EXISTS \"${DB_NAME}\";" 2>/dev/null || {
@@ -207,7 +207,8 @@ echo "Attempting to drop user ${DB_USER}..."
 psql -U "${PGUSER}" -h "${PGHOST}" -c "DO \$\$ BEGIN IF EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '${DB_USER}') THEN ALTER ROLE ${DB_USER} WITH NOLOGIN; DROP OWNED BY ${DB_USER} CASCADE; DROP ROLE IF EXISTS ${DB_USER}; RAISE NOTICE 'User dropped'; ELSE RAISE NOTICE 'User does not exist'; END IF; END\$\$;" 2>/dev/null && {
     echo "User dropped or did not exist"
 } || {
-    echo "[WARN] Could not drop user (may need superuser privileges)"
+    echo "[ERROR] Could not drop user (may need superuser privileges)"
+    exit 1
 }
 
 echo ""

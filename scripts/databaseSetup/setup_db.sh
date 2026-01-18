@@ -4,8 +4,8 @@
 # Location: scripts/databaseSetup/setup_db.sh
 # Usage: Run this script directly or call it from other setup scripts
 #
-# このスクリプトはAlembicを使用してデータベースを初期化します。
-# 従来のSQLファイル実行方式は廃止され、すべてAlembicマイグレーションで管理されます。
+# This script initializes the database using Alembic.
+# The previous SQL file execution method is deprecated, and everything is now managed via Alembic migrations.
 # =============================================================================
 
 set -euo pipefail
@@ -150,7 +150,11 @@ fi
 # Create database user (ignore if exists)
 echo "[3/6] Creating database user (if not exists)..."
 
-psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '${DB_USER}') THEN CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASSWORD}'; END IF; END\$\$;" 2>/dev/null || echo "[WARN] Could not create user (you may need to run as a superuser or provide correct postgres password)"
+psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '${DB_USER}') THEN CREATE USER ${DB_USER} WITH LOGIN PASSWORD '${DB_PASSWORD}'; ELSE ALTER ROLE ${DB_USER} WITH LOGIN; END IF; END\$\$;" || {
+    echo "[ERROR] Could not create or update user"
+    exit 1
+}
+echo "User created or updated successfully"
 
 echo "[4/6] Preparing tablespace directory and tablespace..."
 if [[ -n "${SKIP_TABLESPACE:-}" ]]; then
@@ -164,13 +168,20 @@ else
             echo "[ERROR] Failed to create directory $DB_FULL_PATH"
             exit 1
         }
+        echo "Directory created successfully"
+    else
+        echo "Directory $DB_FULL_PATH already exists"
     fi
 
     # Check for existing tablespace
     TS_CHECK=$(psql -U "${PGUSER}" -h "${PGHOST}" -t -c "SELECT 1 FROM pg_tablespace WHERE spcname='stock_data_space';" 2>&1 | tr -d '[:space:]')
     if [[ "$TS_CHECK" != "1" ]]; then
         echo "Creating tablespace stock_data_space at $DB_FULL_PATH"
-        psql -U "${PGUSER}" -h "${PGHOST}" -c "CREATE TABLESPACE stock_data_space OWNER ${PGUSER} LOCATION '$DB_FULL_PATH';" 2>/dev/null || echo "[WARN] Failed to create tablespace (it may already exist or you may lack privileges)"
+        psql -U "${PGUSER}" -h "${PGHOST}" -c "CREATE TABLESPACE stock_data_space OWNER ${PGUSER} LOCATION '$DB_FULL_PATH';" || {
+            echo "[ERROR] Failed to create tablespace"
+            exit 1
+        }
+        echo "Tablespace created successfully"
     else
         echo "Tablespace stock_data_space already exists"
     fi
@@ -183,17 +194,18 @@ DB_EXISTS=$(psql -U "${PGUSER}" -h "${PGHOST}" -t -c "SELECT 1 FROM pg_database 
 if [[ "$DB_EXISTS" != "1" ]]; then
     if [[ -n "${SKIP_TABLESPACE:-}" ]]; then
         # Create database without tablespace (use default)
-        psql -U "${PGUSER}" -h "${PGHOST}" -c "CREATE DATABASE ${DB_NAME} WITH OWNER = ${PGUSER} ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>/dev/null || {
+        psql -U "${PGUSER}" -h "${PGHOST}" -c "CREATE DATABASE ${DB_NAME} WITH OWNER = ${PGUSER} ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TEMPLATE = template0 CONNECTION LIMIT = -1;" || {
             echo "[ERROR] Failed to create database"
             exit 1
         }
     else
         # Create database with custom tablespace
-        psql -U "${PGUSER}" -h "${PGHOST}" -c "CREATE DATABASE ${DB_NAME} WITH OWNER = ${PGUSER} ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TABLESPACE = stock_data_space TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>/dev/null || {
+        psql -U "${PGUSER}" -h "${PGHOST}" -c "CREATE DATABASE ${DB_NAME} WITH OWNER = ${PGUSER} ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TABLESPACE = stock_data_space TEMPLATE = template0 CONNECTION LIMIT = -1;" || {
             echo "[ERROR] Failed to create database"
             exit 1
         }
     fi
+    echo "Database created successfully"
 else
     echo "Database ${DB_NAME} already exists"
 fi
@@ -209,7 +221,7 @@ echo ""
 
 cd "${REPO_ROOT}"
 
-# Pythonコマンドの検出
+# Detect Python virtual environment
 if [[ -f ".venv/bin/python" ]]; then
     PYTHON_CMD=".venv/bin/python"
 elif [[ -f "venv/bin/python" ]]; then
@@ -220,14 +232,14 @@ fi
 
 echo "Using Python: ${PYTHON_CMD}"
 
-# Alembicがインストールされているか確認
+# Check if Alembic is installed
 "${PYTHON_CMD}" -m alembic --version &>/dev/null || {
     echo "[ERROR] Alembic not found. Please install it:"
     echo "  ${PYTHON_CMD} -m pip install alembic"
     exit 1
 }
 
-# マイグレーションを最新バージョンまで適用
+# Apply migrations to the latest version
 echo "Running: ${PYTHON_CMD} -m alembic upgrade head"
 "${PYTHON_CMD}" -m alembic upgrade head || {
     echo ""
