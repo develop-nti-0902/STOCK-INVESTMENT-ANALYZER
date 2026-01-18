@@ -1,10 +1,14 @@
-"""
-データベース接続管理 - 共通モジュール
+"""データベース接続とセッション管理のヘルパーモジュール。
 
-SQLAlchemy非同期エンジンとセッションの管理を提供する。
-FastAPIのDependsパターンを通じて、アプリケーション全体でDBセッションを共有する。
+SQLAlchemy の非同期エンジンとセッションメーカーの作成・管理を提供します。
+FastAPI の ``Depends`` パターンで使用することを想定しています。
 
-仕様書: docs/architecture/layers/data_access_layer.md 5章
+ノート:
+        - ルートハンドラで ``get_db`` を依存関係として使用すると
+            ``AsyncSession`` が取得できます。依存は正常終了時に commit を行い、
+            例外発生時は rollback を行います。
+        - Repository 層では commit を行わず、トランザクション境界は
+            サービス層または API 層で管理してください。
 """
 
 from collections.abc import AsyncGenerator

@@ -1,8 +1,7 @@
-"""
-リトライロジックMixinクラス
+"""リトライロジック Mixin クラス.
 
-指数バックオフを使用したリトライ機能を提供します。
-リトライ可能エラーの判定と最大リトライ回数の管理を実装します。
+指数バックオフを用いたリトライ機能を提供し、リトライ可能エラーの判定や
+最大リトライ回数の管理を行います。
 
 仕様書: docs/architecture/layers/service_layer.md 3.1章
 """
@@ -20,28 +19,12 @@ T = TypeVar("T")
 
 
 class RetryMixin:  # pylint: disable=too-few-public-methods
-    """
-    リトライロジックを提供するMixinクラス
-
-    指数バックオフを使用したリトライ機能を実装します。
-    リトライ可能エラーの判定と最大リトライ回数の管理を行います。
+    """リトライロジックを提供する Mixin クラス.
 
     Attributes:
-        max_retries: 最大リトライ回数
-        backoff_factor: バックオフ係数
-        retryable_exceptions: リトライ可能な例外クラス
-
-    Examples:
-        >>> class MyFetcher(RetryMixin):
-        ...     async def fetch_data(self):
-        ...         return await self._retry_async(
-        ...             self._actual_fetch,
-        ...             "fetch_data"
-        ...         )
-        ...
-        ...     async def _actual_fetch(self):
-        ...         # 実際のデータ取得処理
-        ...         pass
+        max_retries (int): 最大リトライ回数
+        backoff_factor (float): バックオフ係数
+        retryable_exceptions (tuple[type, ...]): リトライ対象例外
     """
 
     def __init__(self) -> None:

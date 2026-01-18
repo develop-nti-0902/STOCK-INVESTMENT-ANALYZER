@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import pytest
 
+from app.exceptions.business import ServiceError
 from app.schemas.stock_data import StockPriceCreate
 from app.services.market_data.stock_price.converter import StockPriceConverter
 
@@ -105,7 +106,7 @@ class TestStockPriceConverter:
         """空のDataFrameテスト"""
         empty_df = pd.DataFrame()
 
-        with pytest.raises(ValueError, match="DataFrameが空です"):
+        with pytest.raises(ServiceError, match="DataFrameが空です"):
             converter.from_dataframe(empty_df, "7203.T", "1d")
 
     @pytest.mark.asyncio
@@ -121,7 +122,7 @@ class TestStockPriceConverter:
             index=dates,
         )
 
-        with pytest.raises(ValueError, match="必須カラムが不足しています"):
+        with pytest.raises(ServiceError, match="必須カラムが不足しています"):
             converter.from_dataframe(incomplete_df, "7203.T", "1d")
 
     @pytest.mark.asyncio
@@ -139,7 +140,7 @@ class TestStockPriceConverter:
         )  # DatetimeIndexなし
 
         with pytest.raises(
-            ValueError, match="インデックスがDatetimeIndexではありません"
+            ServiceError, match="インデックスがDatetimeIndexではありません"
         ):
             converter.from_dataframe(invalid_df, "7203.T", "1d")
 
@@ -208,7 +209,7 @@ class TestStockPriceConverter:
         """空DataFrameの_validate_dataテスト"""
         empty_df = pd.DataFrame()
 
-        with pytest.raises(ValueError, match="DataFrameが空です"):
+        with pytest.raises(ServiceError, match="DataFrameが空です"):
             converter._validate_data(empty_df)
 
     def test_validate_data_missing_columns(self, converter):
@@ -216,7 +217,7 @@ class TestStockPriceConverter:
         dates = pd.date_range("2023-01-01", periods=2, freq="D", tz="UTC")
         incomplete_df = pd.DataFrame({"Open": [100.0, 105.0]}, index=dates)
 
-        with pytest.raises(ValueError, match="必須カラムが不足しています"):
+        with pytest.raises(ServiceError, match="必須カラムが不足しています"):
             converter._validate_data(incomplete_df)
 
     def test_normalize_timestamps_utc(self, converter, sample_dataframe):

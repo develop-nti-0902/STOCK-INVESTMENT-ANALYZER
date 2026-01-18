@@ -1,12 +1,17 @@
-"""入力検証ユーティリティ
+"""入力検証ユーティリティ。
 
-リポジトリ層で使われるページネーションや上限チェックを共通化します。
+リポジトリやサービス層で利用されるページネーションや上限チェックの
+共通ヘルパーを提供します。
+
+ノート:
+    - ``validate_pagination`` を使って ``skip`` と ``limit`` の検証を行ってください。
 """
 
 from __future__ import annotations
 
 from typing import Optional
 
+from app.exceptions.validation import FieldValidationError
 from app.utils.config import get_settings
 
 
@@ -21,16 +26,16 @@ def validate_pagination(skip: Optional[int], limit: int) -> None:
         limit: 取得上限
 
     Raises:
-        ValueError: 引数検証に失敗した場合
+        FieldValidationError: 引数検証に失敗した場合
     """
     if skip is not None and skip < 0:
-        raise ValueError("skip must be >= 0")
+        raise FieldValidationError(message="skip must be >= 0")
     if limit <= 0:
-        raise ValueError("limit must be positive")
+        raise FieldValidationError(message="limit must be positive")
     settings = get_settings()
     max_limit = settings.MAX_RECENT_LIMIT
     if limit > max_limit:
-        raise ValueError(f"limit too large; max={max_limit}")
+        raise FieldValidationError(message=f"limit too large; max={max_limit}")
 
 
 __all__ = ["validate_pagination"]

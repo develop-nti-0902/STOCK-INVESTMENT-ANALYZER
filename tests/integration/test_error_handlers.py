@@ -38,8 +38,8 @@ def test_app_exception_handler_via_testclient():
         resp = client.get("/__test_raise_app_exc")
         assert resp.status_code == 418
         body = resp.json()
-        assert body["error"] == "BOOM_ERR"
-        assert body["message"] == "boom"
+        assert body["error"]["code"] == "BOOM_ERR"
+        assert body["error"]["message"] == "boom"
         assert "request_id" in body["meta"]
 
 
@@ -48,9 +48,9 @@ def test_http_exception_handler_with_dict_detail():
         resp = client.get("/__test_raise_http_dict")
         assert resp.status_code == 400
         body = resp.json()
-        assert body["error"] == "HTTP_BAD"
-        assert body["message"] == "bad"
-        assert body["details"] == {"x": 1}
+        assert body["error"]["code"] == "HTTP_BAD"
+        assert body["error"]["message"] == "bad"
+        assert body["error"]["details"] == {"x": 1}
 
 
 def test_http_exception_handler_with_string_detail():
@@ -58,8 +58,8 @@ def test_http_exception_handler_with_string_detail():
         resp = client.get("/__test_raise_http_str")
         assert resp.status_code == 404
         body = resp.json()
-        assert body["error"] == "HTTP_ERROR"
-        assert body["message"] == "not found"
+        assert body["error"]["code"] == "HTTP_ERROR"
+        assert body["error"]["message"] == "not found"
 
 
 def test_validation_exception_handler_for_query_param():
@@ -68,10 +68,10 @@ def test_validation_exception_handler_for_query_param():
         resp = client.get("/__test_validate?x=abc")
         assert resp.status_code == 400
         body = resp.json()
-        assert body["error"] == "VALIDATION_ERROR"
-        assert "validation_errors" in body["details"]
+        assert body["error"]["code"] == "VALIDATION_ERROR"
+        assert "validation_errors" in body["error"]["details"]
         # フィールド情報に x が含まれていること
-        validation_errors = body["details"]["validation_errors"]
+        validation_errors = body["error"]["details"]["validation_errors"]
         fields = [e.get("field", "") for e in validation_errors]
         assert any("x" in f for f in fields)
 
@@ -85,10 +85,12 @@ def test_general_exception_handler_hides_traceback_when_not_debug():
             resp = client.get("/__test_raise_general")
             assert resp.status_code == 500
             body = resp.json()
-            assert body["error"] == "INTERNAL_SERVER_ERROR"
-            assert "An unexpected error occurred" in body["message"]
-            assert body["details"].get("exception_type") == "Exception"
-            assert "traceback" not in body["details"]
+            assert body["error"]["code"] == "INTERNAL_SERVER_ERROR"
+            assert "An unexpected error occurred" in body["error"]["message"]
+            assert (
+                body["error"]["details"].get("exception_type") == "Exception"
+            )
+            assert "traceback" not in body["error"]["details"]
     finally:
         # restore original DEBUG to avoid side effects for other tests
         if original is None:
@@ -106,9 +108,11 @@ def test_general_exception_handler_includes_traceback_when_debug():
             resp = client.get("/__test_raise_general")
             assert resp.status_code == 500
             body = resp.json()
-            assert body["error"] == "INTERNAL_SERVER_ERROR"
-            assert body["details"].get("exception_type") == "Exception"
-            assert "traceback" in body["details"]
+            assert body["error"]["code"] == "INTERNAL_SERVER_ERROR"
+            assert (
+                body["error"]["details"].get("exception_type") == "Exception"
+            )
+            assert "traceback" in body["error"]["details"]
     finally:
         if original is None:
             delattr(fastapi_app.state.settings, "DEBUG")

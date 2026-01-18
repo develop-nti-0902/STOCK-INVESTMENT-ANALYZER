@@ -1,8 +1,8 @@
-"""
-Repository層 - 基底クラス
+"""Repository層 - 基底クラス.
 
-全てのRepositoryクラスの基底となる抽象クラスを定義する。
-汎用的なCRUD操作を提供し、SQLAlchemyの非同期セッションを使用する。
+全ての Repository クラスの基底となる抽象クラスを提供します。汎用的な CRUD 操作を定義し、
+SQLAlchemy の非同期セッションを利用したデータアクセスをサポートします。
+
 仕様書: docs/architecture/layers/data_access_layer.md 3.1章
 """
 
@@ -16,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import count as sql_count
 
+from app.exceptions.validation import ValidationError
 from app.utils.database import flush_return_with_log
 from app.utils.validation import validate_pagination
 
@@ -27,27 +28,22 @@ logger = logging.getLogger(__name__)
 
 
 class BaseRepository(ABC, Generic[T]):
-    """
-    Repository基底クラス（汎用CRUD操作提供）
-
-    全てのRepositoryクラスの基底クラスとして、共通のCRUD操作を提供します。
-    SQLAlchemyの非同期セッションを使用し、型安全なデータアクセスを実現します。
+    """汎用的な CRUD 操作を提供する Repository の基底クラス.
 
     Attributes:
-        model (type[T]): SQLAlchemyモデルクラス
-        session (AsyncSession): 非同期DBセッション
+        model (type[T]): SQLAlchemy モデルクラス
+        session (AsyncSession): 非同期 DB セッション
 
     Type Parameters:
-        T: SQLAlchemyモデルの型（将来的にはapp.models.base.Baseにbound）
+        T: SQLAlchemy モデルの型
     """
 
     def __init__(self, session: AsyncSession, model: Optional[type] = None):
-        """
-        初期化
+        """初期化.
 
         Args:
-            session: 非同期DBセッション
-            model: SQLAlchemyモデルクラス（オプション）
+            session (AsyncSession): 非同期 DB セッション
+            model (Optional[type]): SQLAlchemy モデルクラス（省略可）
         """
         # 型安全性は将来的に SQLAlchemy Base に束縛した TypeVar に変更する
         # 現状は任意のモデルクラスを受け取るため `Any` として扱う
@@ -72,18 +68,22 @@ class BaseRepository(ABC, Generic[T]):
 
     @property
     def model(self) -> Any:
-        """
-        SQLAlchemyモデルクラスを取得
+        """SQLAlchemy モデルクラスを返すプロパティ.
 
-        サブクラスでプロパティとしてオーバーライド可能。
+        サブクラスでオーバーライド可能。
         """
         return self._model
 
     async def _add_and_flush(self, instance: T) -> T:
-        """インスタンスをセッションに追加してflushする共通処理。
+        """インスタンスをセッションに追加して flush するヘルパー.
 
-        テスト環境で session.add が awaitable を返す可能性に対応します。
-        トランザクション管理（commit/rollback）はService層で行います。
+        テストでの awaitable な戻り値にも対応します。トランザクション制御は上位層で行います。
+
+        Args:
+            instance (T): 追加するモデルインスタンス
+
+        Returns:
+            T: フラッシュ後のインスタンス
         """
         try:
             maybe_res = cast(Any, self.session.add(instance))
@@ -97,9 +97,13 @@ class BaseRepository(ABC, Generic[T]):
         )
 
     async def _add_all_and_flush(self, instances: List[T]) -> List[T]:
-        """複数インスタンスを追加してflushする共通処理。
+        """複数インスタンスを追加して flush するヘルパー.
 
-        トランザクション管理（commit/rollback）はService層で行います。
+        Args:
+            instances (List[T]): 追加するインスタンスリスト
+
+        Returns:
+            List[T]: フラッシュ後のインスタンスリスト
         """
         try:
             maybe_res = cast(Any, self.session.add_all(instances))
@@ -116,57 +120,61 @@ class BaseRepository(ABC, Generic[T]):
         )
 
     async def _maybe_await(self, value) -> Any:
-        """値が awaitable（例えば AsyncMock）であれば await するヘルパー。
+        """値が awaitable なら await してその結果を返すヘルパー.
 
-        実運用では AsyncSession のメソッドは通常同期的に None を返しますが、
-        テスト環境ではモックが awaitable を返す場合があります。
-        このヘルパーは両者に対応するためのものです。
+        テスト環境のモックなど awaitable な戻り値にも対応します。
+
+        Args:
+            value: awaitable かもしれないオブジェクト
+
+        Returns:
+            Any: 処理結果
         """
         if inspect.isawaitable(value):
             return await value
         return value
 
     async def create(self, data: Dict) -> T:
-        """新規レコードを作成して返す。
+        """新規レコードを作成して返す.
 
-        引数:
-            data: モデルのフィールド値を含む辞書
+        Args:
+            data (Dict): モデルのフィールド値を含む辞書
 
-        戻り値:
-            作成されたモデルインスタンス
+        Returns:
+            T: 作成されたモデルインスタンス
 
-        例外:
-            データベース操作や制約違反時に SQLAlchemy の例外が発生する可能性があります。
-        注意:
-            トランザクションのコミットはService層で行ってください。
+        Raises:
+            SQLAlchemyError: DB 操作中の例外が発生する可能性があります
+
+        Notes:
+            トランザクションのコミットは Service 層で行ってください。
         """
         if self.model is None:
-            raise ValueError("Repository model is not set")
+            raise ValidationError(message="Repository model is not set")
 
         instance = self.model(**data)
         return await self._add_and_flush(instance)
 
     async def upsert(self, data: Dict) -> T:
-        """単一レコードの upsert を行うためのインターフェース。
+        """単一レコードの upsert インターフェース（未実装）.
 
-        デフォルト実装は未サポートとして `NotImplementedError` を投げます。
-        サブクラスでサポートする場合はこのメソッドをオーバーライドしてください。
+        サブクラスでオーバーライドして実装してください。
         """
         raise NotImplementedError(
             "upsert is not implemented for this repository"
         )
 
     async def get(self, record_id: int) -> Optional[T]:
-        """IDで単一レコードを取得する。
+        """ID による単一レコード取得.
 
-        引数:
-            record_id: レコードの ID
+        Args:
+            record_id (int): レコードの ID
 
-        戻り値:
-            見つかったモデルインスタンス、存在しない場合は None
+        Returns:
+            Optional[T]: 見つかればモデルインスタンス、存在しなければ None
         """
         if self.model is None:
-            raise ValueError("Repository model is not set")
+            raise ValidationError(message="Repository model is not set")
 
         result = await self.session.execute(
             select(self.model).where(self.model.id == record_id)
@@ -174,17 +182,17 @@ class BaseRepository(ABC, Generic[T]):
         return result.scalar_one_or_none()
 
     async def get_multi(self, skip: int = 0, limit: int = 100) -> List[T]:
-        """ページネーション対応で複数レコードを取得する。
+        """ページネーション対応で複数レコードを取得する.
 
-        引数:
-            skip: 取得開始のオフセット（デフォルト: 0）
-            limit: 取得件数（デフォルト: 100）
+        Args:
+            skip (int): 取得開始オフセット（デフォルト: 0）
+            limit (int): 取得件数（デフォルト: 100）
 
-        戻り値:
-            モデルインスタンスのリスト
+        Returns:
+            List[T]: モデルインスタンスのリスト
         """
         if self.model is None:
-            raise ValueError("Repository model is not set")
+            raise ValidationError(message="Repository model is not set")
 
         # 引数検証: 共通ユーティリティへ移譲
         validate_pagination(skip, limit)
@@ -195,19 +203,20 @@ class BaseRepository(ABC, Generic[T]):
         return list(result.scalars().all())
 
     async def update(self, record_id: int, data: Dict) -> Optional[T]:
-        """レコードを更新して更新後のインスタンスを返す。
+        """レコードを更新して更新後のインスタンスを返す.
 
-        引数:
-            record_id: 更新対象のレコード ID
-            data: 更新するフィールドの辞書
+        Args:
+            record_id (int): 更新対象のレコード ID
+            data (Dict): 更新フィールドの辞書
 
-        戻り値:
-            更新後のモデルインスタンス、存在しない場合は None
+        Returns:
+            Optional[T]: 更新後のモデルインスタンス、存在しない場合は None
 
-        例外:
-            データベース操作や制約違反時に SQLAlchemy の例外が発生します。
-        注意:
-            トランザクションのコミットはService層で行ってください。
+        Raises:
+            SQLAlchemyError: DB 操作中の例外が発生する可能性があります
+
+        Notes:
+            トランザクションのコミットは Service 層で行ってください。
         """
         instance = await self.get(record_id)
         if instance is None:
@@ -225,18 +234,19 @@ class BaseRepository(ABC, Generic[T]):
         )
 
     async def delete(self, record_id: int) -> bool:
-        """指定 ID のレコードを削除する。
+        """指定 ID のレコードを削除する.
 
-        引数:
-            record_id: 削除対象のレコード ID
+        Args:
+            record_id (int): 削除対象のレコード ID
 
-        戻り値:
-            削除に成功した場合は True、対象が存在しない場合は False
+        Returns:
+            bool: 削除に成功したら True、存在しなければ False
 
-        例外:
-            データベース操作に失敗した場合は SQLAlchemy の例外が発生します。
-        注意:
-            トランザクションのコミットはService層で行ってください。
+        Raises:
+            SQLAlchemyError: DB 操作中の例外が発生する可能性があります
+
+        Notes:
+            トランザクションのコミットは Service 層で行ってください。
         """
         instance = await self.get(record_id)
         if instance is None:
@@ -257,38 +267,50 @@ class BaseRepository(ABC, Generic[T]):
         )
 
     async def bulk_create(self, records: List[dict]) -> List[T]:
-        """複数レコードを一括作成する。
+        """複数レコードを一括作成する.
 
-        引数:
-            records: レコードの辞書リスト
+        Args:
+            records (List[dict]): レコード辞書のリスト
 
-        戻り値:
-            作成されたモデルインスタンスのリスト
+        Returns:
+            List[T]: 作成されたモデルインスタンスのリスト
 
-        例外:
-            データベース操作や制約違反時に SQLAlchemy の例外が発生します。
-        注意:
-            トランザクションのコミットはService層で行ってください。
+        Raises:
+            SQLAlchemyError: DB 操作中の例外が発生する可能性があります
+
+        Notes:
+            トランザクションのコミットは Service 層で行ってください。
         """
         if self.model is None:
-            raise ValueError("Repository model is not set")
+            raise ValidationError(message="Repository model is not set")
 
         instances = [self.model(**record) for record in records]
         return await self._add_all_and_flush(instances)
 
     async def count(self) -> int:
-        """モデルテーブルの総件数を返す。"""
+        """モデルテーブルの総件数を返す.
+
+        Returns:
+            int: テーブル内の総件数
+        """
         if self.model is None:
-            raise ValueError("Repository model is not set")
+            raise ValidationError(message="Repository model is not set")
 
         stmt = select(sql_count()).select_from(self.model)
         result = await self.session.execute(stmt)
         return result.scalar_one()
 
     async def exists(self, record_id: int) -> bool:
-        """指定 ID のレコードが存在するかを判定する。"""
+        """指定 ID のレコードが存在するかを判定する.
+
+        Args:
+            record_id (int): 確認するレコード ID
+
+        Returns:
+            bool: 存在する場合は True
+        """
         if self.model is None:
-            raise ValueError("Repository model is not set")
+            raise ValidationError(message="Repository model is not set")
 
         result = await self.session.execute(
             select(self.model).where(self.model.id == record_id)

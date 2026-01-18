@@ -11,6 +11,7 @@ import pandas as pd
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions.validation import FieldValidationError
 from app.services.market_data.stock_price.saver import StockPriceSaver
 
 
@@ -98,7 +99,9 @@ class TestStockPriceSaver:
         }
         df = pd.DataFrame(data)
 
-        with pytest.raises(ValueError, match="Missing required columns"):
+        with pytest.raises(
+            FieldValidationError, match="Missing required columns"
+        ):
             saver._convert_dataframe_to_db_records("7203", df)
 
     def test_convert_dict_list_to_db_records_valid(self, saver):
@@ -165,7 +168,9 @@ class TestStockPriceSaver:
 
     def test_prepare_data_for_db_invalid_type(self, saver):
         """無効なデータ型のエラーテスト"""
-        with pytest.raises(ValueError, match="Unsupported data type"):
+        with pytest.raises(
+            FieldValidationError, match="Unsupported data type"
+        ):
             saver._prepare_data_for_db("7203", "invalid_data")
 
     @pytest.mark.asyncio
@@ -205,7 +210,9 @@ class TestStockPriceSaver:
         }
         df = pd.DataFrame(data)
 
-        with pytest.raises(ValueError, match="Unsupported timeframe"):
+        with pytest.raises(
+            FieldValidationError, match="Unsupported timeframe"
+        ):
             await saver.save_single_stock_data("7203", "invalid", df)
 
     @pytest.mark.asyncio

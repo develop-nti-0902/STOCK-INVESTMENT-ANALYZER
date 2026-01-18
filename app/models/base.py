@@ -1,3 +1,9 @@
+"""モデル共通基底と mixin を提供するモジュール.
+
+このモジュールはプロジェクトで使う SQLAlchemy の Declarative base と
+再利用可能な mixin クラスを定義します。テーブル名自動生成や共通カラムを提供します。
+"""
+
 from __future__ import annotations
 
 import re
@@ -11,16 +17,26 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 def _camel_to_snake(name: str) -> str:
+    """CamelCase のクラス名を snake_case のテーブル名に変換するユーティリティ.
+
+    Args:
+        name (str): クラス名（CamelCase）
+
+    Returns:
+        str: スネークケースに変換された文字列
+    """
     s1 = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", name)
     return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
 
 class Base(DeclarativeBase):  # pylint: disable=too-few-public-methods
-    """プロジェクト共通のDeclarative base。
+    """プロジェクト共通の Declarative base.
 
     - 自動でテーブル名をスネークケースに変換して設定する
-    - 共通カラム: `id`, `created_at`, `updated_at`
-    - 非同期/同期どちらのエンジンでも利用できるマッピングスタイル
+    - 共通カラムは各モデル側で mixin を組み合わせて提供する設計
+
+    Notes:
+        サブクラスで `__tablename__` を明示しなければ、自動でクラス名から生成します。
     """
 
     def __init_subclass__(
@@ -33,7 +49,11 @@ class Base(DeclarativeBase):  # pylint: disable=too-few-public-methods
 
 
 class SerialPKMixin:  # pylint: disable=too-few-public-methods
-    """整数の自動増分ID（既存SQLスクリプトの `SERIAL` に対応）。"""
+    """整数の自動増分 ID を提供する mixin.
+
+    Attributes:
+        id (int): 自動増分プライマリキー
+    """
 
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, autoincrement=True
@@ -41,7 +61,11 @@ class SerialPKMixin:  # pylint: disable=too-few-public-methods
 
 
 class UUIDPKMixin:  # pylint: disable=too-few-public-methods
-    """UUIDプライマリキーを使いたいモデル向けの mixin。"""
+    """UUID をプライマリキーにするモデル向け mixin.
+
+    Attributes:
+        id (uuid.UUID): UUID プライマリキー（デフォルトで uuid.uuid4 を使用）
+    """
 
     id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -49,10 +73,15 @@ class UUIDPKMixin:  # pylint: disable=too-few-public-methods
 
 
 class TimestampMixin:  # pylint: disable=too-few-public-methods
-    """created_at / updated_at を提供する mixin。
+    """作成/更新時刻の共通カラムを提供する mixin.
 
-    - client-side default を __init__ で埋める。
-    - server_default に `now()` を指定してDB側のデフォルトも確保。
+    Attributes:
+        created_at (datetime): レコード作成時刻（UTC）
+        updated_at (datetime): レコード更新時刻（UTC）
+
+    Notes:
+        - クライアントサイドのデフォルトを `__init__` で埋める。
+        - DB サーバ側のデフォルト値も `server_default=text("now()")` で確保。
     """
 
     created_at: Mapped[datetime] = mapped_column(

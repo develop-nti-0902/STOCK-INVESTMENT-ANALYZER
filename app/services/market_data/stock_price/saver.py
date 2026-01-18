@@ -14,6 +14,7 @@ from typing import Any, Callable, Dict, List, Optional, Union, cast
 import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions.validation import FieldValidationError
 from app.repositories.stock_data_repository import (
     StockData1dRepository,
     StockData1hRepository,
@@ -177,7 +178,9 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
             # Repository選択
             repository = self._select_repository(timeframe)
             if not repository:
-                raise ValueError(f"Unsupported timeframe: {timeframe}")
+                raise FieldValidationError(
+                    message=f"Unsupported timeframe: {timeframe}"
+                )
 
             # データ変換
             db_records = self._prepare_data_for_db(symbol, data)
@@ -396,7 +399,9 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 return self._convert_dict_list_to_db_records(symbol, data)
 
             else:
-                raise ValueError(f"Unsupported data type: {type(data)}")
+                raise FieldValidationError(
+                    message=f"Unsupported data type: {type(data)}"
+                )
 
         except Exception as e:
             logger.error(f"Failed to prepare data for DB: {e}")
@@ -418,7 +423,9 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         # 必須カラムの検証
         missing_columns = set(self.REQUIRED_COLUMNS) - set(df.columns)
         if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
+            raise FieldValidationError(
+                message=f"Missing required columns: {missing_columns}"
+            )
 
         records = []
         for _, row in df.iterrows():

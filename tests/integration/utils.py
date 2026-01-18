@@ -1,7 +1,15 @@
 import csv
 import os
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Type
+
+import pytest
+from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+
+import app.utils.database as db_mod
+from app.models.base import Base
+from app.models.stock_master import StockMaster
 
 
 def write_csv_artifact(
@@ -69,4 +77,70 @@ def write_csv_artifact(
                 writer.writerow(row_data)
     except Exception:
         # テストユーティリティなので失敗してもテスト本体の結果を阻害しない
+        pass
+
+
+# 共通テストヘルパーと定数
+TEST_SYMBOLS: List[str] = [
+    "7203",
+    "6758",
+    "9432",
+    "9984",
+    "8306",
+    "6861",
+    "6098",
+    "7974",
+    "6954",
+    "4063",
+]
+
+
+async def setup_test_database(
+    monkeypatch, stock_model_class: Type
+) -> AsyncEngine:
+    try:
+        DATABASE_URL = db_mod.get_database_url()
+    except Exception as exc:
+        pytest.skip(f"Skipping integration test: missing DB config ({exc})")
+
+    engine = create_async_engine(DATABASE_URL, echo=False)
+    monkeypatch.setattr(db_mod, "get_engine", lambda: engine)
+
+    try:
+        db_mod.get_session_maker.cache_clear()
+    except Exception:
+        pass
+    try:
+        db_mod.get_engine.cache_clear()
+    except Exception:
+        pass
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(delete(stock_model_class))
+        await conn.execute(delete(StockMaster))
+
+    return engine
+
+
+async def register_test_symbols(symbols: List[str]) -> None:
+    session_maker = db_mod.get_session_maker()
+    async with session_maker() as session:
+        for symbol in symbols:
+            master = StockMaster(
+                stock_code=symbol,
+                stock_name=f"Test Company {symbol}",
+                market_category="TSE Prime",
+                sector_name_33="Test Industry",
+                is_active=1,
+            )
+            session.add(master)
+        await session.commit()
+
+
+async def cleanup_database(engine: AsyncEngine) -> None:
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+    except Exception:
         pass

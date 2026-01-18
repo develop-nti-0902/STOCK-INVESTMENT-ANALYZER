@@ -5,15 +5,7 @@ import pytest
 from sqlalchemy import select
 
 import app.utils.database as db_mod
-from app.services.market_data.stock_price.converter import StockPriceConverter
-from app.services.market_data.stock_price.fetcher import StockPriceFetcher
-from app.services.market_data.stock_price.saver import StockPriceSaver
-from app.services.market_data.stock_price.service import StockPriceService
-from app.services.market_data.stock_price.validator import StockPriceValidator
-
-# Reuse helpers and constants from the main stock price integration test module
-from tests.integration.test_stock_price_integration import (
-    TEST_SYMBOLS,
+from app.models.stock_data import (
     Stocks1d,
     Stocks1h,
     Stocks1m,
@@ -22,11 +14,19 @@ from tests.integration.test_stock_price_integration import (
     Stocks5m,
     Stocks15m,
     Stocks30m,
+)
+from app.services.market_data.stock_price.converter import StockPriceConverter
+from app.services.market_data.stock_price.fetcher import StockPriceFetcher
+from app.services.market_data.stock_price.saver import StockPriceSaver
+from app.services.market_data.stock_price.service import StockPriceService
+from app.services.market_data.stock_price.validator import StockPriceValidator
+from tests.integration.utils import (
+    TEST_SYMBOLS,
     cleanup_database,
     register_test_symbols,
     setup_test_database,
+    write_csv_artifact,
 )
-from tests.integration.utils import write_csv_artifact
 
 
 class DummyBatchService:

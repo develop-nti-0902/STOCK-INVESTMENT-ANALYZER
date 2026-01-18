@@ -1,8 +1,7 @@
-"""
-Service依存性注入プロバイダ
+"""Service依存性注入プロバイダ.
 
-FastAPIのDependsパターンを使用して、各Serviceインスタンスを提供する。
-Repositoryや他のServiceとの依存関係を解決します。
+FastAPIの`Depends`パターンを使用して各Serviceインスタンスを提供します。
+Repository や他の Service との依存関係を解決します。
 
 仕様書: docs/architecture/layers/service_layer.md 3.3章
 """
@@ -29,14 +28,13 @@ from app.utils.database import get_db
 def get_batch_execution_repository(
     db: AsyncSession = Depends(get_db),
 ) -> BatchExecutionRepository:
-    """
-    BatchExecutionRepository を提供
+    """BatchExecutionRepository を提供する依存性プロバイダ.
 
     Args:
-        db: 非同期DBセッション
+        db (AsyncSession): 非同期DBセッション
 
     Returns:
-        BatchExecutionRepository
+        BatchExecutionRepository: バッチ実行データアクセスリポジトリ
     """
     return BatchExecutionRepository(session=db)
 
@@ -44,44 +42,40 @@ def get_batch_execution_repository(
 def get_batch_execution_service(
     repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
 ) -> BatchExecutionService:
-    """
-    BatchExecutionService を提供
+    """BatchExecutionService を提供する依存性プロバイダ.
 
     Args:
-        repo: BatchExecutionRepository
+        repo (BatchExecutionRepository): バッチ実行リポジトリ
 
     Returns:
-        BatchExecutionService
+        BatchExecutionService: バッチ実行のビジネスロジックサービス
     """
     return BatchExecutionService(repository=repo)
 
 
 def get_stock_price_fetcher() -> StockPriceFetcher:
-    """
-    StockPriceFetcherを提供
+    """StockPriceFetcher を提供する依存性プロバイダ.
 
     Returns:
-        StockPriceFetcher: 株価データ取得サービス
+        StockPriceFetcher: 株価データ取得サービスのインスタンス
     """
     return StockPriceFetcher()
 
 
 def get_stock_price_converter() -> StockPriceConverter:
-    """
-    StockPriceConverterを提供
+    """StockPriceConverter を提供する依存性プロバイダ.
 
     Returns:
-        StockPriceConverter: データ変換サービス
+        StockPriceConverter: データ変換サービスのインスタンス
     """
     return StockPriceConverter()
 
 
 def get_stock_price_validator() -> StockPriceValidator:
-    """
-    StockPriceValidatorを提供
+    """StockPriceValidator を提供する依存性プロバイダ.
 
     Returns:
-        StockPriceValidator: データ検証サービス
+        StockPriceValidator: データ検証サービスのインスタンス
     """
     return StockPriceValidator()
 
@@ -89,14 +83,13 @@ def get_stock_price_validator() -> StockPriceValidator:
 def get_stock_price_saver(
     db: AsyncSession = Depends(get_db),
 ) -> StockPriceSaver:
-    """
-    StockPriceSaverを提供
+    """StockPriceSaver を提供する依存性プロバイダ.
 
     Args:
-        db: 非同期DBセッション
+        db (AsyncSession): 非同期DBセッション
 
     Returns:
-        StockPriceSaver: 株価データ保存サービス
+        StockPriceSaver: 株価データ保存サービスのインスタンス
     """
     return StockPriceSaver(session=db)
 
@@ -104,14 +97,13 @@ def get_stock_price_saver(
 def get_stock_master_repository(
     db: AsyncSession = Depends(get_db),
 ) -> StockMasterRepository:
-    """
-    StockMasterRepositoryを提供
+    """StockMasterRepository を提供する依存性プロバイダ.
 
     Args:
-        db: 非同期DBセッション
+        db (AsyncSession): 非同期DBセッション
 
     Returns:
-        StockMasterRepository: 銘柄マスタリポジトリ
+        StockMasterRepository: 銘柄マスタデータのリポジトリ
     """
     return StockMasterRepository(session=db)
 
@@ -119,14 +111,13 @@ def get_stock_master_repository(
 def get_stock_master_service(
     repo: StockMasterRepository = Depends(get_stock_master_repository),
 ) -> StockMasterService:
-    """
-    StockMasterServiceを提供
+    """StockMasterService を提供する依存性プロバイダ.
 
     Args:
-        repo: 銘柄マスタリポジトリ
+        repo (StockMasterRepository): 銘柄マスタリポジトリ
 
     Returns:
-        StockMasterService: 銘柄マスタサービス
+        StockMasterService: 銘柄マスタ関連のビジネスロジックサービス
     """
     return StockMasterService(repo=repo)
 
@@ -141,17 +132,18 @@ def get_stock_price_service(
         get_batch_execution_service
     ),
 ) -> StockPriceService:
-    """
-    StockPriceServiceを提供（オーケストレーション層）
+    """StockPriceService を提供する依存性プロバイダ（オーケストレーション層）.
 
     Args:
-        fetcher: 株価データ取得サービス
-        saver: 株価データ保存サービス
-        converter: データ変換サービス
-        validator: データ検証サービス
+        fetcher (StockPriceFetcher): 株価データ取得サービス
+        saver (StockPriceSaver): 株価データ保存サービス
+        converter (StockPriceConverter): データ変換サービス
+        validator (StockPriceValidator): データ検証サービス
+        stock_master (StockMasterService): 銘柄マスタサービス
+        batch_service (BatchExecutionService): バッチ実行サービス
 
     Returns:
-        StockPriceService: 株価データ収集サービス
+        StockPriceService: 株価データ収集・保存をオーケストレートするサービス
     """
     # StockMasterService と BatchExecutionService を注入して StockPriceService を生成
     return StockPriceService(

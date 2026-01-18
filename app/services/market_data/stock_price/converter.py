@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 from pydantic import ValidationError
 
+from app.exceptions.business import ServiceError
+from app.exceptions.validation import FieldValidationError
 from app.schemas.stock_data import StockPriceCreate
 from app.services.core.converters.base_converter import BaseConverter
 
@@ -48,12 +50,14 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
             ValueError: データ形式が不正な場合
         """
         if not isinstance(data, dict):
-            raise ValueError("data must be a dict")
+            raise ServiceError(message="data must be a dict")
 
         try:
             return StockPriceCreate(**data)
         except ValidationError as e:
-            raise ValueError(f"Invalid data for StockPriceCreate: {e}") from e
+            raise ServiceError(
+                message=f"Invalid data for StockPriceCreate: {e}"
+            ) from e
 
     def from_pydantic(self, model: StockPriceCreate) -> Dict[str, Any]:
         """
@@ -91,7 +95,9 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
 
         except Exception as e:
             logger.error(f"from_pydantic conversion error: {e}")
-            raise ValueError(f"Failed to convert to dictionary: {e}") from e
+            raise ServiceError(
+                message=f"Failed to convert to dictionary: {e}"
+            ) from e
 
     def from_dataframe(
         self, df: Any, *args, **kwargs
@@ -115,7 +121,9 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
         timeframe = args[1] if len(args) > 1 else kwargs.get("timeframe")
 
         if not symbol or not timeframe:
-            raise ValueError("symbol and timeframe are required parameters")
+            raise FieldValidationError(
+                message="symbol and timeframe are required parameters"
+            )
 
         try:
             # データ検証
@@ -162,7 +170,9 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
                 symbol,
                 e,
             )
-            raise ValueError(f"Failed to convert stock price data: {e}") from e
+            raise ServiceError(
+                message=f"Failed to convert stock price data: {e}"
+            ) from e
 
     def _validate_data(self, df: pd.DataFrame) -> None:
         """
@@ -175,7 +185,7 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
             ValueError: 検証エラー
         """
         if df.empty:
-            raise ValueError("DataFrameが空です")
+            raise ServiceError(message="DataFrameが空です")
 
         # 必須カラムの存在確認
         required_columns = ["Open", "High", "Low", "Close", "Volume"]
@@ -183,11 +193,15 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
             col for col in required_columns if col not in df.columns
         ]
         if missing_columns:
-            raise ValueError(f"必須カラムが不足しています: {missing_columns}")
+            raise ServiceError(
+                message=f"必須カラムが不足しています: {missing_columns}"
+            )
 
         # データ型の確認
         if not isinstance(df.index, pd.DatetimeIndex):
-            raise ValueError("インデックスがDatetimeIndexではありません")
+            raise ServiceError(
+                message="インデックスがDatetimeIndexではありません"
+            )
 
     def _normalize_timestamps(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -214,13 +228,17 @@ class StockPriceConverter(BaseConverter[StockPriceCreate]):
                         "Asia/Tokyo"
                     )
             else:
-                raise ValueError("インデックスがDatetimeIndexではありません")
+                raise ServiceError(
+                    message="インデックスがDatetimeIndexではありません"
+                )
 
             return df_normalized
 
         except Exception as e:
             logger.error(f"Timestamp normalization error: {e}")
-            raise ValueError(f"Failed to normalize timestamps: {e}") from e
+            raise ServiceError(
+                message=f"Failed to normalize timestamps: {e}"
+            ) from e
 
     def _safe_float(self, value) -> Optional[float]:
         """

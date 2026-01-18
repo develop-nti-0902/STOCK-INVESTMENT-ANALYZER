@@ -1,8 +1,8 @@
-"""
-スキーマ層 - 基底クラス
+"""スキーマ層 - 基底クラス.
 
-全てのPydanticスキーマの基底となるクラスを定義する。
-共通フィールド（id, created_at, updated_at）を提供し、リクエスト/レスポンスの雛形を提供する。
+全ての Pydantic スキーマの基底クラス群を定義します。共通フィールド
+(`id`, `created_at`, `updated_at`) やリクエスト／レスポンスの雛形を提供します。
+
 仕様書: docs/architecture/layers/service_layer.md 7章、data_access_layer.md 3.1章
 """
 
@@ -13,16 +13,12 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class BaseSchema(BaseModel):
-    """
-    スキーマ基底クラス（共通フィールド提供）
-
-    全てのPydanticスキーマの基底クラスとして、共通フィールドを提供します。
-    データベースモデルとの対応を考慮し、型安全なデータ転送を実現します。
+    """スキーマ基底クラス（共通フィールド）.
 
     Attributes:
-        id: レコードID（主キー）
-        created_at: 作成日時（タイムゾーン対応）
-        updated_at: 更新日時（タイムゾーン対応）
+        id (Optional[int]): レコードID（主キー）
+        created_at (Optional[datetime]): 作成日時（タイムゾーン対応）
+        updated_at (Optional[datetime]): 更新日時（タイムゾーン対応）
     """
 
     model_config = ConfigDict(
@@ -50,21 +46,25 @@ class BaseSchema(BaseModel):
 
     @field_serializer("created_at", "updated_at")
     def _serialize_datetimes(self, v: datetime | None, _info) -> str | None:
-        """JSON出力用に datetime を ISO-8601 形式にシリアライズします。"""
+        """datetime を ISO-8601 形式にシリアライズする.
+
+        Args:
+            v (Optional[datetime]): シリアライズする日時
+            _info: シリアライザ情報（内部利用）
+
+        Returns:
+            Optional[str]: ISO-8601 形式の文字列、または None
+        """
         if v is None:
             return None
         return v.isoformat()
 
 
 class BaseRequestSchema(BaseModel):
-    """
-    リクエストスキーマ基底クラス
-
-    APIリクエストの雛形を提供します。
-    共通フィールド（id, created_at, updated_at）を含みません。
+    """リクエストスキーマ基底クラス.
 
     Note:
-        リクエスト時には id, created_at, updated_at はサーバー側で
+        リクエスト時には `id`, `created_at`, `updated_at` はサーバー側で
         自動生成されるため、クライアントから送信する必要はありません。
     """
 
@@ -77,16 +77,12 @@ class BaseRequestSchema(BaseModel):
 
 
 class BaseResponseSchema(BaseSchema):
-    """
-    レスポンススキーマ基底クラス
+    """レスポンススキーマ基底クラス.
 
-    APIレスポンスの雛形を提供します。
-    BaseSchemaを継承し、共通フィールド（id, created_at, updated_at）を含みます。
+    BaseSchema を継承し、レスポンス用の共通フィールドを提供します。
 
     Note:
-        レスポンス時には id, created_at, updated_at は必須フィールドとして
-        扱われます。データベースから取得したモデルインスタンスから
-        生成することを想定しています。
+        レスポンス時には `id`, `created_at`, `updated_at` を含むことを想定しています。
     """
 
     # BaseSchemaの設定を継承
@@ -94,14 +90,11 @@ class BaseResponseSchema(BaseSchema):
 
 
 class PaginationRequestSchema(BaseRequestSchema):
-    """
-    ページネーションリクエストスキーマ
-
-    リスト取得APIのクエリパラメータとして使用します。
+    """ページネーションリクエストスキーマ.
 
     Attributes:
-        limit: 取得件数（デフォルト: 100、最大: 1000）
-        offset: オフセット（デフォルト: 0）
+        limit (int): 取得件数（デフォルト: 100、最大: 1000）
+        offset (int): オフセット（デフォルト: 0）
     """
 
     limit: int = Field(
@@ -118,15 +111,12 @@ class PaginationRequestSchema(BaseRequestSchema):
 
 
 class PaginationResponseSchema(BaseModel):
-    """
-    ページネーションレスポンススキーマ
-
-    リスト取得APIのレスポンスメタデータとして使用します。
+    """ページネーションレスポンススキーマ.
 
     Attributes:
-        total: 総件数
-        limit: 取得件数
-        offset: オフセット
+        total (int): 総件数
+        limit (int): 取得件数
+        offset (int): オフセット
     """
 
     model_config = ConfigDict(

@@ -89,6 +89,7 @@ except ImportError:
     # モジュール未検出（ImportError）の場合は無視します。
     pass
 
+
 if __name__ == "__main__":
     import uvicorn
 

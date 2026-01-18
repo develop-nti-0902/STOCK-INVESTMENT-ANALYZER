@@ -1,7 +1,6 @@
-"""
-データ保存抽象基底クラス
+"""データ保存抽象基底クラス.
 
-データベースへのデータ保存を抽象化します。
+データベースへの保存ロジックを抽象化する基底クラスを提供します。
 仕様書: docs/architecture/layers/service_layer.md 6.1章
 """
 
@@ -13,26 +12,12 @@ T = TypeVar("T")
 
 
 class BaseSaver(ABC, Generic[T]):
-    """
-    データ保存の抽象基底クラス（Strategy パターン）
+    """データ保存の抽象基底クラス（Strategy パターン）.
 
-    全てのSaverはこのクラスを継承し、save/save_batchメソッドを実装します。
-    非同期処理を前提とした設計で、トランザクション管理とバルク保存に対応します。
+    非同期処理を前提に単一保存・バルク保存のインターフェースを定義します.
 
     Type Parameters:
-        T: 保存するデータの型（Pydanticモデルなど）
-
-    Examples:
-        >>> class StockPriceSaver(BaseSaver[StockData]):
-        ...     async def save(self, data: StockData, **kwargs) -> bool:
-        ...         # PostgreSQLに保存
-        ...         return True
-        ...
-        ...     async def save_batch(
-        ...         self, data_list: list[StockData], **kwargs
-        ...     ) -> int:
-        ...         # 一括保存
-        ...         return len(data_list)
+        T: 保存対象のデータ型（Pydantic モデル等）
     """
 
     @abstractmethod

@@ -1,9 +1,6 @@
-"""
-一括保存共通ロジック Mixin
+"""一括保存共通ロジック Mixin.
 
-大量データのバッチ保存時に使用する共通処理を提供します。
-チャンク分割、進捗管理、エラーハンドリングを実装します。
-
+大量データのバッチ保存で用いるチャンク分割や進捗管理の共通実装を提供します。
 仕様書: docs/architecture/layers/service_layer.md 6.1章
 """
 
@@ -20,29 +17,11 @@ logger = logging.getLogger(__name__)
 
 
 class BulkSaverMixin(BaseSaver[T], Generic[T]):
-    """
-    一括保存共通ロジック Mixin
-
-    大量データの保存時にチャンク分割と進捗管理を提供します。
-    BaseSaverを継承したクラスでこのMixinを使用することで、
-    効率的なバッチ保存が可能になります。
+    """一括保存用の共通 Mixin.
 
     Attributes:
-        batch_size (int): デフォルトのバッチサイズ
-        max_concurrent_batches (int): 最大同時実行バッチ数
-
-    Examples:
-        >>> class StockPriceSaver(BulkSaverMixin[StockData]):
-        ...     def __init__(self, batch_size: int = 1000):
-        ...         super().__init__(batch_size=batch_size)
-        ...
-        ...     async def save(self, data: StockData) -> bool:
-        ...         # 単一保存の実装
-        ...         return True
-        ...
-        ...     async def save_batch(self, data_list: list[StockData]) -> int:
-        ...         # 一括保存でチャンク処理を使用
-        ...         return await self.save_in_chunks(data_list)
+        batch_size (int): デフォルトバッチサイズ
+        max_concurrent_batches (int): 最大同時処理バッチ数
     """
 
     def __init__(

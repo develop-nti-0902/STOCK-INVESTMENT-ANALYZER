@@ -68,9 +68,11 @@ class TestAppException:
 
         # Assert: 辞書形式が正しいことを確認
         assert result == {
-            "error": "TEST_ERROR",
-            "message": "Test error",
-            "details": {"field": "test", "value": "invalid"},
+            "error": {
+                "code": "TEST_ERROR",
+                "message": "Test error",
+                "details": {"field": "test", "value": "invalid"},
+            }
         }
 
     def test_to_http_exception(self):
@@ -92,9 +94,11 @@ class TestAppException:
         assert isinstance(http_exc, HTTPException)
         assert http_exc.status_code == 400
         assert http_exc.detail == {
-            "error": "TEST_ERROR",
-            "message": "Test error",
-            "details": {"field": "test"},
+            "error": {
+                "code": "TEST_ERROR",
+                "message": "Test error",
+                "details": {"field": "test"},
+            }
         }
 
     def test_str_representation(self):

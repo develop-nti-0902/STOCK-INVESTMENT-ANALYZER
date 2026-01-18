@@ -1,7 +1,12 @@
-"""バッチ処理ユーティリティモジュール
+"""バッチ処理ユーティリティモジュール。
 
-JPX全銘柄一括取得機能のためのバッチ処理ユーティリティを提供します。
-リスト分割、並列実行制御、進捗トラッキング機能を含みます。
+JPX 全銘柄処理などの大規模バッチ処理で使用するヘルパーを提供します。
+リストの分割、同時実行数の制御、進捗管理機能を含みます。
+
+ノート:
+    - ``chunk_list``: 大きなリストを固定サイズのチャンクに分割します。
+    - ``parallel_execute``: 同時実行数を制限しつつ awaitable を実行します。
+    - ``ProgressTracker``: 進捗の集計と通知を行います。
 """
 
 from __future__ import annotations
@@ -22,6 +27,8 @@ from typing import (
     cast,
 )
 
+from app.exceptions.validation import FieldValidationError
+
 T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
@@ -39,10 +46,10 @@ def chunk_list(items: List[T], chunk_size: int) -> List[List[T]]:
         分割されたリストのリスト
 
     Raises:
-        ValueError: chunk_sizeが1未満の場合
+        FieldValidationError: chunk_sizeが1未満の場合
     """
     if chunk_size < 1:
-        raise ValueError("chunk_size must be greater than 0")
+        raise FieldValidationError(message="chunk_size must be greater than 0")
 
     return [
         items[i : i + chunk_size] for i in range(0, len(items), chunk_size)

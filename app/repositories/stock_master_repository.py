@@ -1,26 +1,36 @@
-import logging
-from typing import List, Optional
+"""Stock master Repository モジュール.
 
-from sqlalchemy import or_, select
+銘柄マスター（StockMaster）に対する参照、検索、一括更新処理を提供します。
+部分一致検索や PostgreSQL の UPSERT（ON CONFLICT）を用いた一括更新を扱います。
+"""
+
+import logging
+from typing import Any, List, Optional
+
+from sqlalchemy import delete, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.stock_master import StockMaster
+from app.models.stock_master import IS_ACTIVE, StockMaster
 from app.repositories.base import BaseRepository
 
 logger = logging.getLogger(__name__)
 
 
 def _escape_like(query: str, escape_char: str = "\\") -> str:
-    """Escape SQL LIKE wildcards in `query` so they are treated literally.
+    """LIKE クエリ用のエスケープを行う.
 
-    Replaces backslashes first, then '%' and '_' with escaped forms.
-    Returns the escaped string (do not add surrounding '%' here).
+    Args:
+        query (str): 入力クエリ文字列
+        escape_char (str): エスケープ文字（デフォルト '\\'）
+
+    Returns:
+        str: エスケープ済みクエリ（周囲のワイルドカード '%' は付与しない）
     """
     if query is None:
         return ""
-    # escape the escape char itself first
+    # エスケープ文字自体を先にエスケープする
     esc = query.replace(escape_char, escape_char * 2)
     esc = esc.replace("%", escape_char + "%")
     esc = esc.replace("_", escape_char + "_")
@@ -28,67 +38,102 @@ def _escape_like(query: str, escape_char: str = "\\") -> str:
 
 
 class StockMasterRepository(BaseRepository[StockMaster]):
-    """
-    StockMaster専用のRepository
+    """銘柄マスター用の Repository.
 
-    提供する主要メソッド:
-    - get_by_symbol
-    - get_by_market
-    - search
-    - bulk_upsert (PostgreSQLのON CONFLICTを利用)
+    Attributes:
+        model: 対象の SQLAlchemy モデル（StockMaster）
     """
 
     def __init__(self, session: AsyncSession):
         super().__init__(session, model=StockMaster)
 
     async def get_by_symbol(self, symbol: str) -> Optional[StockMaster]:
-        """銘柄コードで単一取得"""
+        """銘柄コードで単一のレコードを取得する.
+
+        Args:
+            symbol (str): 銘柄コード
+
+        Returns:
+            Optional[StockMaster]: 見つかればモデル、なければ None
+        """
         result = await self.session.execute(
             select(self.model).where(self.model.stock_code == symbol)
         )
         return result.scalar_one_or_none()
 
     async def get_all_active_symbols(self) -> List[str]:
-        """アクティブな全銘柄コードを取得"""
+        """有効（active）な全銘柄コードを取得する.
+
+        Returns:
+            List[str]: 銘柄コードのリスト
+        """
         result = await self.session.execute(
-            select(self.model.stock_code).where(self.model.is_active)
+            select(self.model.stock_code).where(
+                self.model.is_active == IS_ACTIVE
+            )
         )
         return [row[0] for row in result.all()]
 
     async def get_symbols_by_market(self, market: str) -> List[str]:
-        """市場別銘柄コードを取得"""
+        """指定市場の銘柄コードを取得する.
+
+        Args:
+            market (str): 市場名
+
+        Returns:
+            List[str]: 銘柄コードリスト
+        """
         result = await self.session.execute(
             select(self.model.stock_code).where(
                 self.model.market_category == market,
-                self.model.is_active,
+                self.model.is_active == IS_ACTIVE,
             )
         )
         return [row[0] for row in result.all()]
 
     async def get_symbols_by_sector(self, sector: str) -> List[str]:
-        """業種別銘柄コードを取得"""
+        """業種別の銘柄コードを取得する.
+
+        Args:
+            sector (str): 業種名
+
+        Returns:
+            List[str]: 銘柄コードリスト
+        """
         result = await self.session.execute(
             select(self.model.stock_code).where(
                 self.model.sector_name_33 == sector,
-                self.model.is_active,
+                self.model.is_active == IS_ACTIVE,
             )
         )
         return [row[0] for row in result.all()]
 
     async def get_by_market(self, market: str) -> List[StockMaster]:
-        """市場区分で取得"""
+        """市場区分でレコードを取得する.
+
+        Args:
+            market (str): 市場名
+
+        Returns:
+            List[StockMaster]: モデルリスト
+        """
         result = await self.session.execute(
             select(self.model).where(self.model.market_category == market)
         )
         return list(result.scalars().all())
 
     async def search(self, query: str) -> List[StockMaster]:
-        """`stock_code` または `stock_name` に対する部分一致検索
+        """部分一致で `stock_code` または `stock_name` を検索する.
 
-        入力文字列に SQL LIKE ワイルドカード (`%`, `_`) を含んでいた場合、
-        ユーザ入力をリテラルとして扱うためにそれらを自動的にエスケープします。
-        ワイルドカードとして意図的に使いたい場合は、呼び出し元で明示的に
-        エスケープ処理や直接 `select(...).where(...)` の使用を行ってください。
+        ユーザ入力にワイルドカード文字が含まれる場合、自動的にエスケープして
+        リテラル検索を行います。ワイルドカードを意図的に利用する場合は、
+        呼び出し側で明示的にクエリを構築してください。
+
+        Args:
+            query (str): 検索クエリ文字列
+
+        Returns:
+            List[StockMaster]: 検索結果のモデルリスト
         """
         if not query:
             return []
@@ -107,10 +152,14 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         return list(result.scalars().all())
 
     async def bulk_create(self, records: List[dict]) -> List[StockMaster]:
-        """一括作成はサポートしない。
+        """一括作成はサポートしない.
 
-        銘柄マスタは必ず一括 upsert による同期（`bulk_upsert`）で管理するため、
-        単純な ORM ベースの `bulk_create` は誤用を防ぐため無効化します。
+        Notes:
+            銘柄マスタは `bulk_upsert` による同期を前提としているため、
+            単純な `bulk_create` は意図しない状態を招くため無効化します。
+
+        Raises:
+            NotImplementedError: 常に発生
         """
         raise NotImplementedError(
             "bulk_create is not supported for StockMaster; "
@@ -118,11 +167,10 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         )
 
     async def upsert(self, data: dict) -> StockMaster:
-        """単一UPSERTはサポートしない。
+        """単一レコードの upsert はサポートしない.
 
-        本プロジェクトでは銘柄マスタに対しては一括更新のみを許可しているため、
-        単一レコードの upsert は実行不可能とします。呼び出し側は `bulk_upsert`
-        を利用してください。
+        Raises:
+            NotImplementedError: 常に発生
         """
         raise NotImplementedError(
             "Single upsert is not supported for StockMaster; "
@@ -130,10 +178,16 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         )
 
     async def bulk_upsert(self, records: List[dict]) -> int:
-        """既存のbulk_upsertも残す（入力件数を返す）
+        """複数レコードの一括 UPSERT を実行する.
 
-        注意:
-            トランザクションのコミットはService層で行ってください。
+        Args:
+            records (List[dict]): UPSERT 対象のレコード辞書リスト
+
+        Returns:
+            int: 処理した件数
+
+        Notes:
+            トランザクションのコミットは Service 層で行ってください。
         """
         if not records:
             return 0
@@ -157,6 +211,26 @@ class StockMasterRepository(BaseRepository[StockMaster]):
             return len(records)
         except SQLAlchemyError as e:
             logger.exception("bulk_upsert failed: %s", e)
+            raise
+
+    async def delete_all(self) -> int:
+        """テーブル内の全レコードを削除する.
+
+        Returns:
+            int: 削除された件数
+
+        Notes:
+            トランザクションのコミットは Service 層で行ってください。
+        """
+        try:
+            stmt = delete(self.model)
+            result = await self.session.execute(stmt)
+            await self.session.flush()
+            # 型安全性のため、getattrでデフォルト0を使用する
+            rc: Any = getattr(result, "rowcount", 0)
+            return int(rc or 0)
+        except SQLAlchemyError as e:
+            logger.exception("delete_all failed: %s", e)
             raise
 
 

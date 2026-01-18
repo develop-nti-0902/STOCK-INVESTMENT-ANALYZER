@@ -1,8 +1,7 @@
-"""
-HTTP通信共通処理クラス
+"""HTTP 通信共通処理クラス.
 
-aiohttpを使用したHTTP通信の共通処理を提供します。
-セッション管理、タイムアウト設定、レート制限対応を実装します。
+`aiohttp` を用いた HTTP 通信の共通処理を提供します（セッション管理、
+タイムアウト、簡易レート制御など）。
 
 仕様書: docs/architecture/layers/service_layer.md 3.1章
 """
@@ -20,22 +19,12 @@ logger = get_logger(__name__)
 
 
 class HttpFetcher:
-    """
-    HTTP通信の共通処理クラス
-
-    aiohttp.ClientSessionを管理し、タイムアウトとレート制限に対応します。
-    コネクションプールを活用し、効率的なHTTP通信を実現します。
+    """HTTP 通信の共通処理クラス.
 
     Attributes:
         timeout: リクエストタイムアウト設定
         semaphore: 並列リクエスト数制限用セマフォ
         rate_limit_delay: レート制限時の待機時間（秒）
-
-    Examples:
-        >>> fetcher = HttpFetcher()
-        >>> async with fetcher:
-        ...     response = await fetcher.get("https://api.example.com/data")
-        ...     data = await response.json()
     """
 
     def __init__(self) -> None:
@@ -60,23 +49,33 @@ class HttpFetcher:
         self._session: Optional[aiohttp.ClientSession] = None
 
     async def __aenter__(self) -> "HttpFetcher":
-        """非同期コンテキストマネージャのエントリーポイント"""
+        """非同期コンテキストマネージャ開始処理.
+
+        Returns:
+            HttpFetcher: 自インスタンス
+        """
         await self._ensure_session()
         return self
 
     async def __aexit__(
         self, exc_type: Any, exc_val: Any, exc_tb: Any
     ) -> None:
-        """非同期コンテキストマネージャの終了ポイント"""
+        """非同期コンテキストマネージャ終了処理.
+
+        Args:
+            exc_type: 発生した例外の型
+            exc_val: 発生した例外インスタンス
+            exc_tb: トレースバック
+        """
         await self.close()
 
     async def _ensure_session(self) -> None:
-        """ClientSessionが初期化されていない場合に作成します。"""
+        """ClientSession が未作成またはクローズされている場合に作成する."""
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(timeout=self.timeout)
 
     async def close(self) -> None:
-        """ClientSessionをクローズします。"""
+        """保持する ClientSession を安全にクローズする."""
         if self._session and not self._session.closed:
             await self._session.close()
             self._session = None

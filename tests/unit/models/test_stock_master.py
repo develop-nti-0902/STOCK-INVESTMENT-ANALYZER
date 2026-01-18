@@ -13,7 +13,7 @@ def test_stock_master_basic_fields_and_tablename():
         market_category="TSE",
         sector_code_33="01",
         sector_name_33="Automobile",
-        is_active=1,
+        is_active=stock_master.IS_ACTIVE,
         data_date="19490516",
     )
 
@@ -22,7 +22,7 @@ def test_stock_master_basic_fields_and_tablename():
     assert inst.stock_name == "Toyota Motor"
     assert inst.market_category == "TSE"
     assert inst.sector_name_33 == "Automobile"
-    assert inst.is_active == 1
+    assert inst.is_active == stock_master.IS_ACTIVE
     assert inst.data_date == "19490516"
 
     # 互換性プロパティも確認（symbol/name）

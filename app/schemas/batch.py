@@ -1,19 +1,140 @@
-"""
-バッチ実行関連のPydanticスキーマ
+"""バッチ API 用の Pydantic スキーマ定義.
 
-`JobType` / `JobStatus` Enum と `BatchExecution` 系のスキーマを定義します。
-仕様: docs/architecture/layers/service_layer.md
+バッチジョブの作成／進捗管理／履歴取得に用いるリクエスト／レスポンススキーマと
+バッチ実行に関するモデル（JobType, JobStatus, BatchExecution*）を提供します。
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.base import BaseRequestSchema, BaseResponseSchema
+from .base import (
+    BaseRequestSchema,
+    BaseResponseSchema,
+    PaginationResponseSchema,
+)
+
+
+class SingleStockDataRequest(BaseRequestSchema):
+    """単一銘柄のデータ取得リクエスト.
+
+    Attributes:
+        symbol (str): 銘柄コード
+        timeframe (str): タイムフレーム
+        start_date (str): 開始日
+        end_date (str): 終了日
+    """
+
+    symbol: str = Field(..., description="銘柄コード")
+    timeframe: str = Field(..., description="タイムフレーム")
+    start_date: str = Field(..., description="開始日")
+    end_date: str = Field(..., description="終了日")
+
+
+class JPXAllStocksRequest(BaseRequestSchema):
+    """JPX 全銘柄取得リクエスト.
+
+    Attributes:
+        timeframe (str): タイムフレーム
+        start_date (str): 開始日
+        end_date (str): 終了日
+        market (Optional[str]): 市場区分
+    """
+
+    timeframe: str = Field(..., description="タイムフレーム")
+    start_date: str = Field(..., description="開始日")
+    end_date: str = Field(..., description="終了日")
+    market: Optional[str] = Field(None, description="市場区分")
+
+
+class BatchJobResponse(BaseResponseSchema):
+    """ジョブ作成レスポンス.
+
+    Attributes:
+        job_id (str): ジョブID
+        job_type (str): ジョブ種別
+        status (str): ジョブステータス
+        estimated_completion (Optional[str]): 推定完了日時（ISO-8601）
+    """
+
+    job_id: str = Field(..., description="ジョブID")
+    job_type: str = Field(..., description="ジョブ種別")
+    status: str = Field(..., description="ジョブステータス")
+    estimated_completion: Optional[str] = Field(
+        None, description="推定完了日時（ISO-8601）"
+    )
+
+
+class BatchJobProgress(BaseRequestSchema):
+    """ジョブ進捗情報スキーマ.
+
+    Attributes:
+        processed (int): 処理済み件数
+        total (int): 総件数
+        percentage (float): 進捗率（0-100）
+    """
+
+    processed: int = Field(..., description="処理済み件数", ge=0)
+    total: int = Field(..., description="総件数", ge=0)
+    percentage: float = Field(..., description="進捗率（0-100）")
+
+
+class BatchJobStatusResponse(BaseResponseSchema):
+    """ジョブステータスレスポンス（進捗情報含む）.
+
+    Attributes:
+        job_id (str): ジョブID
+        job_type (str): ジョブ種別
+        status (str): ジョブステータス
+        progress (BatchJobProgress): 進捗情報
+        started_at (str): 開始日時（ISO-8601）
+        estimated_completion (Optional[str]): 推定完了日時（ISO-8601）
+    """
+
+    job_id: str = Field(..., description="ジョブID")
+    job_type: str = Field(..., description="ジョブ種別")
+    status: str = Field(..., description="ジョブステータス")
+    progress: BatchJobProgress = Field(..., description="進捗情報")
+    started_at: str = Field(..., description="開始日時（ISO-8601）")
+    estimated_completion: Optional[str] = Field(
+        None, description="推定完了日時（ISO-8601）"
+    )
+
+
+class BatchHistoryItem(BaseRequestSchema):
+    """バッチ履歴アイテムスキーマ.
+
+    Attributes:
+        job_id (str): ジョブID
+        job_type (str): ジョブ種別
+        status (str): ジョブステータス
+        started_at (str): 開始日時（ISO-8601）
+        completed_at (Optional[str]): 完了日時（ISO-8601）
+    """
+
+    job_id: str = Field(..., description="ジョブID")
+    job_type: str = Field(..., description="ジョブ種別")
+    status: str = Field(..., description="ジョブステータス")
+    started_at: str = Field(..., description="開始日時（ISO-8601）")
+    completed_at: Optional[str] = Field(
+        None, description="完了日時（ISO-8601）"
+    )
+
+
+class BatchHistoryResponse(PaginationResponseSchema):
+    """バッチ履歴一覧レスポンス.
+
+    Attributes:
+        items (List[BatchHistoryItem]): 履歴アイテム一覧
+        count (int): アイテム総数
+    """
+
+    items: List[BatchHistoryItem] = Field(..., description="履歴アイテム一覧")
+    count: int = Field(..., description="アイテム総数", ge=0)
 
 
 class JobType(str, Enum):
@@ -32,9 +153,10 @@ class JobStatus(str, Enum):
 
 
 class BatchJobParams(BaseModel):
-    """バッチジョブのパラメータスキーマ
+    """バッチジョブのパラメータスキーマ.
 
-    代表的なフィールド(`symbol`, `timeframe`など)を定義し、その他は許容する設定にしています。
+    Notes:
+        代表的なフィールド(`symbol`, `timeframe`など)を定義し、その他は許容します。
     """
 
     model_config = ConfigDict(validate_assignment=True, extra="allow")
@@ -48,7 +170,19 @@ class BatchJobParams(BaseModel):
 
 
 class BatchExecutionBase(BaseModel):
-    """BatchExecution の基底スキーマ"""
+    """BatchExecution の基底スキーマ.
+
+    Attributes:
+        job_type (JobType): ジョブ種別
+        status (Optional[JobStatus]): ジョブステータス
+        params (Optional[BatchJobParams]): ジョブパラメータ
+        progress (Optional[float]): 進捗（0.0–100.0）
+        success_count (Optional[int]): 成功件数
+        failed_count (Optional[int]): 失敗件数
+        error_message (Optional[str]): エラーメッセージ
+        started_at (Optional[datetime]): 開始時刻
+        finished_at (Optional[datetime]): 終了時刻
+    """
 
     model_config = ConfigDict(validate_assignment=True, extra="allow")
 
@@ -74,15 +208,19 @@ class BatchExecutionBase(BaseModel):
 
 
 class BatchExecutionCreate(BaseRequestSchema, BatchExecutionBase):
-    """ジョブ作成用スキーマ"""
-
-    # 作成時は status を省略可能（デフォルト PENDING をサーバー側でセット）
-    # 注意: ここで `status` の型を上書きしないこと。Base の型定義と整合性を保つため。
-    # 作成時はステータスを省略でき、サーバー側でデフォルト（PENDING）を設定します。
+    """ジョブ作成用スキーマ."""
 
 
 class BatchExecutionUpdate(BaseModel):
-    """ジョブ更新用スキーマ（部分更新を想定）"""
+    """ジョブ更新用スキーマ（部分更新）.
+
+    Attributes:
+        status (Optional[JobStatus]): ジョブステータス更新
+        progress (Optional[float]): 進捗更新（0.0–100.0）
+        success_count (Optional[int]): 成功件数更新
+        failed_count (Optional[int]): 失敗件数更新
+        error_message (Optional[str]): エラーメッセージ
+    """
 
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
 
@@ -102,13 +240,22 @@ class BatchExecutionUpdate(BaseModel):
 
 
 class BatchExecutionResponse(BaseResponseSchema, BatchExecutionBase):
-    """APIレスポンス用スキーマ
+    """API レスポンス用の BatchExecution スキーマ.
 
-    BaseResponseSchema が id/created_at/updated_at を提供するため、追加フィールド不要
+    Note:
+        `BaseResponseSchema` が `id`/`created_at`/`updated_at` を提供するため、
+        追加フィールドは必要ありません。
     """
 
 
 __all__ = [
+    "SingleStockDataRequest",
+    "JPXAllStocksRequest",
+    "BatchJobResponse",
+    "BatchJobProgress",
+    "BatchJobStatusResponse",
+    "BatchHistoryItem",
+    "BatchHistoryResponse",
     "JobType",
     "JobStatus",
     "BatchJobParams",

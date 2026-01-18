@@ -1,8 +1,10 @@
-"""
-株価データサービス（オーケストレーション層）
+"""Stock price service (orchestration layer).
 
-データ取得（Fetcher）と保存（Saver）を統合し、株価データ収集の全体フローを管理します。
-仕様書: docs/architecture/layers/service_layer.md 3.2.4章
+Orchestrates fetching, conversion, validation and saving of stock price data.
+
+Notes:
+    - Integrates ``Fetcher``, ``Converter``, ``Validator`` and ``Saver``
+    - Intended to be used by batch processes and API endpoints.
 """
 
 from __future__ import annotations
@@ -24,8 +26,9 @@ from typing import (
 
 import pandas as pd
 
-from app.exceptions.business import StockDataValidationError
+from app.exceptions.business import ServiceError, StockDataValidationError
 from app.exceptions.external_api import YahooFinanceError
+from app.exceptions.validation import FieldValidationError
 from app.schemas.stock_data import StockPriceCreate
 from app.services.market_data.stock_price.converter import StockPriceConverter
 from app.services.market_data.stock_price.fetcher import StockPriceFetcher
@@ -129,7 +132,9 @@ class StockPriceService:
         """
         # バッチ実行管理サービスは必須（Noneは許容しない）
         if batch_service is None:
-            raise ValueError("batch_service is required and cannot be None")
+            raise FieldValidationError(
+                message="batch_service is required and cannot be None"
+            )
 
         self.fetcher = fetcher
         self.saver = saver
@@ -407,8 +412,11 @@ class StockPriceService:
             処理サマリ辞書
         """
         if not self.stock_master_service:
-            raise RuntimeError(
-                "StockMasterService is required for fetch_all_jpx_stocks"
+            raise ServiceError(
+                message=(
+                    "StockMasterService is required for "
+                    "fetch_all_jpx_stocks"
+                )
             )
 
         start_time = perf_counter()

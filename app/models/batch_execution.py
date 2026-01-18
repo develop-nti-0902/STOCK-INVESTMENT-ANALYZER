@@ -11,10 +11,21 @@ from .base import Base, SerialPKMixin, TimestampMixin
 
 # pylint: disable=too-few-public-methods
 class BatchExecution(SerialPKMixin, TimestampMixin, Base):
-    """バッチ処理の実行サマリを記録するモデル。
+    """バッチ処理実行のサマリを記録するモデル.
 
-    - テーブル名は `batch_executions` に固定している（既存スキーマとの整合性維持）。
-    - `job_type` をバッチ種別として扱う。
+    Attributes:
+        batch_type (str): バッチの種別（例: 'jpx_all'）
+        status (str): ジョブのステータス（例: 'running', 'completed', 'failed'）
+        total_stocks (int): 対象銘柄総数
+        processed_stocks (int): 処理済銘柄数
+        successful_stocks (int): 成功した銘柄数
+        failed_stocks (int): 失敗した銘柄数
+        start_time (datetime): 実行開始時刻（UTC）
+        end_time (Optional[datetime]): 実行終了時刻（UTC）、未完了時は None
+        error_message (Optional[str]): 実行中に発生したエラーメッセージ（任意）
+
+    Notes:
+        テーブル名は既存スキーマ互換のため `batch_executions` に固定しています。
     """
 
     __tablename__ = "batch_executions"

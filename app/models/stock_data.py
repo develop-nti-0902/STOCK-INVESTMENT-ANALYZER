@@ -20,6 +20,17 @@ from .base import Base, SerialPKMixin, TimestampMixin
 
 
 class _CommonPriceColumns:
+    """共通の価格カラム定義をまとめたヘルパークラス（継承用）.
+
+    Attributes:
+        open (Decimal): 始値
+        high (Decimal): 高値
+        low (Decimal): 安値
+        close (Decimal): 終値
+        adj_close (Optional[Decimal]): 調整終値 (yfinance の `Adj Close`)
+        volume (int): 出来高
+    """
+
     open: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
     high: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
     low: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
@@ -30,6 +41,14 @@ class _CommonPriceColumns:
 
 
 class Stocks1m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
+    """1分足の株価データモデル.
+
+    Attributes:
+        symbol (str): 銘柄コード（`stock_master.stock_code` 参照）
+        timestamp (datetime): タイムスタンプ（UTC）
+        open/high/low/close/adj_close/volume: 価格系の共通カラム
+    """
+
     __tablename__ = "stocks_1m"
 
     symbol: Mapped[str] = mapped_column(
@@ -50,6 +69,13 @@ class Stocks1m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
 
 
 class Stocks5m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
+    """5分足の株価データモデル.
+
+    Attributes:
+        symbol (str): 銘柄コード
+        timestamp (datetime): タイムスタンプ（UTC）
+    """
+
     __tablename__ = "stocks_5m"
 
     symbol: Mapped[str] = mapped_column(
@@ -70,6 +96,8 @@ class Stocks5m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
 
 
 class Stocks15m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
+    """15分足の株価データモデル."""
+
     __tablename__ = "stocks_15m"
 
     symbol: Mapped[str] = mapped_column(
@@ -90,6 +118,8 @@ class Stocks15m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
 
 
 class Stocks30m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
+    """30分足の株価データモデル."""
+
     __tablename__ = "stocks_30m"
 
     symbol: Mapped[str] = mapped_column(
@@ -114,6 +144,8 @@ class Stocks30m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
 
 
 class Stocks1h(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
+    """1時間足の株価データモデル."""
+
     __tablename__ = "stocks_1h"
 
     symbol: Mapped[str] = mapped_column(
@@ -134,6 +166,8 @@ class Stocks1h(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
 
 
 class Stocks1d(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
+    """日足の株価データモデル."""
+
     __tablename__ = "stocks_1d"
 
     symbol: Mapped[str] = mapped_column(
@@ -154,6 +188,8 @@ class Stocks1d(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
 
 
 class Stocks1wk(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
+    """週足の株価データモデル."""
+
     __tablename__ = "stocks_1wk"
 
     symbol: Mapped[str] = mapped_column(
@@ -174,6 +210,8 @@ class Stocks1wk(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
 
 
 class Stocks1mo(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
+    """月足の株価データモデル."""
+
     __tablename__ = "stocks_1mo"
 
     symbol: Mapped[str] = mapped_column(

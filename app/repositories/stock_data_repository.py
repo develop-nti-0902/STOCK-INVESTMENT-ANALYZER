@@ -1,8 +1,7 @@
-"""
-株価データRepository
+"""株価データ Repository モジュール.
 
-StockDataRepositoryの基底クラスと8種類のタイムフレーム別Repositoryを実装します。
-UPSERT処理と時系列データ取得を提供します。
+時系列（複数のタイムフレーム）向けの株価データアクセスを提供する基底クラス
+と具体的なタイムフレーム別 Repository を実装します。UPSERT と取得ロジックを含みます。
 
 仕様書: docs/architecture/layers/data_access_layer.md 3.2章
 """
@@ -12,11 +11,14 @@ from abc import ABC, abstractmethod
 from datetime import date, datetime
 from typing import List, Optional, Union, cast
 
+from sqlalchemy import delete as sql_delete
 from sqlalchemy import desc, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions.database import StockDataError
+from app.exceptions.validation import FieldValidationError
 from app.models.stock_data import (
     Stocks1d,
     Stocks1h,
@@ -45,25 +47,20 @@ logger = logging.getLogger(__name__)
 
 
 class StockDataRepository(BaseRepository, ABC):
-    """
-    株価データRepository基底クラス
-
-    8種類のタイムフレーム別Repositoryの基底クラスとして、
-    UPSERT処理と時系列データ取得を提供します。
+    """株価データ向け Repository の基底クラス.
 
     Attributes:
         timeframe (str): タイムフレーム識別子
-            ('1m', '5m', '15m', '30m', '1h', '1d', '1wk', '1mo')
+            ('1m','5m','15m','30m','1h','1d','1wk','1mo')
         time_column (str): 時間カラム名（'timestamp' または 'date'）
     """
 
     def __init__(self, session: AsyncSession, model):
-        """
-        初期化
+        """初期化.
 
         Args:
-            session: 非同期DBセッション
-            model: SQLAlchemyモデルクラス
+            session (AsyncSession): 非同期 DB セッション
+            model: 対象となる SQLAlchemy モデルクラス
         """
         super().__init__(session, model)
         self._model = model
@@ -77,28 +74,35 @@ class StockDataRepository(BaseRepository, ABC):
 
     @abstractmethod
     def _get_timeframe(self) -> str:
-        """タイムフレーム識別子を取得（サブクラスで実装）"""
+        """タイムフレーム識別子を返す（サブクラス実装）.
+
+        Returns:
+            str: タイムフレーム識別子
+        """
 
     @abstractmethod
     def _get_time_column(self) -> str:
-        """時間カラム名を取得（サブクラスで実装）"""
-
-    async def upsert_single(self, data: dict) -> dict:
-        """
-        単一レコードのUPSERT
-
-        Args:
-            data: 挿入・更新するデータ（辞書形式）
+        """時間カラム名を返す（サブクラス実装）.
 
         Returns:
-            dict: UPSERT結果情報
+            str: 時間カラム名 ('timestamp' または 'date')
+        """
+
+    async def upsert_single(self, data: dict) -> dict:
+        """単一レコードの UPSERT を実行する.
+
+        Args:
+            data (dict): 挿入・更新するデータ（辞書）
+
+        Returns:
+            dict: UPSERT 結果情報（operation/rowcount/timeframe/symbol など）
 
         Raises:
-            ValueError: データが不正な場合
-            RuntimeError: UPSERT処理に失敗した場合
+            FieldValidationError: 入力データが不正な場合
+            StockDataError: UPSERT 実行失敗時
         """
         if not data:
-            raise ValueError("Data cannot be empty")
+            raise FieldValidationError(message="Data cannot be empty")
 
         required_fields = [
             "symbol",
@@ -112,7 +116,9 @@ class StockDataRepository(BaseRepository, ABC):
             field for field in required_fields if field not in data
         ]
         if missing_fields:
-            raise ValueError(f"Missing required fields: {missing_fields}")
+            raise FieldValidationError(
+                message=f"Missing required fields: {missing_fields}"
+            )
 
         try:
             # UPSERT文の構築
@@ -164,24 +170,22 @@ class StockDataRepository(BaseRepository, ABC):
                 e,
                 data,
             )
-            raise RuntimeError(f"Failed to upsert data: {e}") from e
+            raise StockDataError(message=f"Failed to upsert data: {e}") from e
 
     async def upsert_bulk(self, data_list: List[dict]) -> int:
-        """
-        一括UPSERT
+        """複数レコードの UPSERT を一括で実行する.
 
         Args:
-            data_list: UPSERTするデータのリスト
+            data_list (List[dict]): UPSERT 対象のデータリスト
 
         Returns:
-            int: 成功した件数
+            int: 成功件数
 
         Raises:
-            ValueError: データリストが不正な場合
-            RuntimeError: UPSERT処理に失敗した場合
+            RuntimeError: 一括処理に失敗した場合
 
-        注意:
-            トランザクションのコミット/ロールバックはService層で行ってください。
+        Notes:
+            トランザクション制御は Service 層で行ってください。
         """
         if not data_list:
             return 0
@@ -214,7 +218,9 @@ class StockDataRepository(BaseRepository, ABC):
 
         except Exception as e:
             logger.error("Bulk UPSERT failed for %s: %s", self.timeframe, e)
-            raise RuntimeError(f"Failed to bulk upsert data: {e}") from e
+            raise StockDataError(
+                message=f"Failed to bulk upsert data: {e}"
+            ) from e
 
     async def get_by_symbol_and_range(
         self,
@@ -224,18 +230,17 @@ class StockDataRepository(BaseRepository, ABC):
         limit: int = 1000,
         offset: int = 0,
     ) -> List:
-        """
-        銘柄コードと期間指定でデータを取得
+        """銘柄コードと期間で時系列データを取得する.
 
         Args:
-            symbol: 銘柄コード
-            start: 開始日時/日付（含む）
-            end: 終了日時/日付（含む）
-            limit: 取得件数上限
-            offset: オフセット
+            symbol (str): 銘柄コード
+            start (Optional[datetime|date]): 開始時刻/日付（含む）
+            end (Optional[datetime|date]): 終了時刻/日付（含む）
+            limit (int): 取得上限
+            offset (int): オフセット
 
         Returns:
-            モデルインスタンスのリスト
+            List: モデルインスタンスのリスト
         """
         query = select(self.model).where(self.model.symbol == symbol)
 
@@ -252,15 +257,14 @@ class StockDataRepository(BaseRepository, ABC):
         return list(result.scalars().all())
 
     async def get_latest(self, symbol: str, limit: int = 1) -> List:
-        """
-        銘柄の最新データを取得
+        """銘柄の最新データを取得する.
 
         Args:
-            symbol: 銘柄コード
-            limit: 取得件数
+            symbol (str): 銘柄コード
+            limit (int): 取得件数（デフォルト: 1）
 
         Returns:
-            最新のモデルインスタンスリスト（新しい順）
+            List: 最新のモデルインスタンス（新しい順）
         """
         time_col = getattr(self.model, self.time_column)
 
@@ -275,14 +279,13 @@ class StockDataRepository(BaseRepository, ABC):
         return list(result.scalars().all())
 
     async def count_by_symbol(self, symbol: str) -> int:
-        """
-        銘柄のレコード数を取得
+        """銘柄ごとのレコード数を返す.
 
         Args:
-            symbol: 銘柄コード
+            symbol (str): 銘柄コード
 
         Returns:
-            レコード数
+            int: レコード数
         """
         # pylint: disable=not-callable
         query = select(func.count()).where(self.model.symbol == symbol)
@@ -292,19 +295,18 @@ class StockDataRepository(BaseRepository, ABC):
     async def get_by_symbol_and_timestamp(
         self, symbol: str, timestamp: datetime
     ) -> Optional[StockDataModel]:
-        """
-        銘柄コード + タイムスタンプでデータを取得(分足・時間足用)
+        """タイムスタンプベースのデータを取得する（分/時間足用）.
 
         Args:
-            symbol: 銘柄コード
-            timestamp: タイムスタンプ
+            symbol (str): 銘柄コード
+            timestamp (datetime): タイムスタンプ
 
         Returns:
-            モデルインスタンス、見つからない場合はNone
+            Optional[StockDataModel]: 見つかればモデルインスタンス、なければ None
         """
         if self.time_column != "timestamp":
-            raise ValueError(
-                f"This method is for timestamp-based data. "
+            raise FieldValidationError(
+                message=f"This method is for timestamp-based data. "
                 f"Use get_by_symbol_and_date for {self.timeframe}"
             )
 
@@ -319,19 +321,18 @@ class StockDataRepository(BaseRepository, ABC):
     async def get_by_symbol_and_date(
         self, symbol: str, target_date: date
     ) -> Optional[StockDataModel]:
-        """
-        銘柄コード + 日付でデータを取得(日足以上用)
+        """日付ベースのデータを取得する（日足以上用）.
 
         Args:
-            symbol: 銘柄コード
-            target_date: 対象日付
+            symbol (str): 銘柄コード
+            target_date (date): 対象日付
 
         Returns:
-            モデルインスタンス、見つからない場合はNone
+            Optional[StockDataModel]: 見つかればモデルインスタンス、なければ None
         """
         if self.time_column != "date":
-            raise ValueError(
-                f"This method is for date-based data. "
+            raise FieldValidationError(
+                message=f"This method is for date-based data. "
                 f"Use get_by_symbol_and_timestamp for {self.timeframe}"
             )
 
@@ -342,6 +343,42 @@ class StockDataRepository(BaseRepository, ABC):
 
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
+
+    async def delete_all(self) -> int:
+        """テーブル内の全レコードを削除する.
+
+        Returns:
+            int: 削除された件数
+
+        Raises:
+            RuntimeError: 削除処理が失敗した場合
+
+        Notes:
+            トランザクションのコミット/ロールバックは Service 層で行ってください。
+        """
+        try:
+            stmt = sql_delete(self.model)
+            result = cast(CursorResult, await self.session.execute(stmt))
+
+            deleted_count = result.rowcount or 0
+
+            logger.info(
+                "Deleted all records from %s: %d rows",
+                self.timeframe,
+                deleted_count,
+            )
+
+            return deleted_count
+
+        except Exception as e:
+            logger.exception(
+                "Failed to delete all records from %s: %s",
+                self.timeframe,
+                e,
+            )
+            raise StockDataError(
+                message=f"Failed to delete all records: {e}"
+            ) from e
 
 
 # 具体的なRepositoryクラス実装
