@@ -6,8 +6,8 @@ REM Location: scripts\databaseSetup\setup_db.bat
 REM Usage: Run this script directly or call it from other setup scripts
 REM NOTE: Save this file as UTF-8 without BOM. A BOM can be interpreted as commands by CMD.
 REM
-REM このスクリプトはAlembicを使用してデータベースを初期化します。
-REM 従来のSQLファイル実行方式は廃止され、すべてAlembicマイグレーションで管理されます。
+REM This script initializes the database using Alembic.
+REM The previous SQL file execution method is deprecated, and everything is now managed via Alembic migrations.
 REM =============================================================================
 
 setlocal enabledelayedexpansion
@@ -97,7 +97,7 @@ REM Check for psql in PATH
 echo [1/6] Checking PostgreSQL installation...
 
 where psql >nul 2>&1
-if errorlevel 1 (
+if %errorlevel% neq 0 (
     echo [ERROR] psql ^(PostgreSQL client^) not found in PATH.
     echo Install PostgreSQL client or add it to PATH, then retry.
     exit /b 1
@@ -157,8 +157,12 @@ if NOT "%DB_DATA_DIR%"=="" (
 REM Create database user (ignore if exists)
 echo [3/6] Creating database user (if not exists)...
 
-psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -c "DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '%DB_USER%') THEN CREATE USER %DB_USER% WITH PASSWORD '%DB_PASSWORD%'; END IF; END$$;" 2>NUL
-if errorlevel 1 echo [WARN] Could not create user (you may need to run as a superuser or provide correct postgres password)
+psql -h %PGHOST% -p %PGPORT% -U %PGUSER% -c "DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '%DB_USER%') THEN CREATE USER %DB_USER% WITH LOGIN PASSWORD '%DB_PASSWORD%'; ELSE ALTER ROLE %DB_USER% WITH LOGIN; END IF; END$$;"
+if %errorlevel% neq 0 (
+    echo [ERROR] Could not create or update user
+    exit /b 1
+)
+echo User created or updated successfully
 
 echo [4/6] Preparing tablespace directory and tablespace...
 if not "%SKIP_TABLESPACE%"=="" (
@@ -168,11 +172,14 @@ if not "%SKIP_TABLESPACE%"=="" (
 set "DB_FULL_PATH=!DB_DATA_DIR!\!DB_NAME!"
     if not exist "!DB_FULL_PATH!" (
         echo Creating directory: !DB_FULL_PATH!
-        mkdir "!DB_FULL_PATH!"
-        if errorlevel 1 (
-            echo [ERROR] Failed to create directory %DB_FULL_PATH%
+        mkdir "!DB_FULL_PATH!" 2>nul
+        if not exist "!DB_FULL_PATH!" (
+            echo [ERROR] Failed to create directory !DB_FULL_PATH!
             exit /b 1
         )
+        echo Directory created successfully
+    ) else (
+        echo Directory !DB_FULL_PATH! already exists
     )
 
     REM Check for existing tablespace (use temp file to avoid complex for/f parsing issues)
@@ -181,8 +188,12 @@ set "DB_FULL_PATH=!DB_DATA_DIR!\!DB_NAME!"
     set "TS_CHECK=%TS_CHECK: =%"
     if not "%TS_CHECK%"=="1" (
         echo Creating tablespace stock_data_space at !DB_FULL_PATH!
-        psql -U %PGUSER% -h %PGHOST% -c "CREATE TABLESPACE stock_data_space OWNER %PGUSER% LOCATION '!DB_FULL_PATH!';" 2>"%TEMP%\ts_create_err.txt"
-        if errorlevel 1 echo [WARN] Failed to create tablespace (it may already exist or you may lack privileges)
+        psql -U %PGUSER% -h %PGHOST% -c "CREATE TABLESPACE stock_data_space OWNER %PGUSER% LOCATION '!DB_FULL_PATH!';"
+        if !errorlevel! neq 0 (
+            echo [ERROR] Failed to create tablespace
+            exit /b 1
+        )
+        echo Tablespace created successfully
     ) else (
         echo Tablespace stock_data_space already exists
     )
@@ -200,12 +211,13 @@ if not "%DB_EXISTS%"=="1" (
         psql -U %PGUSER% -h %PGHOST% -c "CREATE DATABASE !DB_NAME! WITH OWNER = %PGUSER% ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>"%TEMP%\db_create_err.txt"
     ) else (
         REM Create database with custom tablespace
-        psql -U %PGUSER% -h %PGHOST% -c "CREATE DATABASE !DB_NAME! WITH OWNER = %PGUSER% ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TABLESPACE = stock_data_space TEMPLATE = template0 CONNECTION LIMIT = -1;" 2>"%TEMP%\db_create_err.txt"
+        psql -U %PGUSER% -h %PGHOST% -c "CREATE DATABASE !DB_NAME! WITH OWNER = %PGUSER% ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C' TABLESPACE = stock_data_space TEMPLATE = template0 CONNECTION LIMIT = -1;"
     )
-    if errorlevel 1 (
+    if !errorlevel! neq 0 (
         echo [ERROR] Failed to create database
         exit /b 1
     )
+    echo Database created successfully
 ) else (
     echo Database %DB_NAME% already exists
 )
@@ -221,7 +233,7 @@ echo.
 
 cd "%REPO_ROOT%"
 
-REM Pythonの仮想環境を探す
+REM Detect Python virtual environment
 if exist ".venv\Scripts\python.exe" (
     set "PYTHON_CMD=.venv\Scripts\python.exe"
 ) else if exist "venv\Scripts\python.exe" (
@@ -232,18 +244,18 @@ if exist ".venv\Scripts\python.exe" (
 
 echo Using Python: !PYTHON_CMD!
 
-REM Alembicがインストールされているか確認
+REM Check if Alembic is installed
 !PYTHON_CMD! -m alembic --version >nul 2>&1
-if errorlevel 1 (
+if %errorlevel% neq 0 (
     echo [ERROR] Alembic not found. Please install it:
     echo   !PYTHON_CMD! -m pip install alembic
     exit /b 1
 )
 
-REM マイグレーションを最新バージョンまで適用
+REM Apply migrations to the latest version
 echo Running: !PYTHON_CMD! -m alembic upgrade head
 !PYTHON_CMD! -m alembic upgrade head
-if errorlevel 1 (
+if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Alembic migration failed
     echo Please check:
