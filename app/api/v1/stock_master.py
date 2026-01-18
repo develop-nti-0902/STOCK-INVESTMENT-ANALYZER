@@ -107,8 +107,8 @@ async def refresh_stock_master_sample(
         RefreshResponse: 更新結果
     """
     try:
-        updated_count = await service.fetch_and_store(
-            batch_size=batch_size, limit=sample_size
+        updated_count = await service.refresh_stock_master(
+            limit=sample_size, batch_size=batch_size
         )
         return RefreshResponse(
             message=(

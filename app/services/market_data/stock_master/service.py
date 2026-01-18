@@ -42,69 +42,6 @@ class StockMasterService:
         # 更新サマリを記録するためのオプショナルなリポジトリ
         self.updates_repo = updates_repo
 
-    async def fetch_and_store(
-        self, *, batch_size: int = 500, limit: Optional[int] = None
-    ) -> int:
-        """Fetch stock master records and store them in DB in batches.
-
-        Args:
-            batch_size (int): バッチのサイズ（デフォルト: 500）
-            limit (Optional[int]): フェッチ後に保存する上限件数（指定しない場合は全件）
-
-        Returns:
-            int: 保存されたレコードの合計数.
-
-        Raises:
-            Exception: フェッチや保存処理で発生した例外を透過します.
-        """
-        # フェッチ（リトライなし）
-        try:
-            data = await self.fetcher.fetch_all()
-        except Exception as exc:
-            logger.error("Failed to fetch data", extra={"error": str(exc)})
-            raise
-
-        # limitが指定されていれば先頭からsliceする
-        if limit is not None:
-            try:
-                limit_val = int(limit)
-                if limit_val < 0:
-                    raise ValueError("limit must be >= 0")
-            except (TypeError, ValueError) as exc:
-                logger.error(
-                    "Invalid limit value",
-                    extra={"limit": limit, "error": str(exc)},
-                )
-                raise
-            data = data[:limit_val]
-
-        # バッチ処理でRepositoryに渡す
-        total_processed = 0
-        for i in range(0, len(data), batch_size):
-            batch = data[i : i + batch_size]
-            # Pydanticモデルを辞書化
-            prepared = []
-            for item in batch:
-                if not hasattr(item, "model_dump"):
-                    raise TypeError(
-                        "Expected Pydantic v2 model with model_dump(),"
-                        f" got {type(item)!r}"
-                    )
-                prepared.append(item.model_dump(exclude_none=True))
-
-            # リポジトリ側の処理（単純実行）
-            try:
-                affected = await self.repo.bulk_upsert(prepared)
-                total_processed += int(affected or 0)
-            except Exception as exc:
-                logger.error("bulk_upsert failed", extra={"error": str(exc)})
-                raise
-
-        logger.info(
-            "fetch_and_store completed", extra={"total": total_processed}
-        )
-        return total_processed
-
     async def get_all_active_symbols(self) -> List[str]:
         """Return all active stock symbols.
 
@@ -178,8 +115,14 @@ class StockMasterService:
             )
             raise
 
-    async def refresh_stock_master(self) -> int:
+    async def refresh_stock_master(
+        self, limit: Optional[int] = None, batch_size: int = 500
+    ) -> int:
         """Refresh stock master by fetching and storing latest data.
+
+        Args:
+            limit (Optional[int]): フェッチ後に保存する上限件数（指定しない場合は全件）
+            batch_size (int): バッチのサイズ（デフォルト: 500）
 
         Returns:
             int: 更新された件数.
@@ -215,6 +158,20 @@ class StockMasterService:
 
             # データを取得（既存挙動を保持するためリトライは行わない）
             data = await self.fetcher.fetch_all()
+
+            # limit が指定されていれば先頭から slice
+            if limit is not None:
+                try:
+                    limit_val = int(limit)
+                    if limit_val < 0:
+                        raise ValueError("limit must be >= 0")
+                except (TypeError, ValueError) as exc:
+                    logger.error(
+                        "Invalid limit value",
+                        extra={"limit": limit, "error": str(exc)},
+                    )
+                    raise
+                data = data[:limit_val]
 
             # サマリ用にシンボル集合を計算する
             new_symbols = []
