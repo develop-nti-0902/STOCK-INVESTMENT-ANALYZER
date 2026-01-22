@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories.batch_execution_repository import (
     BatchExecutionRepository,
 )
+from app.repositories.latest_stocks_repository import LatestStocksRepository
 from app.repositories.stock_master_repository import StockMasterRepository
 from app.repositories.stock_master_updates_repository import (
     StockMasterUpdatesRepository,
@@ -25,6 +26,7 @@ from app.services.market_data.stock_price import (
     StockPriceService,
     StockPriceValidator,
 )
+from app.services.views.latest_stocks_service import LatestStocksService
 from app.services.views.refresh_service import LatestStocksRefreshService
 from app.utils.database import get_db
 
@@ -185,3 +187,31 @@ def get_latest_stocks_refresh_service(
 ) -> LatestStocksRefreshService:
     """LatestStocksRefreshService を提供する依存性プロバイダ."""
     return LatestStocksRefreshService(batch_service=batch_service)
+
+
+def get_latest_stocks_repository(
+    db: AsyncSession = Depends(get_db),
+) -> LatestStocksRepository:
+    """LatestStocksRepository を提供する依存性プロバイダ.
+
+    Args:
+        db (AsyncSession): 非同期DBセッション
+
+    Returns:
+        LatestStocksRepository: latest_stocks_1dビューへのアクセスリポジトリ
+    """
+    return LatestStocksRepository(session=db)
+
+
+def get_latest_stocks_service(
+    repository: LatestStocksRepository = Depends(get_latest_stocks_repository),
+) -> LatestStocksService:
+    """LatestStocksService を提供する依存性プロバイダ.
+
+    Args:
+        repository (LatestStocksRepository): latest_stocks_1dリポジトリ
+
+    Returns:
+        LatestStocksService: latest_stocks_1dビューからのデータ取得サービス
+    """
+    return LatestStocksService(repository=repository)

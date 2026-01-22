@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from typing import Optional
 
 from sqlalchemy import text
@@ -15,12 +14,12 @@ logger = get_logger(__name__)
 class LatestStocksRefreshService:
     """`latest_stocks_1d` マテリアライズドビューのリフレッシュを管理するサービス。
 
-    - `enqueue_refresh()` は `BatchExecutionService` を用いてジョブを登録し、ジョブIDを返す。
+    - `enqueue_refresh()` は `BatchExecutionService` を用いてジョブを登録し、実際にリフレッシュを実行する。
     - `run_refresh()` は実際にマテリアライズドビューをリフレッシュする実装を行う。
 
     Notes:
-        - `REFRESH MATERIALIZED VIEW CONCURRENTLY` はトランザクション外で実行する必要があるため
-          sync エンジンで実行する実装になっています。
+        - `REFRESH MATERIALIZED VIEW CONCURRENTLY` は非同期接続で実行します。
+        - トランザクション外で実行する必要があるため、明示的にコミットを行います。
     """
 
     def __init__(self, batch_service: object, engine: Optional[object] = None):
@@ -28,38 +27,62 @@ class LatestStocksRefreshService:
         self._engine = engine
 
     async def enqueue_refresh(self) -> int:
-        """BatchExecutionService にジョブを登録してジョブIDを返す。"""
+        """BatchExecutionService にジョブを登録し、実際にリフレッシュを実行する。"""
         job = await self.batch_service.create_job("refresh_latest_stocks")
         if job is None:
             raise ServiceError(message="failed to create refresh job")
-        return int(getattr(job, "id"))
+
+        job_id = int(getattr(job, "id"))
+
+        try:
+            # ジョブを開始状態にする
+            await self.batch_service.start_job(job_id)
+
+            # 実際にマテリアライズドビューをリフレッシュ
+            await self.run_refresh()
+
+            # ジョブを完了状態にする
+            await self.batch_service.complete_job(
+                job_id,
+                success_count=0,
+                failed_count=0,
+            )
+            logger.info(f"Refresh job {job_id} completed successfully")
+
+        except Exception as e:
+            # エラーが発生した場合はジョブを失敗状態にする
+            await self.batch_service.fail_job(job_id, error_message=str(e))
+            logger.error(f"Refresh job {job_id} failed: {e}")
+            raise
+
+        return job_id
 
     async def run_refresh(self) -> None:
         """実際にマテリアライズドビューをリフレッシュする。
 
-        同期実行が必要なため、内部で同期的に接続を取得して実行し、
-        非同期のコンテキストからはスレッドで実行します。
+        非同期エンジンを使用してマテリアライズドビューをリフレッシュします。
+        REFRESH MATERIALIZED VIEW はトランザクション外で実行する必要があるため、
+        autocommit モードで実行します。
         """
 
         engine = self._engine or get_engine()
 
-        def _do_refresh() -> None:
-            try:
-                sync_engine = engine.sync_engine
-                with sync_engine.connect() as conn:
-                    sql = (
+        try:
+            # autocommit モードで接続を取得してリフレッシュを実行
+            async with engine.connect() as conn:
+                # autocommit モードにするため execution_options を設定
+                await conn.execute(
+                    text(
                         "REFRESH MATERIALIZED VIEW CONCURRENTLY "
                         "latest_stocks_1d;"
                     )
-                    conn.execute(text(sql))
-            except Exception as e:  # pragma: no cover - logging path
-                logger.exception("Refresh materialized view failed: %s", e)
-                raise
+                )
+                # コミット（autocommitではないため明示的にコミット）
+                await conn.commit()
 
-        try:
-            await asyncio.get_running_loop().run_in_executor(None, _do_refresh)
             logger.info("Refreshed latest_stocks_1d successfully")
         except Exception as e:
+            logger.exception("Refresh materialized view failed: %s", e)
             # Wrap low-level errors into ServiceError for callers
             raise ServiceError(
                 message=f"failed to refresh latest_stocks_1d: {e}"

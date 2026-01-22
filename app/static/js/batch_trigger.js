@@ -242,7 +242,27 @@ async function executeBatch() {
         let url;
         let method = 'POST';
 
-        if (batchType === 'jpx_all') {
+        // バッチタイプごとにURLを構築
+        if (batchType === 'refresh_view') {
+            // 最新銘柄ビュー更新
+            url = `${API_BASE_URL}/views/refresh-latest-stocks`;
+            method = 'POST';
+        } else if (batchType === 'refresh_sample') {
+            // 銘柄マスタ更新（サンプル）
+            const batchSize = batchSizeSelect.value;
+            const sampleSize = sampleSizeInput ? parseInt(sampleSizeInput.value, 10) : 100;
+            url = `${API_BASE_URL}/stock-master/refresh/sample?sample_size=${sampleSize}&batch_size=${batchSize}`;
+            method = 'POST';
+        } else if (batchType === 'refresh') {
+            // 銘柄マスタ更新
+            const batchSize = batchSizeSelect.value;
+            url = `${API_BASE_URL}/stock-master/refresh?batch_size=${batchSize}`;
+            method = 'POST';
+        } else if (batchType === 'reset') {
+            // 銘柄マスタリセット
+            url = `${API_BASE_URL}/stock-master/reset`;
+            method = 'DELETE';
+        } else if (batchType === 'jpx_all') {
             // JPX 全銘柄取得 API
             url = `${API_BASE_URL}/batch/stock-data/jpx-all`;
             method = 'POST';
@@ -255,23 +275,8 @@ async function executeBatch() {
             url = `${API_BASE_URL}/batch/stock-data/jpx-all/multi/run_sequence`;
             method = 'POST';
         } else {
-            // stock-master 用 API (refresh / reset)
-            url = `${API_BASE_URL}/stock-master/${batchType}`;
-            method = batchType === 'reset' ? 'DELETE' : 'POST';
-
-            // refreshの場合にbatch_sizeをクエリパラメータとして追加
-            if (batchType === 'refresh') {
-                const batchSize = batchSizeSelect.value;
-                url += `?batch_size=${batchSize}`;
-            }
-        }
-
-        // refresh_sample の場合は専用エンドポイントに sample_size と batch_size をクエリで渡す
-        if (batchType === 'refresh_sample') {
-            const batchSize = batchSizeSelect.value;
-            const sampleSize = sampleSizeInput ? parseInt(sampleSizeInput.value, 10) : 100;
-            url = `${API_BASE_URL}/stock-master/refresh/sample?sample_size=${sampleSize}&batch_size=${batchSize}`;
-            method = 'POST';
+            showStatus(`未知のバッチタイプ: ${batchType}`, 'error');
+            return;
         }
 
         // fetch オプションを組み立て（jpx_all は JSON ボディを送信）
@@ -300,9 +305,13 @@ async function executeBatch() {
         const result = await response.json();
 
         if (response.ok) {
-            const count = result.updated_count || result.deleted_count || 0;
-            const action = batchType === 'refresh' ? '更新' : '削除';
-            showStatus(`${result.message || 'バッチ実行完了'} (${action}件数: ${count})`, 'success');
+            if (result.job_id) {
+                showStatus(`${result.message || 'ジョブ登録済み'} (job_id: ${result.job_id})`, 'success');
+            } else {
+                const count = result.updated_count || result.deleted_count || 0;
+                const action = batchType === 'refresh' ? '更新' : '削除';
+                showStatus(`${result.message || 'バッチ実行完了'} (${action}件数: ${count})`, 'success');
+            }
         } else {
             showStatus(`エラー: ${result.detail || result.message || '不明なエラー'}`, 'error');
         }

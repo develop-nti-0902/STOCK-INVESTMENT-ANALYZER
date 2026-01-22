@@ -24,6 +24,7 @@
                         <label for="batch-type">バッチ種別</label>
                         <select id="batch-type" class="form-control">
                             <option value="refresh">銘柄マスタ更新 (refresh)</option>
+                            <option value="refresh_view">最新銘柄ビュー更新 (refresh_view)</option>
                             <option value="refresh_sample">銘柄マスタ更新（サンプル100件） (refresh_sample)</option>
                             <option value="jpx_all">JPX 全銘柄取得 (jpx_all)</option>
                             <option value="jpx_all_multi">JPX 全銘柄取得（マルチ） (jpx_all_multi)</option>
@@ -155,7 +156,7 @@
         </footer>
     </div>
 
-    <script src="/static/js/batch_trigger.js"></script>
+    <script src="/static/js/batch_trigger.js?v=20260122"></script>
 </body>
 
 </html>
