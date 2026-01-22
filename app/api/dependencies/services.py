@@ -25,6 +25,7 @@ from app.services.market_data.stock_price import (
     StockPriceService,
     StockPriceValidator,
 )
+from app.services.views.refresh_service import LatestStocksRefreshService
 from app.utils.database import get_db
 
 
@@ -175,3 +176,12 @@ def get_stock_price_service(
         stock_master_service=stock_master,
         batch_service=batch_service,
     )
+
+
+def get_latest_stocks_refresh_service(
+    batch_service: BatchExecutionService = Depends(
+        get_batch_execution_service
+    ),
+) -> LatestStocksRefreshService:
+    """LatestStocksRefreshService を提供する依存性プロバイダ."""
+    return LatestStocksRefreshService(batch_service=batch_service)
