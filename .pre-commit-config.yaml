@@ -9,8 +9,11 @@ repos:
     rev: v4.4.0
     hooks:
       - id: trailing-whitespace
+        stages: [commit]
       - id: end-of-file-fixer
+        stages: [commit]
       - id: check-yaml
+        stages: [commit]
 
   # プロジェクト内にインストールされた Black 等を使用します（`poetry run` 経由）。
   # これによりツールのバージョンは pyproject.toml の dev-deps と一致します。
@@ -21,18 +24,21 @@ repos:
         entry: poetry run python scripts/hooks/run_check_with_status.py --check black
         language: system
         files: \.py$
+        stages: [commit]
 
       - id: isort
         name: isort (project)
         entry: poetry run python scripts/hooks/run_check_with_status.py --check isort
         language: system
         files: \.py$
+        stages: [commit]
 
       - id: flake8
         name: flake8 (project)
         entry: poetry run python scripts/hooks/run_check_with_status.py --check flake8
         language: system
         files: \.py$
+        stages: [commit]
 
       - id: mypy
         name: mypy (project)
@@ -41,6 +47,7 @@ repos:
         files: \.py$
         pass_filenames: false
         args: ["app"]
+        stages: [commit]
 
       - id: pylint
         name: pylint (project)
@@ -49,6 +56,7 @@ repos:
         files: \.py$
         pass_filenames: false
         args: ["--rcfile=.pylintrc", "app"]
+        stages: [commit]
 
       - id: pytest
         name: pytest (project)
