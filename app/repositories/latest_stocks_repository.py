@@ -57,7 +57,7 @@ class LatestStocksRepository(BaseRepository):
         row = result.fetchone()
 
         if row is None:
-            logger.debug(f"Symbol {symbol} not found in latest_stocks_1d")
+            logger.debug("Symbol %s not found in latest_stocks_1d", symbol)
             return None
 
         # Row を辞書に変換

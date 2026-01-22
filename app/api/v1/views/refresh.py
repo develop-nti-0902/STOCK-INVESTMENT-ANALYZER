@@ -35,7 +35,7 @@ async def refresh_latest_stocks(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
-        )
+        ) from exc
 
 
 @router.get(
@@ -67,11 +67,11 @@ async def get_latest_stock(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=str(exc),
-            )
+            ) from exc
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
-        )
+        ) from exc
 
 
 __all__ = ["router"]

@@ -4,8 +4,12 @@ import asyncio
 from typing import Optional
 
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.services.batch.batch_execution_service import BatchExecutionContext
+from app.services.batch.batch_execution_service import (
+    BatchExecutionContext,
+    BatchExecutionService,
+)
 from app.services.views.refresh_service import LatestStocksRefreshService
 from app.utils.database import get_engine
 from app.utils.logger import get_logger
@@ -14,7 +18,9 @@ logger = get_logger(__name__)
 
 
 async def refresh_latest_stocks_job(
-    batch_service: object, engine: Optional[object] = None, lock_key: int = 1
+    batch_service: BatchExecutionService,
+    engine: Optional[AsyncEngine] = None,
+    lock_key: int = 1,
 ) -> None:
     """バッチジョブ: `REFRESH MATERIALIZED VIEW CONCURRENTLY latest_stocks_1d` を実行する。
 

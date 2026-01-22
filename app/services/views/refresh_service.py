@@ -3,8 +3,10 @@ from __future__ import annotations
 from typing import Optional
 
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.exceptions.business import ServiceError
+from app.services.batch.batch_execution_service import BatchExecutionService
 from app.utils.database import get_engine
 from app.utils.logger import get_logger
 
@@ -22,7 +24,11 @@ class LatestStocksRefreshService:
         - トランザクション外で実行する必要があるため、明示的にコミットを行います。
     """
 
-    def __init__(self, batch_service: object, engine: Optional[object] = None):
+    def __init__(
+        self,
+        batch_service: BatchExecutionService,
+        engine: Optional[AsyncEngine] = None,
+    ):
         self.batch_service = batch_service
         self._engine = engine
 
