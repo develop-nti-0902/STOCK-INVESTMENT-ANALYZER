@@ -51,7 +51,7 @@ class Stocks1m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
 
     Attributes:
         symbol (str): 銘柄コード（`stock_master.stock_code` 参照）
-        timestamp (datetime): タイムスタンプ（UTC）
+        timestamp (datetime): タイムスタンプ（JST）
         open/high/low/close/adj_close/volume: 価格系の共通カラム
     """
 
@@ -83,7 +83,7 @@ class Stocks5m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
 
     Attributes:
         symbol (str): 銘柄コード
-        timestamp (datetime): タイムスタンプ（UTC）
+        timestamp (datetime): タイムスタンプ（JST）
     """
 
     __tablename__ = "stocks_5m"

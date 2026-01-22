@@ -1,26 +1,22 @@
-"""ビュー関連のスキーマ定義."""
+"""ビュー関連のスキーマ定義.
+
+最新株価ビューのスキーマは既存の株価スキーマを継承して定義します。
+"""
 
 from __future__ import annotations
 
-from datetime import datetime
-from decimal import Decimal
+from pydantic import ConfigDict, Field
 
-from pydantic import BaseModel, ConfigDict, Field
+from app.schemas.stock_data import StockPrice1D
 
 
-class LatestStockBase(BaseModel):
-    """latest_stocks_1dビューの基本スキーマ."""
+class LatestStockBase(StockPrice1D):
+    """latest_stocks_1dビューの基本スキーマ。
+
+    `StockPrice1D` を継承して共通定義を再利用します。
+    """
 
     model_config = ConfigDict(from_attributes=True)
-
-    symbol: str = Field(..., description="銘柄コード")
-    timestamp: datetime = Field(..., description="タイムスタンプ（UTC）")
-    open: Decimal = Field(..., description="始値")
-    high: Decimal = Field(..., description="高値")
-    low: Decimal = Field(..., description="安値")
-    close: Decimal = Field(..., description="終値")
-    adj_close: Decimal | None = Field(None, description="調整終値")
-    volume: int = Field(..., description="出来高")
 
 
 class LatestStockResponse(LatestStockBase):

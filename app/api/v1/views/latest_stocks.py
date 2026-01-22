@@ -24,9 +24,14 @@ async def refresh_latest_stocks(
         get_latest_stocks_refresh_service
     ),
 ):
-    """Enqueue a refresh job for the `latest_stocks_1d` materialized view.
+    """Enqueue a background refresh job for the
+    `latest_stocks_1d` materialized view.
 
-    呼び出すとジョブを登録し、ジョブIDを返却する。
+    呼び出すと更新処理を非同期ジョブとして登録します。
+    登録したジョブのIDをレスポンスとして返却します。
+    実際のリフレッシュはバックグラウンドで行われます。
+    処理状況の取得は別途ジョブステータス確認用の仕組みを利用してください
+    （HTTP 202 Accepted）。
     """
     try:
         job_id = await service.enqueue_refresh()
