@@ -39,7 +39,6 @@ repos:
         entry: poetry run python scripts/hooks/run_check_with_status.py --check mypy
         language: system
         files: \.py$
-        stages: [push]
         pass_filenames: false
         args: ["app"]
 
@@ -48,7 +47,6 @@ repos:
         entry: poetry run python scripts/hooks/run_check_with_status.py --check pylint
         language: system
         files: \.py$
-        stages: [push]
         pass_filenames: false
         args: ["--rcfile=.pylintrc", "app"]
 
