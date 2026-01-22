@@ -1,7 +1,7 @@
 import pytest
 from fastapi import HTTPException
 
-from app.api.v1.views.refresh import refresh_latest_stocks
+from app.api.v1.views.latest_stocks import refresh_latest_stocks
 from app.exceptions.business import ServiceError
 
 
