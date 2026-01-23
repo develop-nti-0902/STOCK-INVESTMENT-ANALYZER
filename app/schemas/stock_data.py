@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class StockPriceBase(BaseModel):
     """株価データ基底スキーマ.
 
-    共通フィールドを提供します（symbol, trade_date, open_price, high,
+    共通フィールドを提供します（symbol, timestamp, open_price, high,
     low, close, volume, adj_close）。
     """
 
@@ -27,7 +27,9 @@ class StockPriceBase(BaseModel):
     )
 
     symbol: str = Field(description="銘柄コード")
-    trade_date: datetime = Field(description="取引日時")
+    timestamp: datetime = Field(
+        description="取引日時（タイムスタンプ、JST）", alias="trade_date"
+    )
     open_price: Optional[float] = Field(None, description="始値")
     high: Optional[float] = Field(None, description="高値")
     low: Optional[float] = Field(None, description="安値")
