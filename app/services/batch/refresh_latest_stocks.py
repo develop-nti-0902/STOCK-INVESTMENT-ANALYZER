@@ -10,7 +10,7 @@ from app.services.batch.batch_execution_service import (
     BatchExecutionContext,
     BatchExecutionService,
 )
-from app.services.views.refresh_service import LatestStocksRefreshService
+from app.services.views.latest_stocks.refresh import LatestStocksRefreshService
 from app.utils.database import get_engine
 from app.utils.logger import get_logger
 

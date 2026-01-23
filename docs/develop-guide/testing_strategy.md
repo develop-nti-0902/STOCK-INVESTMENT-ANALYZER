@@ -16,6 +16,7 @@ related_docs:
     - [2.1 単体テスト（Unit Test）](#21-単体テストunit-test)
     - [2.2 統合テスト（Integration Test）](#22-統合テストintegration-test)
     - [2.3 E2Eテスト（End-to-End Test）](#23-e2eテストend-to-end-test)
+    - [E2E テスト方針](#e2e-テスト方針)
   - [3. テストピラミッド](#3-テストピラミッド)
   - [4. テスト対象とカバレッジ目標](#4-テスト対象とカバレッジ目標)
   - [5. テストツールとフレームワーク](#5-テストツールとフレームワーク)
@@ -100,6 +101,49 @@ related_docs:
 - カバレッジ目標: クリティカルパス100%
 
 **実装ディレクトリ**: `tests/e2e/`
+
+### E2E テスト方針
+
+E2Eテストは「実DBを使って実処理を検証する」テストとします。以下の方針に従って実装・実行してください。
+
+- **実DB利用**: E2Eでは実際のデータベースを使用して、マイグレーションやスキーマの問題、実際のDB接続での振る舞いを検証します。
+- **マイグレーション適用の扱い**: テスト実行前のマイグレーション適用はテスト内で自動実行しません。マイグレーションや初期データの準備は既存のセットアップスクリプト（例: `setup_db.bat`）や外部手順で事前に行ってください。
+- **到達性チェックとスキップ**: テストラン時にまずDBへの到達性をチェックし、到達不可（接続失敗やタイムアウト）の場合は E2E テスト群をスキップして警告を出す実装にしてください。テスト環境が整っていない場合に失敗を大量に出さないためです。
+
+  例: `pytest` のテスト開始時に行う簡単な到達性チェックのサンプル
+
+```python
+import pytest
+import sqlalchemy
+from sqlalchemy import text
+
+DB_URL = "postgresql://..."
+
+def is_db_reachable():
+    try:
+        engine = sqlalchemy.create_engine(DB_URL)
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False
+
+def pytest_collection_modifyitems(config, items):
+    if not is_db_reachable():
+        skip_marker = pytest.mark.skip(reason="DB unreachable — skipping E2E tests")
+        for item in items:
+            if "e2e" in str(item.fspath):
+                item.add_marker(skip_marker)
+```
+
+- **FastAPI の実行方法**: テストでは `FastAPI` を `TestClient` でインプロセス呼び出しし、`startup`/`shutdown` を行います。したがって通常の E2E 実行で `uvicorn` を別プロセスで起動する必要はありません（ただし外部プロセスとして実際のサーバ挙動を検証したい場合は `uvicorn` 起動での検証も追加で行ってください）。
+
+- **ユーティリティ集中**: E2E専用のユーティリティ／ヘルパーは一箇所に集約してください（例: `tests/e2e/utils.py`）。共通処理（DB接続、テストデータのロード、API呼び出しラッパー、共通フィクスチャ提供など）を用意し、各テストはこれを再利用する形にします。フィクスチャはそのまま `pytest` で利用できる形（関数/モジュールスコープのfixture）で提供してください。
+
+- **ログとクリーンアップ**: 実DBを使うため、テスト実行後のクリーンアップ方針を明確にし、必要に応じてトランザクション巻き戻しや事後データ削除を行ってください。
+
+- **実行手順のドキュメント化**: E2E実行時に必要な事前手順（DBマイグレーション、環境変数、起動スクリプト等）を `tests/e2e/README.md` にまとめておいてください。
+
 
 ## 3. テストピラミッド
 本プロジェクトでは、以下のテストピラミッドに従います：

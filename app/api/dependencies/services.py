@@ -26,8 +26,8 @@ from app.services.market_data.stock_price import (
     StockPriceService,
     StockPriceValidator,
 )
-from app.services.views.latest_stocks_service import LatestStocksService
-from app.services.views.refresh_service import LatestStocksRefreshService
+from app.services.views.latest_stocks.refresh import LatestStocksRefreshService
+from app.services.views.latest_stocks.service import LatestStocksService
 from app.utils.database import get_db
 
 

@@ -8,8 +8,8 @@ from app.api.dependencies.services import (
 )
 from app.exceptions.business import ServiceError
 from app.schemas.views import LatestStockResponse
-from app.services.views.latest_stocks_service import LatestStocksService
-from app.services.views.refresh_service import LatestStocksRefreshService
+from app.services.views.latest_stocks.refresh import LatestStocksRefreshService
+from app.services.views.latest_stocks.service import LatestStocksService
 
 router = APIRouter(tags=["views"])  # OpenAPI tag: views
 
