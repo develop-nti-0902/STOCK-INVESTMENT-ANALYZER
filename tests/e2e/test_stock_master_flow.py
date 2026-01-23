@@ -24,6 +24,11 @@ def test_stock_master_flow(client):
 
         # 2) symbols - エンドポイントは {"symbols": [...], "count": n} を返すため対応
         symbols = []
+        # テスト内で後続の呼び出しでも使うため、sample_url を事前に定義しておく
+        sample_url = (
+            "/api/v1/stock-master/refresh/sample?"
+            "sample_size=50&batch_size=50"
+        )
         for attempt in range(2):
             r_symbols = client.get("/api/v1/stock-master/symbols")
             assert r_symbols.status_code == 200
@@ -37,11 +42,7 @@ def test_stock_master_flow(client):
             if isinstance(symbols, list) and len(symbols) > 0:
                 break
 
-            # 空の場合はサンプル投入して再取得（テスト用: sample_size=50, batch_size=50）
-            sample_url = (
-                "/api/v1/stock-master/refresh/sample?"
-                "sample_size=50&batch_size=50"
-            )
+            # 空の場合はサンプル投入して再取得（テスト用）
             client.post(sample_url)
             time.sleep(1)
 
