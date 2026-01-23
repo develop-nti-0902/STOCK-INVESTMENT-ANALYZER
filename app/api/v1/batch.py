@@ -271,6 +271,21 @@ async def start_single_stock_job(
     """
     # このエンドポイントはジョブ作成のみを行うため、パラメータを受け取らない仕様に変更しました。
     job = await repo.create_job(batch_type=JobType.SINGLE_STOCK.value)
+    # 作成したジョブを確実に DB に残すため明示的にコミットする
+    try:
+        await repo.session.commit()
+    except Exception:
+        logger.exception(
+            "Failed to commit session after creating job %s",
+            getattr(job, "id", None),
+        )
+        try:
+            await repo.session.rollback()
+        except Exception:
+            logger.exception(
+                "Failed to rollback session after commit failure for job %s",
+                getattr(job, "id", None),
+            )
     return BatchExecutionResponse.model_validate(_job_to_response_dict(job))
 
 
@@ -303,6 +318,22 @@ async def start_jpx_all_job(
     job = await repo.create_job(batch_type=JobType.JPX_ALL_STOCKS.value)
 
     # バックグラウンドタスクを登録して既存の StockPriceService を呼び出す
+    # 明示コミットしてからバックグラウンドタスクを登録（競合を避ける）
+    try:
+        await repo.session.commit()
+    except Exception:
+        logger.exception(
+            "Failed to commit session after creating job %s",
+            getattr(job, "id", None),
+        )
+        try:
+            await repo.session.rollback()
+        except Exception:
+            logger.exception(
+                "Failed to rollback session after commit failure for job %s",
+                getattr(job, "id", None),
+            )
+
     background_tasks.add_task(
         process_jpx_all_stocks, int(job.id), params.model_dump(), service
     )
@@ -329,6 +360,22 @@ async def start_jpx_all_multi_job(
     _ = background_tasks
 
     job = await repo.create_job(batch_type=JobType.JPX_ALL_STOCKS.value)
+
+    # 明示コミットしてからバックグラウンドタスクを登録（競合を避ける）
+    try:
+        await repo.session.commit()
+    except Exception:
+        logger.exception(
+            "Failed to commit session after creating job %s",
+            getattr(job, "id", None),
+        )
+        try:
+            await repo.session.rollback()
+        except Exception:
+            logger.exception(
+                "Failed to rollback session after commit failure for job %s",
+                getattr(job, "id", None),
+            )
 
     # マルチ取得用のバックグラウンドタスクを登録
     background_tasks.add_task(
@@ -729,6 +776,22 @@ async def run_jpx_all_multi_sequence(
     job = await repo.create_job(
         batch_type=JobType.JPX_ALL_STOCKS.value,
     )
+
+    # 明示コミットしてからバックグラウンドタスクを登録（競合を避ける）
+    try:
+        await repo.session.commit()
+    except Exception:
+        logger.exception(
+            "Failed to commit session after creating job %s",
+            getattr(job, "id", None),
+        )
+        try:
+            await repo.session.rollback()
+        except Exception:
+            logger.exception(
+                "Failed to rollback session after commit failure for job %s",
+                getattr(job, "id", None),
+            )
 
     background_tasks.add_task(
         process_jpx_all_multi_sequence,
