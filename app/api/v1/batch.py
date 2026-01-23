@@ -12,6 +12,9 @@ from app.api.dependencies.repositories import get_batch_execution_repository
 from app.api.dependencies.services import get_stock_price_service
 from app.exceptions.business import ServiceError
 from app.exceptions.database import RecordNotFoundError
+from app.repositories.batch_execution_details_repository import (
+    BatchExecutionDetailsRepository,
+)
 from app.repositories.batch_execution_repository import (
     BatchExecutionRepository,
 )
@@ -379,6 +382,12 @@ async def process_jpx_all_stocks(
             _make_progress_handlers(job_id)
         )
 
+        # BatchExecutionDetails 用リポジトリ（interval 単位の進捗集計）
+        details_repo = BatchExecutionDetailsRepository(session)
+
+        # BatchExecutionDetails 用リポジトリ（interval 単位の進捗集計）
+        details_repo = BatchExecutionDetailsRepository(session)
+
         try:
             result = await service.fetch_all_jpx_stocks(
                 timeframe=cast(str, params.get("timeframe")),
@@ -417,6 +426,18 @@ async def process_jpx_all_stocks(
                 logger.exception(
                     "Failed to update status to 'failed' for job %s", job_id
                 )
+            else:
+                # details のステータスも失敗に更新
+                try:
+                    await details_repo.set_status(job_id, None, "failed")
+                    await _commit_with_rollback(
+                        session, "setting details status 'failed'", job_id
+                    )
+                except Exception:
+                    logger.exception(
+                        "Failed to set details status to 'failed' for job %s",
+                        job_id,
+                    )
             # ジョブ失敗時もスケジュール済みの進捗更新を待つ
             if pending_tasks:
                 try:
@@ -487,6 +508,24 @@ async def process_jpx_all_stocks_multi(
             total = len(symbols)
             list_batch_size = int(params.get("list_batch_size") or 50)
 
+            # BatchExecutionDetails 用リポジトリ（interval 単位の進捗集計）
+            details_repo = BatchExecutionDetailsRepository(session)
+
+            # details レコードを初期化しておく
+            try:
+                await details_repo.init(
+                    batch_execution_id=job_id,
+                    interval=None,
+                    total_stocks=total,
+                    status="running",
+                )
+                await _commit_with_rollback(session, "init_details", job_id)
+            except Exception:
+                logger.exception(
+                    "Failed to init batch execution details for job %s",
+                    job_id,
+                )
+
             # BatchExecutionContext imported at module level
 
             success = 0
@@ -516,6 +555,31 @@ async def process_jpx_all_stocks_multi(
                     if errs:
                         errors.extend(errs)
 
+                    # details の処理済み数をインクリメント
+                    try:
+                        inc_count = int(s_inc or 0) + int(f_inc or 0)
+                        if inc_count:
+                            await details_repo.inc(job_id, None, inc_count)
+                            try:
+                                await session.commit()
+                            except Exception:
+                                logger.exception(
+                                    "Failed to commit session for job %s",
+                                    job_id,
+                                )
+                                try:
+                                    await session.rollback()
+                                except Exception:
+                                    logger.exception(
+                                        "Rollback failed for job %s",
+                                        job_id,
+                                    )
+                    except Exception:
+                        logger.exception(
+                            "Failed to increment details for job %s",
+                            job_id,
+                        )
+
                     # 進捗コールバックの呼び出しとコンテキスト更新
                     if _sync_progress_cb is not None:
                         try:
@@ -542,7 +606,8 @@ async def process_jpx_all_stocks_multi(
 
             # 保留中の進捗更新タスクを待機する
             await _await_pending_tasks(
-                pending_tasks, "while awaiting pending progress tasks"
+                pending_tasks,
+                "while awaiting pending progress tasks",
             )
 
             # finalize job
@@ -550,9 +615,21 @@ async def process_jpx_all_stocks_multi(
                 await repo.mark_completed(
                     job_id, success_count=success, failed_count=failed
                 )
-                await _commit_with_rollback(session, "mark_completed", job_id)
+                # details のステータスも完了に更新
+                try:
+                    await details_repo.set_status(job_id, None, "completed")
+                    await _commit_with_rollback(
+                        session, "mark_completed", job_id
+                    )
+                except Exception:
+                    logger.exception(
+                        "Failed to set details status to completed for job %s",
+                        job_id,
+                    )
             except Exception:
-                logger.exception("Failed to mark_completed for job %s", job_id)
+                logger.exception(
+                    "Failed to mark job completed for job %s", job_id
+                )
 
         except Exception:  # pylint: disable=broad-except
             logger.exception(
