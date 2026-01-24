@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import asyncio as _asyncio
+import gc
 import logging
 from datetime import datetime as dt
 from typing import Any, Dict, List, Optional, cast
+
+try:
+    import psutil
+
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi import status as http_status
@@ -33,6 +41,34 @@ from app.utils.database import get_session_maker
 router = APIRouter(tags=["batch"])
 
 logger = logging.getLogger(__name__)
+
+
+def _log_memory_usage(context: str) -> None:
+    """メモリ使用状況をログ出力するヘルパー関数.
+
+    Args:
+        context (str): ログ出力時のコンテキスト説明
+
+    Returns:
+        None
+    """
+    if not PSUTIL_AVAILABLE:
+        return
+
+    try:
+        process = psutil.Process()
+        memory_info = process.memory_info()
+        memory_mb = memory_info.rss / 1024 / 1024
+        cpu_percent = process.cpu_percent(interval=0.1)
+
+        logger.info(
+            "[Resource Monitor] %s - Memory: %.2f MB, CPU: %.2f%%",
+            context,
+            memory_mb,
+            cpu_percent,
+        )
+    except Exception:
+        logger.exception("Failed to log memory usage")
 
 
 async def _commit_with_rollback(session, context: str, job_id: int) -> None:
@@ -170,6 +206,11 @@ async def _process_chunk_multi(
             success_inc += len(payloads)
         except Exception:
             failed_inc += len(payloads)
+
+    # チャンク処理後のリソース解放
+    del results
+    del payloads
+    gc.collect()
 
     return success_inc, failed_inc, errors
 
@@ -668,6 +709,9 @@ async def process_jpx_all_multi_sequence(
     timeframes = ["1d", "1m", "1h"]
     results: List[Dict[str, Any]] = []
 
+    # バッチ処理開始時のリソース状況
+    _log_memory_usage(f"Batch job {job_id} started")
+
     async with session_maker() as session:
         repo = BatchExecutionRepository(session)
         await repo.update_status(job_id, "running")
@@ -690,6 +734,11 @@ async def process_jpx_all_multi_sequence(
 
         try:
             for timeframe in timeframes:
+                # タイムフレーム処理前のリソース状況
+                _log_memory_usage(
+                    f"Before timeframe {timeframe} for job {job_id}"
+                )
+
                 result = await _execute_single_timeframe(
                     job_id, timeframe, batch_size, service
                 )
@@ -703,6 +752,24 @@ async def process_jpx_all_multi_sequence(
                         job_id,
                     )
 
+                # タイムフレーム処理後のリソース解放
+                logger.info(
+                    "Releasing resources after timeframe %s for job %s",
+                    timeframe,
+                    job_id,
+                )
+                # 不要な変数を明示的に削除
+                del result
+                # ガベージコレクションを実行
+                gc.collect()
+                # イベントループに制御を返す
+                await _asyncio.sleep(0.1)
+
+                # リソース解放後の状況を確認
+                _log_memory_usage(
+                    f"After timeframe {timeframe} cleanup for job {job_id}"
+                )
+
             overall_success = sum(r.get("success_count", 0) for r in results)
             overall_failed = sum(r.get("failed_count", 0) for r in results)
 
@@ -712,6 +779,9 @@ async def process_jpx_all_multi_sequence(
                 failed_count=overall_failed,
             )
             await _commit_with_rollback(session, "mark_completed", job_id)
+
+            # バッチ処理完了時のリソース状況
+            _log_memory_usage(f"Batch job {job_id} completed successfully")
 
         except Exception:
             logger.exception(
@@ -753,6 +823,9 @@ async def _execute_single_timeframe(
         "finished_at": None,
     }
 
+    # タイムフレーム処理開始時のリソース状況
+    _log_memory_usage(f"Timeframe {timeframe} started for job {job_id}")
+
     try:
         if service.stock_master_service is None:
             raise ServiceError(message="StockMasterService is required")
@@ -783,6 +856,10 @@ async def _execute_single_timeframe(
                 success += s_inc
                 failed += f_inc
 
+                # チャンク処理ごとにメモリ解放
+                del chunk
+                del _errs
+
                 if _sync_progress_cb is not None:
                     try:
                         _sync_progress_cb(
@@ -806,6 +883,9 @@ async def _execute_single_timeframe(
                 except Exception:
                     logger.exception("Failed to update batch progress")
 
+                # 定期的にイベントループに制御を返す
+                await _asyncio.sleep(0.01)
+
         await _await_pending_tasks(
             pending_tasks, "while awaiting pending progress tasks"
         )
@@ -813,6 +893,9 @@ async def _execute_single_timeframe(
         result["success_count"] = success
         result["failed_count"] = failed
         result["finished_at"] = dt.now().isoformat()
+
+        # タイムフレーム処理完了時のリソース状況
+        _log_memory_usage(f"Timeframe {timeframe} completed for job {job_id}")
 
         logger.info(
             "Completed timeframe %s for job %s: success=%s, failed=%s",

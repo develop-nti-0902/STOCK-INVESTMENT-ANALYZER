@@ -338,3 +338,305 @@ async def test_process_jpx_all_multi_sequence_handles_partial_failure(
     # Assert
     # 1dで10成功、1mで5失敗、1hで10成功 = 計20成功、5失敗
     assert fake_repo.mark_completed_args == (888, 20, 5)
+
+
+# ========================================
+# リソース管理機能のテスト
+# ========================================
+
+
+class TestLogMemoryUsage:
+    """_log_memory_usage関数のテスト."""
+
+    def test_log_memory_usage_with_psutil(
+        self, caplog: pytest.LogCaptureFixture, monkeypatch
+    ) -> None:
+        """psutilが利用可能な場合、メモリ使用量をログ出力すること."""
+        # Arrange
+        import logging
+        from unittest.mock import MagicMock
+
+        mock_psutil = MagicMock()
+        mock_process = MagicMock()
+        mock_memory_info = MagicMock()
+        mock_memory_info.rss = 1024 * 1024 * 100  # 100MB
+        mock_process.memory_info.return_value = mock_memory_info
+        mock_process.cpu_percent.return_value = 25.5
+        mock_psutil.Process.return_value = mock_process
+
+        monkeypatch.setattr(batch_module, "PSUTIL_AVAILABLE", True)
+        monkeypatch.setattr(batch_module, "psutil", mock_psutil)
+
+        # Act
+        with caplog.at_level(logging.INFO):
+            batch_module._log_memory_usage("Test context")
+
+        # Assert
+        assert "[Resource Monitor]" in caplog.text
+        assert "Test context" in caplog.text
+        assert "100.00 MB" in caplog.text
+        assert "25.50%" in caplog.text
+
+    def test_log_memory_usage_without_psutil(
+        self, caplog: pytest.LogCaptureFixture, monkeypatch
+    ) -> None:
+        """psutilが利用不可能な場合、何もログ出力しないこと."""
+        # Arrange
+        monkeypatch.setattr(batch_module, "PSUTIL_AVAILABLE", False)
+
+        # Act
+        batch_module._log_memory_usage("Test context")
+
+        # Assert
+        assert "[Resource Monitor]" not in caplog.text
+
+    def test_log_memory_usage_handles_exception(
+        self, caplog: pytest.LogCaptureFixture, monkeypatch
+    ) -> None:
+        """メモリ情報取得時の例外を適切に処理すること."""
+        # Arrange
+        from unittest.mock import MagicMock
+
+        mock_psutil = MagicMock()
+        mock_psutil.Process.side_effect = Exception("Test error")
+
+        monkeypatch.setattr(batch_module, "PSUTIL_AVAILABLE", True)
+        monkeypatch.setattr(batch_module, "psutil", mock_psutil)
+
+        # Act
+        batch_module._log_memory_usage("Test context")
+
+        # Assert
+        assert "Failed to log memory usage" in caplog.text
+
+
+class TestProcessChunkMultiResourceManagement:
+    """_process_chunk_multi関数のリソース管理テスト."""
+
+    @pytest.mark.asyncio
+    async def test_process_chunk_multi_releases_memory(
+        self, monkeypatch
+    ) -> None:
+        """チャンク処理後にメモリが解放されること."""
+        # Arrange
+        import gc
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_service = MagicMock()
+        mock_fetcher = AsyncMock()
+        mock_validator = MagicMock()
+        mock_converter = MagicMock()
+        mock_saver = AsyncMock()
+
+        mock_service.fetcher = mock_fetcher
+        mock_service.validator = mock_validator
+        mock_service.converter = mock_converter
+        mock_service.saver = mock_saver
+
+        # fetcherは空の結果を返す
+        mock_fetcher.fetch_batch.return_value = {}
+
+        chunk = ["7203.T", "9984.T"]
+        timeframe = "1d"
+
+        # gcモジュールをモック
+        with patch.object(gc, "collect") as mock_gc_collect:
+            # Act
+            success, failed, errors = await batch_module._process_chunk_multi(
+                chunk, mock_service, timeframe, {}
+            )
+
+            # Assert
+            # gc.collect()が呼ばれることを確認
+            mock_gc_collect.assert_called_once()
+
+        assert success == 0
+        assert failed == 0
+        assert errors == []
+
+
+class TestExecuteSingleTimeframeResourceManagement:
+    """_execute_single_timeframe関数のリソース管理テスト."""
+
+    @pytest.mark.asyncio
+    async def test_execute_single_timeframe_logs_memory(
+        self, monkeypatch
+    ) -> None:
+        """タイムフレーム処理の開始時と完了時にメモリ使用量をログ出力すること."""
+        # Arrange
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        job_id = 1
+        timeframe = "1d"
+        batch_size = 50
+
+        mock_service = MagicMock()
+        mock_stock_master_service = AsyncMock()
+        mock_stock_master_service.get_all_active_symbols.return_value = []
+        mock_service.stock_master_service = mock_stock_master_service
+        mock_service.batch_service = MagicMock()
+
+        # BatchExecutionContextをモック
+        mock_batch_context = AsyncMock()
+        mock_batch_context.__aenter__ = AsyncMock(
+            return_value=mock_batch_context
+        )
+        mock_batch_context.__aexit__ = AsyncMock(return_value=None)
+        mock_batch_context.update_progress = AsyncMock()
+
+        with patch(
+            "app.api.v1.batch.BatchExecutionContext",
+            return_value=mock_batch_context,
+        ), patch(
+            "app.api.v1.batch._make_progress_handlers"
+        ) as mock_handlers, patch(
+            "app.api.v1.batch._log_memory_usage"
+        ) as mock_log_memory:
+            mock_handlers.return_value = (set(), None, None)
+
+            # Act
+            result = await batch_module._execute_single_timeframe(
+                job_id, timeframe, batch_size, mock_service
+            )
+
+            # Assert
+            # 開始時と完了時のログ呼び出しを確認
+            assert mock_log_memory.call_count >= 2
+
+            calls = [str(call) for call in mock_log_memory.call_args_list]
+            assert any("started" in call for call in calls)
+            assert any("completed" in call for call in calls)
+
+            assert result["status"] == "completed"
+            assert result["timeframe"] == timeframe
+
+
+class TestProcessJpxAllMultiSequenceResourceManagement:
+    """process_jpx_all_multi_sequence関数のリソース管理テスト."""
+
+    @pytest.mark.asyncio
+    async def test_sequence_logs_memory_at_each_timeframe(
+        self, monkeypatch
+    ) -> None:
+        """各タイムフレーム処理前後でメモリ使用量をログ出力すること."""
+        # Arrange
+        import gc
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        job_id = 1
+        batch_size = 50
+        mock_service = MagicMock()
+
+        # セッションのモック
+        mock_session = AsyncMock()
+        mock_session.commit = AsyncMock()
+        mock_session.rollback = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session_maker = MagicMock()
+        mock_session_maker.return_value.return_value = mock_session
+
+        # リポジトリのモック
+        mock_repo = MagicMock()
+        mock_repo.update_status = AsyncMock()
+        mock_repo.mark_completed = AsyncMock()
+
+        monkeypatch.setattr(
+            batch_module, "get_session_maker", lambda: mock_session_maker
+        )
+
+        with patch(
+            "app.api.v1.batch.BatchExecutionRepository",
+            return_value=mock_repo,
+        ), patch(
+            "app.api.v1.batch._execute_single_timeframe"
+        ) as mock_execute_timeframe, patch(
+            "app.api.v1.batch._log_memory_usage"
+        ) as mock_log_memory, patch.object(
+            gc, "collect"
+        ):
+            # タイムフレーム処理のモック(成功ケース)
+            mock_execute_timeframe.return_value = {
+                "status": "completed",
+                "success_count": 10,
+                "failed_count": 0,
+            }
+
+            # Act
+            await batch_module.process_jpx_all_multi_sequence(
+                job_id, batch_size, mock_service
+            )
+
+            # Assert
+            # メモリログが複数回呼ばれていることを確認
+            # バッチ開始時、各タイムフレーム前後、完了時
+            assert mock_log_memory.call_count >= 7
+
+            # バッチ開始時のログ
+            calls = [str(call) for call in mock_log_memory.call_args_list]
+            assert any("started" in call for call in calls)
+            assert any("completed successfully" in call for call in calls)
+
+    @pytest.mark.asyncio
+    async def test_sequence_releases_resources_after_each_timeframe(
+        self, monkeypatch
+    ) -> None:
+        """各タイムフレーム処理後にリソースを解放すること."""
+        # Arrange
+        import gc
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        job_id = 1
+        batch_size = 50
+        mock_service = MagicMock()
+
+        # セッションのモック
+        mock_session = AsyncMock()
+        mock_session.commit = AsyncMock()
+        mock_session.rollback = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session_maker = MagicMock()
+        mock_session_maker.return_value.return_value = mock_session
+
+        # リポジトリのモック
+        mock_repo = MagicMock()
+        mock_repo.update_status = AsyncMock()
+        mock_repo.mark_completed = AsyncMock()
+
+        monkeypatch.setattr(
+            batch_module, "get_session_maker", lambda: mock_session_maker
+        )
+
+        with patch(
+            "app.api.v1.batch.BatchExecutionRepository",
+            return_value=mock_repo,
+        ), patch(
+            "app.api.v1.batch._execute_single_timeframe"
+        ) as mock_execute_timeframe:
+            # タイムフレーム処理のモック
+            mock_execute_timeframe.return_value = {
+                "status": "completed",
+                "success_count": 10,
+                "failed_count": 0,
+            }
+
+            # gc.collectとasyncio.sleepをモック
+            with patch.object(gc, "collect") as mock_gc_collect, patch(
+                "app.api.v1.batch._asyncio.sleep", new_callable=AsyncMock
+            ) as mock_sleep:
+                # Act
+                await batch_module.process_jpx_all_multi_sequence(
+                    job_id, batch_size, mock_service
+                )
+
+                # Assert
+                # タイムフレームは3つ(1d, 1m, 1h)なので、
+                # gc.collect()が3回呼ばれること
+                assert mock_gc_collect.call_count == 3
+
+                # asyncio.sleep(0.1)が3回呼ばれること
+                assert mock_sleep.call_count == 3
+                mock_sleep.assert_called_with(0.1)
