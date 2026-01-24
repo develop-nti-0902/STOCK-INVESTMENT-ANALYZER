@@ -262,10 +262,6 @@ async function executeBatch() {
             // 銘柄マスタリセット
             url = `${API_BASE_URL}/stock-master/reset`;
             method = 'DELETE';
-        } else if (batchType === 'jpx_all') {
-            // JPX 全銘柄取得 API
-            url = `${API_BASE_URL}/batch/stock-data/jpx-all`;
-            method = 'POST';
         } else if (batchType === 'jpx_all_multi') {
             // JPX 全銘柄取得（マルチ）API
             url = `${API_BASE_URL}/batch/stock-data/jpx-all/multi`;
@@ -287,10 +283,7 @@ async function executeBatch() {
             },
         };
 
-        if (batchType === 'jpx_all') {
-            const payload = { timeframe: timeframe };
-            fetchOptions.body = JSON.stringify(payload);
-        } else if (batchType === 'jpx_all_multi') {
+        if (batchType === 'jpx_all_multi') {
             const listBatchSize = listBatchSizeInput ? parseInt(listBatchSizeInput.value, 10) : 50;
             const payload = { timeframe: timeframe, list_batch_size: listBatchSize };
             fetchOptions.body = JSON.stringify(payload);
@@ -401,11 +394,6 @@ function onBatchTypeChange() {
         batchSizeGroup.style.display = 'flex';
         if (sampleSizeGroup) sampleSizeGroup.style.display = 'flex';
         if (timeframeGroup) timeframeGroup.style.display = 'none';
-        if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'none';
-    } else if (batchType === 'jpx_all') {
-        batchSizeGroup.style.display = 'none';
-        if (sampleSizeGroup) sampleSizeGroup.style.display = 'none';
-        if (timeframeGroup) timeframeGroup.style.display = 'flex';
         if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'none';
     } else if (batchType === 'jpx_all_multi') {
         batchSizeGroup.style.display = 'none';

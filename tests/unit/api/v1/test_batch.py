@@ -1,5 +1,3 @@
-import asyncio
-from datetime import date
 from types import SimpleNamespace
 
 import pytest
@@ -138,35 +136,6 @@ async def test_start_single_stock_job_calls_create_and_returns_job():
 
 
 @pytest.mark.asyncio
-async def test_start_jpx_all_job_schedules_background_task(monkeypatch):
-    fake_job = FakeJob(id=99, status="PENDING", job_type="JPX_ALL_STOCKS")
-    repo = FakeRepo(create_job_result=fake_job)
-    background_tasks = BackgroundTasks()
-    # Arrange
-    # (repo, background_tasks already prepared)
-
-    # Act
-    result = await batch_module.start_jpx_all_job(
-        params=ParamsStub(), background_tasks=background_tasks, repo=repo
-    )
-
-    # Assert
-    # API は BatchExecutionResponse スキーマを返すため、job_id/status を検証する
-    assert result.job_id == str(99)
-    assert result.status == "PENDING"
-    # BackgroundTasks にタスクが登録されていることを確認する
-    assert len(background_tasks.tasks) == 1
-    # BackgroundTask オブジェクトの中に登録されたコール可能オブジェクトを検査する
-    found = False
-    for t in background_tasks.tasks:
-        if getattr(t, "func", None) is batch_module.process_jpx_all_stocks:
-            found = True
-            break
-
-    assert found is True
-
-
-@pytest.mark.asyncio
 async def test_get_job_status_not_found_raises():
     # Arrange
     repo = FakeRepo(get_result=None)
@@ -241,73 +210,7 @@ async def test_cancel_job_returns_job_when_found():
     assert result.status == "CANCELLED"
 
 
-@pytest.mark.asyncio
-async def test_process_jpx_all_stocks_success(monkeypatch):
-    fake_repo = FakeRepoProcess()
-
-    # リポジトリのファクトリをパッチしてテスト用のリポジトリを返す
-    monkeypatch.setattr(
-        batch_module, "BatchExecutionRepository", lambda session: fake_repo
-    )
-
-    # セッションメーカーをパッチしてダミーセッションを返す
-    dummy_session = object()
-    monkeypatch.setattr(
-        batch_module, "get_session_maker", lambda: SessionMaker(dummy_session)
-    )
-
-    # 提供された進捗コールバックを呼び、結果カウントを返すフェイクサービス
-    class FakeService:
-        async def fetch_all_jpx_stocks(
-            self, timeframe, market=None, progress_callback=None
-        ):
-            # 進捗コールバックを数回呼ぶ
-            if progress_callback:
-                progress_callback({"progress": 10})
-                progress_callback({"progress": 50})
-            return {"success": "3", "failed": "1"}
-
-    service = FakeService()
-
-    # プロセスを実行する
-    await batch_module.process_jpx_all_stocks(
-        7, {"timeframe": "1d", "start_date": date.today()}, service
-    )
-
-    # create_task で作成されたバックグラウンドタスクを実行させるため待機
-    await asyncio.sleep(0.05)
-
-    # ジョブが running に更新され、正しいカウントで完了マークされたことを検証
-    assert (7, "running") in fake_repo.updated_status
-    assert fake_repo.mark_completed_args == (7, 3, 1)
-    # 進捗更新が記録されていることを確認
-    assert any(p for (_, p) in fake_repo.progress_updates)
-
-
-@pytest.mark.asyncio
-async def test_process_jpx_all_stocks_failure_marks_failed(monkeypatch):
-    fake_repo = FakeRepoProcess()
-    monkeypatch.setattr(
-        batch_module, "BatchExecutionRepository", lambda session: fake_repo
-    )
-    dummy_session = object()
-    monkeypatch.setattr(
-        batch_module, "get_session_maker", lambda: SessionMaker(dummy_session)
-    )
-
-    class FailingService:
-        async def fetch_all_jpx_stocks(self, *args, **kwargs):
-            raise RuntimeError("boom")
-
-    service = FailingService()
-
-    await batch_module.process_jpx_all_stocks(13, {}, service)
-
-    # どの非同期タスクも実行されるように待機
-    await asyncio.sleep(0.05)
-
-    # 失敗時にはリポジトリのステータスが failed に更新されているはず
-    assert (13, "failed") in fake_repo.updated_status
+# Single-JPX processing tests removed: use multi-ticker endpoints instead.
 
 
 @pytest.mark.asyncio

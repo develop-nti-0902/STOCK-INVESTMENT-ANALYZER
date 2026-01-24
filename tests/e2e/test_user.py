@@ -1,6 +1,8 @@
 import asyncio
 import uuid
 
+from tests.e2e.utils import write_csv_artifact
+
 
 def test_get_me_and_change_password(client):
     """GET /api/v1/accounts/me と PUT /api/v1/accounts/me/password のE2Eテスト
@@ -29,6 +31,20 @@ def test_get_me_and_change_password(client):
         r = client.post("/api/v1/auth/register", json=register_payload)
         assert r.status_code == 201
 
+        # artifact: user registered (CSV, 固定名規約: file_func_table_flow)
+        try:
+            base_name = "test_user_test_get_me_and_change_password_accounts_1"
+            write_csv_artifact(
+                {
+                    "event": "user_registered",
+                    "email": email,
+                    "status_code": r.status_code,
+                },
+                name=base_name,
+            )
+        except Exception:
+            pass
+
         # ログインしてトークン取得
         login_payload = {"email": email, "password": old_password}
         resp = client.post("/api/v1/auth/login", json=login_payload)
@@ -55,6 +71,20 @@ def test_get_me_and_change_password(client):
             headers=headers,
         )
         assert change_resp.status_code == 204
+
+        # artifact: password changed (CSV, 固定名規約: file_func_table_flow)
+        try:
+            base_name = "test_user_test_get_me_and_change_password_accounts_4"
+            write_csv_artifact(
+                {
+                    "event": "password_changed",
+                    "email": email,
+                    "status_code": change_resp.status_code,
+                },
+                name=base_name,
+            )
+        except Exception:
+            pass
 
         # 古いパスワードでログイン失敗
         old_login = client.post("/api/v1/auth/login", json=login_payload)
