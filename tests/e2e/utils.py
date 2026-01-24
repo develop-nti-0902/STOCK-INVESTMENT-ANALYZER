@@ -1,0 +1,169 @@
+from __future__ import annotations
+
+import csv
+import json
+import os
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Union
+
+ARTIFACT_DIR = os.path.join(os.getcwd(), "tests", "e2e", "artifacts")
+
+
+def _ensure_dir() -> None:
+    os.makedirs(ARTIFACT_DIR, exist_ok=True)
+
+
+def _safe_name(name: Optional[str]) -> str:
+    if not name:
+        return uuid.uuid4().hex
+    # ファイル名として安全な形式に変換する
+    return name.replace("@", "_").replace("/", "_")
+
+
+def write_json_artifact(
+    data: Dict[str, Any], name: Optional[str] = None
+) -> str:
+    """JSON形式のアーティファクトを `tests/e2e/artifacts` に書き込み、ファイルパスを返す。
+
+    Args:
+        data: 書き込む JSON シリアライズ可能な辞書。
+        name: ファイル名のベース（拡張子なし）。省略可。
+
+    Returns:
+        書き込んだファイルの絶対パス。
+    """
+    _ensure_dir()
+    base = _safe_name(name)
+    # name が指定されていれば固定名で上書き、なければタイムスタンプ付きで保存
+    if name:
+        filename = f"{base}.json"
+    else:
+        ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        filename = f"{ts}_{base}.json"
+    path = os.path.join(ARTIFACT_DIR, filename)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+    return path
+
+
+def write_csv_artifact(
+    data: Union[Dict[str, Any], List[Dict[str, Any]]], name: str
+) -> str:
+    """CSV形式のアーティファクトを書き込む。常に `name`.csv の固定名で上書きする。
+
+    Args:
+        data: 辞書または辞書のリスト。辞書なら1行、リストならヘッダ付きの複数行として書き込む。
+        name: 出力ファイルのベース名（拡張子なし）。実行ごとに上書きされる。
+
+    Returns:
+        書き込んだファイルの絶対パス。
+    """
+    _ensure_dir()
+    base = _safe_name(name)
+    filename = f"{base}.csv"
+    path = os.path.join(ARTIFACT_DIR, filename)
+
+    def _to_str(v: Any) -> str:
+        if v is None:
+            return ""
+        if isinstance(v, (dict, list)):
+            return json.dumps(v, ensure_ascii=False)
+        return str(v)
+
+    # 単一辞書 -> ヘッダ + 1行
+    if isinstance(data, dict):
+        keys = list(data.keys())
+        # timestamp を先頭に移動する
+        if "timestamp" in keys:
+            keys = [k for k in keys if k != "timestamp"]
+            keys.insert(0, "timestamp")
+        with open(path, "w", newline="", encoding="utf-8") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(keys)
+            writer.writerow([_to_str(data.get(k)) for k in keys])
+        return path
+
+    # 辞書のリスト -> ヘッダは全キーの合計（安定化のためソート）
+    if isinstance(data, list):
+        if not data:
+            # 空リストは空ファイルを作る
+            open(path, "w", encoding="utf-8").close()
+            return path
+        # ヘッダを決定
+        keys_set = {k for row in data for k in row.keys()}
+        # timestamp を先頭に、それ以外はソートして続ける
+        if "timestamp" in keys_set:
+            other_keys = sorted(k for k in keys_set if k != "timestamp")
+            keys = ["timestamp"] + other_keys
+        else:
+            keys = sorted(keys_set)
+        with open(path, "w", newline="", encoding="utf-8") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(keys)
+            for row in data:
+                writer.writerow([_to_str(row.get(k)) for k in keys])
+        return path
+
+    # サポート外の型は空ファイルにする
+    open(path, "w", encoding="utf-8").close()
+    return path
+
+
+def write_text_artifact(text: str, name: Optional[str] = None) -> str:
+    """テキストのアーティファクトを書き込み、ファイルパスを返す。name 指定時は固定名で上書きする。"""
+    _ensure_dir()
+    base = _safe_name(name)
+    if name:
+        filename = f"{base}.txt"
+    else:
+        ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        filename = f"{ts}_{base}.txt"
+    path = os.path.join(ARTIFACT_DIR, filename)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    return path
+
+
+async def fetch_stock_master_for_artifact() -> List[Dict[str, Any]]:
+    """stock_masterテーブルから全データを取得してアーティファクト用に返す。
+
+    Returns:
+        stock_masterテーブルの全レコードを辞書のリストで返す。
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.stock_master import StockMaster
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(StockMaster))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": row.id,
+                    "stock_code": row.stock_code,
+                    "stock_name": row.stock_name,
+                    "market_category": row.market_category,
+                    "sector_code_33": row.sector_code_33,
+                    "sector_name_33": row.sector_name_33,
+                    "sector_code_17": row.sector_code_17,
+                    "sector_name_17": row.sector_name_17,
+                    "scale_code": row.scale_code,
+                    "scale_category": row.scale_category,
+                    "data_date": row.data_date,
+                    "is_active": row.is_active,
+                    "created_at": (
+                        row.created_at.isoformat() if row.created_at else None
+                    ),
+                    "updated_at": (
+                        row.updated_at.isoformat() if row.updated_at else None
+                    ),
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
