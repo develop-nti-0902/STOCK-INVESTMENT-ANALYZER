@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -222,8 +222,11 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
 
     def get_period_end_date(
         self, root: etree._Element, contexts: List[str]
-    ) -> Optional[str]:
-        """コンテキストから期末日を取得する。"""
+    ) -> Optional[date]:
+        """コンテキストから期末日を取得する。
+
+        戻り値は ISO 文字列ではなく datetime.date を返します。
+        """
         # 優先するコンテキストから instant 日付を抽出
         for ctx_id in contexts:
             # context 要素を探す
@@ -239,11 +242,11 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
                 date_str = instant_nodes[0].text.strip()
                 try:
                     dt = datetime.fromisoformat(date_str)
-                    return dt.date().isoformat()
+                    return dt.date()
                 except Exception:
                     try:
                         dt = datetime.strptime(date_str, "%Y-%m-%d")
-                        return dt.date().isoformat()
+                        return dt.date()
                     except Exception:
                         pass
 
@@ -253,11 +256,11 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
             date_str = instant_nodes[0].text.strip()
             try:
                 dt = datetime.fromisoformat(date_str)
-                return dt.date().isoformat()
+                return dt.date()
             except Exception:
                 try:
                     dt = datetime.strptime(date_str, "%Y-%m-%d")
-                    return dt.date().isoformat()
+                    return dt.date()
                 except Exception:
                     pass
 

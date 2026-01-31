@@ -1,0 +1,4 @@
+﻿fix(edinet): 貸借対照表モデルとパーサーの日付型を修正
+
+- `EdinetBalanceSheet`の`submission_date`と`period_end_date`を`date`型へ修正
+- パーサーの`get_period_end_date`が`datetime.date`を返すよう変更

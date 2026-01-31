@@ -8,6 +8,7 @@ SQLAlchemy のモデル定義を提供します。
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Optional
 
 from sqlalchemy import (
@@ -38,8 +39,8 @@ class EdinetBalanceSheet(SerialPKMixin, TimestampMixin, Base):
     filer_name: Mapped[Optional[str]] = mapped_column(
         String(255), nullable=True
     )
-    submission_date: Mapped[str] = mapped_column(Date, nullable=False)
-    period_end_date: Mapped[str] = mapped_column(Date, nullable=False)
+    submission_date: Mapped[date] = mapped_column(Date, nullable=False)
+    period_end_date: Mapped[date] = mapped_column(Date, nullable=False)
     fiscal_year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     report_type: Mapped[str] = mapped_column(
         String(20), nullable=False, default="annual"
