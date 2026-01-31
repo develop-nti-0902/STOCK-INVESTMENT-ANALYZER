@@ -1,6 +1,0 @@
-﻿feat(edinet): XBRLユーティリティを追加
-
-- find_xbrl_files と extract_contexts を実装
-- 単体テストを追加
-
-Refs: #273
