@@ -74,6 +74,7 @@ jobs:
       DB_NAME: test_db
       DB_USER: ${{ secrets.CI_APP_DB_USER }}
       DB_PASSWORD: ${{ secrets.CI_APP_DB_PASSWORD }}
+      EDINET_SUBSCRIPTION_KEY: ${{ secrets.CI_EDINET_SUBSCRIPTION_KEY }}
     # services: テスト用のコンテナを定義（ここでは PostgreSQL）
     # 注意: コンテナに渡すパスワードは Secrets を利用してください。
     services:
@@ -123,6 +124,8 @@ jobs:
           # These should be set in repository Secrets (create them if missing)
           NEW_DB_USER: ${{ secrets.CI_APP_DB_USER }}
           NEW_DB_PASSWORD: ${{ secrets.CI_APP_DB_PASSWORD }}
+          # EDINET_SUBSCRIPTION_KEY should be set in repository Secrets (create it if missing)
+          EDINET_SUBSCRIPTION_KEY: ${{ secrets.CI_EDINET_SUBSCRIPTION_KEY}}
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
           # 待機: pg_isready が成功するまでリトライ

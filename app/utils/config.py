@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -182,6 +184,12 @@ class Settings(BaseSettings):
     CORS_ALLOW_HEADERS: list[str] = Field(
         default_factory=lambda: ["*"],
         description="Allowed HTTP headers for CORS",
+    )
+
+    # EDINET API 設定
+    # - サービスによっては Subscription-Key が必要になるため環境変数で管理します
+    EDINET_SUBSCRIPTION_KEY: Optional[str] = Field(
+        None, description="Subscription key for EDINET API (if required)"
     )
 
     # バッチ処理設定
