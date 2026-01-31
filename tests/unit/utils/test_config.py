@@ -24,6 +24,8 @@ def test_settings_env_only_returns_expected_values(monkeypatch):
 
     monkeypatch.setenv("LOG_LEVEL", "INFO")
     monkeypatch.setenv("LOG_FILE", "app.log")
+    # EDINET APIキーはSettingsで必須になったためテスト用のダミー値を設定
+    monkeypatch.setenv("EDINET_SUBSCRIPTION_KEY", "dummy_key")
 
     # Act
     sys.modules.pop("app.utils.config", None)
@@ -93,6 +95,8 @@ def test_settings_is_production_returns_true_when_env_is_production(
     monkeypatch.setenv("DB_NAME", "stockdb")
     monkeypatch.setenv("DB_USER", "stock_user")
     monkeypatch.setenv("DB_PASSWORD", "password")
+    # EDINET APIキーはSettingsで必須になったためテスト用のダミー値を設定
+    monkeypatch.setenv("EDINET_SUBSCRIPTION_KEY", "dummy_key")
 
     # Act
     sys.modules.pop("app.utils.config", None)
@@ -118,6 +122,8 @@ def test_settings_is_test_returns_true_when_env_is_test(monkeypatch):
     monkeypatch.setenv("DB_NAME", "stockdb")
     monkeypatch.setenv("DB_USER", "stock_user")
     monkeypatch.setenv("DB_PASSWORD", "password")
+    # EDINET APIキーはSettingsで必須になったためテスト用のダミー値を設定
+    monkeypatch.setenv("EDINET_SUBSCRIPTION_KEY", "dummy_key")
 
     # Act
     sys.modules.pop("app.utils.config", None)
@@ -269,6 +275,8 @@ def test_settings_includes_batch_processing_settings():
 
     os.environ["BATCH_BATCH_SIZE"] = "75"
     os.environ["BATCH_MAX_CONCURRENT"] = "15"
+    # EDINET APIキーはSettingsで必須になったためテスト用のダミー値を設定
+    os.environ["EDINET_SUBSCRIPTION_KEY"] = "dummy_key"
 
     try:
         # Act
@@ -286,3 +294,4 @@ def test_settings_includes_batch_processing_settings():
         # Cleanup
         del os.environ["BATCH_BATCH_SIZE"]
         del os.environ["BATCH_MAX_CONCURRENT"]
+        del os.environ["EDINET_SUBSCRIPTION_KEY"]
