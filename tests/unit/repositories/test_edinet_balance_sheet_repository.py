@@ -51,15 +51,29 @@ async def test_crud_basic_operations(repository, mock_session):
 
     # find_by_period / find_by_doc_id / find_latest_by_sec_code の振る舞い
     expected = make_model(**data)
-    mock_result = MagicMock()
-    mock_result.scalar_one_or_none.return_value = expected
-    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    # find_by_period -> 単一レコードを返すモック
+    mock_result_period = MagicMock()
+    mock_result_period.scalar_one_or_none.return_value = expected
+    mock_session.execute = AsyncMock(return_value=mock_result_period)
 
     got = await repository.find_by_period("7203", date(2025, 3, 31))
     assert got is expected
 
+    # find_by_doc_id -> 複数レコードを返す想定に変更
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = [expected]
+    mock_result_doc = MagicMock()
+    mock_result_doc.scalars.return_value = mock_scalars
+    mock_session.execute = AsyncMock(return_value=mock_result_doc)
+
     got2 = await repository.find_by_doc_id("DOC1")
-    assert got2 is expected
+    assert got2 == [expected]
+
+    # find_latest_by_sec_code -> 単一レコードを返すモックに戻す
+    mock_result_latest = MagicMock()
+    mock_result_latest.scalar_one_or_none.return_value = expected
+    mock_session.execute = AsyncMock(return_value=mock_result_latest)
 
     got3 = await repository.find_latest_by_sec_code("7203")
     assert got3 is expected
