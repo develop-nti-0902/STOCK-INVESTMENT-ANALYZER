@@ -6,6 +6,7 @@ from .accounts import Account
 from .base import Base, TimestampMixin
 from .batch_execution import BatchExecution
 from .batch_execution_details import BatchExecutionDetails
+from .edinet_balance_sheet import EdinetBalanceSheet
 from .stock_analyst_recommendations import StockAnalystRecommendations
 from .stock_balance_sheet_annual import StockBalanceSheetAnnual
 from .stock_balance_sheet_quarterly import StockBalanceSheetQuarterly
@@ -58,6 +59,7 @@ __all__ = [
     "StockBalanceSheetAnnual",
     "StockCashflowAnnual",
     "StockCashflowQuarterly",
+    "EdinetBalanceSheet",
     "StockAnalystRecommendations",
     "StockHoldersInstitutional",
     "StockSharesOutstanding",
