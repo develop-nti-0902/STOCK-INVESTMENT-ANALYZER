@@ -99,15 +99,38 @@ class EdinetAPIClient:
         doc_type: int = 2,
         headers: Optional[Dict[str, str]] = None,
         session: Optional[aiohttp.ClientSession] = None,
+        subscription_key: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """指定日付に公開された文書を検索します。
 
         戻り値はパース済みのJSONリストです。リトライとタイムアウトを使用します。
+
+        Args:
+            target_date: 検索対象日付
+            doc_type: 文書タイプ（2: 有価証券報告書等）
+            headers: 追加HTTPヘッダー
+            session: 再利用するaiohttpセッション
+            subscription_key: EDINET APIキー（未指定時は設定から取得）
+
+        Returns:
+            文書情報の辞書のリスト
         """
-        params = {
+        # subscription_key が渡されなかった場合は Settings から取得を試みる
+        if not subscription_key:
+            settings = get_settings()
+            subscription_key = cast(
+                Optional[str],
+                getattr(settings, "EDINET_SUBSCRIPTION_KEY", None),
+            )
+
+        # APIキーが必要な場合はparamsに追加
+        params: Dict[str, Any] = {
             "date": target_date.isoformat(),
             "type": doc_type,
         }
+        if subscription_key:
+            params["Subscription-Key"] = subscription_key
+
         data = await self._request_json(
             "documents.json", params=params, headers=headers, session=session
         )
