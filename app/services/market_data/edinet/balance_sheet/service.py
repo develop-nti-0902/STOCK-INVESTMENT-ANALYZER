@@ -55,41 +55,68 @@ class EdinetBalanceSheetService:
     ):
         """単一文書を取得して解析し、データベースに保存する。
 
+        過去5年分（current, prior1, prior2, prior3, prior4）のデータを取得し、
+        それぞれUPSERTします。
+
         Returns:
-            保存後のモデルオブジェクト（Repository の返り値）
+            保存後のモデルオブジェクトのリスト
         """
         xbrl_path = None
         try:
             xbrl_path = await self.fetcher.fetch(doc_id)
             parsed = self.parser.parse(xbrl_path)
 
-            # current 年度データを優先して利用する
-            current = parsed.get("current") or {}
-            period_end = current.get("period_end")
-            if not period_end:
-                raise ValueError("period_end is required in parsed data")
+            results = []
+            # 5年分のデータをそれぞれUPSERT
+            for year_key in [
+                "current",
+                "prior1",
+                "prior2",
+                "prior3",
+                "prior4",
+            ]:
+                year_data = parsed.get(year_key)
+                if not year_data:
+                    logger.debug(
+                        "No data for %s in doc_id=%s, skipping",
+                        year_key,
+                        doc_id,
+                    )
+                    continue
 
-            # fiscal_year を簡易算出
-            try:
-                fiscal_year = int(str(period_end).split("-")[0])
-            except Exception:
-                fiscal_year = None
+                period_end = year_data.get("period_end")
+                if not period_end:
+                    logger.warning(
+                        "period_end missing for %s in doc_id=%s",
+                        year_key,
+                        doc_id,
+                    )
+                    continue
 
-            payload = {
-                "doc_id": doc_id,
-                "sec_code": sec_code,
-                "filer_name": filer_name,
-                "submission_date": submission_date,
-                "period_end_date": period_end,
-                "fiscal_year": fiscal_year,
-                "report_type": "annual",
-                "total_assets": current.get("assets"),
-                "total_liabilities": current.get("liabilities"),
-                "total_equity": current.get("equity"),
-                "is_consolidated": current.get("consolidation"),
-            }
+                # fiscal_year を簡易算出
+                try:
+                    fiscal_year = int(str(period_end).split("-")[0])
+                except Exception:
+                    fiscal_year = None
 
-            return await self.upsert_balance_sheet(payload)
+                payload = {
+                    "doc_id": doc_id,
+                    "sec_code": sec_code,
+                    "filer_name": filer_name,
+                    "submission_date": submission_date,
+                    "period_end_date": period_end,
+                    "fiscal_year": fiscal_year,
+                    "report_type": "annual",
+                    "total_assets": year_data.get("assets"),
+                    "total_liabilities": year_data.get("liabilities"),
+                    "total_equity": year_data.get("equity"),
+                    "is_consolidated": year_data.get("consolidation"),
+                }
+
+                result = await self.upsert_balance_sheet(payload)
+                results.append(result)
+
+            return results
 
         finally:
             # 一時ファイルが作られていれば、file_manager でクリーンアップを試みる

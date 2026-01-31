@@ -42,7 +42,18 @@ class EdinetDocumentFetcher(BaseFetcher[Path]):
             # extract
             with zipfile.ZipFile(zip_path, "r") as z:
                 z.extractall(tmpdir)
-            # locate xbrl file under XBRL/PublicDoc
+            # locate xbrl file under XBRL/PublicDoc (財務諸表本体)
+            public_doc_paths = list(tmpdir.glob("**/PublicDoc/**/*.xbrl"))
+            if public_doc_paths:
+                # PublicDocディレクトリ内のXBRLファイルを優先
+                # ファイル名に "BalanceSheet" や "jpcrp" が含まれるものを優先
+                for p in public_doc_paths:
+                    # 監査報告書（AuditDoc）を除外
+                    if "AuditDoc" not in str(p):
+                        return p
+                # フォールバック: PublicDoc内の最初のXBRL
+                return public_doc_paths[0]
+            # fallback: any xbrl file
             for p in tmpdir.rglob("*.xbrl"):
                 return p
             # fallback: any xml or htm
