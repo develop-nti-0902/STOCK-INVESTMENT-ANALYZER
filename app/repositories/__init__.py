@@ -10,6 +10,9 @@ from app.repositories.base import BaseRepository
 from app.repositories.batch_execution_repository import (
     BatchExecutionRepository,
 )
+from app.repositories.edinet_balance_sheet_repository import (  # noqa: F401
+    EdinetBalanceSheetRepository,
+)
 from app.repositories.stock_data_repository import (
     StockData1dRepository,
     StockData1hRepository,
@@ -38,3 +41,4 @@ __all__ = [
     "StockData1wkRepository",
     "StockData1moRepository",
 ]
+__all__.append("EdinetBalanceSheetRepository")
