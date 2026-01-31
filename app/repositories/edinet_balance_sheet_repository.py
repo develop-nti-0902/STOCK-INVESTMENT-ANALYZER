@@ -57,13 +57,11 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
         )
         return result.scalar_one_or_none()
 
-    async def find_by_doc_id(
-        self, doc_id: str
-    ) -> Optional[EdinetBalanceSheet]:
+    async def find_by_doc_id(self, doc_id: str) -> list[EdinetBalanceSheet]:
         result = await self.session.execute(
             select(self.model).where(self.model.doc_id == doc_id)
         )
-        return result.scalar_one_or_none()
+        return list(result.scalars().all())
 
     async def upsert(self, data: dict) -> EdinetBalanceSheet:
         """単一レコードの UPSERT を実行し、結果のレコードを返す.
