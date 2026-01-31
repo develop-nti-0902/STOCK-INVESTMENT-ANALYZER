@@ -86,6 +86,8 @@ async def test_fetch_and_save_single_success(tmp_path):
         filer_name="DummyFiler",
     )
 
-    assert isinstance(res, dict)
-    assert res["upserted"]["doc_id"] == "DOC123"
+    # サービスは upsert の結果リストを返す
+    assert isinstance(res, list)
+    assert len(res) == 1
+    assert res[0]["upserted"]["doc_id"] == "DOC123"
     assert fm.cleaned is True
