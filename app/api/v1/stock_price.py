@@ -22,7 +22,7 @@ router = APIRouter(tags=["stock-price"])
 
 
 class StockPriceData(BaseModel):
-    """株価データレスポンスモデル.
+    """株価データレスポンス.
 
     Attributes:
         symbol (str): 銘柄コード
@@ -76,7 +76,7 @@ class DeleteAllResponse(BaseModel):
 
 
 class FetchRequest(BaseModel):
-    """フェッチ＆保存リクエスト"""
+    """フェッチ＆保存リクエスト."""
 
     symbols: List[str]
     timeframe: str = Field(
@@ -88,6 +88,8 @@ class FetchRequest(BaseModel):
 
 
 class FetchResultItem(BaseModel):
+    """個別フェッチ結果アイテム."""
+
     symbol: str
     timeframe: str
     success: bool
@@ -98,11 +100,13 @@ class FetchResultItem(BaseModel):
 
 
 class FetchResponse(BaseModel):
+    """フェッチ結果一覧レスポンス."""
+
     results: List[FetchResultItem]
 
 
 class BatchRequest(BaseModel):
-    """JPX全銘柄一括取得リクエスト"""
+    """JPX全銘柄一括取得リクエスト."""
 
     timeframe: str = Field(
         ...,
@@ -115,7 +119,7 @@ class BatchRequest(BaseModel):
 
 
 class BatchResponse(BaseModel):
-    """バッチ実行サマリレスポンス"""
+    """バッチ実行サマリレスポンス."""
 
     total: int
     success: int
@@ -234,7 +238,7 @@ async def fetch_and_save_stock_price(
     req: FetchRequest,
     service: StockPriceService = Depends(get_stock_price_service),
 ):
-    """指定銘柄リストの株価データを取得して保存する（fetch_and_save を呼ぶ）。"""
+    """指定銘柄リストの株価データを取得して保存する (fetch_and_save を呼ぶ)."""
     try:
         results = await service.fetch_and_save(
             symbols=req.symbols, timeframe=req.timeframe, period=req.period

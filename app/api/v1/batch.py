@@ -1,3 +1,5 @@
+"""バッチ実行管理API. バッチジョブの作成・進捗確認等を提供します."""
+
 from __future__ import annotations
 
 import asyncio as _asyncio
@@ -226,6 +228,7 @@ async def get_job_status(
     job_id: int,
     repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
 ):
+    """指定ジョブのステータスを取得します."""
     job = await repo.get(job_id)
     if job is None:
         raise RecordNotFoundError(message=f"Job with id {job_id} not found")
@@ -239,6 +242,7 @@ async def get_history(
     limit: int = 10,
     repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
 ):
+    """ジョブ実行履歴を取得します."""
     if job_type is not None:
         records = await repo.get_by_job_type(job_type.value)
     else:
@@ -256,6 +260,7 @@ async def cancel_job(
     job_id: int,
     repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
 ):
+    """指定ジョブをキャンセルします."""
     job = await repo.cancel_job(job_id)
     if job is None:
         raise RecordNotFoundError(message=f"Job with id {job_id} not found")

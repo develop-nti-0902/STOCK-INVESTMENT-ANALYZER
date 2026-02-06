@@ -1,4 +1,4 @@
-"""データベース接続とセッション管理のヘルパーモジュール。
+"""データベース接続とセッション管理のヘルパーモジュール.
 
 SQLAlchemy の非同期エンジンとセッションメーカーの作成・管理を提供します。
 FastAPI の ``Depends`` パターンで使用することを想定しています。
@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 
 def get_database_url() -> str:
     """
-    データベース接続URLを取得
+    データベース接続URLを取得.
 
     環境変数から設定を読み込み、PostgreSQL接続URLを構築する。
     非同期ドライバ（asyncpg）を使用する。
@@ -47,7 +47,7 @@ def get_database_url() -> str:
 
 def create_engine() -> AsyncEngine:
     """
-    非同期SQLAlchemyエンジンを作成
+    非同期SQLAlchemyエンジンを作成.
 
     接続プール設定:
     - pool_size: 基本接続数（デフォルト: 5）
@@ -87,7 +87,7 @@ def create_engine() -> AsyncEngine:
 @lru_cache(maxsize=1)
 def get_engine() -> AsyncEngine:
     """
-    グローバルエンジンインスタンスを取得
+    グローバルエンジンインスタンスを取得.
 
     シングルトンパターンでエンジンを管理する。
     初回呼び出し時にエンジンを作成し、以降は同じインスタンスを返す。
@@ -101,7 +101,7 @@ def get_engine() -> AsyncEngine:
 @lru_cache(maxsize=1)
 def get_session_maker() -> async_sessionmaker[AsyncSession]:
     """
-    非同期セッションメーカーを取得
+    非同期セッションメーカーを取得.
 
     セッション設定:
     - autocommit: False（明示的なコミット）
@@ -123,7 +123,7 @@ def get_session_maker() -> async_sessionmaker[AsyncSession]:
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
-    非同期DBセッションを提供（FastAPI Depends用）
+    非同期DBセッションを提供（FastAPI Depends用）.
 
     使用例:
         ```python
@@ -168,7 +168,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def close_db() -> None:
     """
-    データベース接続をクローズ
+    データベース接続をクローズ.
 
     アプリケーション終了時に呼び出し、全ての接続を適切にクローズする。
     FastAPIのlifespan eventで使用することを想定。
@@ -203,7 +203,7 @@ async def close_db() -> None:
 
 
 async def flush_return(session: AsyncSession, return_value: Any) -> Any:
-    """Session の flush を実行して指定値を返すヘルパー。
+    """Session の flush を実行して指定値を返すヘルパー.
 
     Repository層ではコミットを行わず、flush（DBへの変更反映）のみを実行します。
     トランザクション管理（commit/rollback）はService層またはFastAPIのget_db()で行います。
@@ -225,7 +225,7 @@ async def flush_return(session: AsyncSession, return_value: Any) -> Any:
 async def flush_return_with_log(
     session: AsyncSession, return_value: Any, log, msg: str, *args: Any
 ) -> Any:
-    """`flush_return` を呼び出し、失敗時に共通的なログ出力を行うヘルパー。
+    """`flush_return` を呼び出し、失敗時に共通的なログ出力を行うヘルパー.
 
     Args:
         session: 非同期セッション

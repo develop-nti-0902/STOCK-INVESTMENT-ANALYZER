@@ -40,20 +40,22 @@ class Base(DeclarativeBase):
     """
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
+        """サブクラス初期化時にテーブル名を自動設定します."""
         # サブクラスで明示的に__tablename__がなければ自動でスネークケースを付与
         if "__tablename__" not in cls.__dict__:
             cls.__tablename__ = _camel_to_snake(cls.__name__)
         super().__init_subclass__(**kwargs)
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
-        # モデルインスタンスの簡易表現。`id` があれば含める。
+        """モデルインスタンスの簡易表現を返す（デバッグ用)."""
+        # `id` があれば含める。
         ident = getattr(self, "id", None)
         if ident is not None:
             return f"<{self.__class__.__name__} id={ident!r}>"
         return f"<{self.__class__.__name__}>"
 
     def model_name(self) -> str:  # pragma: no cover - trivial
-        """モデルのクラス名を返すユーティリティメソッド。テストやログで便利。"""
+        """モデルのクラス名を返すユーティリティメソッド. テストやログで便利."""
         return self.__class__.__name__
 
 
@@ -64,15 +66,15 @@ class SerialPKMixin:
         id (int): 自動増分プライマリキー
     """
 
-    id: Mapped[int] = mapped_column(
-        Integer, primary_key=True, autoincrement=True
-    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """簡易表現を返す（デバッグ用)."""
         ident = getattr(self, "id", None)
         return f"<{self.__class__.__name__} id={ident!r}>"
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返すユーティリティメソッド."""
         return self.__class__.__name__
 
 
@@ -88,10 +90,12 @@ class UUIDPKMixin:
     )
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """簡易表現を返す（デバッグ用)."""
         ident = getattr(self, "id", None)
         return f"<{self.__class__.__name__} id={ident!r}>"
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返すユーティリティメソッド."""
         return self.__class__.__name__
 
 
@@ -122,6 +126,7 @@ class TimestampMixin:
     )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """初期化時に作成/更新時刻のデフォルト値を設定します."""
         now = datetime.now(timezone.utc)
         if "created_at" not in kwargs or kwargs.get("created_at") is None:
             kwargs["created_at"] = now
@@ -130,11 +135,13 @@ class TimestampMixin:
         super().__init__(*args, **kwargs)
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """簡易表現を返す（デバッグ用)."""
         # created_at/updated_at を含めず簡潔に表現
         ident = getattr(self, "id", None)
         return f"<{self.__class__.__name__} id={ident!r}>"
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返すユーティリティメソッド."""
         return self.__class__.__name__
 
 

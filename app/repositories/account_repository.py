@@ -1,4 +1,4 @@
-"""Account リポジトリ実装。
+"""Account リポジトリ実装.
 
 `Account` モデルに対する CRUD 操作やユーティリティ的な更新処理を提供します。
 """
@@ -22,23 +22,22 @@ class AccountRepository(BaseRepository[Account]):
     """アカウント操作用の Repository 実装."""
 
     def __init__(self, session: AsyncSession):
+        """初期化。セッションを受け取り `Account` モデルをセットします."""
         super().__init__(session, model=Account)
 
     async def get_by_email(self, email: str) -> Optional[Account]:
-        """メールアドレスでアカウントを取得する。"""
-        result = await self.session.execute(
-            select(self.model).where(self.model.email == email)
-        )
+        """メールアドレスでアカウントを取得する."""
+        result = await self.session.execute(select(self.model).where(self.model.email == email))
         return result.scalar_one_or_none()
 
     async def create_account(self, data: Dict[str, Any]) -> Account:
-        """アカウントを作成して作成済みインスタンスを返す。"""
+        """アカウントを作成して作成済みインスタンスを返す."""
         return await self.create(data)
 
     async def update_last_login(
         self, account_id: int, last_login: Optional[datetime]
     ) -> Optional[Account]:
-        """最終ログイン時刻を更新して更新後のインスタンスを返す。"""
+        """最終ログイン時刻を更新して更新後のインスタンスを返す."""
         instance = await self.get(account_id)
         if instance is None:
             return None
@@ -51,10 +50,8 @@ class AccountRepository(BaseRepository[Account]):
             account_id,
         )
 
-    async def update_password(
-        self, account_id: int, hashed_password: str
-    ) -> Optional[Account]:
-        """パスワードハッシュを更新する。"""
+    async def update_password(self, account_id: int, hashed_password: str) -> Optional[Account]:
+        """パスワードハッシュを更新する."""
         instance = await self.get(account_id)
         if instance is None:
             return None
@@ -70,7 +67,7 @@ class AccountRepository(BaseRepository[Account]):
     async def update_display_name(
         self, account_id: int, display_name: Optional[str]
     ) -> Optional[Account]:
-        """表示名を更新する。"""
+        """表示名を更新する."""
         instance = await self.get(account_id)
         if instance is None:
             return None
@@ -84,7 +81,7 @@ class AccountRepository(BaseRepository[Account]):
         )
 
     async def deactivate_account(self, account_id: int) -> bool:
-        """アカウントを無効化する。存在しなければ False を返す。"""
+        """アカウントを無効化する。存在しなければ False を返す."""
         instance = await self.get(account_id)
         if instance is None:
             return False

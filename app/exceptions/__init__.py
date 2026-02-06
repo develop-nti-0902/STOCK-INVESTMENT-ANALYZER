@@ -1,5 +1,4 @@
-"""
-例外処理モジュール
+"""例外処理モジュール.
 
 アプリケーション全体で使用するカスタム例外クラスとハンドラをエクスポートする。
 仕様書: docs/architecture/layers/common_modules.md 3章
@@ -53,11 +52,7 @@ from app.exceptions.system import (
 )
 
 # バリデーション関連例外
-from app.exceptions.validation import (
-    FieldValidationError,
-    SchemaValidationError,
-    ValidationError,
-)
+from app.exceptions.validation import FieldValidationError, SchemaValidationError, ValidationError
 
 __all__ = [
     # 基底例外

@@ -1,7 +1,7 @@
-"""アカウント保有ポートフォリオ（account_portfolios）テーブルのモデル定義モジュール。
+"""アカウント保有ポートフォリオ（account_portfolios）テーブルのモデル定義モジュール.
 
-`docs/architecture/layers/data_storage_layer.md` の定義に合わせたポートフォリオ保存用モデル。
-プロジェクト内の他モデルと同様に `SerialPKMixin` と `TimestampMixin` を利用します。
+`docs/architecture/layers/data_storage_layer.md` の定義に合わせたポートフォリオ保存用モデル.
+プロジェクト内の他モデルと同様に `SerialPKMixin` と `TimestampMixin` を利用します.
 """
 
 from __future__ import annotations
@@ -9,22 +9,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import (
-    DateTime,
-    ForeignKey,
-    Index,
-    Integer,
-    Numeric,
-    String,
-    Text,
-)
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, SerialPKMixin, TimestampMixin
 
 
 class AccountPortfolios(SerialPKMixin, TimestampMixin, Base):
-    """アカウントが保有するポートフォリオの銘柄毎エントリを表すモデル。
+    """アカウントが保有するポートフォリオの銘柄毎エントリを表すモデル.
 
     Attributes:
         account_id: `accounts.id` への外部キー
@@ -44,24 +36,16 @@ class AccountPortfolios(SerialPKMixin, TimestampMixin, Base):
         ForeignKey("account.id"),
         nullable=False,
     )
-    portfolio_name: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True
-    )
+    portfolio_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     symbol: Mapped[str] = mapped_column(String(20), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    avg_price: Mapped[Optional[float]] = mapped_column(
-        Numeric(18, 4), nullable=True
-    )
-    market_value: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
+    avg_price: Mapped[Optional[float]] = mapped_column(Numeric(18, 4), nullable=True)
+    market_value: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
     currency: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     valuation_date: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    allocation: Mapped[Optional[float]] = mapped_column(
-        Numeric(6, 4), nullable=True
-    )
+    allocation: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
@@ -70,6 +54,7 @@ class AccountPortfolios(SerialPKMixin, TimestampMixin, Base):
     )
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """簡易表現を返す（デバッグ用)."""
         return (
             "<AccountPortfolios(account_id="
             f"{self.account_id!r}, symbol={self.symbol!r}, "

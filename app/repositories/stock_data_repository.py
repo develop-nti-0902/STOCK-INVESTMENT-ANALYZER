@@ -69,7 +69,7 @@ class StockDataRepository(BaseRepository, ABC):
 
     @property
     def model(self):
-        """SQLAlchemyモデルクラス"""
+        """SQLAlchemyモデルクラス."""
         return self._model
 
     @abstractmethod
@@ -112,13 +112,9 @@ class StockDataRepository(BaseRepository, ABC):
             "low",
             "close",
         ]
-        missing_fields = [
-            field for field in required_fields if field not in data
-        ]
+        missing_fields = [field for field in required_fields if field not in data]
         if missing_fields:
-            raise FieldValidationError(
-                message=f"Missing required fields: {missing_fields}"
-            )
+            raise FieldValidationError(message=f"Missing required fields: {missing_fields}")
 
         try:
             # UPSERT文の構築
@@ -136,9 +132,7 @@ class StockDataRepository(BaseRepository, ABC):
                 "updated_at": text("now()"),
             }
 
-            stmt = stmt.on_conflict_do_update(
-                index_elements=conflict_columns, set_=update_values
-            )
+            stmt = stmt.on_conflict_do_update(index_elements=conflict_columns, set_=update_values)
 
             # 実行
             result = cast(CursorResult, await self.session.execute(stmt))
@@ -224,10 +218,7 @@ class StockDataRepository(BaseRepository, ABC):
 
             if total_params > 24000:  # 3000レコード × 8カラム
                 logger.info(
-                    (
-                        "Large dataset for %s: %s records (%s parameters). "
-                        "Splitting into chunks."
-                    ),
+                    "Large dataset for %s: %s records (%s parameters). Splitting into chunks.",
                     self.timeframe,
                     len(valid_data),
                     total_params,
@@ -249,10 +240,7 @@ class StockDataRepository(BaseRepository, ABC):
                     )
             else:
                 logger.info(
-                    (
-                        "Starting bulk upsert for %s: %s valid records "
-                        "(out of %s total)"
-                    ),
+                    "Starting bulk upsert for %s: %s valid records (out of %s total)",
                     self.timeframe,
                     len(valid_data),
                     len(data_list),
@@ -272,12 +260,10 @@ class StockDataRepository(BaseRepository, ABC):
 
         except Exception as e:
             logger.error("Bulk UPSERT failed for %s: %s", self.timeframe, e)
-            raise StockDataError(
-                message=f"Failed to bulk upsert data: {e}"
-            ) from e
+            raise StockDataError(message=f"Failed to bulk upsert data: {e}") from e
 
     async def _execute_insert(self, chunk: List[dict]) -> int:
-        """チャンク用のUPSERT文を構築して実行するヘルパー。"""
+        """チャンク用のUPSERT文を構築して実行するヘルパー."""
         stmt = insert(self.model).values(chunk)
         update_values = self._build_update_values(stmt)
         stmt = stmt.on_conflict_do_update(
@@ -285,14 +271,10 @@ class StockDataRepository(BaseRepository, ABC):
         )
 
         result = await self.session.execute(stmt)
-        return (
-            result.rowcount
-            if hasattr(result, "rowcount") and result.rowcount
-            else len(chunk)
-        )
+        return result.rowcount if hasattr(result, "rowcount") and result.rowcount else len(chunk)
 
     def _build_update_values(self, stmt):
-        """ON CONFLICT の更新マッピングを構築するヘルパー。"""
+        """ON CONFLICT の更新マッピングを構築するヘルパー."""
         return {
             "open": stmt.excluded.open,
             "high": stmt.excluded.high,
@@ -368,9 +350,7 @@ class StockDataRepository(BaseRepository, ABC):
         Returns:
             int: レコード数
         """
-        query = select(text(f"count({self.model.symbol.name})")).where(
-            self.model.symbol == symbol
-        )
+        query = select(text(f"count({self.model.symbol.name})")).where(self.model.symbol == symbol)
         result = await self.session.execute(query)
         return result.scalar_one()
 
@@ -458,18 +438,17 @@ class StockDataRepository(BaseRepository, ABC):
                 self.timeframe,
                 e,
             )
-            raise StockDataError(
-                message=f"Failed to delete all records: {e}"
-            ) from e
+            raise StockDataError(message=f"Failed to delete all records: {e}") from e
 
 
 # 具体的なRepositoryクラス実装
 
 
 class StockData1mRepository(StockDataRepository):
-    """1-minute stock data Repository"""
+    """1-minute stock data Repository."""
 
     def __init__(self, session: AsyncSession):
+        """初期化。セッションを受け取り `Stocks1m` モデルをセットします."""
         super().__init__(session, Stocks1m)
 
     def _get_timeframe(self) -> str:
@@ -480,9 +459,10 @@ class StockData1mRepository(StockDataRepository):
 
 
 class StockData5mRepository(StockDataRepository):
-    """5-minute stock data Repository"""
+    """5-minute stock data Repository."""
 
     def __init__(self, session: AsyncSession):
+        """初期化。セッションを受け取り `Stocks5m` モデルをセットします."""
         super().__init__(session, Stocks5m)
 
     def _get_timeframe(self) -> str:
@@ -493,9 +473,10 @@ class StockData5mRepository(StockDataRepository):
 
 
 class StockData15mRepository(StockDataRepository):
-    """15-minute stock data Repository"""
+    """15-minute stock data Repository."""
 
     def __init__(self, session: AsyncSession):
+        """初期化。セッションを受け取り `Stocks15m` モデルをセットします."""
         super().__init__(session, Stocks15m)
 
     def _get_timeframe(self) -> str:
@@ -506,9 +487,10 @@ class StockData15mRepository(StockDataRepository):
 
 
 class StockData30mRepository(StockDataRepository):
-    """30-minute stock data Repository"""
+    """30-minute stock data Repository."""
 
     def __init__(self, session: AsyncSession):
+        """初期化。セッションを受け取り `Stocks30m` モデルをセットします."""
         super().__init__(session, Stocks30m)
 
     def _get_timeframe(self) -> str:
@@ -519,9 +501,10 @@ class StockData30mRepository(StockDataRepository):
 
 
 class StockData1hRepository(StockDataRepository):
-    """1-hour stock data Repository"""
+    """1-hour stock data Repository."""
 
     def __init__(self, session: AsyncSession):
+        """初期化。セッションを受け取り `Stocks1h` モデルをセットします."""
         super().__init__(session, Stocks1h)
 
     def _get_timeframe(self) -> str:
@@ -532,9 +515,10 @@ class StockData1hRepository(StockDataRepository):
 
 
 class StockData1dRepository(StockDataRepository):
-    """Daily stock data Repository"""
+    """Daily stock data Repository."""
 
     def __init__(self, session: AsyncSession):
+        """初期化。セッションを受け取り `Stocks1d` モデルをセットします."""
         super().__init__(session, Stocks1d)
 
     def _get_timeframe(self) -> str:
@@ -545,9 +529,10 @@ class StockData1dRepository(StockDataRepository):
 
 
 class StockData1wkRepository(StockDataRepository):
-    """Weekly stock data Repository"""
+    """Weekly stock data Repository."""
 
     def __init__(self, session: AsyncSession):
+        """初期化。セッションを受け取り `Stocks1wk` モデルをセットします."""
         super().__init__(session, Stocks1wk)
 
     def _get_timeframe(self) -> str:
@@ -558,9 +543,10 @@ class StockData1wkRepository(StockDataRepository):
 
 
 class StockData1moRepository(StockDataRepository):
-    """Monthly stock data Repository"""
+    """Monthly stock data Repository."""
 
     def __init__(self, session: AsyncSession):
+        """初期化。セッションを受け取り `Stocks1mo` モデルをセットします."""
         super().__init__(session, Stocks1mo)
 
     def _get_timeframe(self) -> str:

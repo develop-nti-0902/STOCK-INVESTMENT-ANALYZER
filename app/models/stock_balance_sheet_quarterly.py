@@ -16,7 +16,7 @@ from .base import Base, SerialPKMixin, TimestampMixin
 
 
 class StockBalanceSheetQuarterly(SerialPKMixin, TimestampMixin, Base):
-    """四半期貸借対照表（`stock_balance_sheet_quarterly`）モデル。
+    """四半期貸借対照表（`stock_balance_sheet_quarterly`）モデル.
 
     主要なカラムを厳選し、必要に応じて `additional_data` で拡張可能とする設計を採用します。
     """
@@ -26,33 +26,15 @@ class StockBalanceSheetQuarterly(SerialPKMixin, TimestampMixin, Base):
     fiscal_quarter: Mapped[int] = mapped_column(Integer, nullable=False)
     period_end: Mapped[Optional[str]] = mapped_column(Date, nullable=True)
 
-    total_assets: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    current_assets: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    non_current_assets: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    total_liabilities: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    current_liabilities: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    non_current_liabilities: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    total_equity: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    cash_and_equivalents: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    retained_earnings: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
+    total_assets: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    current_assets: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    non_current_assets: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    total_liabilities: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    current_liabilities: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    non_current_liabilities: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    total_equity: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    cash_and_equivalents: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    retained_earnings: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
 
     __table_args__ = (
         Index("idx_stock_bsq_symbol", "symbol"),

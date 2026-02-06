@@ -1,3 +1,9 @@
+"""EDINET の書類を取得し XBRL ファイルを抽出するフェッチャ実装.
+
+このモジュールは EDINET API クライアントを使って書類をダウンロードし、
+アーカイブから XBRL や XML ファイルを抽出してローカルに保存する責務を持ちます.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -14,28 +20,39 @@ from app.services.market_data.edinet.common.api_client import EdinetAPIClient
 
 @dataclass
 class EdinetDocumentFetcher(BaseFetcher[Path]):
+    """EDINET ドキュメントを取得して XBRL パスを返すフェッチャ.
+
+    Attributes:
+        api_client: EDINET API との通信クライアント
+        work_dir: 一時作業ディレクトリ
+    """
+
     api_client: EdinetAPIClient
     work_dir: Path = Path("work/edinet_temp")
 
     def __post_init__(self) -> None:
+        """初期化後に一時作業ディレクトリを作成する."""
         self.work_dir.mkdir(parents=True, exist_ok=True)
 
     async def validate_identifier(self, identifier: str) -> bool:
+        """識別子が妥当かを確認する簡易チェックを行う.
+
+        EDINET の docID の基本的な妥当性を検証します。
+        """
         if not await super().validate_identifier(identifier):
             return False
         # EDINET の doc_id は英数字で構成されることが多いので簡易チェック
         return isinstance(identifier, str) and len(identifier) > 0
 
     async def download_document(self, identifier: str) -> bytes:
+        """EDINET API からドキュメントをダウンロードしてバイナリを返す."""
         return await self.api_client.download_document(identifier)
 
     async def _write_and_extract(self, identifier: str, data: bytes) -> Path:
+        """ZIP を一時ディレクトリに展開し、XBRL / XML / HTML ファイルのパスを返す."""
+
         def _sync_write_extract() -> Path:
-            tmpdir = Path(
-                tempfile.mkdtemp(
-                    prefix=f"edinet_{identifier}_", dir=self.work_dir
-                )
-            )
+            tmpdir = Path(tempfile.mkdtemp(prefix=f"edinet_{identifier}_", dir=self.work_dir))
             zip_path = tmpdir / f"{identifier}.zip"
             with open(zip_path, "wb") as f:
                 f.write(data)
@@ -66,16 +83,15 @@ class EdinetDocumentFetcher(BaseFetcher[Path]):
         return await asyncio.to_thread(_sync_write_extract)
 
     async def fetch(self, identifier: str, **kwargs: Any) -> Path:
+        """単一ドキュメントをダウンロードして抽出した XBRL パスを返す."""
         if not await self.validate_identifier(identifier):
             raise ValueError("Invalid identifier")
         data = await self.download_document(identifier)
         xbrl_path = await self._write_and_extract(identifier, data)
         return xbrl_path
 
-    async def fetch_batch(
-        self, identifiers: List[str], **kwargs: Any
-    ) -> List[Path]:
-        """複数文書を並列取得して取得に成功したもののパス一覧を返す。
+    async def fetch_batch(self, identifiers: List[str], **kwargs: Any) -> List[Path]:
+        """複数文書を並列取得して取得に成功したもののパス一覧を返す.
 
         並列度は `concurrency` キーワード引数で指定可能（デフォルト 5）。
         失敗した文書はログを残して結果から除外する。
@@ -88,9 +104,7 @@ class EdinetDocumentFetcher(BaseFetcher[Path]):
                 try:
                     return await self.fetch(doc_id, **kwargs)
                 except Exception:
-                    await self.handle_fetch_error(
-                        doc_id, Exception("fetch failed")
-                    )
+                    await self.handle_fetch_error(doc_id, Exception("fetch failed"))
                     return None
 
         tasks = [asyncio.create_task(_worker(i)) for i in identifiers]
@@ -98,7 +112,6 @@ class EdinetDocumentFetcher(BaseFetcher[Path]):
         # mypy のため Optional を除去して List[Path] を返す
         return [r for r in results if r is not None]
 
-    async def search_documents(
-        self, target_date: date, **kwargs: Any
-    ) -> List[Dict[str, Any]]:
+    async def search_documents(self, target_date: date, **kwargs: Any) -> List[Dict[str, Any]]:
+        """指定日付の書類を検索してメタ情報リストを返す."""
         return await self.api_client.search_documents(target_date)

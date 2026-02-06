@@ -31,6 +31,7 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
     """
 
     def __init__(self, session: AsyncSession):
+        """初期化。セッションを受け取り `BatchExecution` モデルをセットします."""
         super().__init__(session, model=BatchExecution)
 
     async def create_job(self, batch_type: str) -> BatchExecution:
@@ -53,9 +54,7 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         )
         return await self._add_and_flush(instance)
 
-    async def update_status(
-        self, record_id: int, status: str
-    ) -> Optional[BatchExecution]:
+    async def update_status(self, record_id: int, status: str) -> Optional[BatchExecution]:
         """指定レコードのステータスを更新する.
 
         Args:
@@ -144,9 +143,7 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         # パラメータ検証: 共通ユーティリティへ移譲
         validate_pagination(0, limit)
         result = await self.session.execute(
-            select(self.model)
-            .order_by(self.model.start_time.desc())
-            .limit(limit)
+            select(self.model).order_by(self.model.start_time.desc()).limit(limit)
         )
         return list(result.scalars().all())
 

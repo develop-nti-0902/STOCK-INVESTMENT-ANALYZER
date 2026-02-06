@@ -1,7 +1,7 @@
-"""アカウント（ユーザー）テーブルのモデル定義モジュール。
+"""アカウント（ユーザー）テーブルのモデル定義モジュール.
 
 管理用途の `accounts` テーブルに合わせたモデルを定義します。
-プロジェクト内の他モデルと同様に `SerialPKMixin` と `TimestampMixin` を利用します。
+プロジェクト内の他モデルと同様に `SerialPKMixin` と `TimestampMixin` を利用します.
 """
 
 from __future__ import annotations
@@ -29,34 +29,20 @@ class Account(SerialPKMixin, TimestampMixin, Base):
         external_id: 外部プロバイダの識別子（任意）
     """
 
-    email: Mapped[str] = mapped_column(
-        String(255), nullable=False, unique=True
-    )
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    full_name: Mapped[Optional[str]] = mapped_column(
-        String(200), nullable=True
-    )
-    is_active: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True
-    )
-    is_superuser: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
-    last_login: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    full_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_superuser: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    external_id: Mapped[Optional[str]] = mapped_column(
-        String(255), nullable=True
-    )
+    external_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     __table_args__ = (Index("idx_account_email", "email"),)
 
     def __repr__(self) -> str:
-        return (
-            f"<Account(email={self.email!r}, "
-            f"id={getattr(self, 'id', None)!r})>"
-        )
+        """簡易表現を返す（デバッグ用)."""
+        return f"<Account(email={self.email!r}, " f"id={getattr(self, 'id', None)!r})>"
 
 
 __all__ = ["Account"]

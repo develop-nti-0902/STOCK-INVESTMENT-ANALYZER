@@ -1,3 +1,8 @@
+"""XBRL/XML のユーティリティ関数群.
+
+ファイル探索やコンテキスト抽出の簡易実装を提供します。
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,10 +11,8 @@ from typing import Dict, List, Optional
 from lxml import etree
 
 
-def find_xbrl_files(
-    directory: Path, extensions: Optional[List[str]] = None
-) -> List[Path]:
-    """指定ディレクトリ内の XBRL ファイルを再帰検索して返す。
+def find_xbrl_files(directory: Path, extensions: Optional[List[str]] = None) -> List[Path]:
+    """指定ディレクトリ内の XBRL ファイルを再帰検索して返す.
 
     Args:
         directory: 検索開始ディレクトリ
@@ -30,7 +33,7 @@ def find_xbrl_files(
 
 
 def extract_contexts(xbrl_content: str) -> Dict[str, Dict[str, str]]:
-    """XBRL のコンテキスト要素を抽出する。
+    """XBRL のコンテキスト要素を抽出する.
 
     簡易実装で、各 `context` 要素の `id` 属性をキーに、period と entity の文字列を返す。
 
@@ -53,17 +56,13 @@ def extract_contexts(xbrl_content: str) -> Dict[str, Dict[str, str]]:
         period_elems = ce.xpath('.//*[local-name() = "period"]')
         period_elem = period_elems[0] if period_elems else None
         period_txt = (
-            etree.tostring(period_elem, encoding="unicode")
-            if period_elem is not None
-            else ""
+            etree.tostring(period_elem, encoding="unicode") if period_elem is not None else ""
         )
 
         entity_elems = ce.xpath('.//*[local-name() = "entity"]')
         entity_elem = entity_elems[0] if entity_elems else None
         entity_txt = (
-            etree.tostring(entity_elem, encoding="unicode")
-            if entity_elem is not None
-            else ""
+            etree.tostring(entity_elem, encoding="unicode") if entity_elem is not None else ""
         )
 
         contexts[cid] = {

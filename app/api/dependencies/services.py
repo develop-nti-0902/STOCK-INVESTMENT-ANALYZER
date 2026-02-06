@@ -9,14 +9,10 @@ Repository や他の Service との依存関係を解決します。
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.batch_execution_repository import (
-    BatchExecutionRepository,
-)
+from app.repositories.batch_execution_repository import BatchExecutionRepository
 from app.repositories.latest_stocks_repository import LatestStocksRepository
 from app.repositories.stock_master_repository import StockMasterRepository
-from app.repositories.stock_master_updates_repository import (
-    StockMasterUpdatesRepository,
-)
+from app.repositories.stock_master_updates_repository import StockMasterUpdatesRepository
 from app.services.batch.batch_execution_service import BatchExecutionService
 from app.services.market_data.stock_master import StockMasterService
 from app.services.market_data.stock_price import (
@@ -130,9 +126,7 @@ def get_stock_master_updates_repository(
 
 def get_stock_master_service(
     repo: StockMasterRepository = Depends(get_stock_master_repository),
-    updates_repo: StockMasterUpdatesRepository = Depends(
-        get_stock_master_updates_repository
-    ),
+    updates_repo: StockMasterUpdatesRepository = Depends(get_stock_master_updates_repository),
 ) -> StockMasterService:
     """StockMasterService を提供する依存性プロバイダ.
 
@@ -152,9 +146,7 @@ def get_stock_price_service(
     converter: StockPriceConverter = Depends(get_stock_price_converter),
     validator: StockPriceValidator = Depends(get_stock_price_validator),
     stock_master: StockMasterService = Depends(get_stock_master_service),
-    batch_service: BatchExecutionService = Depends(
-        get_batch_execution_service
-    ),
+    batch_service: BatchExecutionService = Depends(get_batch_execution_service),
 ) -> StockPriceService:
     """StockPriceService を提供する依存性プロバイダ（オーケストレーション層）.
 
@@ -181,9 +173,7 @@ def get_stock_price_service(
 
 
 def get_latest_stocks_refresh_service(
-    batch_service: BatchExecutionService = Depends(
-        get_batch_execution_service
-    ),
+    batch_service: BatchExecutionService = Depends(get_batch_execution_service),
 ) -> LatestStocksRefreshService:
     """LatestStocksRefreshService を提供する依存性プロバイダ."""
     return LatestStocksRefreshService(batch_service=batch_service)

@@ -1,17 +1,11 @@
+"""株価データモデル群. 各時間軸の株価データテーブル定義を提供します."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import (
-    BigInteger,
-    DateTime,
-    ForeignKey,
-    Index,
-    Numeric,
-    String,
-    UniqueConstraint,
-)
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, SerialPKMixin, TimestampMixin
@@ -38,11 +32,11 @@ class _CommonPriceColumns:
     volume: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
 
     def price_fields(self) -> list[str]:  # pragma: no cover - trivial
-        """価格系のカラム名リストを返すヘルパー（テスト/デバッグ用）。"""
+        """価格系のカラム名リストを返すヘルパー（テスト/デバッグ用)."""
         return ["open", "high", "low", "close", "adj_close", "volume"]
 
     def has_adj_close(self) -> bool:  # pragma: no cover - trivial
-        """このモデルが調整終値(`adj_close`)カラムを持つかを示すフラグ（常にTrue）。"""
+        """このモデルが調整終値(`adj_close`)カラムを持つかを示すフラグ（常にTrue)."""
         return True
 
 
@@ -62,19 +56,15 @@ class Stocks1m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         ForeignKey("stock_master.stock_code", ondelete="CASCADE"),
         nullable=False,
     )
-    timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
-        UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_1m_symbol_timestamp"
-        ),
+        UniqueConstraint("symbol", "timestamp", name="uix_stocks_1m_symbol_timestamp"),
         Index("idx_stocks_1m_timestamp", "timestamp"),
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
-        """モデルのクラス名を返す（ログやテストで利用）。"""
+        """モデルのクラス名を返す（ログやテストで利用）."""
         return self.__class__.__name__
 
 
@@ -93,18 +83,15 @@ class Stocks5m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         ForeignKey("stock_master.stock_code", ondelete="CASCADE"),
         nullable=False,
     )
-    timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
-        UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_5m_symbol_timestamp"
-        ),
+        UniqueConstraint("symbol", "timestamp", name="uix_stocks_5m_symbol_timestamp"),
         Index("idx_stocks_5m_timestamp", "timestamp"),
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返す（ログやテストで利用）."""
         return self.__class__.__name__
 
 
@@ -118,18 +105,15 @@ class Stocks15m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         ForeignKey("stock_master.stock_code", ondelete="CASCADE"),
         nullable=False,
     )
-    timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
-        UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_15m_symbol_timestamp"
-        ),
+        UniqueConstraint("symbol", "timestamp", name="uix_stocks_15m_symbol_timestamp"),
         Index("idx_stocks_15m_timestamp", "timestamp"),
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返す（ログやテストで利用）."""
         return self.__class__.__name__
 
 
@@ -152,13 +136,12 @@ class Stocks30m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_30m_symbol_timestamp"
-        ),
+        UniqueConstraint("symbol", "timestamp", name="uix_stocks_30m_symbol_timestamp"),
         Index("idx_stocks_30m_timestamp", "timestamp"),
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返す（ログやテストで利用）."""
         return self.__class__.__name__
 
 
@@ -172,18 +155,15 @@ class Stocks1h(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         ForeignKey("stock_master.stock_code", ondelete="CASCADE"),
         nullable=False,
     )
-    timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
-        UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_1h_symbol_timestamp"
-        ),
+        UniqueConstraint("symbol", "timestamp", name="uix_stocks_1h_symbol_timestamp"),
         Index("idx_stocks_1h_timestamp", "timestamp"),
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返す（ログやテストで利用）."""
         return self.__class__.__name__
 
 
@@ -197,18 +177,15 @@ class Stocks1d(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         ForeignKey("stock_master.stock_code", ondelete="CASCADE"),
         nullable=False,
     )
-    timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
-        UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_1d_symbol_timestamp"
-        ),
+        UniqueConstraint("symbol", "timestamp", name="uix_stocks_1d_symbol_timestamp"),
         Index("idx_stocks_1d_timestamp", "timestamp"),
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返す（ログやテストで利用）."""
         return self.__class__.__name__
 
 
@@ -222,18 +199,15 @@ class Stocks1wk(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         ForeignKey("stock_master.stock_code", ondelete="CASCADE"),
         nullable=False,
     )
-    timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
-        UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_1wk_symbol_timestamp"
-        ),
+        UniqueConstraint("symbol", "timestamp", name="uix_stocks_1wk_symbol_timestamp"),
         Index("idx_stocks_1wk_timestamp", "timestamp"),
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返す（ログやテストで利用）."""
         return self.__class__.__name__
 
 
@@ -247,18 +221,15 @@ class Stocks1mo(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
         ForeignKey("stock_master.stock_code", ondelete="CASCADE"),
         nullable=False,
     )
-    timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
-        UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_1mo_symbol_timestamp"
-        ),
+        UniqueConstraint("symbol", "timestamp", name="uix_stocks_1mo_symbol_timestamp"),
         Index("idx_stocks_1mo_timestamp", "timestamp"),
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返す（ログやテストで利用）."""
         return self.__class__.__name__
 
 

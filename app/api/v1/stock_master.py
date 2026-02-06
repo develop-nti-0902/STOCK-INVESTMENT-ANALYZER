@@ -94,7 +94,7 @@ async def fetch_stock_master_sample(
     batch_size: int = Query(500, gt=0, le=5000, description="Batch size"),
     service: StockMasterService = Depends(get_stock_master_service),
 ) -> FetchResponse:
-    """銘柄マスタの先頭N件のみを取得してDBに保持する（テスト用）。
+    """銘柄マスタの先頭N件のみを取得してDBに保持する (テスト用).
 
     Args:
         sample_size (int): 保存する銘柄件数（デフォルト: 100）

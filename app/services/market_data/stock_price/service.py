@@ -58,7 +58,7 @@ if TYPE_CHECKING:
 
 class StockDataWrapper(NamedTuple):
     """
-    株価データラッパー
+    株価データラッパー.
 
     Attributes:
         symbol: 銘柄コード
@@ -73,7 +73,7 @@ class StockDataWrapper(NamedTuple):
 
 class StockPriceServiceResult:
     """
-    株価データサービス実行結果
+    株価データサービス実行結果.
 
     Attributes:
         success: 全体の成功/失敗
@@ -95,6 +95,17 @@ class StockPriceServiceResult:
         errors: Optional[List[str]] = None,
         warnings: Optional[List[str]] = None,
     ):
+        """結果オブジェクトを初期化する.
+
+        Args:
+            success: 成功フラグ
+            symbol: 銘柄コード
+            timeframe: タイムフレーム
+            records_processed: 処理数
+            records_saved: 保存数
+            errors: エラーリスト
+            warnings: 警告リスト
+        """
         self.success = success
         self.symbol = symbol
         self.timeframe = timeframe
@@ -106,7 +117,7 @@ class StockPriceServiceResult:
 
 class StockPriceService:
     """
-    株価データサービス（オーケストレーション層）
+    株価データサービス（オーケストレーション層）.
 
     Fetcher、Converter、Validator、Saverを統合し、
     株価データ収集の全体フローを管理します。
@@ -128,7 +139,7 @@ class StockPriceService:
         stock_master_service: Optional["StockMasterService"] = None,
     ):
         """
-        初期化
+        初期化.
 
         Args:
             fetcher: StockPriceFetcherインスタンス
@@ -154,7 +165,7 @@ class StockPriceService:
         period: Optional[str] = None,
     ) -> List[StockPriceServiceResult]:
         """
-        複数銘柄の株価データを順次で取得・保存
+        複数銘柄の株価データを順次で取得・保存.
 
         Args:
             symbols: 銘柄コードリスト
@@ -345,7 +356,7 @@ class StockPriceService:
         period: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        JPX全銘柄を対象に一括で株価データを収集する
+        JPX全銘柄を対象に一括で株価データを収集する.
 
         Args:
             timeframe: タイムフレーム
@@ -461,7 +472,7 @@ class StockPriceService:
         period: Optional[str] = None,
     ) -> Optional[StockDataWrapper]:
         """
-        株価データを取得（読み取り専用）
+        株価データを取得（読み取り専用）.
 
         Args:
             symbol: 銘柄コード
@@ -508,7 +519,7 @@ class StockPriceService:
         limit: int = 1000,
         offset: int = 0,
     ) -> List[Dict[str, Any]]:
-        """DBから株価データを取得して辞書リストで返す。
+        """DBから株価データを取得して辞書リストで返す.
 
         Args:
             db: AsyncSession
@@ -558,7 +569,7 @@ class StockPriceService:
         return rows
 
     async def delete_all_for_timeframe(self, db: AsyncSession, timeframe: str) -> int:
-        """指定時間軸の全データを削除して削除件数を返す。
+        """指定時間軸の全データを削除して削除件数を返す.
 
         Args:
             db: AsyncSession

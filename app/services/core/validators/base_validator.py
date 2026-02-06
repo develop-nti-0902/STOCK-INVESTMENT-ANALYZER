@@ -23,15 +23,23 @@ class ValidationResult:
         errors: list[str] | None = None,
         warnings: list[str] | None = None,
     ):
+        """検証結果オブジェクトを初期化する.
+
+        Args:
+            is_valid: 検証の成否
+            errors: エラーメッセージ一覧（任意）
+            warnings: 警告メッセージ一覧（任意）
+        """
         self.is_valid = is_valid
         self.errors = errors or []
         self.warnings = warnings or []
 
     def __bool__(self) -> bool:
-        """bool変換時にis_validを返す"""
+        """bool() 呼び出し時に検証結果（`is_valid`）を返す."""
         return self.is_valid
 
     def __repr__(self) -> str:
+        """表現文字列を返す（デバッグ用）."""
         return (
             f"ValidationResult(is_valid={self.is_valid}, "
             f"errors={self.errors}, warnings={self.warnings})"
@@ -47,7 +55,7 @@ class BaseValidator(ABC):
     @abstractmethod
     def validate(self, data: Any) -> ValidationResult:
         """
-        単一データ検証（サブクラスで実装）
+        単一データ検証（サブクラスで実装）.
 
         Args:
             data: 検証対象のデータ
@@ -62,7 +70,7 @@ class BaseValidator(ABC):
 
     def validate_batch(self, data_list: list[Any]) -> list[ValidationResult]:
         """
-        複数データ一括検証（デフォルト実装、オーバーライド可能）
+        複数データ一括検証（デフォルト実装、オーバーライド可能）.
 
         Args:
             data_list: 検証対象データのリスト
@@ -72,11 +80,9 @@ class BaseValidator(ABC):
         """
         return [self.validate(data) for data in data_list]
 
-    def validate_required_fields(
-        self, data: dict[str, Any], required_fields: list[str]
-    ) -> bool:
+    def validate_required_fields(self, data: dict[str, Any], required_fields: list[str]) -> bool:
         """
-        必須フィールドの存在確認（ヘルパーメソッド）
+        必須フィールドの存在確認（ヘルパーメソッド）.
 
         Args:
             data: 検証対象の辞書データ
@@ -85,16 +91,11 @@ class BaseValidator(ABC):
         Returns:
             bool: 全ての必須フィールドが存在する場合True
         """
-        return all(
-            field in data and data[field] is not None
-            for field in required_fields
-        )
+        return all(field in data and data[field] is not None for field in required_fields)
 
-    def validate_data_types(
-        self, data: dict[str, Any], type_mapping: dict[str, type]
-    ) -> bool:
+    def validate_data_types(self, data: dict[str, Any], type_mapping: dict[str, type]) -> bool:
         """
-        データ型の検証（ヘルパーメソッド）
+        データ型の検証（ヘルパーメソッド）.
 
         Args:
             data: 検証対象の辞書データ
@@ -116,7 +117,7 @@ class BaseValidator(ABC):
         max_value: float | int | None = None,
     ) -> bool:
         """
-        数値範囲の検証（ヘルパーメソッド）
+        数値範囲の検証（ヘルパーメソッド）.
 
         Args:
             value: 検証対象の数値

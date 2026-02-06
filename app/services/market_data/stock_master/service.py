@@ -1,3 +1,8 @@
+"""Stock master service module.
+
+サービス層: フェッチ -> 変換 -> 保存 のオーケストレーションを提供します.
+"""
+
 from datetime import datetime, timezone
 from typing import List, Optional, Set
 
@@ -12,7 +17,7 @@ logger = get_logger(__name__)
 
 
 class StockMasterService:
-    """銘柄マスター操作のためのサービス層。
+    """銘柄マスター操作のためのサービス層.
 
     役割:
         - フェッチャーからデータを取得する
@@ -32,7 +37,7 @@ class StockMasterService:
         saver: Optional[StockMasterSaver] = None,
         updates_repo: Optional[StockMasterUpdatesRepository] = None,
     ):
-        """サービスを初期化します。
+        """サービスを初期化します.
 
         Args:
             repo (StockMasterRepository): 銘柄マスタ用リポジトリ
@@ -47,7 +52,7 @@ class StockMasterService:
         self.updates_repo = updates_repo
 
     async def get_all_active_symbols(self) -> List[str]:
-        """全てのアクティブな銘柄コードを返します。
+        """全てのアクティブな銘柄コードを返します.
 
         Returns:
             List[str]: アクティブな銘柄コードのリスト
@@ -64,7 +69,7 @@ class StockMasterService:
             raise
 
     async def get_symbols_by_market(self, market: str) -> List[str]:
-        """市場でフィルタした銘柄コードを返します。
+        """市場でフィルタした銘柄コードを返します.
 
         Args:
             market (str): 市場名（例: "プライム", "スタンダード", "グロース"）
@@ -90,7 +95,7 @@ class StockMasterService:
             raise
 
     async def get_symbols_by_sector(self, sector: str) -> List[str]:
-        """業種でフィルタした銘柄コードを返します。
+        """業種でフィルタした銘柄コードを返します.
 
         Args:
             sector (str): 業種名
@@ -116,7 +121,7 @@ class StockMasterService:
             raise
 
     async def fetch_and_save(self, limit: Optional[int] = None, batch_size: int = 500) -> int:
-        """銘柄マスターをフェッチして保存します。
+        """銘柄マスターをフェッチして保存します.
 
         Args:
             limit (Optional[int]): フェッチ後に保存する上限件数（未指定で全件）
@@ -236,7 +241,7 @@ class StockMasterService:
             raise
 
     async def reset_stock_master(self) -> int:
-        """銘柄マスターの全レコードを削除します。
+        """銘柄マスターの全レコードを削除します.
 
         Returns:
             int: 削除された件数

@@ -1,3 +1,9 @@
+"""EDINET の XBRL から貸借対照表を抽出するパーサーモジュール.
+
+当モジュールは XBRL を解析し、指定した年度キー（current, prior1..prior4）に
+対応する貸借対照表の主要値を抽出して辞書で返します。
+"""
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -12,7 +18,7 @@ from app.services.core.parsers.xml_parser_mixin import XMLParserMixin
 
 
 class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
-    """XBRL から貸借対照表を抽出するパーサー。
+    """XBRL から貸借対照表を抽出するパーサー.
 
     現行年度（current）と過去4年（prior1..prior4）の計5年分を返します。
     実運用では XBRL の名前空間・要素名に合わせて XPath を調整してください。
@@ -65,6 +71,7 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
     }
 
     def parse(self, data: Any) -> Dict[str, Any]:
+        """XBRL データを解析して年度別貸借対照表辞書を返す."""
         # XBRLファイルをパース
         xbrl_parser = XbrlParser()
         if isinstance(data, str):
@@ -79,17 +86,13 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
             # etree._Element の場合は一時ファイルに書き出してパース
             import tempfile
 
-            with tempfile.NamedTemporaryFile(
-                mode="wb", suffix=".xbrl", delete=False
-            ) as f:
+            with tempfile.NamedTemporaryFile(mode="wb", suffix=".xbrl", delete=False) as f:
                 f.write(etree.tostring(data, encoding="utf-8"))
                 tmp_path = f.name
             parsed_xbrl = xbrl_parser.parse_file(tmp_path)
             root = data
         else:
-            raise TypeError(
-                "data must be file path (str or Path) or lxml root element"
-            )
+            raise TypeError("data must be file path (str or Path) or lxml root element")
 
         # ファイルから実際に使用可能なコンテキストを抽出
         all_contexts = self._get_all_available_contexts(root)
@@ -107,7 +110,7 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
         return result
 
     def _get_all_available_contexts(self, root: etree._Element) -> List[str]:
-        """XBRLファイルから利用可能な全コンテキストIDを抽出する。"""
+        """XBRL ルート要素から利用可能な contextRef をすべて抽出して返す."""
         context_refs = set()
         for elem in root.xpath(".//*[@contextRef]"):
             ref = elem.get("contextRef")
@@ -115,10 +118,8 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
                 context_refs.add(ref)
         return list(context_refs)
 
-    def _get_contexts_for_year(
-        self, year_key: str, all_contexts: List[str]
-    ) -> List[str]:
-        """特定の年度に対応するコンテキストを優先順に取得する。"""
+    def _get_contexts_for_year(self, year_key: str, all_contexts: List[str]) -> List[str]:
+        """与えられた年度キーにマッチするコンテキストIDを優先順で返す."""
         patterns = self.CONTEXT_PATTERNS.get(year_key, [])
         prioritized = []
 
@@ -137,6 +138,7 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
         contexts: List[str],
         year_key: str,
     ) -> Dict[str, Any]:
+        """指定年度（contexts）から貸借対照表の各項目を抽出して辞書で返す."""
         assets = self.extract_assets(parsed_xbrl, contexts)
         liabilities = self.extract_liabilities(parsed_xbrl, contexts)
         equity = self.extract_equity(parsed_xbrl, contexts)
@@ -154,12 +156,9 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
         }
 
     def validate_data(self, data: Any) -> bool:
+        """与えられたデータがパーサーで扱える形式かどうかを検証する."""
         try:
-            root = (
-                data
-                if isinstance(data, etree._Element)
-                else self.parse_xml(data)
-            )
+            root = data if isinstance(data, etree._Element) else self.parse_xml(data)
         except Exception:
             return False
         # 簡易検証: contextRef を持つ要素が存在し、かつ context 要素が存在すること
@@ -167,26 +166,17 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
         contexts = root.xpath(".//*[local-name() = 'context']")
         return len(context_refs) > 0 and len(contexts) > 0
 
-    def extract_assets(
-        self, parsed_xbrl: Any, contexts: List[str]
-    ) -> Optional[float]:
-        return self._extract_numeric_from_xbrl(
-            parsed_xbrl, self.XBRL_TAGS["assets"], contexts
-        )
+    def extract_assets(self, parsed_xbrl: Any, contexts: List[str]) -> Optional[float]:
+        """資産額を抽出して浮動小数点で返す."""
+        return self._extract_numeric_from_xbrl(parsed_xbrl, self.XBRL_TAGS["assets"], contexts)
 
-    def extract_liabilities(
-        self, parsed_xbrl: Any, contexts: List[str]
-    ) -> Optional[float]:
-        return self._extract_numeric_from_xbrl(
-            parsed_xbrl, self.XBRL_TAGS["liabilities"], contexts
-        )
+    def extract_liabilities(self, parsed_xbrl: Any, contexts: List[str]) -> Optional[float]:
+        """負債額を抽出して浮動小数点で返す."""
+        return self._extract_numeric_from_xbrl(parsed_xbrl, self.XBRL_TAGS["liabilities"], contexts)
 
-    def extract_equity(
-        self, parsed_xbrl: Any, contexts: List[str]
-    ) -> Optional[float]:
-        return self._extract_numeric_from_xbrl(
-            parsed_xbrl, self.XBRL_TAGS["equity"], contexts
-        )
+    def extract_equity(self, parsed_xbrl: Any, contexts: List[str]) -> Optional[float]:
+        """純資産（株主資本）を抽出して浮動小数点で返す."""
+        return self._extract_numeric_from_xbrl(parsed_xbrl, self.XBRL_TAGS["equity"], contexts)
 
     def calculate_metrics(
         self,
@@ -194,24 +184,20 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
         liabilities: Optional[float],
         equity: Optional[float],
     ) -> Dict[str, Optional[float]]:
+        """補助指標（運転資本、自己資本比率等）を計算して返す."""
         assets_val = assets or 0.0
         liabilities_val = liabilities or 0.0
         equity_val = equity or 0.0
         return {
             "working_capital": (
-                None
-                if assets is None or liabilities is None
-                else assets_val - liabilities_val
+                None if assets is None or liabilities is None else assets_val - liabilities_val
             ),
-            "equity_ratio": (
-                None if assets_val == 0 else (equity_val / assets_val)
-            ),
+            "equity_ratio": (None if assets_val == 0 else (equity_val / assets_val)),
             "net_assets": equity_val,
         }
 
-    def determine_consolidation(
-        self, root: etree._Element, contexts: List[str]
-    ) -> Optional[bool]:
+    def determine_consolidation(self, root: etree._Element, contexts: List[str]) -> Optional[bool]:
+        """与えられたコンテキストから連結/非連結を判定して True/False/None を返す."""
         # コンテキストに Consolidated が含まれていれば True
         for ctx in contexts:
             if "Consolidated" in ctx:
@@ -220,10 +206,8 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
                 return False
         return None
 
-    def get_period_end_date(
-        self, root: etree._Element, contexts: List[str]
-    ) -> Optional[date]:
-        """コンテキストから期末日を取得する。
+    def get_period_end_date(self, root: etree._Element, contexts: List[str]) -> Optional[date]:
+        """コンテキストから期末日を取得する.
 
         戻り値は ISO 文字列ではなく datetime.date を返します。
         """
@@ -272,7 +256,7 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
         tag_candidates: List[str],
         contexts: List[str],
     ) -> Optional[float]:
-        """XBRLパーサーを使用してコンテキスト付きでデータを取得する。"""
+        """XBRLパーサーを使用してコンテキスト付きでデータを取得する."""
         for tag in tag_candidates:
             for ctx in contexts:
                 try:

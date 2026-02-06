@@ -29,11 +29,11 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
     """
 
     def __init__(self, session: AsyncSession):
+        """初期化。セッションを受け取り `EdinetBalanceSheet` モデルをセットします."""
         super().__init__(session, model=EdinetBalanceSheet)
 
-    async def find_latest_by_sec_code(
-        self, sec_code: str
-    ) -> Optional[EdinetBalanceSheet]:
+    async def find_latest_by_sec_code(self, sec_code: str) -> Optional[EdinetBalanceSheet]:
+        """指定の `sec_code` に対する最新の貸借対照表レコードを返します."""
         stmt = (
             select(self.model)
             .where(self.model.sec_code == sec_code)
@@ -49,6 +49,7 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
     async def find_by_period(
         self, sec_code: str, period_end_date: date
     ) -> Optional[EdinetBalanceSheet]:
+        """指定の `sec_code` と期間終了日に一致するレコードを返します."""
         result = await self.session.execute(
             select(self.model).where(
                 self.model.sec_code == sec_code,
@@ -58,9 +59,8 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
         return result.scalar_one_or_none()
 
     async def find_by_doc_id(self, doc_id: str) -> list[EdinetBalanceSheet]:
-        result = await self.session.execute(
-            select(self.model).where(self.model.doc_id == doc_id)
-        )
+        """`doc_id` に紐づくレコード一覧を返します."""
+        result = await self.session.execute(select(self.model).where(self.model.doc_id == doc_id))
         return list(result.scalars().all())
 
     async def upsert(self, data: dict) -> EdinetBalanceSheet:
@@ -84,18 +84,14 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
         stmt = insert_stmt.on_conflict_do_update(
             index_elements=["sec_code", "period_end_date"],
             set_=update_dict,
-            where=(
-                insert_stmt.excluded.submission_date >= table.c.submission_date
-            ),
+            where=(insert_stmt.excluded.submission_date >= table.c.submission_date),
         )
 
         try:
             await self.session.execute(stmt)
             await self.session.flush()
             # 更新後のレコードを返す（UPSERT の後は存在する想定）
-            res = await self.find_by_period(
-                data["sec_code"], data["period_end_date"]
-            )
+            res = await self.find_by_period(data["sec_code"], data["period_end_date"])
             if res is None:
                 raise RuntimeError("upsert succeeded but result not found")
             return res
@@ -103,9 +99,8 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
             logger.exception("edinet upsert failed: %s", e)
             raise
 
-    async def get_latest_by_sec_codes(
-        self, sec_codes: List[str]
-    ) -> List[EdinetBalanceSheet]:
+    async def get_latest_by_sec_codes(self, sec_codes: List[str]) -> List[EdinetBalanceSheet]:
+        """複数の `sec_codes` に対して、各銘柄の最新レコードを返します."""
         if not sec_codes:
             return []
 
@@ -127,6 +122,7 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
     async def find_by_fiscal_year(
         self, sec_code: str, fiscal_year: int
     ) -> List[EdinetBalanceSheet]:
+        """指定年度 (`fiscal_year`) のレコード一覧を返します."""
         result = await self.session.execute(
             select(self.model)
             .where(
@@ -140,6 +136,7 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
     async def find_by_date_range(
         self, sec_code: str, start_date: date, end_date: date
     ) -> List[EdinetBalanceSheet]:
+        """開始日/終了日の範囲でレコード一覧を返します."""
         result = await self.session.execute(
             select(self.model)
             .where(
@@ -152,11 +149,8 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
         return list(result.scalars().all())
 
     async def count_by_sec_code(self, sec_code: str) -> int:
-        stmt = (
-            select(sql_count())
-            .select_from(self.model)
-            .where(self.model.sec_code == sec_code)
-        )
+        """指定の `sec_code` に一致するレコード数を返します."""
+        stmt = select(sql_count()).select_from(self.model).where(self.model.sec_code == sec_code)
         result = await self.session.execute(stmt)
         return result.scalar_one()
 

@@ -12,11 +12,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .base import (
-    BaseRequestSchema,
-    BaseResponseSchema,
-    PaginationResponseSchema,
-)
+from .base import BaseRequestSchema, BaseResponseSchema, PaginationResponseSchema
 
 
 class SingleStockDataRequest(BaseRequestSchema):
@@ -64,9 +60,7 @@ class BatchJobResponse(BaseResponseSchema):
     job_id: str = Field(..., description="ジョブID")
     job_type: str = Field(..., description="ジョブ種別")
     status: str = Field(..., description="ジョブステータス")
-    estimated_completion: Optional[str] = Field(
-        None, description="推定完了日時（ISO-8601）"
-    )
+    estimated_completion: Optional[str] = Field(None, description="推定完了日時（ISO-8601）")
 
 
 class BatchJobProgress(BaseRequestSchema):
@@ -100,9 +94,7 @@ class BatchJobStatusResponse(BaseResponseSchema):
     status: str = Field(..., description="ジョブステータス")
     progress: BatchJobProgress = Field(..., description="進捗情報")
     started_at: str = Field(..., description="開始日時（ISO-8601）")
-    estimated_completion: Optional[str] = Field(
-        None, description="推定完了日時（ISO-8601）"
-    )
+    estimated_completion: Optional[str] = Field(None, description="推定完了日時（ISO-8601）")
 
 
 class BatchHistoryItem(BaseRequestSchema):
@@ -120,9 +112,7 @@ class BatchHistoryItem(BaseRequestSchema):
     job_type: str = Field(..., description="ジョブ種別")
     status: str = Field(..., description="ジョブステータス")
     started_at: str = Field(..., description="開始日時（ISO-8601）")
-    completed_at: Optional[str] = Field(
-        None, description="完了日時（ISO-8601）"
-    )
+    completed_at: Optional[str] = Field(None, description="完了日時（ISO-8601）")
 
 
 class BatchHistoryResponse(PaginationResponseSchema):
@@ -138,6 +128,8 @@ class BatchHistoryResponse(PaginationResponseSchema):
 
 
 class JobType(str, Enum):
+    """バッチジョブの種別を表す列挙型."""
+
     SINGLE_STOCK = "SINGLE_STOCK"
     JPX_ALL_STOCKS = "JPX_ALL_STOCKS"
     STOCK_MASTER_UPDATE = "STOCK_MASTER_UPDATE"
@@ -145,6 +137,8 @@ class JobType(str, Enum):
 
 
 class JobStatus(str, Enum):
+    """バッチジョブの実行ステータスを表す列挙型."""
+
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
@@ -161,12 +155,8 @@ class BatchJobParams(BaseModel):
 
     model_config = ConfigDict(validate_assignment=True, extra="allow")
 
-    symbol: Optional[str] = Field(
-        None, description="Stock symbol (for single-stock jobs)"
-    )
-    timeframe: Optional[str] = Field(
-        None, description="Timeframe (e.g. 1d, 1m)"
-    )
+    symbol: Optional[str] = Field(None, description="Stock symbol (for single-stock jobs)")
+    timeframe: Optional[str] = Field(None, description="Timeframe (e.g. 1d, 1m)")
 
 
 class BatchExecutionBase(BaseModel):
@@ -188,21 +178,11 @@ class BatchExecutionBase(BaseModel):
 
     job_type: JobType = Field(..., description="Job type")
     status: Optional[JobStatus] = Field(None, description="Job status")
-    params: Optional[BatchJobParams] = Field(
-        None, description="Job parameters"
-    )
-    progress: Optional[float] = Field(
-        None, description="Progress (0.0–100.0)", ge=0.0, le=100.0
-    )
-    success_count: Optional[int] = Field(
-        None, description="Number of successful items", ge=0
-    )
-    failed_count: Optional[int] = Field(
-        None, description="Number of failed items", ge=0
-    )
-    error_message: Optional[str] = Field(
-        None, description="Error message (if any)"
-    )
+    params: Optional[BatchJobParams] = Field(None, description="Job parameters")
+    progress: Optional[float] = Field(None, description="Progress (0.0–100.0)", ge=0.0, le=100.0)
+    success_count: Optional[int] = Field(None, description="Number of successful items", ge=0)
+    failed_count: Optional[int] = Field(None, description="Number of failed items", ge=0)
+    error_message: Optional[str] = Field(None, description="Error message (if any)")
     started_at: Optional[datetime] = Field(None, description="Start time")
     finished_at: Optional[datetime] = Field(None, description="Finish time")
 
@@ -231,12 +211,8 @@ class BatchExecutionUpdate(BaseModel):
     success_count: Optional[int] = Field(
         None, description="Update number of successful items", ge=0
     )
-    failed_count: Optional[int] = Field(
-        None, description="Update number of failed items", ge=0
-    )
-    error_message: Optional[str] = Field(
-        None, description="Error message (for update)"
-    )
+    failed_count: Optional[int] = Field(None, description="Update number of failed items", ge=0)
+    error_message: Optional[str] = Field(None, description="Error message (for update)")
 
 
 class BatchExecutionResponse(BaseResponseSchema, BatchExecutionBase):
@@ -255,9 +231,7 @@ class JPXAllMultiSequenceRequest(BaseRequestSchema):
         batch_size (Optional[int]): 一度に処理する銘柄数（デフォルト: 50）
     """
 
-    batch_size: Optional[int] = Field(
-        50, description="一度に処理する銘柄数", ge=1, le=200
-    )
+    batch_size: Optional[int] = Field(50, description="一度に処理する銘柄数", ge=1, le=200)
 
 
 class TimeframeResult(BaseModel):
@@ -279,9 +253,7 @@ class TimeframeResult(BaseModel):
     failed_count: int = Field(0, description="失敗件数", ge=0)
     error_message: Optional[str] = Field(None, description="エラーメッセージ")
     started_at: Optional[str] = Field(None, description="開始時刻（ISO-8601）")
-    finished_at: Optional[str] = Field(
-        None, description="終了時刻（ISO-8601）"
-    )
+    finished_at: Optional[str] = Field(None, description="終了時刻（ISO-8601）")
 
 
 class JPXAllMultiSequenceResponse(BaseResponseSchema):

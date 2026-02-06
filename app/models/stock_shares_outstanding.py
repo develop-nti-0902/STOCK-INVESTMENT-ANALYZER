@@ -19,12 +19,8 @@ class StockSharesOutstanding(SerialPKMixin, TimestampMixin, Base):
     symbol: Mapped[str] = mapped_column(String(20), nullable=False)
     as_of_date: Mapped[str] = mapped_column(Date, nullable=False)
 
-    shares_outstanding: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 0), nullable=True
-    )
-    fully_diluted_shares: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 0), nullable=True
-    )
+    shares_outstanding: Mapped[Optional[float]] = mapped_column(Numeric(20, 0), nullable=True)
+    fully_diluted_shares: Mapped[Optional[float]] = mapped_column(Numeric(20, 0), nullable=True)
     source: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     currency: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
 
@@ -34,9 +30,9 @@ class StockSharesOutstanding(SerialPKMixin, TimestampMixin, Base):
     )
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """簡易表現を返す（デバッグ用）."""
         return (
-            "<StockSharesOutstanding(symbol="
-            + f"{self.symbol!r}, as_of_date={self.as_of_date!r})>"
+            "<StockSharesOutstanding(symbol=" + f"{self.symbol!r}, as_of_date={self.as_of_date!r})>"
         )
 
 

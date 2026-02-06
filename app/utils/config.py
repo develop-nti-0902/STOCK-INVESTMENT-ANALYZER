@@ -1,3 +1,9 @@
+"""アプリケーション設定読み込みユーティリティ.
+
+Pydantic Settings v2 を用いて環境変数や .env から設定を読み込みます。
+このモジュールはアプリケーション全体で共有する設定スキーマを定義します.
+"""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -23,14 +29,10 @@ class BatchProcessingSettings(BaseSettings):
     """
 
     # バッチサイズ
-    batch_size: int = Field(
-        default=100, ge=1, le=1000, description="Number of symbols per batch"
-    )
+    batch_size: int = Field(default=100, ge=1, le=1000, description="Number of symbols per batch")
 
     # 並列実行数（同時処理銘柄数）
-    max_concurrent: int = Field(
-        default=20, ge=1, le=100, description="Maximum concurrent tasks"
-    )
+    max_concurrent: int = Field(default=20, ge=1, le=100, description="Maximum concurrent tasks")
 
     # リトライ設定
     retry_attempts: int = Field(
@@ -137,9 +139,7 @@ class Settings(BaseSettings):
     # 最大取得件数の上限値（例: get_recent やページネーションで使用）
     MAX_RECENT_LIMIT: int = Field(
         1000,
-        description=(
-            "Maximum number of records returned by get_recent-style " "queries"
-        ),
+        description=("Maximum number of records returned by get_recent-style " "queries"),
     )
 
     # Yahoo Finance API設定
@@ -167,8 +167,7 @@ class Settings(BaseSettings):
             "http://127.0.0.1:3000",
         ],
         description=(
-            "Allowed origins for CORS. In environment variables, "
-            "provide a comma-separated list"
+            "Allowed origins for CORS. In environment variables, " "provide a comma-separated list"
         ),
     )
 
@@ -193,9 +192,7 @@ class Settings(BaseSettings):
     )
 
     # バッチ処理設定
-    batch: BatchProcessingSettings = Field(
-        default_factory=BatchProcessingSettings
-    )
+    batch: BatchProcessingSettings = Field(default_factory=BatchProcessingSettings)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -205,19 +202,22 @@ class Settings(BaseSettings):
 
     @property
     def is_production(self) -> bool:
+        """実行環境が Production かどうかを返す."""
         return str(self.ENV).lower() == "production"
 
     @property
     def is_development(self) -> bool:
+        """実行環境が Development かどうかを返す."""
         return str(self.ENV).lower() == "development"
 
     @property
     def is_test(self) -> bool:
+        """実行環境が Test かどうかを返す."""
         return str(self.ENV).lower() == "test"
 
 
 def get_settings() -> Settings:
-    """設定インスタンスを返す（カスタム例外でラップ）
+    """設定インスタンスを返す（カスタム例外でラップ）.
 
     Returns:
         Settings: アプリケーション設定インスタンス

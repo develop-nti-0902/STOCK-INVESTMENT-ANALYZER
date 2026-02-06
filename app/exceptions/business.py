@@ -75,7 +75,7 @@ class StockDataValidationError(BusinessError):
 
 
 class DuplicateEmailError(BusinessError):
-    """メールアドレスの重複エラー"""
+    """メールアドレスの重複エラー."""
 
     default_message = "Email already registered"
     default_error_code = "DUPLICATE_EMAIL"
@@ -83,7 +83,7 @@ class DuplicateEmailError(BusinessError):
 
 
 class InvalidCredentialsError(BusinessError):
-    """認証情報不正エラー"""
+    """認証情報不正エラー."""
 
     default_message = "Invalid email or password"
     default_error_code = "INVALID_CREDENTIALS"

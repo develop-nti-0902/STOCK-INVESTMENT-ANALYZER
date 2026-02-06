@@ -1,18 +1,13 @@
+"""アカウント関連API. ユーザー情報の取得・更新を提供します."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies.auth import get_current_active_user
-from app.exceptions.business import (
-    DuplicateEmailError,
-    InvalidCredentialsError,
-)
+from app.exceptions.business import DuplicateEmailError, InvalidCredentialsError
 from app.repositories.account_repository import AccountRepository
-from app.schemas.accounts import (
-    AccountResponse,
-    AccountUpdateRequest,
-    PasswordChangeRequest,
-)
+from app.schemas.accounts import AccountResponse, AccountUpdateRequest, PasswordChangeRequest
 from app.services import auth_service
 from app.utils.database import get_db
 
@@ -45,9 +40,7 @@ async def update_me(
 
     # Display name update
     if payload.display_name is not None:
-        updated = await repo.update_display_name(
-            current_user.id, payload.display_name
-        )
+        updated = await repo.update_display_name(current_user.id, payload.display_name)
 
     return updated
 

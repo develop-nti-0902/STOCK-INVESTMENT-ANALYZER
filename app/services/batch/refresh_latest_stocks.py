@@ -1,3 +1,8 @@
+"""最新株価マテリアライズドビュー更新ジョブ用サービスモジュール.
+
+`refresh_latest_stocks_job` を提供します。
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -6,10 +11,7 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.services.batch.batch_execution_service import (
-    BatchExecutionContext,
-    BatchExecutionService,
-)
+from app.services.batch.batch_execution_service import BatchExecutionContext, BatchExecutionService
 from app.services.views.latest_stocks.refresh import LatestStocksRefreshService
 from app.utils.database import get_engine
 from app.utils.logger import get_logger
@@ -22,21 +24,18 @@ async def refresh_latest_stocks_job(
     engine: Optional[AsyncEngine] = None,
     lock_key: int = 1,
 ) -> None:
-    """バッチジョブ: `REFRESH MATERIALIZED VIEW CONCURRENTLY latest_stocks_1d` を実行する。
+    """バッチジョブ: `REFRESH MATERIALIZED VIEW CONCURRENTLY latest_stocks_1d` を実行する.
 
     - `BatchExecutionContext` を使ってジョブライフサイクルを管理する。
     - PostgreSQL の advisory lock を取得して同時実行を防止する。
     """
-
     engine = engine or get_engine()
 
     def _try_acquire() -> bool:
         try:
             sync_engine = engine.sync_engine
             with sync_engine.connect() as conn:
-                res = conn.execute(
-                    text("SELECT pg_try_advisory_lock(:k)"), {"k": lock_key}
-                )
+                res = conn.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": lock_key})
                 row = res.fetchone()
                 return bool(row[0]) if row is not None else False
         except Exception as e:  # pragma: no cover - DB error path
@@ -47,44 +46,32 @@ async def refresh_latest_stocks_job(
         try:
             sync_engine = engine.sync_engine
             with sync_engine.connect() as conn:
-                res = conn.execute(
-                    text("SELECT pg_advisory_unlock(:k)"), {"k": lock_key}
-                )
+                res = conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": lock_key})
                 row = res.fetchone()
                 return bool(row[0]) if row is not None else False
         except Exception as e:  # pragma: no cover - DB error path
             logger.exception("Failed to release advisory lock: %s", e)
             return False
 
-    refresh_service = LatestStocksRefreshService(
-        batch_service=batch_service, engine=engine
-    )
+    refresh_service = LatestStocksRefreshService(batch_service=batch_service, engine=engine)
 
     loop = asyncio.get_running_loop()
 
-    async with BatchExecutionContext(
-        batch_service, job_type="refresh_latest_stocks"
-    ):
+    async with BatchExecutionContext(batch_service, job_type="refresh_latest_stocks"):
         acquired = await loop.run_in_executor(None, _try_acquire)
         if not acquired:
-            logger.warning(
-                "Could not acquire advisory lock for refresh job: %s", lock_key
-            )
+            logger.warning("Could not acquire advisory lock for refresh job: %s", lock_key)
             return
 
         try:
             await refresh_service.run_refresh()
         except Exception as e:
-            logger.exception(
-                "Exception during refresh_latest_stocks_job: %s", e
-            )
+            logger.exception("Exception during refresh_latest_stocks_job: %s", e)
             raise
         finally:
             released = await loop.run_in_executor(None, _release)
             if not released:
-                logger.error(
-                    "Failed to release advisory lock for job: %s", lock_key
-                )
+                logger.error("Failed to release advisory lock for job: %s", lock_key)
 
 
 __all__ = ["refresh_latest_stocks_job"]

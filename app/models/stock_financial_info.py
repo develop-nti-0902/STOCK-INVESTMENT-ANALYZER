@@ -26,39 +26,19 @@ class StockFinancialInfo(SerialPKMixin, TimestampMixin, Base):
     period_end: Mapped[Optional[str]] = mapped_column(Date, nullable=False)
     currency: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
 
-    total_revenue: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    gross_profit: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    operating_income: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    net_income: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    basic_eps: Mapped[Optional[float]] = mapped_column(
-        Numeric(18, 4), nullable=True
-    )
-    diluted_eps: Mapped[Optional[float]] = mapped_column(
-        Numeric(18, 4), nullable=True
-    )
-    total_assets: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    total_liabilities: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
+    total_revenue: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    gross_profit: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    operating_income: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    net_income: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    basic_eps: Mapped[Optional[float]] = mapped_column(Numeric(18, 4), nullable=True)
+    diluted_eps: Mapped[Optional[float]] = mapped_column(Numeric(18, 4), nullable=True)
+    total_assets: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    total_liabilities: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
     cash_and_cash_equivalents: Mapped[Optional[float]] = mapped_column(
         Numeric(20, 2), nullable=True
     )
-    operating_cashflow: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    free_cashflow: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
+    operating_cashflow: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    free_cashflow: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
 
     __table_args__ = (
         Index("idx_stock_financial_symbol", "symbol"),
@@ -67,9 +47,9 @@ class StockFinancialInfo(SerialPKMixin, TimestampMixin, Base):
     )
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """簡易表現を返す（デバッグ用）."""
         return (
-            "<StockFinancialInfo(symbol="
-            + f"{self.symbol!r}, fiscal_year={self.fiscal_year!r})>"
+            "<StockFinancialInfo(symbol=" + f"{self.symbol!r}, fiscal_year={self.fiscal_year!r})>"
         )
 
 

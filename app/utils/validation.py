@@ -1,4 +1,4 @@
-"""入力検証ユーティリティ。
+"""入力検証ユーティリティ.
 
 リポジトリやサービス層で利用されるページネーションや上限チェックの
 共通ヘルパーを提供します。
@@ -16,7 +16,7 @@ from app.utils.config import get_settings
 
 
 def validate_pagination(skip: Optional[int], limit: int) -> None:
-    """skip と limit の基本検証を行うヘルパー。
+    """skip と limit の基本検証を行うヘルパー.
 
     - `skip` は 0 以上であること
     - `limit` は正の値で、設定上限を超えないこと

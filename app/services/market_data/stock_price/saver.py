@@ -1,5 +1,5 @@
 """
-株価データSaver
+株価データSaver.
 
 StockPriceSaverクラスを実装し、タイムフレームに応じたRepository選択とデータ変換を提供します。
 DataFrameからDB形式への変換と一括保存をサポートします。
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
     """
-    株価データSaver
+    株価データSaver.
 
     タイムフレームに応じたRepositoryを選択し、DataFrameからDB形式への変換を行います。
     一括保存と単一保存の両方をサポートします。
@@ -66,7 +66,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         max_concurrent_batches: int = 25,
     ):
         """
-        初期化
+        初期化.
 
         Args:
             session: 非同期DBセッション
@@ -86,7 +86,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
 
     async def save_batch(self, data_list: List[Dict[str, Any]], **kwargs: Any) -> int:
         """
-        一括データ保存（BaseSaverの実装）
+        一括データ保存（BaseSaverの実装）.
 
         Args:
             data_list: 保存するデータのリスト
@@ -142,8 +142,8 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         symbol: str,
         timeframe_data: Dict[str, Union[pd.DataFrame, List[Dict[str, Any]]]],
     ) -> Dict[str, int]:
-        """
-        銘柄単位で複数タイムフレームをまとめて保存し、
+        """銘柄単位で複数タイムフレームをまとめて保存します.
+
         最後に一度だけコミット/ロールバックする。
 
         Returns:
@@ -191,7 +191,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         data: Union[pd.DataFrame, List[Dict[str, Any]]],
     ) -> List[Dict[str, Any]]:
         """
-        DataFrameまたは辞書のリストをDB保存形式に変換
+        DataFrameまたは辞書のリストをDB保存形式に変換.
 
         Args:
             symbol: 銘柄コード
@@ -223,7 +223,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         self, symbol: str, df: pd.DataFrame
     ) -> List[Dict[str, Any]]:
         """
-        DataFrameをDBレコード形式に変換
+        DataFrameをDBレコード形式に変換.
 
         Args:
             symbol: 銘柄コード
@@ -316,7 +316,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         self, symbol: str, data_list: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
-        辞書のリストをDBレコード形式に変換
+        辞書のリストをDBレコード形式に変換.
 
         Args:
             symbol: 銘柄コード
@@ -405,7 +405,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
 
     def _select_repository(self, timeframe: str) -> Optional[StockDataRepository]:
         """
-        タイムフレームに応じたRepositoryを選択
+        タイムフレームに応じたRepositoryを選択.
 
         Args:
             timeframe: タイムフレーム識別子
@@ -417,7 +417,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
 
     async def save(self, data: Dict[str, Any], **kwargs: Any) -> bool:
         """
-        単一データ保存（BaseSaverの実装）
+        単一データ保存（BaseSaverの実装）.
 
         Args:
             data: 保存するデータ（symbol, timeframe, recordsを含むDict）

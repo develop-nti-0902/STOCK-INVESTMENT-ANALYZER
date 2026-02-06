@@ -70,9 +70,7 @@ def get_batch_execution_repository(
         BaseRepository[Any]: `BatchExecutionRepository` のインスタンス
     """
     # pylint: disable=import-outside-toplevel
-    from app.repositories.batch_execution_repository import (
-        BatchExecutionRepository,
-    )
+    from app.repositories.batch_execution_repository import BatchExecutionRepository
 
     return BatchExecutionRepository(session=db)
 

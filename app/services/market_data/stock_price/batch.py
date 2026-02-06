@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 class StockPriceBatchRunner(BaseBatchRunner):
-    """JPX 全銘柄向けのバッチランナー。
+    """JPX 全銘柄向けのバッチランナー.
 
     コンストラクタでは `batch_service` と `stock_price_service` を注入します。
     """
@@ -32,6 +32,13 @@ class StockPriceBatchRunner(BaseBatchRunner):
         stock_price_service: "StockPriceService",
         stock_master_service: "StockMasterService",
     ) -> None:
+        """初期化.
+
+        Args:
+            batch_service: バッチ管理サービス
+            stock_price_service: 株価サービス
+            stock_master_service: 銘柄マスタサービス
+        """
         super().__init__(batch_service=batch_service)
         self.stock_price_service = stock_price_service
         self.stock_master_service = stock_master_service
@@ -44,7 +51,7 @@ class StockPriceBatchRunner(BaseBatchRunner):
         period: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        JPX全銘柄を対象に一括で株価データを収集する
+        JPX全銘柄を対象に一括で株価データを収集する.
 
         Args:
             timeframe: タイムフレーム

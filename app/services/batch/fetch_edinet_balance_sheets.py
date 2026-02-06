@@ -1,25 +1,19 @@
+"""EDINET 貸借対照表取得バッチに関連するジョブ実装とエントリポイント.
+
+指定期間の有価証券報告書を検索し、各書類から貸借対照表データを取得して保存します。
+"""
+
 from __future__ import annotations
 
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
 
-from app.services.batch.batch_execution_service import (
-    BatchExecutionContext,
-    BatchExecutionService,
-)
-from app.services.market_data.edinet.balance_sheet.fetcher import (
-    EdinetDocumentFetcher,
-)
-from app.services.market_data.edinet.balance_sheet.file_manager import (
-    EdinetFileManager,
-)
-from app.services.market_data.edinet.balance_sheet.parser import (
-    EdinetBalanceSheetParser,
-)
-from app.services.market_data.edinet.balance_sheet.service import (
-    EdinetBalanceSheetService,
-)
+from app.services.batch.batch_execution_service import BatchExecutionContext, BatchExecutionService
+from app.services.market_data.edinet.balance_sheet.fetcher import EdinetDocumentFetcher
+from app.services.market_data.edinet.balance_sheet.file_manager import EdinetFileManager
+from app.services.market_data.edinet.balance_sheet.parser import EdinetBalanceSheetParser
+from app.services.market_data.edinet.balance_sheet.service import EdinetBalanceSheetService
 from app.services.market_data.edinet.common.api_client import EdinetAPIClient
 from app.utils.logger import get_logger
 
@@ -27,7 +21,7 @@ logger = get_logger(__name__)
 
 
 class FetchEdinetBalanceSheetsJob:
-    """EDINET 貸借対照表を取得するバッチジョブ。
+    """EDINET 貸借対照表を取得するバッチジョブ.
 
     指定期間の有価証券報告書を検索し、各書類から5年分のデータを取得・保存します。
     """
@@ -40,6 +34,13 @@ class FetchEdinetBalanceSheetsJob:
         edinet_service: EdinetBalanceSheetService,
         fetcher: EdinetDocumentFetcher,
     ) -> None:
+        """依存サービスを受け取りジョブインスタンスを初期化する.
+
+        Args:
+            batch_service: バッチ実行の管理サービス
+            edinet_service: 貸借対照表の保存処理を行うサービス
+            fetcher: EDINET ドキュメント取得用のフェッチャ
+        """
         self.batch_service = batch_service
         self.edinet_service = edinet_service
         self.fetcher = fetcher
@@ -51,7 +52,7 @@ class FetchEdinetBalanceSheetsJob:
         progress_interval: int = 10,
         max_documents: int | None = None,
     ) -> Dict[str, Any]:
-        """バッチ実行のメインロジック。
+        """バッチ実行のメインロジック.
 
         Args:
             start_date: 検索開始日
@@ -62,16 +63,11 @@ class FetchEdinetBalanceSheetsJob:
         Returns:
             処理結果を含む辞書
         """
-        async with BatchExecutionContext(
-            self.batch_service, job_type=self.BATCH_TYPE
-        ) as ctx:
+        async with BatchExecutionContext(self.batch_service, job_type=self.BATCH_TYPE) as ctx:
             try:
                 documents = await self._search_documents(start_date, end_date)
                 # max_documentsが指定されている場合は制限
-                if (
-                    max_documents is not None
-                    and len(documents) > max_documents
-                ):
+                if max_documents is not None and len(documents) > max_documents:
                     documents = documents[:max_documents]
                     logger.info(
                         "Limited to %d documents (out of %d found)",
@@ -114,9 +110,7 @@ class FetchEdinetBalanceSheetsJob:
                     # submission_date の解析
                     try:
                         # submitDateTime は "YYYY-MM-DD HH:MM" 形式を想定
-                        submission_date = date.fromisoformat(
-                            submission_date_str.split(" ")[0]
-                        )
+                        submission_date = date.fromisoformat(submission_date_str.split(" ")[0])
                     except Exception:
                         logger.warning(
                             "Invalid submission_date for doc_id=%s: %s",
@@ -138,13 +132,11 @@ class FetchEdinetBalanceSheetsJob:
                             failed_docs += 1
                             continue
 
-                        results = (
-                            await self.edinet_service.fetch_and_save_single(
-                                doc_id=doc_id,
-                                sec_code=sec_code,
-                                submission_date=submission_date,
-                                filer_name=filer_name,
-                            )
+                        results = await self.edinet_service.fetch_and_save_single(
+                            doc_id=doc_id,
+                            sec_code=sec_code,
+                            submission_date=submission_date,
+                            filer_name=filer_name,
                         )
                         saved_years_count += len(results) if results else 0
                         processed_docs += 1
@@ -154,9 +146,7 @@ class FetchEdinetBalanceSheetsJob:
                             len(results) if results else 0,
                         )
                     except Exception as e:
-                        logger.exception(
-                            "Failed to process doc_id=%s: %s", doc_id, e
-                        )
+                        logger.exception("Failed to process doc_id=%s: %s", doc_id, e)
                         failed_docs += 1
 
                     # 進捗更新
@@ -186,10 +176,8 @@ class FetchEdinetBalanceSheetsJob:
                 logger.exception("Batch execution failed: %s", e)
                 raise
 
-    async def _search_documents(
-        self, start_date: date, end_date: date
-    ) -> List[Dict[str, Any]]:
-        """指定期間内の有価証券報告書を検索する。
+    async def _search_documents(self, start_date: date, end_date: date) -> List[Dict[str, Any]]:
+        """指定期間内の有価証券報告書を検索する.
 
         EDINET API は1日単位でしか検索できないため、
         期間内の全日付をループして書類を取得します。
@@ -224,9 +212,7 @@ class FetchEdinetBalanceSheetsJob:
                     current_date,
                 )
             except Exception as e:
-                logger.warning(
-                    "Failed to search documents for %s: %s", current_date, e
-                )
+                logger.warning("Failed to search documents for %s: %s", current_date, e)
 
             current_date += timedelta(days=1)
 
@@ -240,7 +226,7 @@ async def fetch_edinet_balance_sheets_job(
     end_date: date,
     max_documents: int | None = None,
 ) -> Dict[str, Any]:
-    """EDINET 貸借対照表取得バッチのエントリポイント。
+    """EDINET 貸借対照表取得バッチのエントリポイント.
 
     Args:
         batch_service: バッチ実行サービス

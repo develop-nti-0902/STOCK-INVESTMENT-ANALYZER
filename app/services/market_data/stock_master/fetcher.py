@@ -21,10 +21,7 @@ from pydantic import ValidationError
 from app.exceptions.business import ServiceError
 from app.exceptions.external_api import JPXAPIError
 from app.exceptions.validation import FieldValidationError
-from app.schemas.market_data.stock_master import (
-    StockMasterNormalized,
-    StockMasterRaw,
-)
+from app.schemas.market_data.stock_master import StockMasterNormalized, StockMasterRaw
 from app.services.core.fetchers.base_fetcher import BaseFetcher
 from app.utils.logger import get_logger
 
@@ -43,8 +40,7 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
     """
 
     DEFAULT_URL = (
-        "https://www.jpx.co.jp/markets/statistics-equities/"
-        "misc/tvdivq0000001vg2-att/data_j.xls"
+        "https://www.jpx.co.jp/markets/statistics-equities/" "misc/tvdivq0000001vg2-att/data_j.xls"
     )
 
     def __init__(self, url: Optional[str] = None):
@@ -56,9 +52,7 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
         """
         self.url = url or self.DEFAULT_URL
 
-    async def fetch(
-        self, identifier: str, **kwargs: Any
-    ) -> StockMasterNormalized:
+    async def fetch(self, identifier: str, **kwargs: Any) -> StockMasterNormalized:
         """Fetch a single stock master record (not supported).
 
         JPX は全銘柄を一括で提供するため、個別取得は未サポートです.
@@ -98,9 +92,7 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
         Raises:
             JPXAPIError: ダウンロードや解析に失敗した場合に送出されます.
         """
-        logger.info(
-            "Starting JPX stock master data fetch", extra={"url": self.url}
-        )
+        logger.info("Starting JPX stock master data fetch", extra={"url": self.url})
 
         try:
             excel_data = await self._download_excel()
@@ -170,13 +162,9 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
             OSError,
             pd.errors.EmptyDataError,
         ) as e:
-            raise ServiceError(
-                message=f"Failed to parse Excel file: {str(e)}"
-            ) from e
+            raise ServiceError(message=f"Failed to parse Excel file: {str(e)}") from e
 
-    async def _normalize_data(
-        self, df: pd.DataFrame
-    ) -> list[StockMasterNormalized]:
+    async def _normalize_data(self, df: pd.DataFrame) -> list[StockMasterNormalized]:
         """Normalize DataFrame rows into Pydantic models.
 
         Args:
@@ -212,9 +200,7 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
                     ),
                     sector_name_17=raw_data.sector_name_17,
                     scale_code=(
-                        str(raw_data.scale_code)
-                        if raw_data.scale_code is not None
-                        else None
+                        str(raw_data.scale_code) if raw_data.scale_code is not None else None
                     ),
                     scale_category=raw_data.scale_category,
                     data_date=self._normalize_date(raw_data.date),
@@ -269,25 +255,22 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
             )
 
             if len(errors) == len(df):
-                raise ServiceError(
-                    message="All rows failed validation. Check data format."
-                )
+                raise ServiceError(message="All rows failed validation. Check data format.")
 
         return normalized_data
 
     def _normalize_stock_code(self, code: Optional[Union[str, int]]) -> str:
-        """Normalize stock code value to string.
+        """銘柄コードを文字列に正規化して返す.
 
         Args:
-            code (Optional[Union[str, int]]): 生の銘柄コード値.
+            code: 生の銘柄コード値
 
         Returns:
-            str: 正規化された銘柄コード文字列.
+            正規化された銘柄コード文字列
 
         Raises:
-            ValueError: code が無効または空文字列の場合.
+            FieldValidationError: 無効なコードや空文字の場合
         """
-
         if not code and code != 0:
             raise FieldValidationError(message="Stock code is required")
 
@@ -299,18 +282,17 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
         return normalized
 
     def _normalize_stock_name(self, name: Optional[str]) -> str:
-        """Normalize stock name to a non-empty string.
+        """銘柄名を正規化して非空文字列を返す.
 
         Args:
-            name (Optional[str]): 生の銘柄名.
+            name: 生の銘柄名
 
         Returns:
-            str: 正規化された銘柄名.
+            正規化された銘柄名
 
         Raises:
-            ValueError: name が無効または空文字列の場合.
+            FieldValidationError: 無効または空文字列の場合
         """
-
         if not name:
             raise FieldValidationError(message="Stock name is required")
 
@@ -321,19 +303,15 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
 
         return normalized
 
-    def _normalize_date(
-        self, date: Optional[Union[str, int]]
-    ) -> Optional[str]:
-        """Normalize date-like values into YYYYMMDD string when possible.
+    def _normalize_date(self, date: Optional[Union[str, int]]) -> Optional[str]:
+        """日付に類する値を可能な限り YYYYMMDD 形式の文字列に正規化する.
 
         Args:
-            date (Optional[Union[str, int]]): 生の日付値（例: '2020/1/2',
-                '2020-01-02', 20200102）.
+            date: 生の日付値（例: '2020/1/2', '2020-01-02', 20200102）
 
         Returns:
-            Optional[str]: 正規化された文字列（不正な場合は None を返す）.
+            正規化された文字列、解析できない場合は None
         """
-
         if not date and date != 0:
             return None
 

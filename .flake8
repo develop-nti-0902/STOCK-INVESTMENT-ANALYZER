@@ -1,5 +1,8 @@
 [flake8]
-# Exclude development or transient directories from flake8 checks
-exclude = .git,__pycache__,work,.venv,venv,build,dist
 max-line-length = 100
-extend-ignore = E203,W503
+extend-ignore = E203,W503,D403
+exclude = .git,.venv,build,dist,__pycache__,work
+count = true
+show-source = true
+statistics = true
+select = E,F,W,C,D

@@ -1,3 +1,5 @@
+"""バッチ実行モデル群. バッチ実行のサマリを記録するモデルを提供します."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -35,15 +37,9 @@ class BatchExecution(SerialPKMixin, TimestampMixin, Base):
     # 実行開始 / 終了
     # SQL スクリプトに合わせたカラム名・仕様に変更
     total_stocks: Mapped[int] = mapped_column(Integer, nullable=False)
-    processed_stocks: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
-    successful_stocks: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
-    failed_stocks: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
+    processed_stocks: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    successful_stocks: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    failed_stocks: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     start_time: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -51,9 +47,7 @@ class BatchExecution(SerialPKMixin, TimestampMixin, Base):
         default=lambda: datetime.now(timezone.utc),
         server_default=text("now()"),
     )
-    end_time: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
@@ -64,7 +58,7 @@ class BatchExecution(SerialPKMixin, TimestampMixin, Base):
     )
 
     def to_dict(self) -> dict:
-        """モデルの簡易辞書表現を返す（ログ / テスト用）。"""
+        """モデルの簡易辞書表現を返す（ログ / テスト用)."""
         return {
             "id": getattr(self, "id", None),
             "batch_type": getattr(self, "batch_type", None),

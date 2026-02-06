@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 
 
 class TimeframeMapping:
-    """タイムフレームマッピング"""
+    """タイムフレームマッピング."""
 
     MAPPINGS = {
         "1m": "1m",  # 1分足
@@ -55,20 +55,20 @@ class TimeframeMapping:
 
     @classmethod
     def get_yfinance_interval(cls, timeframe: str) -> str:
-        """タイムフレームをyfinanceのintervalに変換"""
+        """タイムフレームをyfinanceのintervalに変換."""
         if timeframe not in cls.MAPPINGS:
             raise FieldValidationError(message=f"Unsupported timeframe: {timeframe}")
         return cls.MAPPINGS[timeframe]
 
     @classmethod
     def get_supported_timeframes(cls) -> List[str]:
-        """サポートされているタイムフレームのリストを取得"""
+        """サポートされているタイムフレームのリストを取得."""
         return list(cls.MAPPINGS.keys())
 
     @classmethod
     def get_period(cls, timeframe: str) -> Optional[str]:
         """
-        指定されたタイムフレームのyfinance periodパラメータを取得します。
+        指定されたタイムフレームのyfinance periodパラメータを取得します.
 
         Args:
             timeframe: タイムフレーム
@@ -84,7 +84,7 @@ class TimeframeMapping:
 
 class StockPriceFetcher(RetryMixin):
     """
-    Yahoo Finance APIを使用した株価データ取得クラス
+    Yahoo Finance APIを使用した株価データ取得クラス.
 
     単一銘柄取得と複数銘柄の一括取得（非同期で扱う）が可能で、
     8種類のタイムフレームをサポートします。
@@ -95,7 +95,7 @@ class StockPriceFetcher(RetryMixin):
     """
 
     def __init__(self) -> None:
-        """StockPriceFetcherを初期化します。"""
+        """StockPriceFetcherを初期化します."""
         RetryMixin.__init__(self)
 
         config = get_settings()
@@ -110,7 +110,7 @@ class StockPriceFetcher(RetryMixin):
         period: Optional[str] = None,
     ) -> Dict[str, List[StockData]]:
         """
-        複数銘柄を一括でダウンロードして非同期に扱います。
+        複数銘柄を一括でダウンロードして非同期に扱います.
 
         実装は yfinance の一括ダウンロード機能を利用して一度にデータを取得し、
         取得後に銘柄ごとに直列でパースします。内部では同期的な yfinance 呼び出しを
@@ -145,7 +145,7 @@ class StockPriceFetcher(RetryMixin):
         period: Optional[str] = None,
     ) -> Dict[str, List[StockData]]:
         """
-        内部用: 複数銘柄を yfinance の一括ダウンロードで取得する実装。
+        内部用: 複数銘柄を yfinance の一括ダウンロードで取得する実装.
 
         `fetch_multi_yfinance` の実ロジックをこちらに移し、`fetch_batch`
         からもこのメソッドを使うことで責務を一元化します。
@@ -260,7 +260,7 @@ class StockPriceFetcher(RetryMixin):
 
     def _parse_yfinance_data(self, data: pd.DataFrame, symbol: str) -> List[StockData]:
         """
-        yfinanceのDataFrameをStockDataリストに変換します。
+        yfinanceのDataFrameをStockDataリストに変換します.
 
         Args:
             data: yfinanceから取得したDataFrame
@@ -306,7 +306,7 @@ class StockPriceFetcher(RetryMixin):
 
     async def is_valid_symbol_format(self, symbol: str) -> bool:
         """
-        銘柄コードのフォーマット検証を行います。
+        銘柄コードのフォーマット検証を行います.
 
         Args:
             symbol: 検証対象の銘柄コード
@@ -325,7 +325,7 @@ class StockPriceFetcher(RetryMixin):
 
     async def handle_fetch_error(self, symbol: str, error: Exception) -> None:
         """
-        データ取得エラーのハンドリングを行います。
+        データ取得エラーのハンドリングを行います.
 
         Args:
             symbol: エラーが発生した銘柄コード

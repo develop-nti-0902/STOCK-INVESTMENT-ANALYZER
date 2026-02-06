@@ -1,4 +1,4 @@
-"""バッチ処理ユーティリティモジュール。
+"""バッチ処理ユーティリティモジュール.
 
 JPX 全銘柄処理などの大規模バッチ処理で使用するヘルパーを提供します。
 リストの分割、同時実行数の制御、進捗管理機能を含みます。
@@ -15,17 +15,7 @@ import asyncio
 import inspect
 import logging
 import time
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import Any, Awaitable, Callable, Dict, List, Optional, TypeVar, Union, cast
 
 from app.exceptions.validation import FieldValidationError
 
@@ -36,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def chunk_list(items: List[T], chunk_size: int) -> List[List[T]]:
     """
-    リストを指定サイズのチャンクに分割
+    リストを指定サイズのチャンクに分割.
 
     Args:
         items: 分割対象リスト
@@ -51,9 +41,7 @@ def chunk_list(items: List[T], chunk_size: int) -> List[List[T]]:
     if chunk_size < 1:
         raise FieldValidationError(message="chunk_size must be greater than 0")
 
-    return [
-        items[i : i + chunk_size] for i in range(0, len(items), chunk_size)
-    ]
+    return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
 
 
 async def parallel_execute(
@@ -62,7 +50,7 @@ async def parallel_execute(
     return_exceptions: bool = True,
 ) -> List[Union[T, Exception, BaseException]]:
     """
-    タスクを並列実行（同時実行数制限付き）
+    タスクを並列実行（同時実行数制限付き）.
 
     Args:
         tasks: 実行するコルーチンのリスト
@@ -103,7 +91,7 @@ async def parallel_execute(
 
 class ProgressTracker:
     """
-    バッチ処理の進捗を追跡するクラス
+    バッチ処理の進捗を追跡するクラス.
 
     Attributes:
         total: 総アイテム数
@@ -119,7 +107,8 @@ class ProgressTracker:
         total: int,
         callback: Optional[Callable[[Dict[str, Any]], Awaitable[None]]] = None,
     ):
-        """
+        """初期化.
+
         Args:
             total: 総アイテム数
             callback: 進捗コールバック関数
@@ -133,15 +122,13 @@ class ProgressTracker:
         self.callback = callback
 
     def increment_success(self) -> None:
-        """成功カウントを増加"""
+        """成功カウントを増加."""
         self.success += 1
         self.processed += 1
         self._notify()
 
-    def increment_failed(
-        self, error: Exception, context: Optional[Dict[str, Any]] = None
-    ) -> None:
-        """失敗カウントを増加し、エラーを記録"""
+    def increment_failed(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> None:
+        """失敗カウントを増加し、エラーを記録."""
         self.failed += 1
         self.processed += 1
 
@@ -157,17 +144,17 @@ class ProgressTracker:
         self._notify()
 
     def get_progress_percent(self) -> float:
-        """進捗率（パーセント）を取得"""
+        """進捗率（パーセント）を取得."""
         if self.total == 0:
             return 100.0
         return (self.processed / self.total) * 100.0
 
     def get_elapsed_time(self) -> float:
-        """経過時間（秒）を取得"""
+        """経過時間（秒）を取得."""
         return time.time() - self.start_time
 
     def get_summary(self) -> Dict[str, Any]:
-        """進捗サマリーを取得"""
+        """進捗サマリーを取得."""
         return {
             "total": self.total,
             "processed": self.processed,
@@ -179,7 +166,7 @@ class ProgressTracker:
         }
 
     def _notify(self) -> None:
-        """コールバック関数経由で進捗を通知"""
+        """コールバック関数経由で進捗を通知."""
         if self.callback:
             try:
                 # 同期的にコールバックを実行（実際の使用ではイベントループ内で呼び出される）

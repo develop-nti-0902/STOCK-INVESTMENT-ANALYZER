@@ -28,7 +28,7 @@ class RetryMixin:
     """
 
     def __init__(self) -> None:
-        """RetryMixinを初期化します。"""
+        """RetryMixinを初期化します."""
         config = get_settings()
         self.max_retries = config.YAHOO_FINANCE_MAX_RETRIES
         self.backoff_factor = config.YAHOO_FINANCE_RETRY_BACKOFF
@@ -41,14 +41,10 @@ class RetryMixin:
         )
 
     async def _retry_async(
-        self,
-        func: Callable[[], Any],
-        operation_name: str,
-        *args: Any,
-        **kwargs: Any
+        self, func: Callable[[], Any], operation_name: str, *args: Any, **kwargs: Any
     ) -> Any:
         """
-        非同期関数をリトライ付きで実行します。
+        非同期関数をリトライ付きで実行します.
 
         Args:
             func: 実行する非同期関数
@@ -83,9 +79,7 @@ class RetryMixin:
 
             except (ConnectionError, TimeoutError, OSError) as e:
                 # リトライ可能なネットワーク関連エラーをキャッチ
-                last_exception = self._handle_retry_exception(
-                    e, attempt, operation_name
-                )
+                last_exception = self._handle_retry_exception(e, attempt, operation_name)
                 if last_exception is None:
                     continue
                 raise last_exception from e
@@ -93,9 +87,7 @@ class RetryMixin:
             except Exception as e:
                 # 予期せぬ例外もキャッチして適切に処理
                 # リトライロジックとして、外部API等の未知のエラーを処理するため
-                last_exception = self._handle_retry_exception(
-                    e, attempt, operation_name
-                )
+                last_exception = self._handle_retry_exception(e, attempt, operation_name)
                 if last_exception is None:
                     continue
                 raise last_exception from e
@@ -106,7 +98,7 @@ class RetryMixin:
 
     def _calculate_delay(self, attempt: int) -> float:
         """
-        リトライ間の遅延時間を計算します。
+        リトライ間の遅延時間を計算します.
 
         Args:
             attempt: 現在のリトライ回数（1始まり）
@@ -129,7 +121,7 @@ class RetryMixin:
 
     def _is_retryable_error(self, error: Exception) -> bool:
         """
-        エラーがリトライ可能かどうかを判定します。
+        エラーがリトライ可能かどうかを判定します.
 
         Args:
             error: 判定対象の例外
@@ -174,7 +166,7 @@ class RetryMixin:
         backoff_factor: Optional[float] = None,
     ) -> None:
         """
-        リトライ設定を更新します。
+        リトライ設定を更新します.
 
         Args:
             max_retries: 新しい最大リトライ回数
@@ -186,14 +178,14 @@ class RetryMixin:
             self.backoff_factor = backoff_factor
 
     def should_retry(self, error: Exception) -> bool:
-        """公開メソッド: 与えられた例外がリトライ対象か判定する。テストや外部からの判定で利用可。"""
+        """公開メソッド: 与えられた例外がリトライ対象か判定する。テストや外部からの判定で利用可."""
         return self._is_retryable_error(error)
 
     def _handle_retry_exception(
         self, e: Exception, attempt: int, operation_name: str
     ) -> Optional[Exception]:
         """
-        _retry_async内の例外に対するリトライロジックを処理します。
+        _retry_async内の例外に対するリトライロジックを処理します.
 
         リトライする場合はNoneを返し、そうでない場合は発生させる例外を返します。
         """

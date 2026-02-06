@@ -1,3 +1,9 @@
+"""EDINET 貸借対照表サービスの orchestration モジュール.
+
+fetcher, parser, file_manager, repository を組み合わせて
+文書取得→解析→UPSERT を行います.
+"""
+
 from __future__ import annotations
 
 from datetime import date
@@ -5,18 +11,10 @@ from typing import Any, Callable, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.edinet_balance_sheet_repository import (
-    EdinetBalanceSheetRepository,
-)
-from app.services.market_data.edinet.balance_sheet.fetcher import (
-    EdinetDocumentFetcher,
-)
-from app.services.market_data.edinet.balance_sheet.file_manager import (
-    EdinetFileManager,
-)
-from app.services.market_data.edinet.balance_sheet.parser import (
-    EdinetBalanceSheetParser,
-)
+from app.repositories.edinet_balance_sheet_repository import EdinetBalanceSheetRepository
+from app.services.market_data.edinet.balance_sheet.fetcher import EdinetDocumentFetcher
+from app.services.market_data.edinet.balance_sheet.file_manager import EdinetFileManager
+from app.services.market_data.edinet.balance_sheet.parser import EdinetBalanceSheetParser
 from app.utils.database import get_session_maker
 from app.utils.logger import get_logger
 
@@ -24,10 +22,14 @@ logger = get_logger(__name__)
 
 
 class EdinetBalanceSheetService:
-    """EDINET 貸借対照表のオーケストレーションサービス。
+    """EDINET 貸借対照表のオーケストレーションサービス.
 
-    fetcher, parser, file_manager, repository を組み合わせて
-    文書取得→解析→UPSERT のユースケースを提供します。
+    Attributes:
+        fetcher: 文書取得フェッチャ
+        parser: XBRL パーサ
+        file_manager: 一時ファイル管理ユーティリティ
+        session_maker: DB セッションファクトリ
+        repo_class: リポジトリクラス
     """
 
     def __init__(
@@ -40,6 +42,7 @@ class EdinetBalanceSheetService:
             EdinetBalanceSheetRepository
         ),
     ) -> None:
+        """インスタンスを初期化する."""
         self.fetcher = fetcher
         self.parser = parser
         self.file_manager = file_manager
@@ -53,7 +56,7 @@ class EdinetBalanceSheetService:
         submission_date: date,
         filer_name: Optional[str] = None,
     ):
-        """単一文書を取得して解析し、データベースに保存する。
+        """単一文書を取得して解析し、データベースに保存する.
 
         過去5年分（current, prior1, prior2, prior3, prior4）のデータを取得し、
         それぞれUPSERTします。
@@ -128,7 +131,7 @@ class EdinetBalanceSheetService:
                 logger.exception("failed to cleanup temp files for %s", doc_id)
 
     async def upsert_balance_sheet(self, data: dict):
-        """Repository を使って UPSERT を実行しトランザクションを管理する。"""
+        """Repository を使って UPSERT を実行しトランザクションを管理する."""
         session_maker = self.session_maker
         async with session_maker() as session:  # type: ignore[call-arg]
             try:
@@ -142,24 +145,58 @@ class EdinetBalanceSheetService:
                 raise
 
     async def get_latest_by_sec_code(self, sec_code: str):
+        """指定した証券コードの最新レコードを返す.
+
+        Args:
+            sec_code: 証券コード
+
+        Returns:
+            最新のモデルまたは None
+        """
         session_maker = self.session_maker
         async with session_maker() as session:  # type: ignore[call-arg]
             repo = self.repo_class(session)
             return await repo.find_latest_by_sec_code(sec_code)
 
     async def get_by_period(self, sec_code: str, period_end_date: date):
+        """指定した期のレコードを返す.
+
+        Args:
+            sec_code: 証券コード
+            period_end_date: 期末日
+
+        Returns:
+            該当するモデルまたは None
+        """
         session_maker = self.session_maker
         async with session_maker() as session:  # type: ignore[call-arg]
             repo = self.repo_class(session)
             return await repo.find_by_period(sec_code, period_end_date)
 
     async def get_annual_data(self, sec_code: str, fiscal_year: int):
+        """指定した会計年度のデータを返す.
+
+        Args:
+            sec_code: 証券コード
+            fiscal_year: 会計年度（西暦）
+
+        Returns:
+            年次データのモデルまたは None
+        """
         session_maker = self.session_maker
         async with session_maker() as session:  # type: ignore[call-arg]
             repo = self.repo_class(session)
             return await repo.find_by_fiscal_year(sec_code, fiscal_year)
 
     async def get_multiple_latest(self, sec_codes: list[str]):
+        """複数の証券コードについて最新レコードを一括で取得する.
+
+        Args:
+            sec_codes: 証券コードのリスト
+
+        Returns:
+            証券コードをキーとした最新レコードのマッピング
+        """
         session_maker = self.session_maker
         async with session_maker() as session:  # type: ignore[call-arg]
             repo = self.repo_class(session)
