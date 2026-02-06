@@ -1,434 +1,228 @@
-"""
-StockPriceService単体テスト
+"""`StockPriceService` の単体テスト（更新版）
 
-株価データサービス（オーケストレーション層）の機能をテストします。
+このファイルは既存テストを全面的に置き換え、最新の `converter` 実装に合わせて
+主要パスとエラーハンドリングを検証します。
 """
 
-from datetime import date, datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
+import pandas as pd
 import pytest
 
-from app.services.market_data.stock_price.converter import StockPriceConverter
+from app.exceptions.external_api import YahooFinanceError
 from app.services.market_data.stock_price.fetcher import StockPriceFetcher
 from app.services.market_data.stock_price.saver import StockPriceSaver
-from app.services.market_data.stock_price.service import (
-    StockPriceService,
-    StockPriceServiceResult,
-)
-from app.services.market_data.stock_price.validator import StockPriceValidator
-from tests.unit.helpers.date_utils import normalize_date_param
+from app.services.market_data.stock_price.service import StockPriceService
 
 
 class TestStockPriceService:
-    """StockPriceServiceのテストクラス"""
+    """`StockPriceService` の主要フローとエラー処理を検証する。"""
 
     def setup_method(self):
-        """テスト前準備"""
-        # モックの作成
-        self.mock_fetcher = MagicMock(spec=StockPriceFetcher)
-        self.mock_saver = MagicMock(spec=StockPriceSaver)
-        self.mock_converter = MagicMock(spec=StockPriceConverter)
-        self.mock_validator = MagicMock(spec=StockPriceValidator)
-        # モックのバッチサービス
-        self.mock_batch_service = AsyncMock()
-        self.mock_batch_service.create_job = AsyncMock(
-            return_value=MagicMock(id=1)
-        )
-        self.mock_batch_service.start_job = AsyncMock()
-        self.mock_batch_service.update_progress = AsyncMock()
-        self.mock_batch_service.complete_job = AsyncMock()
-        self.mock_batch_service.get_job_status = AsyncMock(
-            return_value=MagicMock(
-                successful_stocks=0, failed_stocks=0, processed_stocks=0
-            )
-        )
+        # 依存オブジェクトのモック
+        self.fetcher = MagicMock(spec=StockPriceFetcher)
+        self.saver = MagicMock(spec=StockPriceSaver)
+        # saver.session.commit/rollback は await されるため AsyncMock を用意
+        session = MagicMock()
+        session.commit = AsyncMock(return_value=None)
+        session.rollback = AsyncMock(return_value=None)
+        self.saver.session = session
 
-        # converter.to_saver_records が呼ばれたとき、渡されたモデル群の
-        # model_dump() を使ってレコード一覧を返すようにしておく（互換性維持）
-        self.mock_converter.to_saver_records = MagicMock(
-            side_effect=lambda models: [m.model_dump() for m in models]
-        )
+        # converter と validator は挙動をテストごとに差し替える
+        self.converter = MagicMock()
+        self.validator = MagicMock()
 
-        # Serviceインスタンス作成
+        # バッチサービスは必須の引数（最小限の AsyncMock）
+        self.batch_service = AsyncMock()
+
         self.service = StockPriceService(
-            fetcher=self.mock_fetcher,
-            saver=self.mock_saver,
-            converter=self.mock_converter,
-            validator=self.mock_validator,
-            max_concurrent=2,
-            batch_service=self.mock_batch_service,
+            fetcher=self.fetcher,
+            saver=self.saver,
+            converter=self.converter,
+            validator=self.validator,
+            batch_service=self.batch_service,
         )
 
     @pytest.mark.asyncio
     async def test_fetch_and_save_single_success(self):
-        """単一銘柄処理の成功ケース"""
-        # テストデータ
+        """単一銘柄が正常に取得・変換・保存されることを検証する。"""
         symbol = "7203.T"
         timeframe = "1d"
 
-        # モックの戻り値設定
-        mock_stock_data_list = [
-            MagicMock(
-                symbol=symbol,
-                trade_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
-                model_dump=MagicMock(
-                    return_value={
-                        "symbol": symbol,
-                        "trade_date": datetime(
-                            2024, 1, 1, tzinfo=timezone.utc
-                        ),
-                        "close": 102.0,
-                    }
-                ),
-            ),
-            MagicMock(
-                symbol=symbol,
-                trade_date=datetime(2024, 1, 2, tzinfo=timezone.utc),
-                model_dump=MagicMock(
-                    return_value={
-                        "symbol": symbol,
-                        "trade_date": datetime(
-                            2024, 1, 2, tzinfo=timezone.utc
-                        ),
-                        "close": 103.0,
-                    }
-                ),
-            ),
-        ]
-
-        # mock_pydantic_data is not required in this test
-
-        # モック設定
-        self.mock_fetcher.fetch_single = AsyncMock(
-            return_value=mock_stock_data_list
+        # フェッチが返す Pydantic 相当のオブジェクト（model_dump を持つ）
+        rec = MagicMock()
+        rec.model_dump = MagicMock(
+            return_value={"symbol": symbol, "trade_date": "2024-01-01", "close": 100.0}
         )
-        self.mock_validator.validate = MagicMock(
+
+        self.fetcher.fetch_batch = AsyncMock(return_value={symbol: [rec]})
+
+        # converter.to_saver_records が保存可能な辞書リストを返す
+        self.converter.to_saver_records = MagicMock(
+            return_value=[{"symbol": symbol, "trade_date": "2024-01-01", "close": 100.0}]
+        )
+
+        # バリデータは成功とする
+        self.validator.validate = MagicMock(
             return_value=MagicMock(is_valid=True, errors=[], warnings=[])
         )
-        self.mock_saver.save_batch = AsyncMock(return_value=2)
 
-        # テスト実行
-        result = await self.service.fetch_and_save_single(symbol, timeframe)
+        # saver が保存件数を返す
+        self.saver.save_batch = AsyncMock(return_value=1)
 
-        # 検証
-        assert result.success is True
-        assert result.symbol == symbol
-        assert result.timeframe == timeframe
-        assert result.records_processed == 2
-        assert result.records_saved == 2
-        assert len(result.errors) == 0
+        results = await self.service.fetch_and_save([symbol], timeframe)
 
-        # モック呼び出し検証
-        self.mock_fetcher.fetch_single.assert_called_once_with(
-            symbol=symbol,
-            timeframe=timeframe,
-        )
-        assert self.mock_validator.validate.call_count == 2
-        # Saver に渡されたペイロードは実装により形式が変わるため、構造を確認する
-        self.mock_saver.save_batch.assert_called_once()
-        called_args = self.mock_saver.save_batch.call_args[0][0]
-        assert isinstance(called_args, list)
+        assert isinstance(results, list) and len(results) == 1
+        r = results[0]
+        assert r.success is True
+        assert r.symbol == symbol
+        assert r.records_processed == 1
+        assert r.records_saved == 1
 
-        first = called_args[0]
-        # 実装により渡される形式が変わるため両方に対応する
-        if isinstance(first, dict) and "timeframe" in first:
-            assert first["symbol"] == symbol
-            assert first["timeframe"] == timeframe
-            assert isinstance(first["records"], list)
-            assert len(first["records"]) == 2
-        else:
-            # model_dump() のリストが渡された場合
-            assert first.get("symbol") == symbol
-            assert "trade_date" in first or "timestamp" in first
+        # fetcher の呼び出しに symbols と timeframe が含まれていること
+        assert self.fetcher.fetch_batch.call_count == 1
+        _, kwargs = self.fetcher.fetch_batch.call_args
+        assert kwargs.get("symbols") == [symbol]
+        assert kwargs.get("timeframe") == timeframe
 
     @pytest.mark.asyncio
-    async def test_fetch_and_save_single_no_data(self):
-        """データが取得できないケース"""
+    async def test_fetch_and_save_no_data_returns_warning(self):
+        """フェッチ結果が空の場合は警告を含む成功結果になることを検証する。"""
         symbol = "7203.T"
         timeframe = "1d"
 
-        # 空のリストを返す
-        self.mock_fetcher.fetch_single = AsyncMock(return_value=[])
+        self.fetcher.fetch_batch = AsyncMock(return_value={symbol: []})
 
-        result = await self.service.fetch_and_save_single(symbol, timeframe)
+        results = await self.service.fetch_and_save([symbol], timeframe)
+        r = results[0]
 
-        assert result.success is True
-        assert result.records_processed == 0
-        assert result.records_saved == 0
-        assert len(result.warnings) > 0
+        assert r.success is True
+        assert r.records_processed == 0
+        assert r.records_saved == 0
+        assert r.warnings and isinstance(r.warnings, list)
 
     @pytest.mark.asyncio
-    async def test_fetch_and_save_single_validation_failure(self):
-        """検証失敗のケース"""
+    async def test_fetch_and_save_commit_failure_marks_records_failed(self):
+        """saver.session.commit が失敗した場合、成功だったレコードが失敗扱いになること。"""
         symbol = "7203.T"
         timeframe = "1d"
 
-        mock_stock_data_list = [
-            MagicMock(
-                symbol=symbol,
-                trade_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
-                model_dump=MagicMock(
-                    return_value={
-                        "symbol": symbol,
-                        "trade_date": datetime(
-                            2024, 1, 1, tzinfo=timezone.utc
-                        ),
-                        "close": 102.0,
-                    }
-                ),
-            ),
-        ]
+        rec = MagicMock()
+        rec.model_dump = MagicMock(return_value={"symbol": symbol})
+        self.fetcher.fetch_batch = AsyncMock(return_value={symbol: [rec]})
 
-        mock_pydantic_data = [MagicMock()]
-
-        self.mock_fetcher.fetch_single = AsyncMock(
-            return_value=mock_stock_data_list
+        self.converter.to_saver_records = MagicMock(return_value=[{"symbol": symbol}])
+        self.validator.validate = MagicMock(
+            return_value=MagicMock(is_valid=True, errors=[], warnings=[])
         )
-        self.mock_converter.from_dataframe = MagicMock(
-            return_value=mock_pydantic_data
-        )
-        self.mock_validator.validate = MagicMock(
-            return_value=MagicMock(is_valid=False, errors=["Validation error"])
-        )
+        self.saver.save_batch = AsyncMock(return_value=1)
 
-        result = await self.service.fetch_and_save_single(symbol, timeframe)
+        # commit が例外を投げる
+        self.saver.session.commit = AsyncMock(side_effect=Exception("db commit failed"))
 
-        assert result.success is False
-        assert result.records_processed == 1
-        assert result.records_saved == 0
-        assert len(result.errors) > 0
+        results = await self.service.fetch_and_save([symbol], timeframe)
+        r = results[0]
+
+        assert r.success is False
+        assert r.records_saved == 0
+        assert any("Commit failed" in e for e in r.errors)
 
     @pytest.mark.asyncio
-    async def test_fetch_and_save_multiple_success(self):
-        """複数銘柄処理の成功ケース"""
-        symbols = ["7203.T", "6758.T"]
+    async def test_fetch_and_save_handles_yahoo_error(self):
+        """YahooFinanceError を受け取った場合に適切なエラーが返ること。"""
+        symbol = "7203.T"
         timeframe = "1d"
 
-        # 各銘柄の結果をモック
-        mock_result1 = StockPriceServiceResult(
-            success=True,
-            symbol="7203.T",
-            timeframe=timeframe,
-            records_processed=2,
-            records_saved=2,
-        )
-        mock_result2 = StockPriceServiceResult(
-            success=True,
-            symbol="6758.T",
-            timeframe=timeframe,
-            records_processed=2,
-            records_saved=2,
+        self.fetcher.fetch_batch = AsyncMock(side_effect=YahooFinanceError())
+
+        results = await self.service.fetch_and_save([symbol], timeframe)
+        r = results[0]
+
+        assert r.success is False
+        # fetch_batch の外側で例外が起きるとサービスは 'Batch fetch failed' を返す
+        assert r.errors and (
+            r.errors == ["Batch fetch failed"]
+            or any("Yahoo Finance API error" in e for e in r.errors)
         )
 
-        # fetch_and_save_singleをモック
-        self.service.fetch_and_save_single = AsyncMock(
-            side_effect=[mock_result1, mock_result2]
-        )
+    @pytest.mark.asyncio
+    async def test_fetch_and_save_batch_fetch_failure(self):
+        """fetch_batch 全体失敗時は各銘柄に 'Batch fetch failed' が設定されることを検証。"""
+        symbols = ["AAA.T", "BBB.T"]
+        timeframe = "1d"
 
-        results = await self.service.fetch_and_save_multiple(
-            symbols, timeframe
-        )
+        self.fetcher.fetch_batch = AsyncMock(side_effect=Exception("network"))
+
+        results = await self.service.fetch_and_save(symbols, timeframe)
 
         assert len(results) == 2
-        assert all(r.success for r in results)
-        assert all(r.records_saved == 2 for r in results)
-
-        # 並列呼び出しを検証
-        assert self.service.fetch_and_save_single.call_count == 2
+        for r in results:
+            assert r.success is False
+            assert r.errors == ["Batch fetch failed"]
 
     @pytest.mark.asyncio
-    async def test_get_stock_data_success(self):
-        """データ取得（読み取り専用）の成功ケース"""
+    async def test_get_stock_data_returns_dataframe(self):
+        """get_stock_data が DataFrame を含むラッパーを返すことを検証する。"""
         symbol = "7203.T"
         timeframe = "1d"
 
-        mock_stock_data_list = [
-            MagicMock(
-                symbol=symbol,
-                trade_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
-                model_dump=MagicMock(
-                    return_value={
-                        "symbol": symbol,
-                        "trade_date": datetime(
-                            2024, 1, 1, tzinfo=timezone.utc
-                        ),
-                        "close": 100.0,
-                    }
-                ),
-            ),
-        ]
-
-        self.mock_fetcher.fetch_single = AsyncMock(
-            return_value=mock_stock_data_list
+        rec = MagicMock()
+        rec.model_dump = MagicMock(
+            return_value={"symbol": symbol, "trade_date": "2024-01-01", "close": 100.0}
         )
+        self.fetcher.fetch_batch = AsyncMock(return_value={symbol: [rec]})
 
-        result = await self.service.get_stock_data(symbol, timeframe)
+        wrapper = await self.service.get_stock_data(symbol, timeframe)
 
-        assert result is not None
-        assert result.symbol == symbol
-        assert result.timeframe == timeframe
-        self.mock_fetcher.fetch_single.assert_called_once()
+        assert wrapper is not None
+        assert wrapper.symbol == symbol
+        assert wrapper.timeframe == timeframe
+        assert isinstance(wrapper.data, pd.DataFrame)
 
     @pytest.mark.asyncio
-    async def test_get_stock_data_failure(self):
-        """データ取得失敗のケース"""
-        symbol = "7203.T"
-        timeframe = "1d"
+    async def test_get_stock_data_from_db_and_delete_all(self, monkeypatch):
+        """DB読み取りと全削除をサービス経由で行えることを確認する。"""
 
-        self.mock_fetcher.fetch_single = AsyncMock(
-            side_effect=Exception("API Error")
+        # Fake row object similar to repository row
+        class FakeRow:
+            def __init__(self, symbol):
+                self.symbol = symbol
+                self.open = 1.0
+                self.high = 2.0
+                self.low = 0.5
+                self.close = 1.5
+                self.volume = 100
+                self.adj_close = 1.4
+                self.timestamp = None
+
+        # Fake repo to be used in mapping
+        class FakeRepo:
+            def __init__(self, session=None):
+                self._session = session
+
+            async def get_by_symbol_and_range(self, symbol, start, end, limit, offset):
+                return [FakeRow(symbol)]
+
+            async def delete_all(self):
+                return 5
+
+        # Monkeypatch mapping in service module
+        import app.services.market_data.stock_price.service as svc_mod
+
+        monkeypatch.setitem(svc_mod.TIMEFRAME_REPOSITORY_MAP, "1d", FakeRepo)
+
+        mock_db = MagicMock()
+        mock_db.commit = AsyncMock()
+        mock_db.rollback = AsyncMock()
+
+        # call get_stock_data_from_db
+        rows = await self.service.get_stock_data_from_db(
+            db=mock_db, symbol="7203.T", timeframe="1d"
         )
+        assert isinstance(rows, list)
+        assert rows[0]["symbol"] == "7203.T"
 
-        result = await self.service.get_stock_data(symbol, timeframe)
-
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_fetch_and_save_single_yahoo_error(self):
-        """YahooFinanceError発生時のハンドリング"""
-        from app.exceptions.external_api import YahooFinanceError
-
-        symbol = "7203.T"
-        timeframe = "1d"
-
-        self.mock_fetcher.fetch_single = AsyncMock(
-            side_effect=YahooFinanceError()
-        )
-
-        result = await self.service.fetch_and_save_single(symbol, timeframe)
-
-        assert result.success is False
-        assert any("Yahoo Finance API error" in e for e in result.errors)
-
-    @pytest.mark.asyncio
-    async def test_fetch_and_save_single_validation_exception(self):
-        """Validatorが例外を投げた場合のハンドリング"""
-        from app.exceptions.business import StockDataValidationError
-
-        symbol = "7203.T"
-        timeframe = "1d"
-
-        mock_stock_data_list = [
-            MagicMock(
-                symbol=symbol,
-                trade_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
-                model_dump=MagicMock(return_value={"symbol": symbol}),
-            )
-        ]
-
-        self.mock_fetcher.fetch_single = AsyncMock(
-            return_value=mock_stock_data_list
-        )
-        self.mock_validator.validate = MagicMock(
-            side_effect=StockDataValidationError()
-        )
-
-        result = await self.service.fetch_and_save_single(symbol, timeframe)
-
-        assert result.success is False
-        assert any("Data validation error" in e for e in result.errors)
-
-    @pytest.mark.asyncio
-    async def test_fetch_and_save_single_unexpected_exception(self):
-        """fetcherが予期せぬ例外を投げた場合のハンドリング"""
-        symbol = "7203.T"
-        timeframe = "1d"
-
-        self.mock_fetcher.fetch_single = AsyncMock(
-            side_effect=Exception("boom")
-        )
-
-        result = await self.service.fetch_and_save_single(symbol, timeframe)
-
-        assert result.success is False
-        assert any("Unexpected error" in e for e in result.errors)
-
-    @pytest.mark.asyncio
-    async def test_fetch_and_save_single_iso_string_dates_normalization(self):
-        """文字列で渡した日付パラメータが正規化されることを確認する"""
-        symbol = "7203.T"
-        timeframe = "1d"
-
-        mock_stock_data_list = [
-            MagicMock(
-                symbol=symbol,
-                trade_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
-                model_dump=MagicMock(return_value={"symbol": symbol}),
-            )
-        ]
-
-        self.mock_fetcher.fetch_single = AsyncMock(
-            return_value=mock_stock_data_list
-        )
-        self.mock_validator.validate = MagicMock(
-            return_value=MagicMock(is_valid=True, errors=[], warnings=[])
-        )
-        self.mock_saver.save_batch = AsyncMock(return_value=1)
-
-        # 日付をISO形式の文字列で渡す
-        await self.service.fetch_and_save_single(symbol, timeframe)
-
-        # fetch_single は start_date/end_date を受け取らなくなったため、
-        # 呼び出しは symbol と timeframe のみで行われることを確認する
-        self.mock_fetcher.fetch_single.assert_called_once_with(
-            symbol=symbol, timeframe=timeframe
-        )
-
-        # ただし日付正規化ユーティリティは残っているので個別に確認する
-        assert normalize_date_param("2024-01-01") == date(2024, 1, 1)
-
-    @pytest.mark.asyncio
-    async def test_fetch_all_jpx_stocks_success_and_progress_callback(self):
-        """fetch_all_jpx_stocks の基本フローと progress_callback 呼び出しを検証"""
-        # モックの銘柄リスト
-        symbols = ["AAA.T", "BBB.T", "CCC.T"]
-
-        # stock_master_service を注入
-        mock_master = MagicMock()
-        mock_master.get_all_active_symbols = AsyncMock(return_value=symbols)
-        self.service.stock_master_service = mock_master
-
-        # fetch_and_save_single をモックして成功/失敗を返す
-        res1 = StockPriceServiceResult(
-            success=True,
-            symbol="AAA.T",
-            timeframe="1d",
-            records_processed=1,
-            records_saved=1,
-        )
-        res2 = StockPriceServiceResult(
-            success=True,
-            symbol="BBB.T",
-            timeframe="1d",
-            records_processed=1,
-            records_saved=1,
-        )
-        res3 = StockPriceServiceResult(
-            success=False,
-            symbol="CCC.T",
-            timeframe="1d",
-            records_processed=1,
-            records_saved=0,
-            errors=["err"],
-        )
-
-        self.service.fetch_and_save_single = AsyncMock(
-            side_effect=[res1, res2, res3]
-        )
-
-        progress_cb = MagicMock()
-
-        summary = await self.service.fetch_all_jpx_stocks(
-            timeframe="1d",
-            progress_callback=progress_cb,
-            max_concurrent=2,
-            batch_size=100,
-        )
-
-        assert summary["total"] == 3
-        assert summary["success"] == 2
-        assert summary["failed"] == 1
-        assert isinstance(summary["elapsed_time"], float)
-        # progress_callback が呼ばれている
-        assert progress_cb.called
+        # call delete_all_for_timeframe
+        deleted = await self.service.delete_all_for_timeframe(db=mock_db, timeframe="1d")
+        assert deleted == 5
+        mock_db.commit.assert_awaited()

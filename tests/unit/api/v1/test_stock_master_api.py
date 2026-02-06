@@ -26,12 +26,13 @@ class FakeService:
             raise RuntimeError("fetch failed")
         return self._fetch_and_store_result
 
+    async def fetch_and_save(self, *args, **kwargs):
+        """互換性のためのエイリアスメソッド。内部実装は `fetch_and_store` を使う。"""
+        return await self.fetch_and_store(*args, **kwargs)
+
     async def refresh_stock_master(self, batch_size: int = 500):
         # refresh_stock_master または fetch_and_store が失敗する設定なら例外を発生
-        if (
-            "refresh_stock_master" in self._raise_on
-            or "fetch_and_store" in self._raise_on
-        ):
+        if "refresh_stock_master" in self._raise_on or "fetch_and_store" in self._raise_on:
             raise RuntimeError("refresh failed")
         return self._fetch_and_store_result
 
@@ -60,11 +61,11 @@ async def test_refresh_stock_master_success():
     service = FakeService(fetch_and_store_result=5)
 
     # Act
-    resp = await stock_master_module.refresh_stock_master(service=service)
+    resp = await stock_master_module.fetch_stock_master(service=service)
 
     # Assert
     assert resp.updated_count == 5
-    assert "Stock master refresh completed" in resp.message
+    assert "Stock master fetch completed" in resp.message
 
 
 @pytest.mark.asyncio
@@ -74,10 +75,10 @@ async def test_refresh_stock_master_failure_raises_500():
 
     # Act / Assert
     with pytest.raises(ServiceError) as exc:
-        await stock_master_module.refresh_stock_master(service=service)
+        await stock_master_module.fetch_stock_master(service=service)
 
     assert exc.value.status_code == 500
-    assert "Failed to refresh stock master" in exc.value.message
+    assert "Failed to fetch stock master" in exc.value.message
 
 
 @pytest.mark.asyncio
@@ -113,9 +114,7 @@ async def test_get_symbols_by_market_not_found_returns_404():
 
     # Act / Assert
     with pytest.raises(RecordNotFoundError) as exc:
-        await stock_master_module.get_symbols_by_market(
-            "Prime", service=service
-        )
+        await stock_master_module.get_symbols_by_market("Prime", service=service)
 
     assert exc.value.status_code == 404
 
@@ -127,9 +126,7 @@ async def test_get_symbols_by_market_failure_raises_500():
 
     # Act / Assert
     with pytest.raises(ServiceError) as exc:
-        await stock_master_module.get_symbols_by_market(
-            "Prime", service=service
-        )
+        await stock_master_module.get_symbols_by_market("Prime", service=service)
 
     assert exc.value.status_code == 500
     assert "Failed to retrieve stock symbols" in exc.value.message

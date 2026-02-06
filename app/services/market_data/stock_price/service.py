@@ -9,24 +9,27 @@ Notes:
 
 from __future__ import annotations
 
-import asyncio
+from datetime import datetime
 from time import perf_counter
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    List,
-    NamedTuple,
-    Optional,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, NamedTuple, Optional, cast
 
 import pandas as pd
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions.business import ServiceError, StockDataValidationError
+from app.exceptions.business import ServiceError
+from app.exceptions.database import RecordNotFoundError
 from app.exceptions.external_api import YahooFinanceError
 from app.exceptions.validation import FieldValidationError
+from app.repositories.stock_data_repository import (
+    StockData1dRepository,
+    StockData1hRepository,
+    StockData1moRepository,
+    StockData1mRepository,
+    StockData1wkRepository,
+    StockData5mRepository,
+    StockData15mRepository,
+    StockData30mRepository,
+)
 from app.schemas.stock_data import StockPriceCreate
 from app.services.market_data.stock_price.converter import StockPriceConverter
 from app.services.market_data.stock_price.fetcher import StockPriceFetcher
@@ -34,15 +37,23 @@ from app.services.market_data.stock_price.saver import StockPriceSaver
 from app.services.market_data.stock_price.validator import StockPriceValidator
 from app.utils.logger import get_logger
 
+# 時間軸とリポジトリのマッピング（DB読み取り用）
+TIMEFRAME_REPOSITORY_MAP = {
+    "1m": StockData1mRepository,
+    "5m": StockData5mRepository,
+    "15m": StockData15mRepository,
+    "30m": StockData30mRepository,
+    "1h": StockData1hRepository,
+    "1d": StockData1dRepository,
+    "1wk": StockData1wkRepository,
+    "1mo": StockData1moRepository,
+}
+
 logger = get_logger(__name__)
 
 if TYPE_CHECKING:
-    from app.services.batch.batch_execution_service import (
-        BatchExecutionService,
-    )
-    from app.services.market_data.stock_master.service import (
-        StockMasterService,
-    )
+    from app.services.batch.batch_execution_service import BatchExecutionService
+    from app.services.market_data.stock_master.service import StockMasterService
 
 
 class StockDataWrapper(NamedTuple):
@@ -105,7 +116,6 @@ class StockPriceService:
         saver: 株価データ保存クラス
         converter: データ変換クラス
         validator: データ検証クラス
-        max_concurrent: 最大並列処理数
     """
 
     def __init__(
@@ -115,7 +125,6 @@ class StockPriceService:
         converter: StockPriceConverter,
         validator: StockPriceValidator,
         batch_service: "BatchExecutionService",
-        max_concurrent: int = 5,
         stock_master_service: Optional["StockMasterService"] = None,
     ):
         """
@@ -126,167 +135,26 @@ class StockPriceService:
             saver: StockPriceSaverインスタンス
             converter: StockPriceConverterインスタンス
             validator: StockPriceValidatorインスタンス
-            max_concurrent: 最大並列処理数
         """
         # バッチ実行管理サービスは必須（Noneは許容しない）
         if batch_service is None:
-            raise FieldValidationError(
-                message="batch_service is required and cannot be None"
-            )
+            raise FieldValidationError(message="batch_service is required and cannot be None")
 
         self.fetcher = fetcher
         self.saver = saver
         self.converter = converter
         self.validator = validator
-        self.max_concurrent = max_concurrent
-        self._semaphore = asyncio.Semaphore(max_concurrent)
         self.stock_master_service = stock_master_service
         self.batch_service = batch_service
 
-    async def fetch_and_save_single(
-        self,
-        symbol: str,
-        timeframe: str,
-    ) -> StockPriceServiceResult:
-        """
-        単一銘柄の株価データを取得・変換・検証・保存
-
-        Args:
-            symbol: 銘柄コード
-            timeframe: タイムフレーム
-
-        Returns:
-            StockPriceServiceResult: 処理結果
-        """
-        logger.info(
-            "Starting single stock data fetch and save: %s, %s",
-            symbol,
-            timeframe,
-        )
-
-        try:
-            # 1. データ取得
-            stock_data_list = await self.fetcher.fetch_single(
-                symbol=symbol,
-                timeframe=timeframe,
-            )
-
-            if not stock_data_list:
-                return StockPriceServiceResult(
-                    success=True,
-                    symbol=symbol,
-                    timeframe=timeframe,
-                    records_processed=0,
-                    records_saved=0,
-                    warnings=["No data was retrieved"],
-                )
-
-            records_processed = len(stock_data_list)
-
-            pydantic_data = stock_data_list
-
-            # 3. データ検証
-            validation_results = []
-            for item in pydantic_data:
-                result = self.validator.validate(item)
-                validation_results.append(result)
-                if not result.is_valid:
-                    logger.warning(
-                        "Validation failed for %s: %s",
-                        symbol,
-                        result.errors,
-                    )
-
-            # 検証失敗のデータを除外
-            valid_data = [
-                data
-                for data, result in zip(pydantic_data, validation_results)
-                if result.is_valid
-            ]
-
-            if not valid_data:
-                return StockPriceServiceResult(
-                    success=False,
-                    symbol=symbol,
-                    timeframe=timeframe,
-                    records_processed=records_processed,
-                    records_saved=0,
-                    errors=["All data failed validation"],
-                )
-
-            # 4. データ保存
-            # Pydanticモデルのフィールド名 (trade_date, open_price, ...) を
-            # Saver が期待する DB 形式 (timestamp, open, ...) にマッピングして渡す
-            # Pydanticモデル -> Saverが期待する辞書形式へ変換
-            try:
-                records = self.converter.to_saver_records(
-                    cast(List[StockPriceCreate], valid_data)
-                )
-            except Exception as e:
-                logger.exception("Failed to convert records for saving")
-                return StockPriceServiceResult(
-                    success=False,
-                    symbol=symbol,
-                    timeframe=timeframe,
-                    records_processed=records_processed,
-                    records_saved=0,
-                    errors=[f"Conversion error: {e}"],
-                )
-
-            payload = [
-                {"symbol": symbol, "timeframe": timeframe, "records": records}
-            ]
-            saved_count = await self.saver.save_batch(payload)
-
-            logger.info(
-                "Successfully processed %s: %d/%d records saved",
-                symbol,
-                saved_count,
-                records_processed,
-            )
-
-            return StockPriceServiceResult(
-                success=True,
-                symbol=symbol,
-                timeframe=timeframe,
-                records_processed=records_processed,
-                records_saved=saved_count,
-            )
-
-        except YahooFinanceError as e:
-            logger.error("Yahoo Finance error for %s: %s", symbol, e)
-            return StockPriceServiceResult(
-                success=False,
-                symbol=symbol,
-                timeframe=timeframe,
-                errors=[f"Yahoo Finance API error: {str(e)}"],
-            )
-
-        except StockDataValidationError as e:
-            logger.error("Validation error for %s: %s", symbol, e)
-            return StockPriceServiceResult(
-                success=False,
-                symbol=symbol,
-                timeframe=timeframe,
-                errors=[f"Data validation error: {str(e)}"],
-            )
-
-        except Exception as e:
-            logger.exception("Unexpected error processing %s", symbol)
-            return StockPriceServiceResult(
-                success=False,
-                symbol=symbol,
-                timeframe=timeframe,
-                errors=[f"Unexpected error: {str(e)}"],
-            )
-
-    async def fetch_and_save_multiple(
+    async def fetch_and_save(
         self,
         symbols: List[str],
         timeframe: str,
+        period: Optional[str] = None,
     ) -> List[StockPriceServiceResult]:
         """
-        複数銘柄の株価データを並列で取得・保存
+        複数銘柄の株価データを順次で取得・保存
 
         Args:
             symbols: 銘柄コードリスト
@@ -301,33 +169,157 @@ class StockPriceService:
             timeframe,
         )
 
-        async def process_symbol(symbol: str) -> StockPriceServiceResult:
-            async with self._semaphore:
-                return await self.fetch_and_save_single(
-                    symbol=symbol,
-                    timeframe=timeframe,
+        async def process_symbols(symbols_list: List[str]) -> List[StockPriceServiceResult]:
+            # 複数銘柄を一括で処理する（fetch_batch を有効活用）
+            logger.info(
+                "Starting batch stock data fetch and save: %d symbols, %s",
+                len(symbols_list),
+                timeframe,
+            )
+
+            results: List[StockPriceServiceResult] = []
+
+            try:
+                # 一度にまとめて取得
+                batch_results = await self.fetcher.fetch_batch(
+                    symbols=symbols_list, timeframe=timeframe, period=period
                 )
 
-        # 並列処理
-        tasks = [process_symbol(symbol) for symbol in symbols]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+                for symbol in symbols_list:
+                    try:
+                        stock_data_list = batch_results.get(symbol, [])
 
-        # 例外処理
-        processed_results = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                symbol = symbols[i]
-                logger.error("Exception processing %s: %s", symbol, result)
-                processed_results.append(
+                        if not stock_data_list:
+                            results.append(
+                                StockPriceServiceResult(
+                                    success=True,
+                                    symbol=symbol,
+                                    timeframe=timeframe,
+                                    records_processed=0,
+                                    records_saved=0,
+                                    warnings=["No data was retrieved"],
+                                )
+                            )
+                            continue
+
+                        records_processed = len(stock_data_list)
+                        pydantic_data = stock_data_list
+
+                        # 簡易検証: 現状バリデータは未作成のため、受け取ったデータをそのまま有効とみなす
+                        valid_data = pydantic_data
+
+                        try:
+                            records = self.converter.to_saver_records(
+                                cast(List[StockPriceCreate], valid_data)
+                            )
+                        except Exception as e:
+                            logger.exception("Failed to convert records for saving")
+                            results.append(
+                                StockPriceServiceResult(
+                                    success=False,
+                                    symbol=symbol,
+                                    timeframe=timeframe,
+                                    records_processed=records_processed,
+                                    records_saved=0,
+                                    errors=[f"Conversion error: {e}"],
+                                )
+                            )
+                            continue
+
+                        payload = [
+                            {
+                                "symbol": symbol,
+                                "timeframe": timeframe,
+                                "records": records,
+                            }
+                        ]
+
+                        saved_count = await self.saver.save_batch(payload)
+
+                        logger.info(
+                            "Successfully processed %s: %d/%d records saved",
+                            symbol,
+                            saved_count,
+                            records_processed,
+                        )
+
+                        results.append(
+                            StockPriceServiceResult(
+                                success=True,
+                                symbol=symbol,
+                                timeframe=timeframe,
+                                records_processed=records_processed,
+                                records_saved=saved_count,
+                            )
+                        )
+
+                    except YahooFinanceError as e:
+                        logger.error("Yahoo Finance error for %s: %s", symbol, e)
+                        results.append(
+                            StockPriceServiceResult(
+                                success=False,
+                                symbol=symbol,
+                                timeframe=timeframe,
+                                errors=[f"Yahoo Finance API error: {str(e)}"],
+                            )
+                        )
+
+                    except Exception as e:
+                        logger.exception("Unexpected error processing %s", symbol)
+                        results.append(
+                            StockPriceServiceResult(
+                                success=False,
+                                symbol=symbol,
+                                timeframe=timeframe,
+                                errors=[f"Unexpected error: {str(e)}"],
+                            )
+                        )
+
+                # ここまでで全銘柄分の upsert はセッション上に積まれている。
+                # 一度だけコミットして確定する（失敗時はロールバックして結果を失敗にする）。
+                try:
+                    await self.saver.session.commit()
+                except Exception as commit_err:
+                    logger.exception("Commit failed for batch: %s", commit_err)
+                    try:
+                        await self.saver.session.rollback()
+                    except Exception:
+                        logger.exception("Rollback after commit failure also failed")
+                    # コミット失敗はすべての成功結果を失敗に変換する
+                    failed_results: List[StockPriceServiceResult] = []
+                    for res in results:
+                        if res.success and res.records_saved > 0:
+                            failed_results.append(
+                                StockPriceServiceResult(
+                                    success=False,
+                                    symbol=res.symbol,
+                                    timeframe=res.timeframe,
+                                    records_processed=res.records_processed,
+                                    records_saved=0,
+                                    errors=[f"Commit failed: {commit_err}"],
+                                )
+                            )
+                        else:
+                            failed_results.append(res)
+                    return failed_results
+
+                return results
+
+            except Exception:
+                # 全体のフェッチ失敗など重大エラーは各銘柄失敗として記録
+                logger.exception("Batch fetch failed for symbols: %s", symbols_list)
+                return [
                     StockPriceServiceResult(
                         success=False,
                         symbol=symbol,
                         timeframe=timeframe,
-                        errors=["Exception occurred during processing"],
+                        errors=["Batch fetch failed"],
                     )
-                )
-            else:
-                processed_results.append(cast(StockPriceServiceResult, result))
+                    for symbol in symbols_list
+                ]
+
+        # 一括処理（fetch_batch を一度だけ呼ぶ）
+        processed_results = await process_symbols(symbols)
 
         # 集計ログ
         successful = sum(1 for r in processed_results if r.success)
@@ -344,13 +336,13 @@ class StockPriceService:
 
         return processed_results
 
-    async def fetch_all_jpx_stocks(
+    async def fetch_and_save_for_all_jpx(
         self,
         timeframe: str,
         market: Optional[str] = None,
-        max_concurrent: int = 20,
         batch_size: int = 100,
         progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        period: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         JPX全銘柄を対象に一括で株価データを収集する
@@ -358,7 +350,6 @@ class StockPriceService:
         Args:
             timeframe: タイムフレーム
             market: 市場フィルタ（省略可）
-            max_concurrent: 並列実行数（セマフォ）
             batch_size: バッチ内の銘柄数
             progress_callback: 進捗コールバック（辞書を受け取る）
 
@@ -367,19 +358,14 @@ class StockPriceService:
         """
         if not self.stock_master_service:
             raise ServiceError(
-                message=(
-                    "StockMasterService is required for "
-                    "fetch_all_jpx_stocks"
-                )
+                message=("StockMasterService is required for " "fetch_and_save_for_all_jpx")
             )
 
         start_time = perf_counter()
 
         # 銘柄リスト取得
         if market:
-            symbols = await self.stock_master_service.get_symbols_by_market(
-                market
-            )
+            symbols = await self.stock_master_service.get_symbols_by_market(market)
         else:
             symbols = await self.stock_master_service.get_all_active_symbols()
 
@@ -391,9 +377,7 @@ class StockPriceService:
         # ローカル import: `batch_execution_service` 側が `StockPriceService` を
         # 参照している可能性があり、トップレベルで import すると循環参照が
         # 発生するため関数内で遅延 import しています。
-        from app.services.batch.batch_execution_service import (
-            BatchExecutionContext,
-        )
+        from app.services.batch.batch_execution_service import BatchExecutionContext
 
         async with BatchExecutionContext(
             self.batch_service,
@@ -404,75 +388,61 @@ class StockPriceService:
             for i in range(0, total, batch_size):
                 batch = symbols[i : i + batch_size]
 
-                sem = asyncio.Semaphore(max_concurrent)
-
-                async def _process(symbol: str, sem=sem):
+                # 順次処理（並列は行わない）
+                for s in batch:
                     try:
-                        async with sem:
-                            result = await self.fetch_and_save_single(
-                                symbol=symbol,
+                        results = await self.fetch_and_save([s], timeframe=timeframe, period=period)
+                        res = (
+                            results[0]
+                            if results
+                            else StockPriceServiceResult(
+                                success=True,
+                                symbol=s,
                                 timeframe=timeframe,
+                                records_processed=0,
+                                records_saved=0,
+                                warnings=["No data was retrieved"],
                             )
-                            return result
+                        )
                     except Exception as exc:
-                        return StockPriceServiceResult(
+                        res = StockPriceServiceResult(
                             success=False,
-                            symbol=symbol,
+                            symbol=s,
                             timeframe=timeframe,
                             errors=[str(exc)],
                         )
 
-                tasks = [_process(s) for s in batch]
-                # 並列実行して結果を収集
-                batch_results = await asyncio.gather(
-                    *tasks, return_exceptions=True
-                )
-
-                # gather 後に集計して競合状態を回避
-                for res in batch_results:
-                    if isinstance(res, Exception):
-                        failed += 1
-                        errors.append(
-                            {"symbol": "unknown", "errors": [str(res)]}
-                        )
+                    # 集計
+                    if res.success:
+                        success += 1
                     else:
-                        # 型は StockPriceServiceResult に絞る
-                        result = cast(StockPriceServiceResult, res)
-                        if result.success:
-                            success += 1
-                        else:
-                            failed += 1
-                            errors.append(
-                                {
-                                    "symbol": result.symbol,
-                                    "errors": result.errors,
-                                }
-                            )
+                        failed += 1
+                        errors.append({"symbol": res.symbol, "errors": res.errors})
 
-                # 進捗通知
-                if progress_callback:
-                    try:
-                        progress_callback(
-                            {
-                                "total": total,
-                                "processed": success + failed,
-                                "success": success,
-                                "failed": failed,
-                            }
-                        )
-                    except Exception:
-                        logger.exception("Progress callback failed")
-
-                # バッチサービスへ進捗を保存
+            # 進捗通知
+            if progress_callback:
                 try:
-                    await ctx.update_progress(
-                        processed=success + failed,
-                        total=total,
-                        success=success,
-                        failed=failed,
+                    progress_callback(
+                        {
+                            "total": total,
+                            "processed": success + failed,
+                            "success": success,
+                            "failed": failed,
+                        }
                     )
                 except Exception:
-                    logger.exception("Failed to update batch progress")
+                    logger.exception("Progress callback failed")
+
+            # バッチサービスへ進捗を保存
+            try:
+                await ctx.update_progress(
+                    processed=success + failed,
+                    total=total,
+                    success=success,
+                    failed=failed,
+                )
+            except Exception:
+                logger.exception("Failed to update batch progress")
 
         elapsed = perf_counter() - start_time
 
@@ -488,6 +458,7 @@ class StockPriceService:
         self,
         symbol: str,
         timeframe: str,
+        period: Optional[str] = None,
     ) -> Optional[StockDataWrapper]:
         """
         株価データを取得（読み取り専用）
@@ -506,23 +477,106 @@ class StockPriceService:
         )
 
         try:
-            stock_data_list = await self.fetcher.fetch_single(
-                symbol=symbol,
-                timeframe=timeframe,
+            ##########################################################
+            # フェッチ: 読み取り専用のデータ取得（get_stock_data）
+            # 単一銘柄でも一括取得インターフェースを利用する
+            ##########################################################
+            batch_results = await self.fetcher.fetch_batch(
+                symbols=[symbol], timeframe=timeframe, period=period
             )
+            stock_data_list = batch_results.get(symbol, [])
 
             # List[StockData] を DataFrame に変換して返す
             if stock_data_list:
-                df = pd.DataFrame(
-                    [item.model_dump() for item in stock_data_list]
-                )
+                df = pd.DataFrame([item.model_dump() for item in stock_data_list])
 
-                return StockDataWrapper(
-                    symbol=symbol, timeframe=timeframe, data=df
-                )
+                return StockDataWrapper(symbol=symbol, timeframe=timeframe, data=df)
             else:
                 return None
 
         except Exception:
             logger.exception("Error fetching stock data for %s", symbol)
             return None
+
+    async def get_stock_data_from_db(
+        self,
+        db: AsyncSession,
+        symbol: str,
+        timeframe: str,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
+        """DBから株価データを取得して辞書リストで返す。
+
+        Args:
+            db: AsyncSession
+            symbol: 銘柄コード
+            timeframe: 時間軸
+            start: 開始日時
+            end: 終了日時
+            limit: 取得上限
+            offset: オフセット
+
+        Returns:
+            List[Dict[str, Any]]: レコード辞書のリスト（timestamp を含む場合あり）
+
+        Raises:
+            FieldValidationError: timeframe が無効な場合
+            RecordNotFoundError: データが見つからない場合
+        """
+        repo_class = TIMEFRAME_REPOSITORY_MAP.get(timeframe)
+        if not repo_class:
+            raise FieldValidationError(message=f"Invalid timeframe: {timeframe}")
+
+        repo = repo_class(session=db)  # type: ignore[abstract]
+
+        results = await repo.get_by_symbol_and_range(
+            symbol=symbol, start=start, end=end, limit=limit, offset=offset
+        )
+
+        if not results:
+            raise RecordNotFoundError(message=f"No data found for symbol '{symbol}'")
+
+        rows: List[Dict[str, Any]] = []
+        for row in results:
+            d: Dict[str, Any] = {
+                "symbol": row.symbol,
+                "open": float(row.open),
+                "high": float(row.high),
+                "low": float(row.low),
+                "close": float(row.close),
+                "volume": row.volume,
+            }
+            if hasattr(row, "adj_close") and row.adj_close is not None:
+                d["adj_close"] = float(row.adj_close)
+            if hasattr(row, "timestamp"):
+                d["timestamp"] = row.timestamp
+            rows.append(d)
+
+        return rows
+
+    async def delete_all_for_timeframe(self, db: AsyncSession, timeframe: str) -> int:
+        """指定時間軸の全データを削除して削除件数を返す。
+
+        Args:
+            db: AsyncSession
+            timeframe: 時間軸
+
+        Returns:
+            int: 削除件数
+        """
+        repo_class = TIMEFRAME_REPOSITORY_MAP.get(timeframe)
+        if not repo_class:
+            raise FieldValidationError(message=f"Invalid timeframe: {timeframe}")
+
+        repo = repo_class(session=db)  # type: ignore[abstract]
+
+        try:
+            deleted_count = await repo.delete_all()
+            await db.commit()
+            return deleted_count
+        except Exception as e:
+            await db.rollback()
+            raise ServiceError(message=f"Failed to delete data: {e}") from e

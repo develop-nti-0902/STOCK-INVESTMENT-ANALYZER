@@ -3,42 +3,22 @@
 データベースに格納されている株価データを取得するエンドポイント群を提供します。
 """
 
-from datetime import date, datetime
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Path, Query
 from fastapi import status as http_status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.dependencies.services import get_stock_price_service
 from app.exceptions.business import ServiceError
 from app.exceptions.database import RecordNotFoundError
 from app.exceptions.validation import FieldValidationError
-from app.repositories.stock_data_repository import (
-    StockData1dRepository,
-    StockData1hRepository,
-    StockData1moRepository,
-    StockData1mRepository,
-    StockData1wkRepository,
-    StockData5mRepository,
-    StockData15mRepository,
-    StockData30mRepository,
-)
+from app.services.market_data.stock_price.service import StockPriceService
 from app.utils.database import get_db
 
 router = APIRouter(tags=["stock-price"])
-
-# 時間軸とリポジトリのマッピング
-TIMEFRAME_REPOSITORY_MAP = {
-    "1m": StockData1mRepository,
-    "5m": StockData5mRepository,
-    "15m": StockData15mRepository,
-    "30m": StockData30mRepository,
-    "1h": StockData1hRepository,
-    "1d": StockData1dRepository,
-    "1wk": StockData1wkRepository,
-    "1mo": StockData1moRepository,
-}
 
 
 class StockPriceData(BaseModel):
@@ -47,7 +27,6 @@ class StockPriceData(BaseModel):
     Attributes:
         symbol (str): 銘柄コード
         timestamp (Optional[datetime]): タイムスタンプ
-        trade_date (Optional[date]): 取引日
         open (float): 始値
         high (float): 高値
         low (float): 安値
@@ -58,7 +37,6 @@ class StockPriceData(BaseModel):
 
     symbol: str
     timestamp: Optional[datetime] = None
-    trade_date: Optional[date] = None
     open: float
     high: float
     low: float
@@ -97,6 +75,55 @@ class DeleteAllResponse(BaseModel):
     deleted_count: int
 
 
+class FetchRequest(BaseModel):
+    """フェッチ＆保存リクエスト"""
+
+    symbols: List[str]
+    timeframe: str = Field(
+        ...,
+        description="Timeframe (1m, 5m, 15m, 30m, 1h, 1d, 1wk, 1mo)",
+        pattern="^(1m|5m|15m|30m|1h|1d|1wk|1mo)$",
+    )
+    period: Optional[str] = None
+
+
+class FetchResultItem(BaseModel):
+    symbol: str
+    timeframe: str
+    success: bool
+    records_processed: int
+    records_saved: int
+    errors: List[str] = []
+    warnings: List[str] = []
+
+
+class FetchResponse(BaseModel):
+    results: List[FetchResultItem]
+
+
+class BatchRequest(BaseModel):
+    """JPX全銘柄一括取得リクエスト"""
+
+    timeframe: str = Field(
+        ...,
+        description="Timeframe (1m, 5m, 15m, 30m, 1h, 1d, 1wk, 1mo)",
+        pattern="^(1m|5m|15m|30m|1h|1d|1wk|1mo)$",
+    )
+    market: Optional[str] = None
+    batch_size: int = 100
+    period: Optional[str] = None
+
+
+class BatchResponse(BaseModel):
+    """バッチ実行サマリレスポンス"""
+
+    total: int
+    success: int
+    failed: int
+    errors: List[dict]
+    elapsed_time: float
+
+
 @router.get(
     "/{symbol}/{timeframe}",
     response_model=StockPriceListResponse,
@@ -111,15 +138,11 @@ async def get_stock_price_data(
     ),
     start: Optional[str] = Query(
         None,
-        description=(
-            "Start datetime (ISO format: YYYY-MM-DD or " "YYYY-MM-DDTHH:MM:SS)"
-        ),
+        description=("Start datetime (ISO format: YYYY-MM-DD or " "YYYY-MM-DDTHH:MM:SS)"),
     ),
     end: Optional[str] = Query(
         None,
-        description=(
-            "End datetime (ISO format: YYYY-MM-DD or " "YYYY-MM-DDTHH:MM:SS)"
-        ),
+        description=("End datetime (ISO format: YYYY-MM-DD or " "YYYY-MM-DDTHH:MM:SS)"),
     ),
     limit: int = Query(
         1000,
@@ -128,6 +151,7 @@ async def get_stock_price_data(
         description="Maximum number of records to retrieve",
     ),
     offset: int = Query(0, ge=0, description="Offset"),
+    service: StockPriceService = Depends(get_stock_price_service),
     db: AsyncSession = Depends(get_db),
 ):
     # pylint: disable=too-many-arguments,too-many-positional-arguments
@@ -148,15 +172,6 @@ async def get_stock_price_data(
     Returns:
         StockPriceListResponse: 株価データリスト
     """
-    # 時間軸に対応するリポジトリを取得
-    repo_class = TIMEFRAME_REPOSITORY_MAP.get(timeframe)
-    if not repo_class:
-        raise FieldValidationError(
-            message=f"Invalid timeframe: {timeframe}",
-        )
-
-    repo = repo_class(session=db)  # type: ignore[abstract]
-
     # 日時パラメータのパース
     start_dt: Optional[datetime] = None
     end_dt: Optional[datetime] = None
@@ -184,43 +199,17 @@ async def get_stock_price_data(
                 ) from None
 
     try:
-        # データ取得
-        results = await repo.get_by_symbol_and_range(
+        rows = await service.get_stock_data_from_db(
+            db=db,
             symbol=symbol,
+            timeframe=timeframe,
             start=start_dt,
             end=end_dt,
             limit=limit,
             offset=offset,
         )
 
-        if not results:
-            raise RecordNotFoundError(
-                message=f"No data found for symbol '{symbol}'"
-            )
-
-        # レスポンスデータの構築
-        data_list = []
-        for row in results:
-            data_dict = {
-                "symbol": row.symbol,
-                "open": float(row.open),
-                "high": float(row.high),
-                "low": float(row.low),
-                "close": float(row.close),
-                "volume": row.volume,
-            }
-
-            # adj_closeがあれば追加
-            if hasattr(row, "adj_close") and row.adj_close is not None:
-                data_dict["adj_close"] = float(row.adj_close)
-
-            # timestamp or trade_date
-            if hasattr(row, "timestamp"):
-                data_dict["timestamp"] = row.timestamp
-            if hasattr(row, "trade_date"):
-                data_dict["trade_date"] = row.trade_date
-
-            data_list.append(StockPriceData(**data_dict))
+        data_list = [StockPriceData(**r) for r in rows]
 
         return StockPriceListResponse(
             symbol=symbol,
@@ -228,13 +217,73 @@ async def get_stock_price_data(
             data=data_list,
             count=len(data_list),
         )
-
     except (FieldValidationError, RecordNotFoundError):
         raise
     except Exception as e:
         raise ServiceError(
             message=f"Failed to fetch data: {str(e)}",
         ) from e
+
+
+@router.post(
+    "/fetch",
+    response_model=FetchResponse,
+    status_code=http_status.HTTP_200_OK,
+)
+async def fetch_and_save_stock_price(
+    req: FetchRequest,
+    service: StockPriceService = Depends(get_stock_price_service),
+):
+    """指定銘柄リストの株価データを取得して保存する（fetch_and_save を呼ぶ）。"""
+    try:
+        results = await service.fetch_and_save(
+            symbols=req.symbols, timeframe=req.timeframe, period=req.period
+        )
+
+        items = [
+            FetchResultItem(
+                symbol=r.symbol,
+                timeframe=r.timeframe,
+                success=r.success,
+                records_processed=r.records_processed,
+                records_saved=r.records_saved,
+                errors=r.errors or [],
+                warnings=r.warnings or [],
+            )
+            for r in results
+        ]
+
+        return FetchResponse(results=items)
+
+    except Exception as e:
+        raise ServiceError(message=f"Failed to fetch and save data: {str(e)}") from e
+
+
+@router.post(
+    "/batch",
+    response_model=BatchResponse,
+    status_code=http_status.HTTP_200_OK,
+)
+async def execute_jpx_batch(
+    req: BatchRequest,
+    service: StockPriceService = Depends(get_stock_price_service),
+):
+    """JPX 全銘柄を対象に指定時間軸で一括取得・保存を実行します."""
+    try:
+        summary = await service.fetch_and_save_for_all_jpx(
+            timeframe=req.timeframe, market=req.market, batch_size=req.batch_size, period=req.period
+        )
+
+        # 明示的に型を合わせて返す
+        return BatchResponse(
+            total=int(summary.get("total", 0)),
+            success=int(summary.get("success", 0)),
+            failed=int(summary.get("failed", 0)),
+            errors=summary.get("errors", []),
+            elapsed_time=float(summary.get("elapsed_time", 0.0)),
+        )
+    except Exception as e:
+        raise ServiceError(message=f"Failed to execute JPX batch: {str(e)}") from e
 
 
 @router.delete(
@@ -248,6 +297,7 @@ async def delete_all_stock_price_data(
         description="Timeframe (1m, 5m, 15m, 30m, 1h, 1d, 1wk, 1mo)",
         pattern="^(1m|5m|15m|30m|1h|1d|1wk|1mo)$",
     ),
+    service: StockPriceService = Depends(get_stock_price_service),
     db: AsyncSession = Depends(get_db),
 ):
     """指定時間軸の全株価データを削除.
@@ -261,30 +311,17 @@ async def delete_all_stock_price_data(
     Returns:
         DeleteAllResponse: 削除結果
     """
-    # 時間軸に対応するリポジトリを取得
-    repo_class = TIMEFRAME_REPOSITORY_MAP.get(timeframe)
-    if not repo_class:
-        raise FieldValidationError(
-            message=f"Invalid timeframe: {timeframe}",
-        )
-
-    repo = repo_class(session=db)  # type: ignore[abstract]
-
     try:
-        # 全データ削除
-        deleted_count = await repo.delete_all()
-        await db.commit()
+        deleted_count = await service.delete_all_for_timeframe(db=db, timeframe=timeframe)
 
         return DeleteAllResponse(
             message=f"Successfully deleted all data for {timeframe}",
             timeframe=timeframe,
             deleted_count=deleted_count,
         )
-
     except FieldValidationError:
         raise
     except Exception as e:
-        await db.rollback()
         raise ServiceError(
             message=f"Failed to delete data: {str(e)}",
         ) from e

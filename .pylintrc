@@ -17,7 +17,7 @@ max-args=6
 max-positional-arguments=6
 
 [FORMAT]
-max-line-length=79
+max-line-length=100
 
 [BASIC]
 good-names=i,j,k,ex,Run,_,pk

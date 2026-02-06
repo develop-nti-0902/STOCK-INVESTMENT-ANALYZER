@@ -29,6 +29,8 @@ const userRegisterBtn = document.getElementById('user-register-btn');
 const userLoginBtn = document.getElementById('user-login-btn');
 const userProfileBtn = document.getElementById('user-profile-btn');
 const userLogoutBtn = document.getElementById('user-logout-btn');
+const symbolsInput = document.getElementById('symbols-input');
+const symbolsGroup = document.getElementById('symbols-group');
 
 /**
  * ステータスメッセージを表示
@@ -247,16 +249,20 @@ async function executeBatch() {
             // 最新銘柄ビュー更新
             url = `${API_BASE_URL}/views/refresh-latest-stocks`;
             method = 'POST';
-        } else if (batchType === 'refresh_sample') {
+        } else if (batchType === 'fetch_sample') {
             // 銘柄マスタ更新（サンプル）
             const batchSize = batchSizeSelect.value;
             const sampleSize = sampleSizeInput ? parseInt(sampleSizeInput.value, 10) : 100;
-            url = `${API_BASE_URL}/stock-master/refresh/sample?sample_size=${sampleSize}&batch_size=${batchSize}`;
+            url = `${API_BASE_URL}/stock-master/fetch/sample?sample_size=${sampleSize}&batch_size=${batchSize}`;
             method = 'POST';
-        } else if (batchType === 'refresh') {
+        } else if (batchType === 'fetch') {
             // 銘柄マスタ更新
             const batchSize = batchSizeSelect.value;
-            url = `${API_BASE_URL}/stock-master/refresh?batch_size=${batchSize}`;
+            url = `${API_BASE_URL}/stock-master/fetch?batch_size=${batchSize}`;
+            method = 'POST';
+        } else if (batchType === 'stock_price_fetch') {
+            // 個別銘柄の fetch (API: POST /stock-price/fetch)
+            url = `${API_BASE_URL}/stock-price/fetch`;
             method = 'POST';
         } else if (batchType === 'reset') {
             // 銘柄マスタリセット
@@ -266,6 +272,12 @@ async function executeBatch() {
             // JPX 全銘柄取得（マルチ）API
             url = `${API_BASE_URL}/batch/stock-data/jpx-all/multi`;
             method = 'POST';
+        } else if (batchType === 'jpx_all') {
+            // JPX 全銘柄取得（BATCH） - 新規 UI から呼び出す
+            const batchSize = batchSizeSelect ? parseInt(batchSizeSelect.value, 10) : 100;
+            url = `${API_BASE_URL}/stock-price/BATCH`;
+            method = 'POST';
+            fetchOptions.body = JSON.stringify({ timeframe: timeframe, batch_size: batchSize });
         } else if (batchType === 'jpx_all_multi_sequence') {
             // JPX バッチ連続実行 API
             url = `${API_BASE_URL}/batch/stock-data/jpx-all/multi/run_sequence`;
@@ -287,6 +299,23 @@ async function executeBatch() {
             const listBatchSize = listBatchSizeInput ? parseInt(listBatchSizeInput.value, 10) : 50;
             const payload = { timeframe: timeframe, list_batch_size: listBatchSize };
             fetchOptions.body = JSON.stringify(payload);
+        } else if (batchType === 'jpx_all') {
+            // body は上で設定済み
+        } else if (batchType === 'stock_price_fetch') {
+        } else if (batchType === 'stock_price_fetch') {
+            const raw = symbolsInput ? symbolsInput.value : '';
+            const symbols = raw
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean);
+
+            if (!symbols.length) {
+                showStatus('銘柄を1つ以上指定してください（例: 7203,6758）', 'warning');
+                return;
+            }
+
+            const payload = { symbols: symbols, timeframe: timeframe };
+            fetchOptions.body = JSON.stringify(payload);
         } else if (batchType === 'jpx_all_multi_sequence') {
             const listBatchSize = listBatchSizeInput ? parseInt(listBatchSizeInput.value, 10) : 50;
             const payload = { batch_size: listBatchSize };
@@ -301,9 +330,16 @@ async function executeBatch() {
             if (result.job_id) {
                 showStatus(`${result.message || 'ジョブ登録済み'} (job_id: ${result.job_id})`, 'success');
             } else {
-                const count = result.updated_count || result.deleted_count || 0;
-                const action = batchType === 'refresh' ? '更新' : '削除';
-                showStatus(`${result.message || 'バッチ実行完了'} (${action}件数: ${count})`, 'success');
+                // stock_price_fetch は結果配列を返す
+                if (batchType === 'stock_price_fetch' && result.results) {
+                    const succ = result.results.filter(r => r.success).length;
+                    const total = result.results.length;
+                    showStatus(`fetch 完了: ${succ}/${total} 成功`, 'success');
+                } else {
+                    const count = result.updated_count || result.deleted_count || 0;
+                    const action = batchType === 'fetch' ? '更新' : '削除';
+                    showStatus(`${result.message || 'バッチ実行完了'} (${action}件数: ${count})`, 'success');
+                }
             }
         } else {
             showStatus(`エラー: ${result.detail || result.message || '不明なエラー'}`, 'error');
@@ -384,17 +420,32 @@ async function loadBatchHistory() {
 function onBatchTypeChange() {
     const batchType = batchTypeSelect.value;
 
-    // refreshの場合はbatch_sizeを表示、refresh_sampleはbatch_sizeとsample_sizeを表示
-    if (batchType === 'refresh') {
+    // fetchの場合はbatch_sizeを表示、fetch_sampleはbatch_sizeとsample_sizeを表示
+    if (batchType === 'fetch') {
         batchSizeGroup.style.display = 'flex';
         if (sampleSizeGroup) sampleSizeGroup.style.display = 'none';
         if (timeframeGroup) timeframeGroup.style.display = 'none';
         if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'none';
-    } else if (batchType === 'refresh_sample') {
+        if (symbolsGroup) symbolsGroup.style.display = 'none';
+    } else if (batchType === 'stock_price_fetch') {
+        // 個別銘柄の fetch 用 UI を表示
+        batchSizeGroup.style.display = 'none';
+        if (sampleSizeGroup) sampleSizeGroup.style.display = 'none';
+        if (timeframeGroup) timeframeGroup.style.display = 'flex';
+        if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'none';
+        if (symbolsGroup) symbolsGroup.style.display = 'flex';
+    } else if (batchType === 'fetch_sample') {
         batchSizeGroup.style.display = 'flex';
         if (sampleSizeGroup) sampleSizeGroup.style.display = 'flex';
         if (timeframeGroup) timeframeGroup.style.display = 'none';
         if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'none';
+    } else if (batchType === 'jpx_all') {
+        // BATCH 実行用 UI
+        batchSizeGroup.style.display = 'flex';
+        if (sampleSizeGroup) sampleSizeGroup.style.display = 'none';
+        if (timeframeGroup) timeframeGroup.style.display = 'flex';
+        if (listBatchSizeGroup) listBatchSizeGroup.style.display = 'none';
+        if (symbolsGroup) symbolsGroup.style.display = 'none';
     } else if (batchType === 'jpx_all_multi') {
         batchSizeGroup.style.display = 'none';
         if (sampleSizeGroup) sampleSizeGroup.style.display = 'none';

@@ -1,264 +1,70 @@
-"""
-StockPriceValidator単体テスト
+"""`StockPriceValidator` の単体テスト。
 
-株価データ検証クラスの機能をテストします。
+本ファイルは既存テストをリセットし、現在の実装（バイパスして常に成功を返す）に合わせて
+シンプルで明確な単体テストを提供します。
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+
+import pytest
 
 from app.services.market_data.stock_price.validator import StockPriceValidator
 
 
-class TestStockPriceValidator:
-    """StockPriceValidatorのテストクラス"""
+@pytest.fixture
+def validator() -> StockPriceValidator:
+    return StockPriceValidator()
 
-    def setup_method(self):
-        """テスト前準備"""
-        self.validator = StockPriceValidator()
 
-    def test_validate_valid_data(self):
-        """有効なデータの検証"""
-        valid_data = {
-            "symbol": "7203.T",
-            "trade_date": datetime(2024, 1, 1, tzinfo=timezone.utc),
-            "open_price": 100.0,
-            "high": 105.0,
-            "low": 95.0,
-            "close": 102.0,
-            "volume": 1000000,
-            "adj_close": 102.0,
-        }
+def test_validate_returns_success_and_bypass_warning_for_dict(validator: StockPriceValidator):
+    """辞書データを与えた場合にバイパス警告を含む成功を返す"""
+    data = {
+        "symbol": "7203.T",
+        "timestamp": datetime(2024, 1, 1, tzinfo=timezone.utc),
+        "open_price": 100.0,
+        "high": 105.0,
+        "low": 95.0,
+        "close": 102.0,
+        "adj_close": 102.0,
+        "volume": 1000000,
+    }
 
-        result = self.validator.validate(valid_data)
+    result = validator.validate(data)
 
-        assert result.is_valid is True
-        assert len(result.errors) == 0
-        # バイパス実装のため警告が返る
-        assert any("Validation bypassed" in w for w in result.warnings)
+    assert result.is_valid is True
+    assert result.errors == []
+    assert any("Validation bypassed" in w for w in result.warnings)
 
-    def test_validate_missing_required_fields(self):
-        """必須フィールド欠損の検証"""
-        invalid_data = {
-            "symbol": "7203.T",
-            # trade_date が欠損
-            "open_price": 100.0,
-            "high": 105.0,
-            "low": 95.0,
-            "close": 102.0,
-            "volume": 1000000,
-        }
 
-        result = self.validator.validate(invalid_data)
+def test_validate_accepts_pydantic_model_and_returns_bypass(validator: StockPriceValidator):
+    """Pydanticモデルを与えた場合でもバイパスで成功を返す"""
+    from app.schemas.stock_data import StockPriceCreate
 
-        # バイパスのため常に成功する
-        assert result.is_valid is True
-        assert any("Validation bypassed" in w for w in result.warnings)
+    model = StockPriceCreate(
+        symbol="7203.T",
+        timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        open_price=100.0,
+        high=105.0,
+        low=95.0,
+        close=102.0,
+        adj_close=102.0,
+        volume=1000000,
+    )
 
-    def test_validate_invalid_symbol(self):
-        """無効な銘柄コードの検証"""
-        invalid_data = {
-            "symbol": "",  # 空文字列
-            "trade_date": datetime(2024, 1, 1, tzinfo=timezone.utc),
-            "open_price": 100.0,
-            "high": 105.0,
-            "low": 95.0,
-            "close": 102.0,
-            "volume": 1000000,
-        }
+    result = validator.validate(model)
 
-        result = self.validator.validate(invalid_data)
+    assert result.is_valid is True
+    assert result.errors == []
+    assert any("Validation bypassed" in w for w in result.warnings)
 
-        assert result.is_valid is True
-        assert any("Validation bypassed" in w for w in result.warnings)
 
-    def test_validate_invalid_trade_date(self):
-        """無効な取引日時の検証（未来日）"""
-        future_date = datetime(2030, 1, 1, tzinfo=timezone.utc)
-        invalid_data = {
-            "symbol": "7203.T",
-            "trade_date": future_date,  # 未来日
-            "open_price": 100.0,
-            "high": 105.0,
-            "low": 95.0,
-            "close": 102.0,
-            "volume": 1000000,
-        }
+@pytest.mark.parametrize("input_value", ["string", 123, None, [1, 2, 3]])
+def test_validate_handles_unsupported_types_and_still_bypasses(
+    validator: StockPriceValidator, input_value
+):
+    """サポート外の型でもバイパス実装により成功を返す"""
+    result = validator.validate(input_value)
 
-        result = self.validator.validate(invalid_data)
-
-        assert result.is_valid is True
-        assert any("Validation bypassed" in w for w in result.warnings)
-
-    def test_validate_negative_price(self):
-        """負の価格データの検証"""
-        invalid_data = {
-            "symbol": "7203.T",
-            "trade_date": datetime(2024, 1, 1, tzinfo=timezone.utc),
-            "open_price": -100.0,  # 負の価格
-            "high": 105.0,
-            "low": 95.0,
-            "close": 102.0,
-            "volume": 1000000,
-        }
-
-        result = self.validator.validate(invalid_data)
-
-        assert result.is_valid is True
-        assert any("Validation bypassed" in w for w in result.warnings)
-
-    def test_validate_negative_volume(self):
-        """負の出来高の検証"""
-        invalid_data = {
-            "symbol": "7203.T",
-            "trade_date": datetime(2024, 1, 1, tzinfo=timezone.utc),
-            "open_price": 100.0,
-            "high": 105.0,
-            "low": 95.0,
-            "close": 102.0,
-            "volume": -1000,  # 負の出来高
-        }
-
-        result = self.validator.validate(invalid_data)
-
-        assert result.is_valid is True
-        assert any("Validation bypassed" in w for w in result.warnings)
-
-    def test_validate_ohlc_integrity_violation(self):
-        """OHLC整合性違反の検証"""
-        invalid_data = {
-            "symbol": "7203.T",
-            "trade_date": datetime(2024, 1, 1, tzinfo=timezone.utc),
-            "open_price": 110.0,  # 高値より高い
-            "high": 105.0,
-            "low": 95.0,
-            "close": 102.0,
-            "volume": 1000000,
-        }
-
-        result = self.validator.validate(invalid_data)
-
-        assert result.is_valid is True
-        assert any("Validation bypassed" in w for w in result.warnings)
-
-    def test_validate_none_values_allowed(self):
-        """None値が許容されることの検証"""
-        data_with_none = {
-            "symbol": "7203.T",
-            "trade_date": datetime(2024, 1, 1, tzinfo=timezone.utc),
-            "open_price": None,
-            "high": None,
-            "low": None,
-            "close": None,
-            "volume": None,
-        }
-
-        result = self.validator.validate(data_with_none)
-
-        # None値は許容されるので、バイパスにより成功
-        assert result.is_valid is True
-        assert any("Validation bypassed" in w for w in result.warnings)
-
-    def test_validate_pydantic_model(self):
-        """Pydanticモデルの検証"""
-        from app.schemas.stock_data import StockPriceCreate
-
-        pydantic_data = StockPriceCreate(
-            symbol="7203.T",
-            trade_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
-            open_price=100.0,
-            high=105.0,
-            low=95.0,
-            close=102.0,
-            volume=1000000,
-        )
-
-        result = self.validator.validate(pydantic_data)
-
-        assert result.is_valid is True
-        assert any("Validation bypassed" in w for w in result.warnings)
-
-    def test_validate_unsupported_data_type(self):
-        """サポートされていないデータ型の検証"""
-        result = self.validator.validate("invalid_data")
-
-        # バイパス実装のため文字列などもTrueを返す
-        assert result.is_valid is True
-        assert any("Validation bypassed" in w for w in result.warnings)
-
-    def test_internal_validate_symbol(self):
-        """内部の _validate_symbol を直接テストする"""
-        # None -> required
-        errs = self.validator._validate_symbol(None)
-        assert "symbol is required" in errs
-
-        # empty string -> cannot be empty
-        errs = self.validator._validate_symbol("")
-        assert "symbol cannot be an empty string" in errs
-
-        # whitespace -> cannot be empty
-        errs = self.validator._validate_symbol("   ")
-        assert "symbol cannot be an empty string" in errs
-
-        # valid symbol -> no errors
-        errs = self.validator._validate_symbol("7203.T")
-        assert errs == []
-
-    def test_internal_validate_trade_date(self):
-        """内部の _validate_trade_date を直接テストする"""
-        # None -> required
-        errs = self.validator._validate_trade_date(None)
-        assert "trade_date is required" in errs
-
-        # future date (tz-aware)
-        future = datetime.now(timezone.utc) + timedelta(days=2)
-        errs = self.validator._validate_trade_date(future)
-        assert "trade_date cannot be in the future" in errs
-
-        # past date -> no errors
-        past = datetime(2020, 1, 1, tzinfo=timezone.utc)
-        errs = self.validator._validate_trade_date(past)
-        assert errs == []
-
-    def test_internal_validate_ohlc_data(self):
-        """内部の _validate_ohlc_data を直接テストする"""
-        # None values allowed
-        errs = self.validator._validate_ohlc_data(None, None, None, None)
-        assert errs == []
-
-        # open out of range
-        errs = self.validator._validate_ohlc_data(110.0, 105.0, 95.0, 102.0)
-        assert any("Open price must be within" in e for e in errs)
-
-        # close out of range
-        errs = self.validator._validate_ohlc_data(100.0, 105.0, 95.0, 110.0)
-        assert any("Close price must be within" in e for e in errs)
-
-        # valid OHLC
-        errs = self.validator._validate_ohlc_data(100.0, 105.0, 95.0, 102.0)
-        assert errs == []
-
-    def test_internal_validate_volume(self):
-        """内部の _validate_volume を直接テストする"""
-        # None allowed
-        errs = self.validator._validate_volume(None)
-        assert errs == []
-
-        # negative volume
-        errs = self.validator._validate_volume(-1)
-        assert any(
-            "volume must be greater than or equal to 0" in e for e in errs
-        )
-
-        # zero or positive
-        assert self.validator._validate_volume(0) == []
-        assert self.validator._validate_volume(100) == []
-
-    def test_internal_validate_numeric_range(self):
-        """内部の _validate_numeric_range を直接テストする"""
-        # price field negative -> error
-        errs = self.validator._validate_numeric_range("open_price", -5)
-        assert any("must be greater than or equal to 0" in e for e in errs)
-
-        # non-price field negative -> no error
-        errs = self.validator._validate_numeric_range("volume", -5)
-        assert errs == []
+    assert result.is_valid is True
+    assert result.errors == []
+    assert any("Validation bypassed" in w for w in result.warnings)

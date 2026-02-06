@@ -23,10 +23,12 @@
                     <div class="control-group">
                         <label for="batch-type">バッチ種別</label>
                         <select id="batch-type" class="form-control">
-                            <option value="refresh">銘柄マスタ更新 (refresh)</option>
+                            <option value="stock_price_fetch">株価データ取得 (個別銘柄 fetch)</option>
+                            <option value="fetch">銘柄マスタ取得 (fetch)</option>
                             <option value="refresh_view">最新銘柄ビュー更新 (refresh_view)</option>
-                            <option value="refresh_sample">銘柄マスタ更新（サンプル100件） (refresh_sample)</option>
+                            <option value="fetch_sample">銘柄マスタ取得（サンプル100件） (fetch_sample)</option>
                             <option value="jpx_all_multi">JPX 全銘柄取得（マルチ） (jpx_all_multi)</option>
+                            <option value="jpx_all">JPX 全銘柄取得（BATCH） (jpx_all)</option>
                             <option value="jpx_all_multi_sequence">JPX バッチ連続実行（1d→1m→1h） (jpx_all_multi_sequence)
                             </option>
                             <option value="reset">銘柄マスタリセット (reset)</option>
@@ -67,6 +69,14 @@
                         </select>
                         <small style="color: #6c757d; margin-top: 0.25rem; display: block;">
                             ※ JPX全銘柄取得のタイムフレームを選択
+                        </small>
+                    </div>
+
+                    <div id="symbols-group" class="control-group" style="display: none;">
+                        <label for="symbols-input">Symbols (カンマ区切り)</label>
+                        <input id="symbols-input" class="form-control" type="text" placeholder="例: 7203,6758,9984">
+                        <small style="color: #6c757d; margin-top: 0.25rem; display: block;">
+                            ※ 個別銘柄をカンマ区切りで指定して fetch を実行します
                         </small>
                     </div>
 
