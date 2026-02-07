@@ -1,33 +1,34 @@
-"""Unit tests for app.api.v1.auth endpoints."""
+"""認証関連エンドポイントの単体テスト."""
 
 from types import SimpleNamespace
 
 import pytest
 
 from app.api.v1 import auth as auth_module
-from app.exceptions.business import (
-    DuplicateEmailError,
-    InvalidCredentialsError,
-)
+from app.exceptions.business import DuplicateEmailError, InvalidCredentialsError
 
 
 class DummyRepo:
+    """テスト用のダミーリポジトリ."""
+
     def __init__(self, existing=None):
+        """初期化: テスト用の既存ユーザを設定します."""
         self._existing = existing
         self.updated_last_login = False
 
     async def get_by_email(self, email):
+        """指定メールでユーザを返すダミー実装です."""
         return self._existing
 
     async def update_last_login(self, account_id, when):
+        """最終ログイン更新を模倣します."""
         self.updated_last_login = True
 
 
 @pytest.mark.asyncio
 async def test_register_success(monkeypatch):
-    payload = auth_module.AccountRegisterRequest(
-        email="x@y.com", password="pass", display_name="X"
-    )
+    """正常な登録が auth_service を通して行われることを検証します."""
+    payload = auth_module.AccountRegisterRequest(email="x@y.com", password="pass", display_name="X")
 
     called = {}
 
@@ -35,9 +36,7 @@ async def test_register_success(monkeypatch):
         called["args"] = (email, password, display_name)
         return SimpleNamespace(id=1, email=email)
 
-    monkeypatch.setattr(
-        auth_module.auth_service, "register_user", fake_register_user
-    )
+    monkeypatch.setattr(auth_module.auth_service, "register_user", fake_register_user)
 
     repo = DummyRepo(existing=None)
     res = await auth_module.register(payload=payload, repo=repo)
@@ -48,9 +47,8 @@ async def test_register_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_register_duplicate_email_raises():
-    payload = auth_module.AccountRegisterRequest(
-        email="a@b.com", password="pass", display_name="A"
-    )
+    """登録時に重複メールで DuplicateEmailError が発生することを検証します."""
+    payload = auth_module.AccountRegisterRequest(email="a@b.com", password="pass", display_name="A")
 
     repo = DummyRepo(existing=SimpleNamespace(id=1, email="a@b.com"))
 
@@ -60,6 +58,7 @@ async def test_register_duplicate_email_raises():
 
 @pytest.mark.asyncio
 async def test_login_success_updates_last_login(monkeypatch):
+    """ログイン成功時にトークンが返り最終ログインが更新されることを検証します."""
     payload = auth_module.AccountLoginRequest(email="u@u.com", password="p")
 
     dummy_user = SimpleNamespace(id=2, email="u@u.com", hashed_password="h")
@@ -70,12 +69,8 @@ async def test_login_success_updates_last_login(monkeypatch):
     def fake_create_token(subject: str):
         return "tok"
 
-    monkeypatch.setattr(
-        auth_module.auth_service, "authenticate_user", fake_authenticate
-    )
-    monkeypatch.setattr(
-        auth_module.auth_service, "create_access_token", fake_create_token
-    )
+    monkeypatch.setattr(auth_module.auth_service, "authenticate_user", fake_authenticate)
+    monkeypatch.setattr(auth_module.auth_service, "create_access_token", fake_create_token)
 
     class R(DummyRepo):
         async def update_last_login(self, account_id, when):
@@ -91,14 +86,13 @@ async def test_login_success_updates_last_login(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_login_invalid_credentials_raises(monkeypatch):
+    """無効な資格情報で InvalidCredentialsError が発生することを検証します."""
     payload = auth_module.AccountLoginRequest(email="u@u.com", password="p")
 
     async def fake_authenticate_none(repo, email, password):
         return None
 
-    monkeypatch.setattr(
-        auth_module.auth_service, "authenticate_user", fake_authenticate_none
-    )
+    monkeypatch.setattr(auth_module.auth_service, "authenticate_user", fake_authenticate_none)
 
     repo = DummyRepo()
 

@@ -1,23 +1,14 @@
-"""
-単体テスト - データベース接続管理
-
-app.utils.database モジュールの単体テストを実施する。
-モックを使用してDBエンジンとセッションの動作を検証する。
-"""
+"""単体テスト - データベース接続管理."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-)
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 
 @pytest.fixture
 def mock_settings():
-    """モック設定を提供するフィクスチャ"""
+    """モック設定を提供するフィクスチャ."""
     mock = MagicMock()
     mock.DB_USER = "test_user"
     mock.DB_PASSWORD = "test_password"
@@ -33,7 +24,7 @@ def mock_settings():
 
 @pytest.fixture(autouse=True)
 def reset_global_state():
-    """各テストの前後でグローバル状態をリセットする"""
+    """各テストの前後でグローバル状態をリセットする."""
     import app.utils.database as db_module
 
     # テスト前: 可能であれば公開APIのキャッシュをクリアして初期状態にする
@@ -60,36 +51,29 @@ def reset_global_state():
 
 
 class TestGetDatabaseUrl:
-    """get_database_url関数のテスト"""
+    """get_database_url関数のテスト."""
 
     def test_get_database_url_returns_correct_format(self, mock_settings):
-        """データベース接続URLが正しい形式で返されることを検証"""
+        """データベース接続URLが正しい形式で返されることを検証."""
         # Arrange
-        with patch(
-            "app.utils.database.get_settings", return_value=mock_settings
-        ):
+        with patch("app.utils.database.get_settings", return_value=mock_settings):
             from app.utils.database import get_database_url
 
             # Act
             url = get_database_url()
 
             # Assert
-            expected_url = (
-                "postgresql+asyncpg://test_user:test_password"
-                "@localhost:5432/test_db"
-            )
+            expected_url = "postgresql+asyncpg://test_user:test_password" "@localhost:5432/test_db"
             assert url == expected_url
 
 
 class TestCreateEngine:
-    """create_engine関数のテスト"""
+    """create_engine関数のテスト."""
 
     def test_create_engine_returns_async_engine(self, mock_settings):
-        """非同期エンジンが正しく作成されることを検証"""
+        """非同期エンジンが正しく作成されることを検証."""
         # Arrange
-        with patch(
-            "app.utils.database.get_settings", return_value=mock_settings
-        ), patch(
+        with patch("app.utils.database.get_settings", return_value=mock_settings), patch(
             "app.utils.database.create_async_engine"
         ) as mock_create_async_engine:
             mock_engine = MagicMock(spec=AsyncEngine)
@@ -114,13 +98,11 @@ class TestCreateEngine:
             assert call_args[1]["pool_recycle"] == 3600
 
     def test_create_engine_with_debug_mode(self, mock_settings):
-        """DEBUG=Trueの場合、echoオプションが有効になることを検証"""
+        """DEBUG=Trueの場合、echoオプションが有効になることを検証."""
         # Arrange
         mock_settings.DEBUG = True
 
-        with patch(
-            "app.utils.database.get_settings", return_value=mock_settings
-        ), patch(
+        with patch("app.utils.database.get_settings", return_value=mock_settings), patch(
             "app.utils.database.create_async_engine"
         ) as mock_create_async_engine:
             mock_engine = MagicMock(spec=AsyncEngine)
@@ -136,7 +118,7 @@ class TestCreateEngine:
             assert call_args[1]["echo"] is True  # DEBUG=True
 
     def test_create_engine_respects_pool_settings_from_env(self):
-        """環境変数のプール設定がengine作成引数に反映されることを検証"""
+        """環境変数のプール設定がengine作成引数に反映されることを検証."""
         # Arrange
         local_settings = MagicMock()
         local_settings.DB_POOL_SIZE = 20
@@ -148,9 +130,7 @@ class TestCreateEngine:
         local_settings.DB_PORT = 5432
         local_settings.DB_NAME = "n"
 
-        with patch(
-            "app.utils.database.get_settings", return_value=local_settings
-        ), patch(
+        with patch("app.utils.database.get_settings", return_value=local_settings), patch(
             "app.utils.database.create_async_engine"
         ) as mock_create_async_engine:
             mock_engine = MagicMock(spec=AsyncEngine)
@@ -168,14 +148,12 @@ class TestCreateEngine:
 
 
 class TestGetEngine:
-    """get_engine関数のテスト（シングルトンパターン）"""
+    """get_engine関数のテスト（シングルトンパターン）."""
 
     def test_get_engine_creates_engine_on_first_call(self, mock_settings):
-        """初回呼び出し時にエンジンが作成されることを検証"""
+        """初回呼び出し時にエンジンが作成されることを検証."""
         # Arrange
-        with patch(
-            "app.utils.database.get_settings", return_value=mock_settings
-        ), patch(
+        with patch("app.utils.database.get_settings", return_value=mock_settings), patch(
             "app.utils.database.create_async_engine"
         ) as mock_create_async_engine:
             mock_engine = MagicMock(spec=AsyncEngine)
@@ -190,14 +168,10 @@ class TestGetEngine:
             assert engine == mock_engine
             mock_create_async_engine.assert_called_once()
 
-    def test_get_engine_returns_same_instance_on_subsequent_calls(
-        self, mock_settings
-    ):
-        """2回目以降の呼び出しでは同じインスタンスが返されることを検証"""
+    def test_get_engine_returns_same_instance_on_subsequent_calls(self, mock_settings):
+        """2回目以降の呼び出しでは同じインスタンスが返されることを検証."""
         # Arrange
-        with patch(
-            "app.utils.database.get_settings", return_value=mock_settings
-        ), patch(
+        with patch("app.utils.database.get_settings", return_value=mock_settings), patch(
             "app.utils.database.create_async_engine"
         ) as mock_create_async_engine:
             mock_engine = MagicMock(spec=AsyncEngine)
@@ -215,14 +189,14 @@ class TestGetEngine:
 
 
 class TestGetSessionMaker:
-    """get_session_maker関数のテスト"""
+    """get_session_maker関数のテスト."""
 
     def test_get_session_maker_returns_session_maker(self, mock_settings):
-        """セッションメーカーが正しく作成されることを検証"""
+        """セッションメーカーが正しく作成されることを検証."""
         # Arrange
-        with patch(
-            "app.utils.database.get_settings", return_value=mock_settings
-        ), patch("app.utils.database.get_engine") as mock_get_engine, patch(
+        with patch("app.utils.database.get_settings", return_value=mock_settings), patch(
+            "app.utils.database.get_engine"
+        ) as mock_get_engine, patch(
             "app.utils.database.async_sessionmaker"
         ) as mock_async_sessionmaker:
             mock_engine = MagicMock(spec=AsyncEngine)
@@ -251,10 +225,10 @@ class TestGetSessionMaker:
 
 @pytest.mark.asyncio
 class TestGetDb:
-    """get_db関数のテスト（非同期ジェネレータ）"""
+    """get_db関数のテスト（非同期ジェネレータ）."""
 
     async def test_get_db_yields_session_and_commits(self, mock_settings):
-        """正常系: セッションが生成され、コミットされることを検証"""
+        """正常系: セッションが生成され、コミットされることを検証."""
         # Arrange
         mock_session = AsyncMock(spec=AsyncSession)
         mock_session_maker = MagicMock()
@@ -275,7 +249,7 @@ class TestGetDb:
             mock_session.close.assert_called_once()
 
     async def test_get_db_rolls_back_on_exception(self, mock_settings):
-        """異常系: 例外発生時にロールバックされることを検証"""
+        """異常系: 例外発生時にロールバックされることを検証."""
         # Arrange
         mock_session = AsyncMock(spec=AsyncSession)
 
@@ -310,16 +284,14 @@ class TestGetDb:
 
 @pytest.mark.asyncio
 class TestCloseDb:
-    """close_db関数のテスト"""
+    """close_db関数のテスト."""
 
     async def test_close_db_disposes_engine(self, mock_settings):
-        """エンジンが正しくdisposeされることを検証"""
+        """エンジンが正しくdisposeされることを検証."""
         # Arrange
         mock_engine = AsyncMock(spec=AsyncEngine)
 
-        with patch(
-            "app.utils.database.get_settings", return_value=mock_settings
-        ), patch(
+        with patch("app.utils.database.get_settings", return_value=mock_settings), patch(
             "app.utils.database.create_async_engine", return_value=mock_engine
         ):
             from app.utils.database import close_db, get_engine
@@ -334,11 +306,9 @@ class TestCloseDb:
             mock_engine.dispose.assert_called_once()
 
     async def test_close_db_does_nothing_when_no_engine(self, mock_settings):
-        """エンジンが存在しない場合、何もしないことを検証"""
+        """エンジンが存在しない場合、何もしないことを検証."""
         # Arrange
-        with patch(
-            "app.utils.database.get_settings", return_value=mock_settings
-        ):
+        with patch("app.utils.database.get_settings", return_value=mock_settings):
             from app.utils.database import close_db
 
             # Act & Assert (例外が発生しないことを確認)

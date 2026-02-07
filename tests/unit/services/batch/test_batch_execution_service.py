@@ -1,21 +1,19 @@
+"""バッチ実行サービスのコンテキスト管理に関する単体テスト."""
+
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 
-from app.services.batch.batch_execution_service import (
-    BatchExecutionContext,
-    BatchExecutionService,
-)
+from app.services.batch.batch_execution_service import BatchExecutionContext, BatchExecutionService
 
 
 @pytest.mark.asyncio
 async def test_context_success_calls_mark_completed():
+    """正常終了時に mark_completed が呼ばれることを検証します."""
     repo = AsyncMock()
     # fake job instance
-    job = SimpleNamespace(
-        id=1, processed_stocks=10, successful_stocks=10, failed_stocks=0
-    )
+    job = SimpleNamespace(id=1, processed_stocks=10, successful_stocks=10, failed_stocks=0)
     repo.create_job.return_value = job
     repo.update_status.return_value = job
     repo.get.return_value = job
@@ -33,10 +31,9 @@ async def test_context_success_calls_mark_completed():
 
 @pytest.mark.asyncio
 async def test_context_failure_calls_fail_job():
+    """例外発生時にリポジトリの更新（fail）処理が呼ばれることを検証します."""
     repo = AsyncMock()
-    job = SimpleNamespace(
-        id=2, processed_stocks=0, successful_stocks=0, failed_stocks=0
-    )
+    job = SimpleNamespace(id=2, processed_stocks=0, successful_stocks=0, failed_stocks=0)
     repo.create_job.return_value = job
     repo.update_status.return_value = job
     repo.get.return_value = job

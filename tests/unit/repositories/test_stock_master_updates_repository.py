@@ -1,4 +1,4 @@
-"""`StockMasterUpdatesRepository` の単体テスト."""
+"""`StockMasterUpdatesRepository` の単体テスト集."""
 
 from unittest.mock import AsyncMock, MagicMock
 
@@ -6,13 +6,12 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.stock_master_updates import StockMasterUpdates
-from app.repositories.stock_master_updates_repository import (
-    StockMasterUpdatesRepository,
-)
+from app.repositories.stock_master_updates_repository import StockMasterUpdatesRepository
 
 
 @pytest.mark.asyncio
 async def test_create_summary_calls_add_and_flush():
+    """create_summary が session.add/flush を呼ぶことを検証します."""
     mock_session = AsyncMock(spec=AsyncSession)
     mock_session.flush = AsyncMock()
 
@@ -38,6 +37,7 @@ async def test_create_summary_calls_add_and_flush():
 
 @pytest.mark.asyncio
 async def test_update_status_updates_fields():
+    """update_status がフィールドを更新して flush することを検証します."""
     mock_session = AsyncMock(spec=AsyncSession)
     mock_session.flush = AsyncMock()
 
@@ -54,9 +54,7 @@ async def test_update_status_updates_fields():
 
     repo = StockMasterUpdatesRepository(session=mock_session)
 
-    updated = await repo.update_status(
-        existing.id, "success", {"added_stocks": 2}
-    )
+    updated = await repo.update_status(existing.id, "success", {"added_stocks": 2})
 
     # flush が呼ばれ、既存オブジェクトの属性が更新されていること
     mock_session.flush.assert_awaited_once()
@@ -67,6 +65,7 @@ async def test_update_status_updates_fields():
 
 @pytest.mark.asyncio
 async def test_delete_by_reset_executes_delete_and_returns_count():
+    """delete_by_reset が削除数を返すことを検証します."""
     mock_session = AsyncMock(spec=AsyncSession)
 
     fake_result = MagicMock()

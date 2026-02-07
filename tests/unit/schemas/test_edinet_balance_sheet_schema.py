@@ -1,16 +1,16 @@
+"""EDINET 財務諸表スキーマのバリデーション単体テスト."""
+
 from datetime import date
 from decimal import Decimal
 
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.edinet_balance_sheet import (
-    EdinetBalanceSheetCreate,
-    EdinetBalanceSheetLatest,
-)
+from app.schemas.edinet_balance_sheet import EdinetBalanceSheetCreate, EdinetBalanceSheetLatest
 
 
 def sample_payload():
+    """サンプルの有効なペイロードを返します."""
     return {
         "doc_id": " DOC123 ",
         "sec_code": "7203",
@@ -36,6 +36,7 @@ def sample_payload():
 
 
 def test_create_valid_payload_converts_and_strips():
+    """有効なペイロードが変換・トリムされることを検証します."""
     payload = sample_payload()
     obj = EdinetBalanceSheetCreate(**payload)
 
@@ -54,6 +55,7 @@ def test_create_valid_payload_converts_and_strips():
 
 
 def test_missing_required_fields_raises():
+    """必須フィールド欠如で ValidationError が発生することを検証します."""
     payload = sample_payload()
     payload.pop("doc_id")
     with pytest.raises(ValidationError):
@@ -61,6 +63,7 @@ def test_missing_required_fields_raises():
 
 
 def test_field_length_limits_enforced():
+    """フィールド長制限が適用されることを検証します."""
     payload = sample_payload()
     payload["doc_id"] = "x" * 51
     with pytest.raises(ValidationError):
@@ -68,6 +71,7 @@ def test_field_length_limits_enforced():
 
 
 def test_latest_schema_minimal():
+    """最小限のフィールドで `EdinetBalanceSheetLatest` を生成できることを検証します."""
     latest = EdinetBalanceSheetLatest(
         sec_code="7203", period_end_date=date(2024, 12, 31), total_assets="1.0"
     )

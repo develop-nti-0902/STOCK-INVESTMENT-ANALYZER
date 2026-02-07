@@ -1,15 +1,16 @@
+"""`BatchExecutionDetailsRepository` の単体テスト集."""
+
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 
-from app.repositories.batch_execution_details_repository import (
-    BatchExecutionDetailsRepository,
-)
+from app.repositories.batch_execution_details_repository import BatchExecutionDetailsRepository
 
 
 @pytest.mark.asyncio
 async def test_init_creates_instance_and_calls_add():
+    """init がインスタンスを作成し session.add を呼ぶことを検証します."""
     session = AsyncMock()
     session.flush = AsyncMock()
     session.commit = AsyncMock()
@@ -45,6 +46,7 @@ class _MockResult:
 
 @pytest.mark.asyncio
 async def test_inc_increments_existing_record_and_flushes():
+    """既存レコードの processed_stocks が増加し flush が呼ばれることを検証します."""
     session = AsyncMock()
     session.flush = AsyncMock()
     session.commit = AsyncMock()
@@ -52,9 +54,7 @@ async def test_inc_increments_existing_record_and_flushes():
 
     repo = BatchExecutionDetailsRepository(session)
 
-    dummy = SimpleNamespace(
-        id=1, batch_execution_id=1, interval="1d", processed_stocks=2
-    )
+    dummy = SimpleNamespace(id=1, batch_execution_id=1, interval="1d", processed_stocks=2)
     session.execute = AsyncMock(return_value=_MockResult(single=dummy))
 
     updated = await repo.inc(1, "1d", count=3)
@@ -66,6 +66,7 @@ async def test_inc_increments_existing_record_and_flushes():
 
 @pytest.mark.asyncio
 async def test_set_status_updates_and_flushes():
+    """set_status がレコードを更新し flush を呼ぶことを検証します."""
     session = AsyncMock()
     session.flush = AsyncMock()
     session.commit = AsyncMock()
@@ -73,9 +74,7 @@ async def test_set_status_updates_and_flushes():
 
     repo = BatchExecutionDetailsRepository(session)
 
-    dummy = SimpleNamespace(
-        id=2, batch_execution_id=2, interval="1h", status="pending"
-    )
+    dummy = SimpleNamespace(id=2, batch_execution_id=2, interval="1h", status="pending")
     session.execute = AsyncMock(return_value=_MockResult(single=dummy))
 
     res = await repo.set_status(2, "1h", "running")
@@ -87,6 +86,7 @@ async def test_set_status_updates_and_flushes():
 
 @pytest.mark.asyncio
 async def test_get_progress_returns_list():
+    """get_progress が進捗リストを返すことを検証します."""
     session = AsyncMock()
     repo = BatchExecutionDetailsRepository(session)
 
