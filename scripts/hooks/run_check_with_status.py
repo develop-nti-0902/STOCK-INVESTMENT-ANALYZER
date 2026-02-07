@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""チェックを実行してコミットステータスを出力するラッパーです。
+"""チェックを実行してコミットステータスを出力するラッパーです.
 
 処理の流れ:
 1) 指定されたチェック（black/isort/flake8/mypy/pylint/pytest）を実行します。
@@ -8,7 +8,7 @@
 4) チェックに失敗があれば非ゼロで終了します。
 
 ステータスファイル: .git/.precommit_status.json
-このファイルは各チェックの pass/fail と全体の failed 状態を保持します。
+このファイルは各チェックの pass/fail と全体の failed 状態を保持します.
 """
 from __future__ import annotations
 
@@ -252,6 +252,11 @@ def run_pytest(args: List[str], files: List[str], status: Dict[str, Any]) -> int
 
 
 def main() -> int:
+    """選択されたチェックを実行してステータスを更新します.
+
+    引数の解析と対象ファイル/オプションの分離、各チェックの実行、
+    ならびにステータスファイルへの反映を行い、終了コードを返します.
+    """
     parser = argparse.ArgumentParser(description="Run check and print commit status")
     parser.add_argument(
         "--check",

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""最終コミットステータスのサマリを表示します。
+"""最終コミットステータスのサマリを表示します.
 
 `.git/.precommit_status.json` を読み取り、各チェック結果と
 "Final commit status: <SUCCESS/FAIL>" を表示します。記録されたチェックに
