@@ -1,3 +1,9 @@
+"""Alembic environment for running migrations.
+
+This module configures Alembic to run migrations using the project's
+SQLAlchemy models and supports asynchronous engines.
+"""
+
 import asyncio
 from logging.config import fileConfig
 
@@ -30,8 +36,7 @@ target_metadata = Base.metadata
 
 
 def get_alembic_database_url() -> str:
-    """
-    Alembic マイグレーション用のデータベースURLを取得する。
+    """Alembic マイグレーション用のデータベースURLを取得する.
 
     非同期ドライバ（asyncpg）を使用してマイグレーションを実行します。
 
@@ -46,7 +51,7 @@ def get_alembic_database_url() -> str:
 
 
 def run_migrations_offline() -> None:
-    """'offline' モードでマイグレーションを実行する。
+    """'offline' モードでマイグレーションを実行する.
 
     Engine ではなく URL だけでコンテキストを設定する。
     ただし Engine も使用可能。Engine の作成をスキップすることで、
@@ -70,7 +75,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """'online' モードでマイグレーションを実行する（非同期対応）。
+    """'online' モードでマイグレーションを実行する（非同期対応）.
 
     非同期エンジンを作成し、コンテキストに接続を関連付けます。
 
@@ -91,9 +96,7 @@ def run_migrations_online() -> None:
 
     def do_configure_and_run(connection: Connection) -> None:
         """コンテキストを設定してマイグレーションを実行する同期関数."""
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

@@ -34,9 +34,7 @@ def get_modified_files() -> list[str]:
         )
         if proc.returncode != 0:
             return []
-        files = [
-            line.strip() for line in proc.stdout.splitlines() if line.strip()
-        ]
+        files = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
         return files
     except OSError:
         # git コマンドが存在しない等の環境エラーに対して安全に空リストを返す
@@ -44,6 +42,12 @@ def get_modified_files() -> list[str]:
 
 
 def main() -> int:
+    """Print final commit status summary and return exit code.
+
+    Reads the status file written by the check runner and prints a
+    concise summary. Returns a non-zero exit code when any check failed
+    or when auto-fixes were detected.
+    """
     final = "UNKNOWN"
     checks = []
     failed_overall = False

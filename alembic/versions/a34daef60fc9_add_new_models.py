@@ -1,4 +1,4 @@
-"""add new models
+"""add new models.
 
 Revision ID: a34daef60fc9
 Revises: 4e581533f2e4

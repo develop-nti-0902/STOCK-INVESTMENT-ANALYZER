@@ -1,4 +1,4 @@
-"""feat(db): add tables for batch_execution_details and stock_master_updates
+"""feat(db): add tables for batch_execution_details and stock_master_updates.
 
 Revision ID: 5eb81fa2fa7a
 Revises: 892e1f109de2
