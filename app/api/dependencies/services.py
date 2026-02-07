@@ -6,6 +6,8 @@ Repository や他の Service との依存関係を解決します。
 仕様書: docs/architecture/layers/service_layer.md 3.3章
 """
 
+from pathlib import Path
+
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +16,14 @@ from app.repositories.latest_stocks_repository import LatestStocksRepository
 from app.repositories.stock_master_repository import StockMasterRepository
 from app.repositories.stock_master_updates_repository import StockMasterUpdatesRepository
 from app.services.batch.batch_execution_service import BatchExecutionService
+from app.services.market_data.edinet.balance_sheet.batch import EdinetBalanceSheetBatchRunner
+from app.services.market_data.edinet.balance_sheet.converter import EdinetBalanceSheetConverter
+from app.services.market_data.edinet.balance_sheet.fetcher import EdinetDocumentFetcher
+from app.services.market_data.edinet.balance_sheet.file_manager import EdinetFileManager
+from app.services.market_data.edinet.balance_sheet.parser import EdinetBalanceSheetParser
+from app.services.market_data.edinet.balance_sheet.saver import EdinetBalanceSheetSaver
+from app.services.market_data.edinet.balance_sheet.service import EdinetBalanceSheetService
+from app.services.market_data.edinet.common.api_client import EdinetAPIClient
 from app.services.market_data.stock_master import StockMasterService
 from app.services.market_data.stock_price import (
     StockPriceConverter,
@@ -205,3 +215,124 @@ def get_latest_stocks_service(
         LatestStocksService: latest_stocks_1dビューからのデータ取得サービス
     """
     return LatestStocksService(repository=repository)
+
+
+# EDINET 関連の依存性プロバイダ
+
+
+def get_edinet_api_client() -> EdinetAPIClient:
+    """EdinetAPIClient を提供する依存性プロバイダ.
+
+    Returns:
+        EdinetAPIClient: EDINET API クライアント
+    """
+    return EdinetAPIClient()
+
+
+def get_edinet_document_fetcher(
+    api_client: EdinetAPIClient = Depends(get_edinet_api_client),
+) -> EdinetDocumentFetcher:
+    """EdinetDocumentFetcher を提供する依存性プロバイダ.
+
+    Args:
+        api_client: EDINET API クライアント
+
+    Returns:
+        EdinetDocumentFetcher: EDINET 文書取得フェッチャ
+    """
+    work_dir = Path("work/edinet_temp")
+    return EdinetDocumentFetcher(api_client=api_client, work_dir=work_dir)
+
+
+def get_edinet_balance_sheet_parser() -> EdinetBalanceSheetParser:
+    """EdinetBalanceSheetParser を提供する依存性プロバイダ.
+
+    Returns:
+        EdinetBalanceSheetParser: EDINET 貸借対照表パーサ
+    """
+    return EdinetBalanceSheetParser()
+
+
+def get_edinet_balance_sheet_converter() -> EdinetBalanceSheetConverter:
+    """EdinetBalanceSheetConverter を提供する依存性プロバイダ.
+
+    Returns:
+        EdinetBalanceSheetConverter: EDINET 貸借対照表コンバータ
+    """
+    return EdinetBalanceSheetConverter()
+
+
+def get_edinet_balance_sheet_saver(
+    db: AsyncSession = Depends(get_db),
+) -> EdinetBalanceSheetSaver:
+    """EdinetBalanceSheetSaver を提供する依存性プロバイダ.
+
+    Args:
+        db: 非同期DBセッション
+
+    Returns:
+        EdinetBalanceSheetSaver: EDINET 貸借対照表データ保存サービス
+    """
+    return EdinetBalanceSheetSaver(session=db)
+
+
+def get_edinet_file_manager() -> EdinetFileManager:
+    """EdinetFileManager を提供する依存性プロバイダ.
+
+    Returns:
+        EdinetFileManager: EDINET 一時ファイル管理ユーティリティ
+    """
+    return EdinetFileManager()
+
+
+def get_edinet_balance_sheet_service(
+    fetcher: EdinetDocumentFetcher = Depends(get_edinet_document_fetcher),
+    parser: EdinetBalanceSheetParser = Depends(get_edinet_balance_sheet_parser),
+    converter: EdinetBalanceSheetConverter = Depends(get_edinet_balance_sheet_converter),
+    saver: EdinetBalanceSheetSaver = Depends(get_edinet_balance_sheet_saver),
+    file_manager: EdinetFileManager = Depends(get_edinet_file_manager),
+) -> EdinetBalanceSheetService:
+    """EdinetBalanceSheetService を提供する依存性プロバイダ.
+
+    Args:
+        fetcher: EDINET 文書取得フェッチャ
+        parser: EDINET 貸借対照表パーサ
+        converter: EDINET 貸借対照表コンバータ
+        saver: EDINET 貸借対照表データ保存サービス
+        file_manager: EDINET 一時ファイル管理ユーティリティ
+
+    Returns:
+        EdinetBalanceSheetService: EDINET 貸借対照表サービス
+    """
+    return EdinetBalanceSheetService(
+        fetcher=fetcher,
+        parser=parser,
+        converter=converter,
+        saver=saver,
+        file_manager=file_manager,
+    )
+
+
+def get_edinet_balance_sheet_batch_runner(
+    batch_service: BatchExecutionService = Depends(get_batch_execution_service),
+    fetcher: EdinetDocumentFetcher = Depends(get_edinet_document_fetcher),
+    parser: EdinetBalanceSheetParser = Depends(get_edinet_balance_sheet_parser),
+    file_manager: EdinetFileManager = Depends(get_edinet_file_manager),
+) -> EdinetBalanceSheetBatchRunner:
+    """EdinetBalanceSheetBatchRunner を提供する依存性プロバイダ.
+
+    Args:
+        batch_service: バッチ実行サービス
+        fetcher: EDINET 文書取得フェッチャ
+        parser: EDINET 貸借対照表パーサ
+        file_manager: EDINET 一時ファイル管理ユーティリティ
+
+    Returns:
+        EdinetBalanceSheetBatchRunner: EDINET 貸借対照表バッチランナー
+    """
+    return EdinetBalanceSheetBatchRunner(
+        batch_service=batch_service,
+        fetcher=fetcher,
+        parser=parser,
+        file_manager=file_manager,
+    )
