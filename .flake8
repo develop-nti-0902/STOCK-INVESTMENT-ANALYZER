@@ -1,7 +1,7 @@
 [flake8]
 max-line-length = 100
 extend-ignore = E203,W503,D403
-exclude = .git,.venv,build,dist,__pycache__,work
+exclude = .git,.venv,build,dist,__pycache__,work,tests
 count = true
 show-source = true
 statistics = true

@@ -39,30 +39,71 @@ class LatestStocksRefreshService(BaseViewService):
         self.batch_service = batch_service
         self._engine = engine
 
-    async def enqueue_refresh(self) -> int:
+    async def enqueue_refresh(self, lock_key: int = 1) -> int:
         """リフレッシュジョブを作成して即時実行する.
+
+        PostgreSQL のトランザクションレベル advisory lock を使用して同時実行を防止します。
+
+        Args:
+            lock_key: PostgreSQL advisory lock のキー（デフォルト: 1）
 
         Returns:
             作成されたジョブの ID
+
+        Raises:
+            ServiceError: ロックが取得できない場合、またはリフレッシュに失敗した場合
         """
-        job = await self.batch_service.create_job("refresh_latest_stocks")
-        if job is None:
-            raise ServiceError(message="failed to create refresh job")
+        engine = self._engine or get_engine()
 
-        job_id = int(getattr(job, "id"))
-
+        # トランザクションレベル advisory lock を使用
+        # (トランザクション終了時に自動解放される)
         try:
-            await self.batch_service.start_job(job_id)
-            await self.run_refresh()
-            await self.batch_service.complete_job(job_id, success_count=0, failed_count=0)
-            self.logger.info(f"Refresh job {job_id} completed successfully")
+            async with engine.connect() as conn:
+                async with conn.begin():
+                    # トランザクションレベルのロックを取得
+                    result = await conn.execute(
+                        text("SELECT pg_try_advisory_xact_lock(:k)"), {"k": lock_key}
+                    )
+                    row = result.fetchone()
+                    acquired = bool(row[0]) if row is not None else False
 
-        except Exception as e:
-            await self.batch_service.fail_job(job_id, error_message=str(e))
-            self.logger.error(f"Refresh job {job_id} failed: {e}")
+                    if not acquired:
+                        self.logger.warning(
+                            "Could not acquire advisory lock for refresh job: %s", lock_key
+                        )
+                        raise ServiceError(
+                            message=f"Refresh job is already running (lock_key={lock_key})"
+                        )
+
+                    # ロック取得成功、ジョブ作成へ
+                    job = await self.batch_service.create_job("refresh_latest_stocks")
+                    if job is None:
+                        raise ServiceError(message="failed to create refresh job")
+
+                    job_id = int(getattr(job, "id"))
+
+                    try:
+                        await self.batch_service.start_job(job_id)
+                        await self.run_refresh()
+                        await self.batch_service.complete_job(
+                            job_id, success_count=0, failed_count=0
+                        )
+                        self.logger.info(f"Refresh job {job_id} completed successfully")
+
+                    except Exception as e:
+                        await self.batch_service.fail_job(job_id, error_message=str(e))
+                        self.logger.error(f"Refresh job {job_id} failed: {e}")
+                        raise
+
+                    return job_id
+                    # トランザクション終了時にロックは自動解放される
+
+        except ServiceError:
+            # すでに適切な ServiceError としてラップされている
             raise
-
-        return job_id
+        except Exception as e:
+            self.logger.exception("Unexpected error in enqueue_refresh: %s", e)
+            raise ServiceError(message=f"Failed to enqueue refresh job: {e}")
 
     async def run_refresh(self) -> None:
         """`latest_stocks_1d` マテリアライズドビューをデータベース上で更新する.

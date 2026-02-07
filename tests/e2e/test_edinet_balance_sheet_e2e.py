@@ -4,12 +4,79 @@
 テスト実行時間を短縮するため、max_documentsを制限しています。
 """
 
+import asyncio
 import time
 from datetime import date
 
 import pytest
 
 from tests.e2e.utils import write_csv_artifact, write_json_artifact
+
+
+async def _wait_for_batch_completion(job_id: int, timeout: int = 300, poll_interval: int = 2):
+    """バッチジョブの完了を待つ.
+
+    Args:
+        job_id: バッチジョブID
+        timeout: タイムアウト時間（秒）
+        poll_interval: ポーリング間隔（秒）
+
+    Returns:
+        dict: バッチジョブの最終状態を含む辞書
+            - status: ジョブのステータス
+            - job_data: ジョブの詳細情報
+
+    Raises:
+        TimeoutError: タイムアウトした場合
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.batch_execution import BatchExecution
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    start_time = time.time()
+
+    try:
+        while time.time() - start_time < timeout:
+            async with AsyncSession(engine) as session:
+                result = await session.execute(
+                    select(BatchExecution).where(BatchExecution.id == job_id)
+                )
+                job = result.scalar_one_or_none()
+
+                if job is None:
+                    raise ValueError(f"Job ID {job_id} not found in batch_executions table")
+
+                # 終了状態をチェック
+                if job.status in ("completed", "failed", "cancelled"):
+                    return {
+                        "status": job.status,
+                        "job_data": {
+                            "id": job.id,
+                            "batch_type": job.batch_type,
+                            "status": job.status,
+                            "total_stocks": job.total_stocks,
+                            "processed_stocks": job.processed_stocks,
+                            "successful_stocks": job.successful_stocks,
+                            "failed_stocks": job.failed_stocks,
+                            "start_time": (job.start_time.isoformat() if job.start_time else None),
+                            "end_time": job.end_time.isoformat() if job.end_time else None,
+                            "error_message": job.error_message,
+                        },
+                    }
+
+                print(
+                    f"DEBUG: Job {job_id} status: {job.status}, "
+                    f"processed: {job.processed_stocks}/{job.total_stocks}"
+                )
+
+            await asyncio.sleep(poll_interval)
+
+        raise TimeoutError(f"Batch job {job_id} did not complete within {timeout} seconds")
+    finally:
+        await engine.dispose()
 
 
 async def _fetch_edinet_balance_sheet_rows():
@@ -89,8 +156,6 @@ def test_edinet_balance_sheet_batch_flow(client):
     """
     # 1) 事前クリーンアップ
     try:
-        import asyncio
-
         asyncio.run(_cleanup_edinet_balance_sheets())
     except Exception as e:
         print(f"DEBUG: cleanup before test failed (may be acceptable): {e}")
@@ -147,24 +212,47 @@ def test_edinet_balance_sheet_batch_flow(client):
     except Exception as e:
         print(f"DEBUG: Failed to write batch result artifact: {e}")
 
+    # 3.1) バッチジョブの完了を待つ
+    job_id = int(batch_result["job_id"])  # 文字列の場合は整数に変換
+    print(f"DEBUG: Waiting for batch job {job_id} to complete...")
+
+    try:
+        job_completion = asyncio.run(_wait_for_batch_completion(job_id, timeout=300))
+        job_status = job_completion["status"]
+        job_data = job_completion["job_data"]
+
+        print(f"DEBUG: Batch job {job_id} completed with status: {job_status}")
+        print(f"DEBUG: Job data: {job_data}")
+
+        # ジョブが成功したことを確認
+        assert job_status == "completed", (
+            f"Batch job {job_id} did not complete successfully. "
+            f"Status: {job_status}, Error: {job_data.get('error_message')}"
+        )
+
+        # ジョブデータのアーティファクト保存
+        try:
+            artifact_name = "test_edinet_balance_sheet_job_completion"
+            write_json_artifact(job_data, name=artifact_name)
+        except Exception as e:
+            print(f"DEBUG: Failed to write job completion artifact: {e}")
+
+    except TimeoutError as e:
+        pytest.fail(f"Batch job {job_id} did not complete within timeout: {e}")
+    except Exception as e:
+        pytest.fail(f"Failed to wait for batch job completion: {e}")
+
     # 4) DB にレコードが保存されたことを確認
-    # バッチ処理が非同期で完了するまで少し待つ
     found_any = False
     rows = []
 
-    for attempt in range(10):
-        try:
-            import asyncio
-
-            rows = asyncio.run(_fetch_edinet_balance_sheet_rows())
-            if rows and len(rows) > 0:
-                found_any = True
-                print(f"DEBUG: Found {len(rows)} records in edinet_balance_sheets table")
-                break
-        except Exception as e:
-            print(f"DEBUG: Attempt {attempt + 1} - Failed to fetch table rows: {e}")
-
-        time.sleep(2)
+    try:
+        rows = asyncio.run(_fetch_edinet_balance_sheet_rows())
+        if rows and len(rows) > 0:
+            found_any = True
+            print(f"DEBUG: Found {len(rows)} records in edinet_balance_sheets table")
+    except Exception as e:
+        print(f"DEBUG: Failed to fetch table rows: {e}")
 
     # データが見つからない場合でも、total_documents=0なら許容する
     if not found_any and batch_result.get("total_documents", 0) == 0:
@@ -187,8 +275,6 @@ def test_edinet_balance_sheet_batch_flow(client):
 
     # 6) クリーンアップ
     try:
-        import asyncio
-
         asyncio.run(_cleanup_edinet_balance_sheets())
         print("DEBUG: Cleanup completed successfully")
     except Exception as e:
@@ -202,6 +288,7 @@ def test_edinet_balance_sheet_batch_validation(client):
     手順:
     1. 不正な日付形式でリクエスト → 400/422エラー
     2. end_date < start_date でリクエスト → 正常に処理されるか確認
+    3. クリーンアップ
     """
     # 1) 不正な日付形式
     invalid_payload = {
@@ -237,3 +324,10 @@ def test_edinet_balance_sheet_batch_validation(client):
     print(
         "DEBUG: Validation test passed - reversed date range handled: " f"{r_reversed.status_code}"
     )
+
+    # 3) クリーンアップ（バッチが実行された場合に備えて）
+    try:
+        asyncio.run(_cleanup_edinet_balance_sheets())
+        print("DEBUG: Validation test cleanup completed successfully")
+    except Exception as e:
+        print(f"DEBUG: Validation test cleanup failed: {e}")
