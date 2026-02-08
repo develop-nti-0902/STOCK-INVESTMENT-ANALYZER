@@ -53,31 +53,104 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(skip_marker)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function", autouse=True)
+def reset_event_loop_for_e2e():
+    """E2E tests用のイベントループ管理（tests/conftest.pyを上書き）.
+
+    tests/conftest.pyのreset_event_loopをE2E環境用に上書きする。
+    E2Eテストでは独自のTestClientを使うため、close_db()を呼ばない。
+    """
+    import asyncio
+    import gc
+
+    # テスト前: イベントループの確認/作成
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    yield
+
+    # テスト後: ガベージコレクションのみ
+    try:
+        gc.collect()
+    except Exception:
+        pass
+
+
+@pytest.fixture(scope="function")
 def client():
     """FastAPI `TestClient` を提供する pytest fixture."""
-    with TestClient(app) as c:
-        yield c
+    # E2Eテスト環境ではlifespanを無効化（DB接続のハングを防ぐ）
+    from contextlib import asynccontextmanager
+
+    from fastapi import FastAPI
+
+    @asynccontextmanager
+    async def noop_lifespan(_app: FastAPI):
+        """テスト用の空のlifespanハンドラ."""
+        yield
+
+    # オリジナルのlifespanを保存して、テスト用のlifespanに置き換え
+    original_lifespan = app.router.lifespan_context
+    app.router.lifespan_context = noop_lifespan
+
+    try:
+        with TestClient(app) as c:
+            yield c
+    finally:
+        # テスト後に元のlifespanを復元
+        app.router.lifespan_context = original_lifespan
 
 
-@pytest.fixture(scope="function", autouse=True)
-def clear_advisory_locks():
-    """各テスト実行前にPostgreSQLのadvisory lockをクリアする.
+@pytest.fixture(scope="function")
+def clear_advisory_locks(request):
+    """各E2Eテスト実行前にPostgreSQLのadvisory lockをクリアする.
 
     latest_stocks_1d のリフレッシュジョブで使用されるadvisory lockが
     前のテスト実行から残っている場合にクリアします。
+
+    Note:
+        このフィクスチャはE2Eテストでのみ使用されます。
+        データベース接続が不安定な場合はスキップされます。
+
+    Usage:
+        テスト関数で明示的に使用するか、E2E専用のautoUseマーカーで自動適用します。
     """
+    # E2Eテスト以外ではスキップ
+    test_file = str(request.fspath)
+    if "tests/e2e" not in test_file.replace("\\", "/"):
+        yield
+        return
+
+    # DB到達不能な場合はスキップ
+    if not is_db_reachable():
+        yield
+        return
+
     from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
 
-    from app.utils.database import get_engine
+    from app.utils.database import get_database_url
+    from tests.e2e.utils import run_async_safely
 
+    async def _clear_locks():
+        """非同期でadvisory lockをクリアする."""
+        engine = create_async_engine(get_database_url())
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT pg_advisory_unlock_all()"))
+                await conn.commit()
+        finally:
+            await engine.dispose()
+
+    # テスト前にクリーンアップ
     try:
-        engine = get_engine()
-        # すべてのadvisory lockを解放（現在のセッションで保持しているもの）
-        with engine.sync_engine.connect() as conn:
-            # このセッションが保持しているすべてのadvisory lockを解放
-            conn.execute(text("SELECT pg_advisory_unlock_all()"))
-            conn.commit()
+        run_async_safely(_clear_locks())
     except Exception:
         # ロック解放に失敗してもテストは続行
         pass
@@ -86,9 +159,6 @@ def clear_advisory_locks():
 
     # テスト終了後にもクリーンアップ
     try:
-        engine = get_engine()
-        with engine.sync_engine.connect() as conn:
-            conn.execute(text("SELECT pg_advisory_unlock_all()"))
-            conn.commit()
+        run_async_safely(_clear_locks())
     except Exception:
         pass

@@ -5,10 +5,13 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, text
+from sqlalchemy import DateTime
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import Index, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, SerialPKMixin, TimestampMixin
+from .enums import BatchExecutionStatus
 
 
 class BatchExecution(SerialPKMixin, TimestampMixin, Base):
@@ -32,7 +35,15 @@ class BatchExecution(SerialPKMixin, TimestampMixin, Base):
     __tablename__ = "batch_executions"
 
     batch_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[BatchExecutionStatus] = mapped_column(
+        SQLEnum(
+            BatchExecutionStatus,
+            values_callable=lambda x: [e.value for e in x],
+            native_enum=False,
+            length=20,
+        ),
+        nullable=False,
+    )
 
     # 実行開始 / 終了
     # SQL スクリプトに合わせたカラム名・仕様に変更

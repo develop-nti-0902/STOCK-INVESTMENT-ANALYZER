@@ -1,7 +1,26 @@
+"""Stock master flow E2E tests."""
+
+# flake8: noqa
+
 import asyncio
 import time
 
-from tests.e2e.utils import fetch_stock_master_for_artifact, write_csv_artifact
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
+
+from app.utils.database import get_database_url
+from tests.e2e.utils import fetch_stock_master_for_artifact, run_async_safely, write_csv_artifact
+
+
+async def _cleanup_batch_executions() -> None:
+    """バッチ実行レコードをすべて削除する。"""
+    engine = create_async_engine(get_database_url())
+    try:
+        async with engine.begin() as conn:
+            # batch_execution_details は CASCADE で削除される
+            await conn.execute(text("DELETE FROM batch_executions"))
+    finally:
+        await engine.dispose()
 
 
 def test_stock_master_flow(client):
@@ -18,6 +37,9 @@ def test_stock_master_flow(client):
     r0 = client.delete("/api/v1/stock-master/reset")
     assert r0.status_code in (200, 404)
 
+    # 前準備: バッチ実行履歴をクリーンアップ
+    run_async_safely(_cleanup_batch_executions())
+
     try:
         # 1) fetch/sample (テスト用パラメータ指定: sample_size=50 を使用)
         sample_url = "/api/v1/stock-master/fetch/sample?" "sample_size=50&batch_size=50"
@@ -32,7 +54,7 @@ def test_stock_master_flow(client):
 
         # artifact: refresh/sample後のstock_masterデータを取得
         try:
-            stock_master_data_sample = asyncio.run(fetch_stock_master_for_artifact())
+            stock_master_data_sample = run_async_safely(fetch_stock_master_for_artifact())
             base_name_sample = "test_stock_master_flow_test_stock_master_flow_stock_master_1"
             write_csv_artifact(stock_master_data_sample, name=base_name_sample)
         except Exception as e:
@@ -49,7 +71,7 @@ def test_stock_master_flow(client):
 
         # artifact: refresh後のstock_masterデータを取得
         try:
-            stock_master_data = asyncio.run(fetch_stock_master_for_artifact())
+            stock_master_data = run_async_safely(fetch_stock_master_for_artifact())
             base_name = "test_stock_master_flow_test_stock_master_flow_stock_master_2"
             write_csv_artifact(stock_master_data, name=base_name)
         except Exception as e:
@@ -113,4 +135,14 @@ def test_stock_master_flow(client):
 
     finally:
         # 5) クリーンアップ
-        client.delete("/api/v1/stock-master/reset")
+        try:
+            client.delete("/api/v1/stock-master/reset")
+        except Exception as e:
+            print(f"DEBUG: Failed to reset stock_master: {e}")
+
+        # バッチ実行レコードのクリーンアップ
+        try:
+            run_async_safely(_cleanup_batch_executions())
+            print("DEBUG: Cleanup - Batch execution records deleted")
+        except Exception as e:
+            print(f"DEBUG: Failed to cleanup batch_executions: {e}")

@@ -6,12 +6,13 @@ awaitable な戻り値にも対応するため BaseRepository のヘルパーを
 
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.batch_execution import BatchExecution
+from app.models.enums import BatchExecutionStatus
 from app.repositories.base import BaseRepository
 from app.utils.database import flush_return_with_log
 from app.utils.validation import validate_pagination
@@ -49,12 +50,14 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         # total_stocks は NULL 不可のため 0 で初期化する
         instance = self.model(
             batch_type=batch_type,
-            status="pending",
+            status=BatchExecutionStatus.PENDING,
             total_stocks=0,
         )
         return await self._add_and_flush(instance)
 
-    async def update_status(self, record_id: int, status: str) -> Optional[BatchExecution]:
+    async def update_status(
+        self, record_id: int, status: Union[BatchExecutionStatus, str]
+    ) -> Optional[BatchExecution]:
         """指定レコードのステータスを更新する.
 
         Args:
@@ -70,6 +73,9 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         instance = await self.get(record_id)
         if instance is None:
             return None
+        # Accept either BatchExecutionStatus or its string value
+        if isinstance(status, str):
+            status = BatchExecutionStatus(status)
         instance.status = status
 
         return await flush_return_with_log(
@@ -103,7 +109,7 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         if instance is None:
             return None
 
-        instance.status = "completed"
+        instance.status = BatchExecutionStatus.COMPLETED
         instance.successful_stocks = success_count
         instance.failed_stocks = failed_count
         instance.processed_stocks = success_count + failed_count
@@ -193,7 +199,7 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
             List[BatchExecution]: 実行中ジョブのリスト
         """
         result = await self.session.execute(
-            select(self.model).where(self.model.status == "running")
+            select(self.model).where(self.model.status == BatchExecutionStatus.RUNNING)
         )
         return list(result.scalars().all())
 
@@ -216,7 +222,7 @@ class BatchExecutionRepository(BaseRepository[BatchExecution]):
         if instance is None:
             return None
 
-        instance.status = "cancelled"
+        instance.status = BatchExecutionStatus.CANCELLED
         instance.end_time = datetime.now(timezone.utc)
 
         return await flush_return_with_log(

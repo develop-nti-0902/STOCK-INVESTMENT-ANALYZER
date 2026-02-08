@@ -1,10 +1,63 @@
+"""Test fixtures and helpers for the test suite.
+
+共通の pytest フィクスチャを定義します。
+"""
+
+# flake8: noqa
+
+import asyncio
+import gc
 from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app as fastapi_app
+from app.utils.database import close_db
 from app.utils.database import get_db as real_get_db
+
+
+@pytest.fixture(scope="function", autouse=True)
+def reset_event_loop():
+    """各テストの前後でイベントループを適切に管理する.
+
+    autouser=True により、すべてのテストで自動的に実行される。
+    """
+    # テスト前: 既存のループをクリーンアップし、データベースエンジンをリセット
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            # 閉じられたループがある場合は新しいループを作成
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+    except RuntimeError:
+        # ループが存在しない場合は新しいループを作成
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    # 前のテストのデータベースエンジンをクリーンアップ
+    try:
+        loop = asyncio.get_event_loop()
+        if not loop.is_closed():
+            loop.run_until_complete(close_db())
+    except Exception:
+        pass
+
+    yield
+
+    # テスト後: データベースエンジンをクリーンアップしてリソースを解放
+    try:
+        loop = asyncio.get_event_loop()
+        if not loop.is_closed():
+            loop.run_until_complete(close_db())
+    except Exception:
+        pass
+
+    # テスト後: リソースをクリーンアップ（ループは閉じない）
+    try:
+        gc.collect()
+    except Exception:
+        pass
 
 
 @pytest.fixture(scope="function")
@@ -38,3 +91,18 @@ def client(request):
     finally:
         # テスト終了後にオーバーライドを削除してクリーンアップ
         fastapi_app.dependency_overrides.pop(real_get_db, None)
+
+        # リソースのクリーンアップ
+        # ガベージコレクションを実行して未処理のリソースをクリーンアップ
+        gc.collect()
+
+        # SQLAlchemy のコネクションプールをクリーンアップ
+        # これにより、古いイベントループへの参照が残らないようにする
+        try:
+            import warnings
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                gc.collect()
+        except Exception:
+            pass

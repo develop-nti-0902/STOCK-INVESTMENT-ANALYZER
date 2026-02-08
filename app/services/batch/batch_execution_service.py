@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 
 from app.exceptions.business import ServiceError
 from app.models.batch_execution import BatchExecution
+from app.models.enums import BatchExecutionStatus
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -58,7 +59,9 @@ class BatchExecutionService:
         Returns:
             Optional[BatchExecution]: 更新後のジョブインスタンス、存在しない場合は None
         """
-        return await self.repository.update_status(record_id=job_id, status="running")
+        return await self.repository.update_status(
+            record_id=job_id, status=BatchExecutionStatus.RUNNING
+        )
 
     async def update_progress(
         self,
@@ -132,7 +135,7 @@ class BatchExecutionService:
             Optional[BatchExecution]: 更新後のジョブインスタンス、存在しない場合は None
         """
         data = {
-            "status": "failed",
+            "status": BatchExecutionStatus.FAILED,
             "error_message": error_message,
             "end_time": datetime.now(timezone.utc),
         }
