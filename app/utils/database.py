@@ -98,27 +98,10 @@ def get_engine() -> AsyncEngine:
     return create_engine()
 
 
-@lru_cache(maxsize=1)
-def get_session_maker() -> async_sessionmaker[AsyncSession]:
-    """
-    非同期セッションメーカーを取得.
-
-    セッション設定:
-    - autocommit: False（明示的なコミット）
-    - autoflush: False（明示的なフラッシュ）
-    - expire_on_commit: False（コミット後もオブジェクトを有効に保つ）
-
-    Returns:
-        async_sessionmaker[AsyncSession]: セッションメーカー
-    """
-    engine = get_engine()
-    return async_sessionmaker(
-        bind=engine,
-        class_=AsyncSession,
-        autocommit=False,
-        autoflush=False,
-        expire_on_commit=False,
-    )
+# Note: get_session_maker was intentionally removed to centralize session creation
+# via `get_db()` and to avoid providing a public session-maker API from the
+# `app` package. If external scripts need to create a session maker, they should
+# call `get_engine()` and construct an `async_sessionmaker` locally.
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -126,7 +109,6 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     非同期DBセッションを提供（FastAPI Depends用）.
 
     使用例:
-        ```python
         from fastapi import Depends
         from sqlalchemy.ext.asyncio import AsyncSession
         from app.utils.database import get_db
@@ -150,7 +132,14 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
           * 例外発生時: 自動でrollback()
         - コンテキストマネージャとして動作し、必ずセッションをクローズします
     """
-    session_maker = get_session_maker()
+    engine = get_engine()
+    session_maker = async_sessionmaker(
+        bind=engine,
+        class_=AsyncSession,
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False,
+    )
     async with session_maker() as session:
         try:
             yield session
@@ -193,8 +182,9 @@ async def close_db() -> None:
     logger.info("Database engine disposed")
     # 再初期化を可能にするためキャッシュをクリア
     try:
-        get_session_maker.cache_clear()
-    except AttributeError:
+        # no get_session_maker to clear
+        pass
+    except Exception:
         pass
     try:
         get_engine.cache_clear()

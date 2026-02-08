@@ -20,9 +20,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models.batch_execution_details import BatchExecutionDetails
-from app.utils.database import get_session_maker
+from app.utils.database import get_engine
 
 logger = logging.getLogger("cleanup_batch_history")
 logging.basicConfig(level=logging.INFO)
@@ -81,7 +82,10 @@ async def main(argv: list[str] | None = None) -> int:
     retention_days = _get_retention_days(args.days)
     cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
 
-    session_maker = get_session_maker()
+    engine = get_engine()
+    session_maker = async_sessionmaker(
+        bind=engine, class_=AsyncSession, autocommit=False, autoflush=False, expire_on_commit=False
+    )
 
     logger.info("Retention days=%s, cutoff=%s", retention_days, cutoff.isoformat())
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import platform
 import sys
 from contextvars import ContextVar
 from datetime import datetime, timezone
@@ -230,17 +231,30 @@ def setup_logger(
             log_path = Path("logs") / log_file_name
 
         log_path.parent.mkdir(parents=True, exist_ok=True)
+        # Windows 環境ではファイルロックによる rename エラーが発生しやすいため
+        # ローテーションではなくシンプルな FileHandler を使う（テスト安定化）。
+        try:
+            # Windows かつログディレクトリを明示していない（デフォルトのアプリログ）の場合は
+            # FileHandler を使ってファイルロックによる rename エラーを回避する。
+            # テストなどで `log_dir` を指定した場合はローテーションを有効にする。
+            if platform.system() == "Windows" and log_dir is None:
+                file_handler = logging.FileHandler(filename=str(log_path), encoding="utf-8")
+            else:
+                file_handler = RotatingFileHandler(
+                    filename=str(log_path),
+                    maxBytes=max_bytes,
+                    backupCount=backup_count,
+                    encoding="utf-8",
+                )
 
-        # ローテーションファイルハンドラ
-        file_handler = RotatingFileHandler(
-            filename=str(log_path),
-            maxBytes=max_bytes,
-            backupCount=backup_count,
-            encoding="utf-8",
-        )
-        file_handler.setLevel(log_level_num)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+            file_handler.setLevel(log_level_num)
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+        except (OSError, PermissionError):
+            # テスト環境やファイルロック中に発生する可能性があるため安全にフォールバック
+            # コンソールハンドラのみでログを出力する。
+            console_handler.setLevel(log_level_num)
+            console_handler.setFormatter(formatter)
 
     # 親ロガーへの伝播を無効化（重複出力防止）
     logger.propagate = False

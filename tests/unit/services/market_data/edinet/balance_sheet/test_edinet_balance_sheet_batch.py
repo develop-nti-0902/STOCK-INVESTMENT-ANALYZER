@@ -18,17 +18,18 @@ from app.services.market_data.edinet.balance_sheet.batch import EdinetBalanceShe
 
 
 def _make_runner(fetcher=None):
-    # get_session_maker は __init__ で呼ばれるためダミーにする
-    with patch(
-        "app.services.market_data.edinet.balance_sheet.batch.get_session_maker",
-        return_value=lambda: None,
-    ):
-        runner = EdinetBalanceSheetBatchRunner(
-            batch_service=object(),
-            fetcher=fetcher or object(),
-            parser=object(),
-            file_manager=object(),
-        )
+    # コンストラクタは AsyncSession を必須とするため、テスト用の AsyncMock を注入する
+    session = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+
+    runner = EdinetBalanceSheetBatchRunner(
+        batch_service=object(),
+        fetcher=fetcher or object(),
+        parser=object(),
+        file_manager=object(),
+        session=session,
+    )
     return runner
 
 

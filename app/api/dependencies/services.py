@@ -318,6 +318,7 @@ def get_edinet_balance_sheet_batch_runner(
     fetcher: EdinetDocumentFetcher = Depends(get_edinet_document_fetcher),
     parser: EdinetBalanceSheetParser = Depends(get_edinet_balance_sheet_parser),
     file_manager: EdinetFileManager = Depends(get_edinet_file_manager),
+    db: AsyncSession = Depends(get_db),
 ) -> EdinetBalanceSheetBatchRunner:
     """EdinetBalanceSheetBatchRunner を提供する依存性プロバイダ.
 
@@ -330,9 +331,12 @@ def get_edinet_balance_sheet_batch_runner(
     Returns:
         EdinetBalanceSheetBatchRunner: EDINET 貸借対照表バッチランナー
     """
+    # バッチは呼び出し側からセッションを注入する設計に変更したため、
+    # ここでも依存性から取得したDBセッションを渡す。
     return EdinetBalanceSheetBatchRunner(
         batch_service=batch_service,
         fetcher=fetcher,
         parser=parser,
         file_manager=file_manager,
+        session=db,
     )

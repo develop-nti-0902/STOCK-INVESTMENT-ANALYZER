@@ -93,6 +93,7 @@ async def main() -> None:
             fetcher=fetcher,
             parser=edinet_parser,
             file_manager=file_manager,
+            session=session,
         )
 
         try:

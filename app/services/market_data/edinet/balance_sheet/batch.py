@@ -11,6 +11,8 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any, Dict, List
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.services.batch.batch_execution_service import BatchExecutionContext
 from app.services.core.batch.base import BaseBatchRunner
 from app.services.market_data.edinet.balance_sheet.converter import EdinetBalanceSheetConverter
@@ -19,7 +21,6 @@ from app.services.market_data.edinet.balance_sheet.file_manager import EdinetFil
 from app.services.market_data.edinet.balance_sheet.parser import EdinetBalanceSheetParser
 from app.services.market_data.edinet.balance_sheet.saver import EdinetBalanceSheetSaver
 from app.services.market_data.edinet.balance_sheet.service import EdinetBalanceSheetService
-from app.utils.database import get_session_maker
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -39,6 +40,7 @@ class EdinetBalanceSheetBatchRunner(BaseBatchRunner):
         fetcher: EdinetDocumentFetcher,
         parser: EdinetBalanceSheetParser,
         file_manager: EdinetFileManager,
+        session: AsyncSession,
     ) -> None:
         """初期化.
 
@@ -52,7 +54,8 @@ class EdinetBalanceSheetBatchRunner(BaseBatchRunner):
         self.fetcher = fetcher
         self.parser = parser
         self.file_manager = file_manager
-        self.session_maker = get_session_maker()
+        # セッションは呼び出し側で生成して注入すること（必須）。
+        self.session = session
 
     async def run(self, *args, **kwargs) -> Dict[str, Any]:
         """バッチ実行エントリポイント（BaseBatchRunner の抽象メソッド実装）.
@@ -190,44 +193,44 @@ class EdinetBalanceSheetBatchRunner(BaseBatchRunner):
                             continue
 
                         ##########################################################
-                        # DB セッション生成とトランザクション管理
+                        # セッションは必ず呼び出し側で注入される想定
                         ##########################################################
-                        async with self.session_maker() as session:  # type: ignore[call-arg]
-                            try:
-                                ##########################################################
-                                # サービス初期化（コンバータ・セーバー・サービス）
-                                ##########################################################
-                                converter = EdinetBalanceSheetConverter()
-                                saver = EdinetBalanceSheetSaver(session=session)
-                                edinet_service = EdinetBalanceSheetService(
-                                    fetcher=self.fetcher,
-                                    parser=self.parser,
-                                    converter=converter,
-                                    saver=saver,
-                                    file_manager=self.file_manager,
-                                )
-                                results = await edinet_service.fetch_and_save(
-                                    doc_id=doc_id,
-                                    sec_code=sec_code,
-                                    submission_date=submission_date,
-                                    filer_name=filer_name,
-                                )
+                        session = self.session
+                        try:
+                            ##########################################################
+                            # サービス初期化（コンバータ・セーバー・サービス）
+                            ##########################################################
+                            converter = EdinetBalanceSheetConverter()
+                            saver = EdinetBalanceSheetSaver(session=session)
+                            edinet_service = EdinetBalanceSheetService(
+                                fetcher=self.fetcher,
+                                parser=self.parser,
+                                converter=converter,
+                                saver=saver,
+                                file_manager=self.file_manager,
+                            )
+                            results = await edinet_service.fetch_and_save(
+                                doc_id=doc_id,
+                                sec_code=sec_code,
+                                submission_date=submission_date,
+                                filer_name=filer_name,
+                            )
 
-                                ##########################################################
-                                # 結果反映（コミット、統計更新、ログ出力）
-                                ##########################################################
-                                await session.commit()
-                                saved_years_count += len(results) if results else 0
-                                processed_docs += 1
-                                logger.info(
-                                    "Processed doc_id=%s, saved %d years",
-                                    doc_id,
-                                    len(results) if results else 0,
-                                )
-                            except Exception as e:
-                                await session.rollback()
-                                logger.exception("Failed to process doc_id=%s: %s", doc_id, e)
-                                failed_docs += 1
+                            ##########################################################
+                            # 結果反映（コミット、統計更新、ログ出力）
+                            ##########################################################
+                            await session.commit()
+                            saved_years_count += len(results) if results else 0
+                            processed_docs += 1
+                            logger.info(
+                                "Processed doc_id=%s, saved %d years",
+                                doc_id,
+                                len(results) if results else 0,
+                            )
+                        except Exception as e:
+                            await session.rollback()
+                            logger.exception("Failed to process doc_id=%s: %s", doc_id, e)
+                            failed_docs += 1
                     except Exception as e:
                         logger.exception("Failed to create session for doc_id=%s: %s", doc_id, e)
                         failed_docs += 1
