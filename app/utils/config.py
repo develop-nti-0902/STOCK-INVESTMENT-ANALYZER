@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.exceptions.system import SettingsValidationError
@@ -109,11 +109,12 @@ class Settings(BaseSettings):
         None, description="Full database URL (overrides DB_* settings)"
     )
 
-    DB_HOST: str = Field(..., description="Database host")
-    DB_PORT: int = Field(..., description="Database port")
-    DB_NAME: str = Field(..., description="Database name")
-    DB_USER: str = Field(..., description="Database user")
-    DB_PASSWORD: str = Field(..., description="Database password")
+    # 個別の DB 設定は `DATABASE_URL` が与えられている場合は必須ではない
+    DB_HOST: Optional[str] = Field(None, description="Database host")
+    DB_PORT: Optional[int] = Field(None, description="Database port")
+    DB_NAME: Optional[str] = Field(None, description="Database name")
+    DB_USER: Optional[str] = Field(None, description="Database user")
+    DB_PASSWORD: Optional[str] = Field(None, description="Database password")
     # 接続プール設定（環境変数で上書き可能）
     DB_POOL_SIZE: int = Field(
         5,
@@ -204,6 +205,36 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",  # 未定義の環境変数は無視する
     )
+
+    @model_validator(mode="after")
+    def _validate_database_configuration(self) -> "Settings":
+        """`DATABASE_URL` が指定されていなければ、個別の DB_* 設定が揃っていることを確認する.
+
+        CI 環境では `.env` が存在しないことがあるため、`DATABASE_URL` が与えられれば
+        個別設定を省略できるようにする。
+        """
+        if not self.DATABASE_URL:
+            missing = [
+                name
+                for name, val in (
+                    ("DB_HOST", self.DB_HOST),
+                    ("DB_PORT", self.DB_PORT),
+                    ("DB_NAME", self.DB_NAME),
+                    ("DB_USER", self.DB_USER),
+                    ("DB_PASSWORD", self.DB_PASSWORD),
+                )
+                if val in (None, "")
+            ]
+
+            if missing:
+                msg = (
+                    "Database configuration incomplete. Provide DATABASE_URL or set: "
+                    + ", ".join(missing)
+                )
+
+                raise ValueError(msg)
+
+        return self
 
     @property
     def is_production(self) -> bool:
