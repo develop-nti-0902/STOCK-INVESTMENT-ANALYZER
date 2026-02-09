@@ -76,7 +76,7 @@ async def test_refresh_runs_when_lock_acquired(monkeypatch):
     """ロック取得時に run_refresh が実行されることを検証する."""
     # arrange
     fake_engine = _FakeEngine([True])
-    monkeypatch.setattr(mod, "get_engine", lambda: fake_engine)
+    monkeypatch.setattr(mod, "get_engine", lambda: fake_engine, raising=False)
 
     # fake batch service (BatchExecutionService-like)
     batch = AsyncMock()
@@ -121,7 +121,7 @@ async def test_refresh_runs_when_lock_acquired(monkeypatch):
 async def test_no_run_when_lock_not_acquired(monkeypatch):
     """ロック未取得時は処理が実行されず ServiceError になることを検証する."""
     fake_engine = _FakeEngine([False])
-    monkeypatch.setattr(mod, "get_engine", lambda: fake_engine)
+    monkeypatch.setattr(mod, "get_engine", lambda: fake_engine, raising=False)
 
     batch = AsyncMock()
     batch.create_job.return_value = SimpleNamespace(id=2)
@@ -160,7 +160,7 @@ async def test_release_failure_logs_but_run_called(monkeypatch):
     # acquire True, release False
     fake_engine = _FakeEngine([True])
     # monkeypatch connect to return conn that will return True for acquire
-    monkeypatch.setattr(mod, "get_engine", lambda: fake_engine)
+    monkeypatch.setattr(mod, "get_engine", lambda: fake_engine, raising=False)
 
     batch = AsyncMock()
     batch.create_job.return_value = SimpleNamespace(id=3)
@@ -199,7 +199,7 @@ async def test_exception_in_run_refresh_propagates_and_marks_failed(
 ):
     """run_refresh の例外が ServiceError として伝播し、fail_job が呼ばれることを検証する."""
     fake_engine = _FakeEngine([True])
-    monkeypatch.setattr(mod, "get_engine", lambda: fake_engine)
+    monkeypatch.setattr(mod, "get_engine", lambda: fake_engine, raising=False)
 
     batch = AsyncMock()
     batch.create_job.return_value = SimpleNamespace(id=4)
