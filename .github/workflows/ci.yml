@@ -3,8 +3,8 @@ name: CI - tests & linters
 # CI ワークフロー（概要）
 # 実行トリガ: pull_request と main ブランチへの push
 # ジョブ:
-#  - lint:  コード整形と静的解析（black/isort/flake8）
-#  - test:  テスト実行（pytest）および Postgres を使った統合テストの想定
+#  - lint:  コード整形と静的解析（black/isort/flake8）。
+#  - test:  テスト実行（pytest）および SQLite を使った統合テストの想定
 #  - type-check: mypy による型チェック
 
 on:

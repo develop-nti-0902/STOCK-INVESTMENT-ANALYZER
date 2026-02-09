@@ -104,18 +104,13 @@ class Settings(BaseSettings):
     )
 
     # データベース設定
-    # フル接続URLが与えられている場合、個別のDB_*設定より優先して使用できます
+    # `DATABASE_URL` を必須の接続設定として扱います（SQLite も URL 指定で指定してください）。
     DATABASE_URL: Optional[str] = Field(
-        None, description="Full database URL (overrides DB_* settings)"
+        None,
+        description="Full database URL (e.g. sqlite:///path/to/db or postgresql+asyncpg://...)",
     )
 
-    # 個別の DB 設定は `DATABASE_URL` が与えられている場合は必須ではない
-    DB_HOST: Optional[str] = Field(None, description="Database host")
-    DB_PORT: Optional[int] = Field(None, description="Database port")
-    DB_NAME: Optional[str] = Field(None, description="Database name")
-    DB_USER: Optional[str] = Field(None, description="Database user")
-    DB_PASSWORD: Optional[str] = Field(None, description="Database password")
-    # 接続プール設定（環境変数で上書き可能）
+    # Engine tuning (kept for runtime configuration regardless of DB engine)
     DB_POOL_SIZE: int = Field(
         5,
         description="SQLAlchemy engine pool size (default: 5)",
@@ -213,26 +208,9 @@ class Settings(BaseSettings):
         CI 環境では `.env` が存在しないことがあるため、`DATABASE_URL` が与えられれば
         個別設定を省略できるようにする。
         """
+        # Require a full DATABASE_URL to be defined.
         if not self.DATABASE_URL:
-            missing = [
-                name
-                for name, val in (
-                    ("DB_HOST", self.DB_HOST),
-                    ("DB_PORT", self.DB_PORT),
-                    ("DB_NAME", self.DB_NAME),
-                    ("DB_USER", self.DB_USER),
-                    ("DB_PASSWORD", self.DB_PASSWORD),
-                )
-                if val in (None, "")
-            ]
-
-            if missing:
-                msg = (
-                    "Database configuration incomplete. Provide DATABASE_URL or set: "
-                    + ", ".join(missing)
-                )
-
-                raise ValueError(msg)
+            raise ValueError("Database configuration incomplete. Provide DATABASE_URL.")
 
         return self
 

@@ -1,3 +1,5 @@
+"""`app.utils.config` の単体テスト。テスト関数名で動作を説明しています."""
+
 import importlib
 import sys
 
@@ -6,21 +8,15 @@ from pydantic import ValidationError
 
 
 def test_settings_env_only_returns_expected_values(monkeypatch):
-    """
-    環境変数のみで設定値が正しく取得できることを検証する
-    （.envファイルがなくても動作することを含む）
-    """
+    """環境変数のみで設定値が正しく取得できることを検証する."""
     # Arrange
     monkeypatch.setenv("APP_NAME", "SIA")
     monkeypatch.setenv("APP_VERSION", "0.1.0")
     monkeypatch.setenv("DEBUG", "true")
     monkeypatch.setenv("ENV", "development")
 
-    monkeypatch.setenv("DB_HOST", "localhost")
-    monkeypatch.setenv("DB_PORT", "5432")
-    monkeypatch.setenv("DB_NAME", "stockdb")
-    monkeypatch.setenv("DB_USER", "stock_user")
-    monkeypatch.setenv("DB_PASSWORD", "password")
+    # Use DATABASE_URL for connection in tests (no Postgres-specific vars)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///test.db")
 
     monkeypatch.setenv("LOG_LEVEL", "INFO")
     monkeypatch.setenv("LOG_FILE", "app.log")
@@ -38,29 +34,18 @@ def test_settings_env_only_returns_expected_values(monkeypatch):
     assert settings.DEBUG is True
     assert settings.is_development is True
 
-    assert settings.DB_HOST == "localhost"
-    assert settings.DB_PORT == 5432
-    assert settings.DB_NAME == "stockdb"
-    assert settings.DB_USER == "stock_user"
-    assert settings.DB_PASSWORD == "password"
+    assert settings.DATABASE_URL == "sqlite:///test.db"
 
     assert settings.LOG_LEVEL == "INFO"
     assert settings.LOG_FILE == "app.log"
 
 
 def test_settings_missing_required_env_raises_validation_error(monkeypatch):
-    """
-    必須環境変数が未設定の場合にValidationErrorが発生し、
-    エラーメッセージに不足変数名が含まれることを検証する
-    """
+    """必須環境変数未設定時に ValidationError が発生することを検証する."""
     # Arrange: 必須環境変数をすべて削除
     monkeypatch.delenv("APP_NAME", raising=False)
     monkeypatch.delenv("APP_VERSION", raising=False)
-    monkeypatch.delenv("DB_HOST", raising=False)
-    monkeypatch.delenv("DB_PORT", raising=False)
-    monkeypatch.delenv("DB_NAME", raising=False)
-    monkeypatch.delenv("DB_USER", raising=False)
-    monkeypatch.delenv("DB_PASSWORD", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
 
     # Act & Assert: .envファイルを読み込まずにSettingsをインスタンス化
     # 注意: sys.modules.pop()でモジュールキャッシュをクリアし、
@@ -83,18 +68,12 @@ def test_settings_missing_required_env_raises_validation_error(monkeypatch):
 def test_settings_is_production_returns_true_when_env_is_production(
     monkeypatch,
 ):
-    """
-    ENVがproductionの場合、is_productionがTrueを返すことを検証する
-    """
+    """ENV が production のとき is_production を True と判定することを検証する."""
     # Arrange
     monkeypatch.setenv("APP_NAME", "SIA")
     monkeypatch.setenv("APP_VERSION", "0.1.0")
     monkeypatch.setenv("ENV", "production")
-    monkeypatch.setenv("DB_HOST", "localhost")
-    monkeypatch.setenv("DB_PORT", "5432")
-    monkeypatch.setenv("DB_NAME", "stockdb")
-    monkeypatch.setenv("DB_USER", "stock_user")
-    monkeypatch.setenv("DB_PASSWORD", "password")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///test.db")
     # EDINET APIキーはSettingsで必須になったためテスト用のダミー値を設定
     monkeypatch.setenv("EDINET_SUBSCRIPTION_KEY", "dummy_key")
 
@@ -110,18 +89,12 @@ def test_settings_is_production_returns_true_when_env_is_production(
 
 
 def test_settings_is_test_returns_true_when_env_is_test(monkeypatch):
-    """
-    ENVがtestの場合、is_testがTrueを返すことを検証する
-    """
+    """ENV が test のとき is_test を True と判定することを検証する."""
     # Arrange
     monkeypatch.setenv("APP_NAME", "SIA")
     monkeypatch.setenv("APP_VERSION", "0.1.0")
     monkeypatch.setenv("ENV", "test")
-    monkeypatch.setenv("DB_HOST", "localhost")
-    monkeypatch.setenv("DB_PORT", "5432")
-    monkeypatch.setenv("DB_NAME", "stockdb")
-    monkeypatch.setenv("DB_USER", "stock_user")
-    monkeypatch.setenv("DB_PASSWORD", "password")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///test.db")
     # EDINET APIキーはSettingsで必須になったためテスト用のダミー値を設定
     monkeypatch.setenv("EDINET_SUBSCRIPTION_KEY", "dummy_key")
 
@@ -140,10 +113,7 @@ def test_get_settings_raises_validation_error_when_required_env_missing(
     monkeypatch,
     tmp_path,
 ):
-    """
-    get_settings()関数が必須環境変数未設定時にSettingsValidationErrorを送出することを検証する
-    （exceptブロックのカバレッジ向上）
-    """
+    """get_settings() が必須環境変数未設定時に SettingsValidationError を送出することを検証する."""
     # Arrange: キャッシュをクリアして環境変数を削除
     sys.modules.pop("app.utils.config", None)
     sys.modules.pop("app.exceptions.system", None)
@@ -151,11 +121,7 @@ def test_get_settings_raises_validation_error_when_required_env_missing(
     # 必須環境変数を削除
     monkeypatch.delenv("APP_NAME", raising=False)
     monkeypatch.delenv("APP_VERSION", raising=False)
-    monkeypatch.delenv("DB_HOST", raising=False)
-    monkeypatch.delenv("DB_PORT", raising=False)
-    monkeypatch.delenv("DB_NAME", raising=False)
-    monkeypatch.delenv("DB_USER", raising=False)
-    monkeypatch.delenv("DB_PASSWORD", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
 
     # .envファイルを読み込まないように一時ディレクトリに移動
     monkeypatch.chdir(tmp_path)
@@ -176,9 +142,7 @@ def test_get_settings_raises_validation_error_when_required_env_missing(
 
 
 def test_batch_processing_settings_default_values():
-    """
-    BatchProcessingSettingsのデフォルト値が正しく設定されていることを検証する
-    """
+    """BatchProcessingSettings のデフォルト値を検証する."""
     # Arrange & Act
     from app.utils.config import BatchProcessingSettings
 
@@ -196,9 +160,7 @@ def test_batch_processing_settings_default_values():
 
 
 def test_batch_processing_settings_env_variables(monkeypatch):
-    """
-    BatchProcessingSettingsが環境変数から正しく読み込まれることを検証する
-    """
+    """BatchProcessingSettings が環境変数から読み込まれることを検証する."""
     # Arrange
     monkeypatch.setenv("BATCH_BATCH_SIZE", "50")
     monkeypatch.setenv("BATCH_MAX_CONCURRENT", "10")
@@ -226,9 +188,7 @@ def test_batch_processing_settings_env_variables(monkeypatch):
 
 
 def test_batch_processing_settings_validation():
-    """
-    BatchProcessingSettingsのバリデーションが正しく動作することを検証する
-    """
+    """BatchProcessingSettings のバリデーションを検証する."""
     from pydantic import ValidationError
 
     from app.utils.config import BatchProcessingSettings
@@ -267,9 +227,7 @@ def test_batch_processing_settings_validation():
 
 
 def test_settings_includes_batch_processing_settings():
-    """
-    SettingsクラスがBatchProcessingSettingsを正しく含んでいることを検証する
-    """
+    """Settings が BatchProcessingSettings を包含していることを検証する."""
     # Arrange
     import os
 

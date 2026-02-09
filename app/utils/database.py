@@ -63,11 +63,18 @@ def get_database_url() -> str:
                 full_url = full_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
         return full_url
 
-    # デフォルト: 個別の設定から PostgreSQL (asyncpg) 用の URL を構築します
-    return (
-        f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}"
-        f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
-    )
+    # `DATABASE_URL` を必須とします。SQLite の場合は `sqlite:///...` 形式を指定してください。
+    if not full_url:
+        raise ValueError("No DATABASE_URL configured for database connection")
+
+    # `sqlite:///...` のようにユーザが同期用スキーマで指定した場合、
+    # 非同期用ドライバ表記に変換します（sqlite+aiosqlite://）。
+    parsed = urlparse(full_url)
+    if parsed.scheme == "sqlite":
+        if not full_url.startswith("sqlite+"):
+            full_url = full_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+
+    return full_url
 
 
 def create_engine() -> AsyncEngine:
@@ -103,16 +110,10 @@ def create_engine() -> AsyncEngine:
 
     engine = create_async_engine(database_url, **engine_kwargs)
 
-    logger.info(
-        "Database engine created",
-        extra={
-            "database": settings.DB_NAME,
-            "host": settings.DB_HOST,
-            "port": settings.DB_PORT,
-            "pool_size": settings.DB_POOL_SIZE,
-            "max_overflow": settings.DB_MAX_OVERFLOW,
-        },
-    )
+    # 接続情報は最小限のみログ出力する（認証情報は含めない）
+    # DBパスや接続先ホストの有無のみを記録する
+    extra_info = {"database_url_present": bool(getattr(settings, "DATABASE_URL", None))}
+    logger.info("Database engine created", extra=extra_info)
 
     return engine
 

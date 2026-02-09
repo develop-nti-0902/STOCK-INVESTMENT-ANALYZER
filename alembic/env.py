@@ -49,12 +49,12 @@ def get_alembic_database_url() -> str:
     if env_url:
         return env_url
 
-    # デフォルトはアプリ設定から Postgres (asyncpg) 接続文字列を作成
+    # デフォルトはアプリ設定から `DATABASE_URL` を使う
     settings = get_settings()
-    return (
-        f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}"
-        f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
-    )
+    if getattr(settings, "DATABASE_URL", None):
+        return settings.DATABASE_URL
+
+    raise RuntimeError("No DATABASE_URL configured for Alembic migrations")
 
 
 def run_migrations_offline() -> None:

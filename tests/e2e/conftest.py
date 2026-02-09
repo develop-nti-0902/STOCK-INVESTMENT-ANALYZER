@@ -5,6 +5,7 @@
 
 import os
 import socket
+from urllib.parse import unquote, urlparse
 
 import pytest
 from fastapi.testclient import TestClient
@@ -35,6 +36,28 @@ def is_db_reachable() -> bool:
         # import エラー等は無視して環境変数を使う
         pass
     if not host or not port:
+        # ホスト/ポートが指定されていない場合は `DATABASE_URL` を確認する
+        try:
+            # 設定内の `DATABASE_URL` を優先して取得する
+            from app.utils.config import get_settings
+
+            settings = get_settings()
+            db_url = getattr(settings, "DATABASE_URL", os.getenv("DATABASE_URL"))
+        except Exception:
+            db_url = os.getenv("DATABASE_URL")
+
+        if db_url:
+            parsed = urlparse(db_url)
+            scheme = (parsed.scheme or "").lower()
+            # SQLite を使う場合、ファイルが存在するかメモリ DB の場合は到達可能と判断する
+            if scheme.startswith("sqlite"):
+                # Windows では parsed.path が '/C:/path' になることがあるため正規化する
+                path = unquote(parsed.path or "")
+                if path.startswith("/") and len(path) > 2 and path[2] == ":":
+                    path = path[1:]
+                if path == ":memory:" or path == "":
+                    return True
+                return os.path.exists(path)
         return False
     try:
         with socket.create_connection((host, int(port)), timeout=1):

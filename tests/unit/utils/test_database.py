@@ -10,13 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 def mock_settings():
     """モック設定を提供するフィクスチャ."""
     mock = MagicMock()
-    mock.DB_USER = "test_user"
-    mock.DB_PASSWORD = "test_password"
-    mock.DB_HOST = "localhost"
-    mock.DB_PORT = 5432
-    mock.DB_NAME = "test_db"
+    # Provide a full DATABASE_URL for tests
+    mock.DATABASE_URL = "postgresql+asyncpg://test_user:test_password@localhost:5432/test_db"
     mock.DEBUG = False
-    # 新規追加: プール設定のデフォルト
+    # Engine pool settings (kept for assertions)
     mock.DB_POOL_SIZE = 5
     mock.DB_MAX_OVERFLOW = 10
     return mock
@@ -55,8 +52,7 @@ class TestGetDatabaseUrl:
             url = get_database_url()
 
             # Assert
-            expected_url = "postgresql+asyncpg://test_user:test_password" "@localhost:5432/test_db"
-            assert url == expected_url
+            assert url == mock_settings.DATABASE_URL
 
 
 class TestCreateEngine:
@@ -121,6 +117,8 @@ class TestCreateEngine:
         local_settings.DB_HOST = "h"
         local_settings.DB_PORT = 5432
         local_settings.DB_NAME = "n"
+        # New code: provide DATABASE_URL to match new configuration requirement
+        local_settings.DATABASE_URL = "postgresql+asyncpg://u:p@h:5432/n"
 
         with patch("app.utils.database.get_settings", return_value=local_settings), patch(
             "app.utils.database.create_async_engine"
