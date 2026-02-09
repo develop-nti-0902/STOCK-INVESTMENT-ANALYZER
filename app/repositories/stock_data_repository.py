@@ -13,7 +13,7 @@ from typing import List, Optional, Union, cast
 
 from sqlalchemy import delete as sql_delete
 from sqlalchemy import desc, select, text
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -120,19 +120,22 @@ class StockDataRepository(BaseRepository, ABC):
             # UPSERT文の構築
             stmt = insert(self.model).values(data)
 
-            # コンフリクト時の更新設定
+            # コンフリクト時の更新設定（SQLite互換のUPSERT構文）
             conflict_columns = ["symbol", self.time_column]
-            update_values = {
-                "open": stmt.excluded.open,
-                "high": stmt.excluded.high,
-                "low": stmt.excluded.low,
-                "close": stmt.excluded.close,
-                "adj_close": stmt.excluded.adj_close,
-                "volume": stmt.excluded.volume,
-                "updated_at": text("CURRENT_TIMESTAMP"),
-            }
-
-            stmt = stmt.on_conflict_do_update(index_elements=conflict_columns, set_=update_values)
+            # excluded は on_conflict_do_update 呼び出し後に参照可能になるため、
+            # set_ パラメータ内で excluded を使う
+            stmt = stmt.on_conflict_do_update(
+                index_elements=conflict_columns,
+                set_={
+                    "open": stmt.excluded.open,
+                    "high": stmt.excluded.high,
+                    "low": stmt.excluded.low,
+                    "close": stmt.excluded.close,
+                    "adj_close": stmt.excluded.adj_close,
+                    "volume": stmt.excluded.volume,
+                    "updated_at": text("CURRENT_TIMESTAMP"),
+                },
+            )
 
             # 実行
             result = cast(CursorResult, await self.session.execute(stmt))
@@ -265,25 +268,22 @@ class StockDataRepository(BaseRepository, ABC):
     async def _execute_insert(self, chunk: List[dict]) -> int:
         """チャンク用のUPSERT文を構築して実行するヘルパー."""
         stmt = insert(self.model).values(chunk)
-        update_values = self._build_update_values(stmt)
+        # excluded は on_conflict_do_update 呼び出し後に参照可能になる
         stmt = stmt.on_conflict_do_update(
-            index_elements=["symbol", self.time_column], set_=update_values
+            index_elements=["symbol", self.time_column],
+            set_={
+                "open": stmt.excluded.open,
+                "high": stmt.excluded.high,
+                "low": stmt.excluded.low,
+                "close": stmt.excluded.close,
+                "adj_close": stmt.excluded.adj_close,
+                "volume": stmt.excluded.volume,
+                "updated_at": text("CURRENT_TIMESTAMP"),
+            },
         )
 
         result = await self.session.execute(stmt)
         return result.rowcount if hasattr(result, "rowcount") and result.rowcount else len(chunk)
-
-    def _build_update_values(self, stmt):
-        """ON CONFLICT の更新マッピングを構築するヘルパー."""
-        return {
-            "open": stmt.excluded.open,
-            "high": stmt.excluded.high,
-            "low": stmt.excluded.low,
-            "close": stmt.excluded.close,
-            "adj_close": stmt.excluded.adj_close,
-            "volume": stmt.excluded.volume,
-            "updated_at": text("CURRENT_TIMESTAMP"),
-        }
 
     async def get_by_symbol_and_range(
         self,

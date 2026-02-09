@@ -10,7 +10,7 @@ from datetime import date
 from typing import Any, List, Optional
 
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import count as sql_count
@@ -73,8 +73,9 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
             raise ValueError("data is required for upsert")
 
         table = self.model.__table__
-        insert_stmt = pg_insert(table).values(data)
+        insert_stmt = insert(table).values(data)
 
+        # excluded は on_conflict_do_update 内で参照可能
         update_dict: dict[str, Any] = {
             c.name: getattr(insert_stmt.excluded, c.name)
             for c in table.c

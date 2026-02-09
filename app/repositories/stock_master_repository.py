@@ -8,7 +8,7 @@ import logging
 from typing import Any, List, Optional
 
 from sqlalchemy import delete, or_, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -190,8 +190,9 @@ class StockMasterRepository(BaseRepository[StockMaster]):
             return 0
 
         table = self.model.__table__
-        insert_stmt = pg_insert(table).values(records)
+        insert_stmt = insert(table).values(records)
 
+        # excluded は on_conflict_do_update 内で参照可能
         update_dict = {
             c.name: getattr(insert_stmt.excluded, c.name) for c in table.c if c.name != "id"
         }
