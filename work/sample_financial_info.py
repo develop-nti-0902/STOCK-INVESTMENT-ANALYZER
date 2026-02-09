@@ -10,8 +10,7 @@ import yfinance as yf
 
 
 def fetch_financial_info(symbol: str) -> dict:
-    """
-    指定された銘柄の財務情報を取得します。
+    """指定された銘柄の財務情報を取得します.
 
     Args:
         symbol: 銘柄コード（例: "7203.T"）
@@ -19,9 +18,9 @@ def fetch_financial_info(symbol: str) -> dict:
     Returns:
         dict: 財務情報の辞書
     """
-    print(f"\n{'='*60}")
+    print(f"\n{"=" * 60}")
     print(f"銘柄コード: {symbol}")
-    print(f"{'='*60}\n")
+    print(f"{"=" * 60}\n")
 
     ticker = yf.Ticker(symbol)
     info = ticker.info
@@ -30,8 +29,7 @@ def fetch_financial_info(symbol: str) -> dict:
 
 
 def display_key_financial_metrics(info: dict) -> None:
-    """
-    主要な財務指標を見やすく表示します。
+    """主要な財務指標を見やすく表示します.
 
     Args:
         info: yfinance.Ticker.infoから取得した情報
@@ -59,13 +57,13 @@ def display_key_financial_metrics(info: dict) -> None:
     if market_cap:
         print(f"  時価総額: ¥{market_cap:,}")
     else:
-        print(f"  時価総額: N/A")
+        print("  時価総額: N/A")
 
     enterprise_value = info.get("enterpriseValue")
     if enterprise_value:
         print(f"  企業価値: ¥{enterprise_value:,}")
     else:
-        print(f"  企業価値: N/A")
+        print("  企業価値: N/A")
 
     print(f"  PER (実績): {info.get('trailingPE', 'N/A')}")
     print(f"  PER (予想): {info.get('forwardPE', 'N/A')}")
@@ -88,12 +86,12 @@ def display_key_financial_metrics(info: dict) -> None:
     if dividend_rate:
         print(f"  年間配当: ¥{dividend_rate}")
     else:
-        print(f"  年間配当: N/A")
+        print("  年間配当: N/A")
 
     if dividend_yield:
         print(f"  配当利回り: {dividend_yield * 100:.2f}%")
     else:
-        print(f"  配当利回り: N/A")
+        print("  配当利回り: N/A")
 
     print(f"  配当性向: {info.get('payoutRatio', 'N/A')}")
     print(f"  ex配当日: {info.get('exDividendDate', 'N/A')}")
@@ -104,12 +102,12 @@ def display_key_financial_metrics(info: dict) -> None:
     if total_cash:
         print(f"  現金・預金: ¥{total_cash:,}")
     else:
-        print(f"  現金・預金: N/A")
+        print("  現金・預金: N/A")
 
     if total_debt:
         print(f"  総負債: ¥{total_debt:,}")
     else:
-        print(f"  総負債: N/A")
+        print("  総負債: N/A")
 
     print(f"  負債比率: {info.get('debtToEquity', 'N/A')}")
     print(f"  流動比率: {info.get('currentRatio', 'N/A')}")
@@ -120,12 +118,10 @@ def display_key_financial_metrics(info: dict) -> None:
     if total_revenue:
         print(f"  総売上高: ¥{total_revenue:,}")
     else:
-        print(f"  総売上高: N/A")
+        print("  総売上高: N/A")
 
     revenue_per_share = info.get("revenuePerShare")
-    print(
-        f"  1株当たり売上高: {revenue_per_share if revenue_per_share else 'N/A'}"
-    )
+    print(f"  1株当たり売上高: {revenue_per_share if revenue_per_share else 'N/A'}")
 
     print(f"  売上成長率: {info.get('revenueGrowth', 'N/A')}")
     print(f"  利益成長率: {info.get('earningsGrowth', 'N/A')}")
@@ -146,8 +142,7 @@ def display_key_financial_metrics(info: dict) -> None:
 
 
 def save_full_info_to_json(info: dict, symbol: str) -> None:
-    """
-    取得した全情報をJSONファイルに保存します。
+    """取得した全情報をJSONファイルに保存します.
 
     Args:
         info: yfinance.Ticker.infoから取得した情報
@@ -157,10 +152,10 @@ def save_full_info_to_json(info: dict, symbol: str) -> None:
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(info, f, ensure_ascii=False, indent=2, default=str)
 
-    print(f"\n{'='*60}")
+    print(f"\n{"=" * 60}")
     print(f"全情報を {filename} に保存しました")
     print(f"取得できたキーの総数: {len(info)}")
-    print(f"{'='*60}\n")
+    print(f"{"=" * 60}\n")
 
     print("【取得できたキー一覧】")
     for i, key in enumerate(sorted(info.keys()), 1):
@@ -168,7 +163,7 @@ def save_full_info_to_json(info: dict, symbol: str) -> None:
 
 
 def main():
-    """メイン処理"""
+    """メイン処理."""
     # トヨタ自動車の財務情報を取得
     symbol = "7203.T"
 
