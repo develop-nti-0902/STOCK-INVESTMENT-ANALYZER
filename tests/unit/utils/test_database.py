@@ -10,10 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 def mock_settings():
     """モック設定を提供するフィクスチャ."""
     mock = MagicMock()
-    # Provide a full DATABASE_URL for tests
-    mock.DATABASE_URL = "postgresql+asyncpg://test_user:test_password@localhost:5432/test_db"
+    # Provide a full DATABASE_URL for tests (SQLite)
+    mock.DATABASE_URL = "sqlite+aiosqlite:///./test_db.sqlite"
     mock.DEBUG = False
-    # Engine pool settings (kept for assertions)
+    # Engine pool settings (kept for assertions, but not used for SQLite)
     mock.DB_POOL_SIZE = 5
     mock.DB_MAX_OVERFLOW = 10
     return mock
@@ -80,8 +80,9 @@ class TestCreateEngine:
             call_args = mock_create_async_engine.call_args
             assert "echo" in call_args[1]
             assert call_args[1]["echo"] is False  # DEBUG=False
-            assert call_args[1]["pool_size"] == 5
-            assert call_args[1]["max_overflow"] == 10
+            # SQLiteではpool_size/max_overflowは設定されない
+            assert "pool_size" not in call_args[1]
+            assert "max_overflow" not in call_args[1]
             assert call_args[1]["pool_pre_ping"] is True
             assert call_args[1]["pool_recycle"] == 3600
 
@@ -106,8 +107,8 @@ class TestCreateEngine:
             assert call_args[1]["echo"] is True  # DEBUG=True
 
     def test_create_engine_respects_pool_settings_from_env(self):
-        """環境変数のプール設定がengine作成引数に反映されることを検証."""
-        # Arrange
+        """環境変数のプール設定がengine作成引数に反映されることを検証（PostgreSQL用）."""
+        # Arrange - PostgreSQLのURLを使用してpool設定をテスト
         local_settings = MagicMock()
         local_settings.DB_POOL_SIZE = 20
         local_settings.DB_MAX_OVERFLOW = 40
@@ -117,7 +118,7 @@ class TestCreateEngine:
         local_settings.DB_HOST = "h"
         local_settings.DB_PORT = 5432
         local_settings.DB_NAME = "n"
-        # New code: provide DATABASE_URL to match new configuration requirement
+        # PostgreSQL URLを使用（pool設定が有効になる）
         local_settings.DATABASE_URL = "postgresql+asyncpg://u:p@h:5432/n"
 
         with patch("app.utils.database.get_settings", return_value=local_settings), patch(
@@ -131,7 +132,7 @@ class TestCreateEngine:
             # Act
             _ = create_engine()
 
-            # Assert
+            # Assert - PostgreSQLの場合はpool設定が含まれる
             call_kwargs = mock_create_async_engine.call_args[1]
             assert call_kwargs["pool_size"] == 20
             assert call_kwargs["max_overflow"] == 40

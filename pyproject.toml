@@ -16,7 +16,6 @@ uvicorn = "^0.38.0"
 pydantic = "^2.9.0"
 pydantic-settings = "^2.5.0"
 sqlalchemy = { version = "2.0.44", extras = ["asyncio"] }
-asyncpg = "0.31.0"
 anyio = ">=4.11.0,<5.0"
 pandas = "^2.3.3"
 xlrd = "^2.0.2"
@@ -47,7 +46,6 @@ pylint = "^4.0"
 astroid = "^4.0.1"
 pytest-cov = "^4.0"
 coverage = "^7.0"
-psycopg = { version = "^3.2", extras = ["binary"] }
 alembic = "^1.17.0"
 flake8-docstrings = "^1.7.0"
 

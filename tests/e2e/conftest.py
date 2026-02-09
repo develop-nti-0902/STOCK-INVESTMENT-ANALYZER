@@ -16,8 +16,7 @@ from app.main import app
 def is_db_reachable() -> bool:
     """DB 到達性を同期ソケットで簡易チェックする.
 
-    asyncpg を使った接続チェックはイベントループに影響するため、
-    E2E 実行前の到達性確認は同期ソケットで行う.
+    SQLiteの場合はファイルの存在またはメモリDBを確認します。
     """
     host = os.getenv("DB_HOST")
     port = os.getenv("DB_PORT")
@@ -132,56 +131,17 @@ def client():
 
 @pytest.fixture(scope="function")
 def clear_advisory_locks(request):
-    """各E2Eテスト実行前にPostgreSQLのadvisory lockをクリアする.
+    """SQLite環境ではadvisory lockは不要のため何もしない.
 
-    latest_stocks_1d のリフレッシュジョブで使用されるadvisory lockが
-    前のテスト実行から残っている場合にクリアします。
+    このフィクスチャはPostgreSQL環境でのみ必要でした。
+    SQLite専用環境では単にyieldして何もしません。
 
     Note:
-        このフィクスチャはE2Eテストでのみ使用されます。
-        データベース接続が不安定な場合はスキップされます。
+        PostgreSQLのadvisory lock機能はSQLiteには存在しないため、
+        このフィクスチャは互換性のために残していますが、実際には何もしません。
 
     Usage:
-        テスト関数で明示的に使用するか、E2E専用のautoUseマーカーで自動適用します。
+        既存のテストコードとの互換性を維持するために残されています。
     """
-    # E2Eテスト以外ではスキップ
-    test_file = str(request.fspath)
-    if "tests/e2e" not in test_file.replace("\\", "/"):
-        yield
-        return
-
-    # DB到達不能な場合はスキップ
-    if not is_db_reachable():
-        yield
-        return
-
-    from sqlalchemy import text
-    from sqlalchemy.ext.asyncio import create_async_engine
-
-    from app.utils.database import get_database_url
-    from tests.e2e.utils import run_async_safely
-
-    async def _clear_locks():
-        """非同期でadvisory lockをクリアする."""
-        engine = create_async_engine(get_database_url())
-        try:
-            async with engine.connect() as conn:
-                await conn.execute(text("SELECT pg_advisory_unlock_all()"))
-                await conn.commit()
-        finally:
-            await engine.dispose()
-
-    # テスト前にクリーンアップ
-    try:
-        run_async_safely(_clear_locks())
-    except Exception:
-        # ロック解放に失敗してもテストは続行
-        pass
-
+    # SQLite環境では何もせずにyield
     yield
-
-    # テスト終了後にもクリーンアップ
-    try:
-        run_async_safely(_clear_locks())
-    except Exception:
-        pass

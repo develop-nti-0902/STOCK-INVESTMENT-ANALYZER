@@ -1,4 +1,14 @@
-"""PostgreSQLのコネクション状態を確認するデバッグユーティリティ."""
+"""データベース接続状態を確認するデバッグユーティリティ.
+
+Note:
+    このファイルはPostgreSQL専用のデバッグユーティリティとして作成されました。
+    現在のプロジェクトはSQLite専用に移行したため、このファイルの機能は使用されません。
+
+    SQLiteではPostgreSQLのようなpg_stat_activityやロック情報のビューは存在しないため、
+    SQLite用のデバッグが必要な場合は別途実装が必要です。
+
+    互換性のためにファイルは残していますが、実行されることはありません。
+"""
 
 # flake8: noqa
 
@@ -11,7 +21,17 @@ from app.utils.database import get_database_url
 
 
 async def check_connections():
-    """PostgreSQLのアクティブな接続とロック状態を確認."""
+    """データベースのアクティブな接続とロック状態を確認.
+
+    Warning:
+        この関数はPostgreSQL専用です。SQLite環境では機能しません。
+    """
+    print("\n=== Warning: This utility is PostgreSQL-specific ===")
+    print("This project has migrated to SQLite.")
+    print("PostgreSQL connection debugging is no longer available.")
+    return
+
+    # 以下のコードはPostgreSQL専用で、SQLite環境では実行されません
     engine = create_async_engine(get_database_url())
     try:
         async with engine.connect() as conn:
