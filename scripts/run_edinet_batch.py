@@ -22,6 +22,8 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # noqa: E402 - プロジェクトルートをパスに追加した後にインポート
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker  # noqa: E402
+
 from app.repositories.batch_execution_repository import BatchExecutionRepository  # noqa: E402
 from app.services.batch.batch_execution_service import BatchExecutionService  # noqa: E402
 from app.services.market_data.edinet.balance_sheet import (  # noqa: E402
@@ -31,7 +33,7 @@ from app.services.market_data.edinet.balance_sheet import (  # noqa: E402
     EdinetFileManager,
 )
 from app.services.market_data.edinet.common.api_client import EdinetAPIClient  # noqa: E402
-from app.utils.database import get_session_maker  # noqa: E402
+from app.utils.database import get_engine  # noqa: E402
 from app.utils.logger import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
@@ -74,7 +76,10 @@ async def main() -> None:
     logger.info("Starting EDINET batch for period: %s to %s", start_date, end_date)
 
     # バッチサービスの初期化
-    session_maker = get_session_maker()
+    engine = get_engine()
+    session_maker = async_sessionmaker(
+        bind=engine, class_=AsyncSession, autocommit=False, autoflush=False, expire_on_commit=False
+    )
 
     # バッチ実行リポジトリとサービスの作成
     async with session_maker() as session:

@@ -22,23 +22,25 @@ def upgrade() -> None:
     # 注意: マテリアライズドビューを作成し、`symbol` に対するユニークインデックスを作成します。
     # `REFRESH MATERIALIZED VIEW CONCURRENTLY` はトランザクション外で実行する必要があるため、
     # 本マイグレーションではリフレッシュ処理は行いません。
+    # SQLite では MATERIALIZED VIEW と DISTINCT ON をサポートしないため、
+    # 各銘柄ごとに最新の timestamp をサブクエリで取得し、それに JOIN する
+    # 形で VIEW を定義します。
     op.execute(
         """
-        CREATE MATERIALIZED VIEW IF NOT EXISTS latest_stocks_1d AS
-        SELECT DISTINCT ON (symbol) *
-        FROM stocks_1d
-        ORDER BY symbol, timestamp DESC;
+        CREATE VIEW IF NOT EXISTS latest_stocks_1d AS
+        SELECT s.*
+        FROM stocks_1d AS s
+        JOIN (
+            SELECT symbol, MAX(timestamp) AS max_ts
+            FROM stocks_1d
+            GROUP BY symbol
+        ) AS t
+        ON s.symbol = t.symbol AND s.timestamp = t.max_ts;
         """
-    )
-    op.execute(
-        (
-            "CREATE UNIQUE INDEX IF NOT EXISTS "
-            "uix_latest_stocks_1d_symbol ON latest_stocks_1d (symbol);"
-        )
     )
 
 
 def downgrade() -> None:
-    """スキーマをダウングレードします：インデックスとマテリアライズドビューを削除します."""
-    op.execute("DROP INDEX IF EXISTS uix_latest_stocks_1d_symbol;")
-    op.execute("DROP MATERIALIZED VIEW IF EXISTS latest_stocks_1d;")
+    """スキーマをダウングレードします：VIEW を削除します."""
+    # VIEW を削除
+    op.execute("DROP VIEW IF EXISTS latest_stocks_1d;")

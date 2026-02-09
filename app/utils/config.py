@@ -104,6 +104,11 @@ class Settings(BaseSettings):
     )
 
     # データベース設定
+    # フル接続URLが与えられている場合、個別のDB_*設定より優先して使用できます
+    DATABASE_URL: Optional[str] = Field(
+        None, description="Full database URL (overrides DB_* settings)"
+    )
+
     DB_HOST: str = Field(..., description="Database host")
     DB_PORT: int = Field(..., description="Database port")
     DB_NAME: str = Field(..., description="Database name")

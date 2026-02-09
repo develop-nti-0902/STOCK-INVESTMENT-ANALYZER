@@ -14,6 +14,7 @@ FastAPI の ``Depends`` パターンで使用することを想定していま�
 from collections.abc import AsyncGenerator
 from functools import lru_cache
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -39,6 +40,30 @@ def get_database_url() -> str:
         str: データベース接続URL（例: postgresql+asyncpg://user:pass@host:port/dbname）
     """
     settings = get_settings()
+    # settings/.env にフルな `DATABASE_URL` が設定されている場合はそれを優先します。
+    # これにより、`DATABASE_URL` を変更するだけで SQLite 等へ切り替え可能になります。
+    # 例: `sqlite+aiosqlite:///F:/path/to/db.sqlite3`
+    full_url = getattr(settings, "DATABASE_URL", None)
+    # tests may supply a MagicMock settings where accessing DATABASE_URL
+    # returns another MagicMock. Only treat DATABASE_URL as set when it's
+    # a str or bytes; otherwise fall back to building the URL from fields.
+    if isinstance(full_url, bytes):
+        try:
+            full_url = full_url.decode()
+        except Exception:
+            full_url = None
+
+    if isinstance(full_url, str) and full_url:
+        parsed = urlparse(full_url)
+        # ユーザが plain な `sqlite:///...` 形式を指定した場合、
+        # SQLAlchemy 非同期用のドライバ表記に変換します。
+        if parsed.scheme == "sqlite":
+            if not full_url.startswith("sqlite+"):
+                # 最初の 'sqlite://' を 'sqlite+aiosqlite://' に置換します
+                full_url = full_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+        return full_url
+
+    # デフォルト: 個別の設定から PostgreSQL (asyncpg) 用の URL を構築します
     return (
         f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}"
         f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
@@ -61,14 +86,22 @@ def create_engine() -> AsyncEngine:
     settings = get_settings()
     database_url = get_database_url()
 
-    engine = create_async_engine(
-        database_url,
-        echo=settings.DEBUG,  # 開発環境でのみSQLログ出力
-        pool_size=settings.DB_POOL_SIZE,  # 環境変数から取得
-        max_overflow=settings.DB_MAX_OVERFLOW,  # 環境変数から取得
-        pool_pre_ping=True,  # 接続前のヘルスチェック
-        pool_recycle=3600,  # 接続の自動リサイクル（1時間）
-    )
+    # DB ドライバに応じて engine の kwargs を調整します（SQLite は pool_size/max_overflow を使用しない）
+    engine_kwargs: dict = {
+        "echo": settings.DEBUG,
+        "pool_pre_ping": True,
+        "pool_recycle": 3600,
+    }
+
+    if not database_url.startswith("sqlite"):
+        engine_kwargs.update(
+            {
+                "pool_size": settings.DB_POOL_SIZE,
+                "max_overflow": settings.DB_MAX_OVERFLOW,
+            }
+        )
+
+    engine = create_async_engine(database_url, **engine_kwargs)
 
     logger.info(
         "Database engine created",
@@ -98,10 +131,10 @@ def get_engine() -> AsyncEngine:
     return create_engine()
 
 
-# Note: get_session_maker was intentionally removed to centralize session creation
-# via `get_db()` and to avoid providing a public session-maker API from the
-# `app` package. If external scripts need to create a session maker, they should
-# call `get_engine()` and construct an `async_sessionmaker` locally.
+# 注: `get_session_maker` は意図的に削除しています。セッション作成を `get_db()` に集約し、
+# `app` パッケージから公開の session-maker API を提供しない設計にしています。
+# 外部スクリプトで session maker が必要な場合は、`get_engine()` を呼び出して
+# ローカルで `async_sessionmaker` を構築してください。
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -198,12 +231,11 @@ async def flush_return(session: AsyncSession, return_value: Any) -> Any:
     Repository層ではコミットを行わず、flush（DBへの変更反映）のみを実行します。
     トランザクション管理（commit/rollback）はService層またはFastAPIのget_db()で行います。
     """
-    # NOTE:
-    # - Repository層はデータアクセスのみに専念し、トランザクション境界は
-    #   上位層（Service層またはAPI層）で管理する設計です。
-    # - flush()はDBに変更を反映しますが、トランザクションはコミットしません。
-    # - 例外が発生した場合は、そのまま上位層に伝播させます。
-    #   上位層でrollbackを実行してください。
+    # 補足:
+    # - Repository 層はデータアクセスのみに専念し、トランザクション境界は
+    #   上位層（Service 層または API 層）で管理する設計です。
+    # - `flush()` は DB に変更を反映しますが、トランザクションはコミットしません。
+    # - 例外が発生した場合はそのまま上位層に伝播させ、上位層で rollback を実行してください。
     try:
         await session.flush()
         return return_value

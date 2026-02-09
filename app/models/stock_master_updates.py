@@ -31,7 +31,7 @@ class StockMasterUpdates(SerialPKMixin, Base):
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
-        server_default=text("now()"),
+        server_default=text("CURRENT_TIMESTAMP"),
     )
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 

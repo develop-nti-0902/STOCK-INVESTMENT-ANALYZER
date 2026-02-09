@@ -56,7 +56,7 @@ class BatchExecution(SerialPKMixin, TimestampMixin, Base):
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
-        server_default=text("now()"),
+        server_default=text("CURRENT_TIMESTAMP"),
     )
     end_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 

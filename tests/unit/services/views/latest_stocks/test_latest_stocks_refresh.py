@@ -107,23 +107,23 @@ async def test_run_refresh_success():
     svc = LatestStocksRefreshService(batch_service=batch, engine=engine)
 
     # act
-    await svc.run_refresh()
+    result = await svc.run_refresh()
 
-    # assert: SQLが実行された
-    assert any("REFRESH MATERIALIZED VIEW" in str(s) for s in conn.executed)
+    # assert: VIEW前提のため no-op で None を返す
+    assert result is None
 
 
 @pytest.mark.asyncio
-async def test_run_refresh_failure_raises_service_error():
-    """異常系: DB実行時の例外は ServiceError になる."""
+async def test_run_refresh_noop_does_not_raise():
+    """run_refresh は VIEW 前提で no-op のため例外を発生させない."""
     conn = _FakeConn(should_fail=True)
     engine = _FakeEngine(conn)
 
     batch = AsyncMock()
     svc = LatestStocksRefreshService(batch_service=batch, engine=engine)
 
-    with pytest.raises(ServiceError):
-        await svc.run_refresh()
+    result = await svc.run_refresh()
+    assert result is None
 
 
 @pytest.mark.asyncio
@@ -171,7 +171,7 @@ async def test_enqueue_refresh_create_job_failure_raises_service_error():
 async def test_enqueue_refresh_lock_not_acquired_raises_service_error():
     """Advisory lock が取得できない場合は ServiceError を送出する."""
     conn = _FakeConn(should_fail=False)
-    # Advisory lock が取得できない（False）
+    # SQLiteではadvisory lockを用いないため、lock失敗でもジョブは作成される
     engine = _FakeEngine(conn, lock_responses=[False])
 
     batch = AsyncMock()
@@ -179,8 +179,6 @@ async def test_enqueue_refresh_lock_not_acquired_raises_service_error():
 
     svc = LatestStocksRefreshService(batch_service=batch, engine=engine)
 
-    with pytest.raises(ServiceError) as exc_info:
-        await svc.enqueue_refresh()
-
-    # ロックが取得できなかったことを確認
-    assert "already running" in str(exc_info.value)
+    job_id = await svc.enqueue_refresh()
+    assert job_id == 11
+    batch.create_job.assert_awaited()

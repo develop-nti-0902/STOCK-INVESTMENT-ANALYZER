@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 
 @pytest.fixture
@@ -32,20 +32,12 @@ def reset_global_state():
         db_module.get_engine.cache_clear()
     except Exception:
         pass
-    try:
-        db_module.get_session_maker.cache_clear()
-    except Exception:
-        pass
 
     yield
 
     # テスト後: 再度キャッシュをクリアして後始末
     try:
         db_module.get_engine.cache_clear()
-    except Exception:
-        pass
-    try:
-        db_module.get_session_maker.cache_clear()
     except Exception:
         pass
 
@@ -191,36 +183,36 @@ class TestGetEngine:
 class TestGetSessionMaker:
     """get_session_maker関数のテスト."""
 
-    def test_get_session_maker_returns_session_maker(self, mock_settings):
-        """セッションメーカーが正しく作成されることを検証."""
-        # Arrange
-        with patch("app.utils.database.get_settings", return_value=mock_settings), patch(
-            "app.utils.database.get_engine"
-        ) as mock_get_engine, patch(
-            "app.utils.database.async_sessionmaker"
+    @pytest.mark.asyncio
+    async def test_async_sessionmaker_used_in_get_db(self, mock_settings):
+        """`get_db` が内部で `async_sessionmaker` を使用して session_maker を作ることを検証."""
+        mock_engine = MagicMock(spec=AsyncEngine)
+
+        # モックの session とコンテキストマネージャを準備
+        mock_session = AsyncMock(spec=AsyncSession)
+        mock_context = AsyncMock()
+        mock_context.__aenter__.return_value = mock_session
+        mock_context.__aexit__.return_value = None
+
+        mock_session_maker = MagicMock(return_value=mock_context)
+
+        with patch("app.utils.database.get_engine", return_value=mock_engine), patch(
+            "app.utils.database.async_sessionmaker", return_value=mock_session_maker
         ) as mock_async_sessionmaker:
-            mock_engine = MagicMock(spec=AsyncEngine)
-            mock_get_engine.return_value = mock_engine
+            from app.utils.database import get_db
 
-            mock_session_maker = MagicMock(spec=async_sessionmaker)
-            mock_async_sessionmaker.return_value = mock_session_maker
-
-            from app.utils.database import get_session_maker
-
-            # Act
-            session_maker = get_session_maker()
-
-            # Assert
-            assert session_maker == mock_session_maker
+            gen = get_db()
+            # 実際にジェネレータを進めて body を実行し、async_sessionmaker 呼び出しを検証
+            session = await gen.__anext__()
+            assert session == mock_session
             mock_async_sessionmaker.assert_called_once()
-
-            # 引数の検証
             call_args = mock_async_sessionmaker.call_args[1]
             assert call_args["bind"] == mock_engine
             assert call_args["class_"] == AsyncSession
             assert call_args["autocommit"] is False
             assert call_args["autoflush"] is False
             assert call_args["expire_on_commit"] is False
+            await gen.aclose()
 
 
 @pytest.mark.asyncio
@@ -235,7 +227,7 @@ class TestGetDb:
         mock_session_maker.return_value.__aenter__.return_value = mock_session
 
         with patch(
-            "app.utils.database.get_session_maker",
+            "app.utils.database.async_sessionmaker",
             return_value=mock_session_maker,
         ):
             from app.utils.database import get_db
@@ -262,7 +254,7 @@ class TestGetDb:
         mock_session_maker.return_value = mock_context_manager
 
         with patch(
-            "app.utils.database.get_session_maker",
+            "app.utils.database.async_sessionmaker",
             return_value=mock_session_maker,
         ):
             from app.utils.database import get_db

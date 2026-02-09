@@ -115,14 +115,14 @@ class TimestampMixin:
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
-        server_default=text("now()"),
+        server_default=text("CURRENT_TIMESTAMP"),
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
-        server_default=text("now()"),
+        server_default=text("CURRENT_TIMESTAMP"),
     )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

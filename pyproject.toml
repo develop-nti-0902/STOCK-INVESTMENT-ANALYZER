@@ -33,6 +33,7 @@ passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 email-validator = "^2.3.0"
 psutil = "^7.2.1"
 edinet-xbrl = "^0.2.0"
+aiosqlite = "^0.22.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4"

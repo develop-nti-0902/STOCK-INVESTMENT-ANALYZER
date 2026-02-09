@@ -146,11 +146,12 @@ async def test_no_run_when_lock_not_acquired(monkeypatch):
     monkeypatch.setattr(mod.LatestStocksRefreshService, "__init__", FakeSvc.__init__)
     monkeypatch.setattr(mod.LatestStocksRefreshService, "run_refresh", FakeSvc.run_refresh)
 
-    # act / assert: lock not acquired -> ServiceError and job not created
+    # act / assert: SQLite 移行ではロックを使わないため、ジョブが作成され、
+    # run_refresh が呼ばれて ServiceError になる（FakeSvc.run_refresh が例外を出す）
     svc = mod.LatestStocksRefreshService(batch, engine=fake_engine)
     with pytest.raises(ServiceError):
         await svc.enqueue_refresh()
-    batch.create_job.assert_not_awaited()
+    batch.create_job.assert_awaited()
 
 
 @pytest.mark.asyncio

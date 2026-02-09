@@ -5,9 +5,10 @@ SQLAlchemy models and supports asynchronous engines.
 """
 
 import asyncio
+import os
 from logging.config import fileConfig
 
-from sqlalchemy import pool
+from sqlalchemy import create_engine, pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncConnection, async_engine_from_config
 
@@ -43,6 +44,12 @@ def get_alembic_database_url() -> str:
     Returns:
         str: Alembic 用の非同期データベースURL
     """
+    # 環境変数 `DATABASE_URL` を最優先で使用する
+    env_url = os.environ.get("DATABASE_URL")
+    if env_url:
+        return env_url
+
+    # デフォルトはアプリ設定から Postgres (asyncpg) 接続文字列を作成
     settings = get_settings()
     return (
         f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}"
@@ -80,10 +87,37 @@ def run_migrations_online() -> None:
     非同期エンジンを作成し、コンテキストに接続を関連付けます。
 
     """
-    # 環境変数で sqlalchemy.url を上書き（非同期ドライバ）
+    # 環境変数または設定から URL を取得
     configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = get_alembic_database_url()
+    url = get_alembic_database_url()
+    configuration["sqlalchemy.url"] = url
 
+    # SQLite は同期エンジン + batch モードで実行する
+    is_sqlite = url.startswith("sqlite:")
+    if is_sqlite:
+        # create synchronous engine for SQLite
+        engine = create_engine(
+            url, connect_args={"check_same_thread": False}, poolclass=pool.NullPool
+        )
+
+        def do_configure_and_run(connection: Connection) -> None:
+            context.configure(
+                connection=connection,
+                target_metadata=target_metadata,
+                render_as_batch=True,
+                compare_type=True,
+            )
+
+            with context.begin_transaction():
+                context.run_migrations()
+
+        with engine.connect() as connection:
+            do_configure_and_run(connection)
+
+        engine.dispose()
+        return
+
+    # 非SQLite（既存の asyncpg 等）の場合は非同期エンジンを使う
     connectable = async_engine_from_config(
         configuration,
         prefix="sqlalchemy.",
@@ -91,18 +125,15 @@ def run_migrations_online() -> None:
     )
 
     async def do_run_migrations(connection: AsyncConnection) -> None:
-        """非同期接続を使ってマイグレーションを実行する内部関数."""
-        await connection.run_sync(do_configure_and_run)
+        await connection.run_sync(_do_configure_and_run)
 
-    def do_configure_and_run(connection: Connection) -> None:
-        """コンテキストを設定してマイグレーションを実行する同期関数."""
+    def _do_configure_and_run(connection: Connection) -> None:
         context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()
 
     async def run_async_migrations() -> None:
-        """非同期エンジンとの接続を確立してマイグレーションを実行."""
         async with connectable.connect() as connection:
             await do_run_migrations(connection)
 

@@ -50,46 +50,27 @@ jobs:
           poetry run pylint --rcfile=.pylintrc app
 
   # Test ジョブ: pytest を走らせ、coverage と JUnit レポートを生成します。
-  # PostgreSQL サービスを起動してデータベースを利用するテストを想定しています。
+  # SQLite データベースを利用するテストを想定しています。
   test:
     name: Tests
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: [3.14]
-    # 環境変数をジョブで設定（サービスの接続情報）
+    # 環境変数をジョブで設定（SQLite 接続情報）
     env:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
-      POSTGRES_DB: test_db
-      POSTGRES_HOST: localhost
-      POSTGRES_PORT: 5432
-      DATABASE_URL: postgresql://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@localhost:5432/test_db
-      # 以下はアプリが期待する環境変数名（Pydantic Settings の DB_* 等）
+      # SQLite 用の環境変数
+      SQLITE_DB_FILE: ./test_db.sqlite
+      DATABASE_URL: sqlite:///./test_db.sqlite
+      SQLITE_JOURNAL_MODE: WAL
+      SQLITE_SYNCHRONOUS: FULL
+      SQLITE_TIMEOUT: 30
+      SQLITE_FOREIGN_KEYS: true
+      # アプリケーション設定
       APP_NAME: stock-investment-analyzer
       APP_VERSION: 0.0.0-ci
       ENV: test
-      DB_HOST: localhost
-      DB_PORT: 5432
-      DB_NAME: test_db
-      DB_USER: ${{ secrets.CI_APP_DB_USER }}
-      DB_PASSWORD: ${{ secrets.CI_APP_DB_PASSWORD }}
       EDINET_SUBSCRIPTION_KEY: ${{ secrets.CI_EDINET_SUBSCRIPTION_KEY }}
-    # services: テスト用のコンテナを定義（ここでは PostgreSQL）
-    # 注意: コンテナに渡すパスワードは Secrets を利用してください。
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
-          POSTGRES_DB: test_db
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -113,29 +94,10 @@ jobs:
           poetry config virtualenvs.create false
           poetry install --no-root --no-interaction --no-ansi --with dev
 
-      - name: Install psql client and run DB setup script
-        env:
-          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
-          PGHOST: ${{ env.POSTGRES_HOST }}
-          PGPORT: ${{ env.POSTGRES_PORT }}
-          PGUSER: ${{ env.POSTGRES_USER }}
-          # NEW_DB will be the same test DB used by the job
-          NEW_DB: ${{ env.POSTGRES_DB }}
-          # These should be set in repository Secrets (create them if missing)
-          NEW_DB_USER: ${{ secrets.CI_APP_DB_USER }}
-          NEW_DB_PASSWORD: ${{ secrets.CI_APP_DB_PASSWORD }}
-          # EDINET_SUBSCRIPTION_KEY should be set in repository Secrets (create it if missing)
-          EDINET_SUBSCRIPTION_KEY: ${{ secrets.CI_EDINET_SUBSCRIPTION_KEY}}
+      - name: Setup SQLite database
         run: |
-          sudo apt-get update && sudo apt-get install -y postgresql-client
-          # 待機: pg_isready が成功するまでリトライ
-          for i in {1..30}; do
-            pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" && break || sleep 1
-          done
-          # 実行: setup_db.sh を positional args で呼ぶ
-          # 引数順: PGHOST PGPORT PGUSER PGPASSWORD NEW_DB NEW_DB_USER NEW_DB_PASSWORD
-          # 末尾に `1` を渡して SKIP_TABLESPACE を有効化（CI ではテーブルスペース作成をスキップ）
-          bash scripts/databaseSetup/setup_db.sh "$PGHOST" "$PGPORT" "$PGUSER" "$PGPASSWORD" "$NEW_DB" "$NEW_DB_USER" "$NEW_DB_PASSWORD" 1
+          # SQLite セットアップスクリプトを実行
+          bash scripts/databaseSetup/setup_sqlite.sh "$SQLITE_DB_FILE"
 
       - name: Run Alembic migrations
         run: |

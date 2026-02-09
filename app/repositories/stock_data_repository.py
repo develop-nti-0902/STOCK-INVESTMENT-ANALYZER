@@ -129,7 +129,7 @@ class StockDataRepository(BaseRepository, ABC):
                 "close": stmt.excluded.close,
                 "adj_close": stmt.excluded.adj_close,
                 "volume": stmt.excluded.volume,
-                "updated_at": text("now()"),
+                "updated_at": text("CURRENT_TIMESTAMP"),
             }
 
             stmt = stmt.on_conflict_do_update(index_elements=conflict_columns, set_=update_values)
@@ -282,7 +282,7 @@ class StockDataRepository(BaseRepository, ABC):
             "close": stmt.excluded.close,
             "adj_close": stmt.excluded.adj_close,
             "volume": stmt.excluded.volume,
-            "updated_at": text("now()"),
+            "updated_at": text("CURRENT_TIMESTAMP"),
         }
 
     async def get_by_symbol_and_range(

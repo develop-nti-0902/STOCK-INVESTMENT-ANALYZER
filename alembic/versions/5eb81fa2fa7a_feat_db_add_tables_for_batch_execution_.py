@@ -34,7 +34,7 @@ def upgrade() -> None:
         sa.Column(
             "started_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
@@ -56,7 +56,7 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),

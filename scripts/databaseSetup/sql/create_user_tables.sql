@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
     hashed_password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
@@ -33,8 +33,8 @@ CREATE TABLE IF NOT EXISTS user_transactions (
     commission NUMERIC(10,2) DEFAULT 0,
     transaction_date TIMESTAMP WITH TIME ZONE NOT NULL,
     notes TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_transactions_user_symbol_date ON user_transactions (user_id, symbol, transaction_date);
@@ -49,8 +49,8 @@ CREATE TABLE IF NOT EXISTS user_portfolios (
     total_cost NUMERIC(20,2) NOT NULL DEFAULT 0,
     stop_loss_price NUMERIC(15,2),
     take_profit_price NUMERIC(15,2),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (user_id, symbol)
 );
 
