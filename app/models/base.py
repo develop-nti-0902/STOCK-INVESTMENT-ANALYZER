@@ -11,9 +11,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import DateTime, Integer, text
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy import CHAR, DateTime, Integer, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.types import TypeDecorator
 
 
 def _camel_to_snake(name: str) -> str:
@@ -59,6 +59,42 @@ class Base(DeclarativeBase):
         return self.__class__.__name__
 
 
+class GUID(TypeDecorator):  # pylint: disable=too-many-ancestors
+    """汎用 UUID 型の TypeDecorator.
+
+    SQLite 等の方言では CHAR(36) の文字列として保存し、アプリ側では
+    `uuid.UUID` オブジェクトを受け渡し可能にします。
+    """
+
+    impl = CHAR
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        # Postgres をサポートする必要がないため、常に CHAR(36) を使う
+        return dialect.type_descriptor(CHAR(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, uuid.UUID):
+            return str(value)
+        # 文字列の場合はそのまま格納するが、検証のため UUID に変換してから文字列化する
+        return str(uuid.UUID(value))
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return uuid.UUID(value)
+
+    def process_literal_param(self, value, dialect):
+        # リテラル表現が必要な場合は bind_param と同様に処理する
+        return self.process_bind_param(value, dialect)
+
+    @property
+    def python_type(self):
+        return uuid.UUID
+
+
 class SerialPKMixin:
     """整数の自動増分 ID を提供する mixin.
 
@@ -85,9 +121,7 @@ class UUIDPKMixin:
         id (uuid.UUID): UUID プライマリキー（デフォルトで uuid.uuid4 を使用）
     """
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
         """簡易表現を返す（デバッグ用)."""
