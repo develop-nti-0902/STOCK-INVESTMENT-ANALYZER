@@ -33,7 +33,7 @@ sys.stderr = sys.stdout
 
 
 def extract_and_save(results, keys, out_path):
-    """指定されたキーのみを抽出してdataFrameに変換し、CSVファイルに保存する。
+    """指定されたキーのみを抽出してdataFrameに変換し、CSVファイルに保存する.
 
     Args:
         results (list): `data["results"]` に該当するオブジェクトのリスト
@@ -60,7 +60,7 @@ def extract_and_save(results, keys, out_path):
 def extract_securities_reports(
     submission_info_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """有価証券報告書（受益証券を除く）を抽出してDataFrameで返す。
+    """有価証券報告書（受益証券を除く）を抽出してDataFrameで返す.
 
     条件:
     - `docDescription` が None でない
@@ -101,7 +101,7 @@ def download_document(
     out_dir: str = "work/edinet_api_test/downloads",
     doc_type: int = 1,
 ) -> Optional[str]:
-    """指定の `doc_id` をダウンロードしてファイルに保存する。
+    """指定の `doc_id` をダウンロードしてファイルに保存する.
 
     Args:
         doc_id: ドキュメントID（例: 'S100N8ST'）
@@ -120,10 +120,7 @@ def download_document(
     document_response = requests.get(endpoint, params=params)
 
     if document_response.status_code != 200:
-        print(
-            "Failed to download %s: status %s"
-            % (doc_id, document_response.status_code)
-        )
+        print("Failed to download %s: status %s" % (doc_id, document_response.status_code))
         return None
 
     # 帰ってきたデータをzip形式で保存する
@@ -139,10 +136,8 @@ def download_document(
     return document_response
 
 
-def find_xbrl_files(
-    doc_id: str, out_dir: str = "work/edinet_api_test/downloads"
-) -> List[str]:
-    """ダウンロード済みフォルダ内で PublicDoc 配下の .xbrl を再帰検索してパス一覧を返す。
+def find_xbrl_files(doc_id: str, out_dir: str = "work/edinet_api_test/downloads") -> List[str]:
+    """ダウンロード済みフォルダ内で PublicDoc 配下の .xbrl を再帰検索してパス一覧を返す.
 
     Args:
         doc_id: ドキュメントID
@@ -161,7 +156,7 @@ def find_xbrl_files(
 
 
 def parse_report_dividend_paid_per_share(xbrl_path: str) -> Optional[dict]:
-    """指定した XBRL ファイルを解析し、指定した情報を返す。
+    """指定した XBRL ファイルを解析し、指定した情報を返す.
 
     Args:
         xbrl_path: XBRL ファイルのパス
@@ -205,9 +200,7 @@ def parse_report_dividend_paid_per_share(xbrl_path: str) -> Optional[dict]:
             context_candidates = candidate_contexts.copy()
 
         # 明示的に優先度順の候補リストを作る（キー優先→コンテキスト優先）
-        candidate_pairs = [
-            (k, c) for k in candidate_keys for c in context_candidates
-        ]
+        candidate_pairs = [(k, c) for k in candidate_keys for c in context_candidates]
         for key, ctx in candidate_pairs:
             info = parsed_xbrl.get_data_by_context_ref(key, ctx)
             if not info:
@@ -223,10 +216,8 @@ def parse_report_dividend_paid_per_share(xbrl_path: str) -> Optional[dict]:
         return None
 
 
-def make_day_list(
-    start: datetime.date, end: datetime.date
-) -> List[datetime.date]:
-    """start から end までの日付リスト（inclusive）を返す。"""
+def make_day_list(start: datetime.date, end: datetime.date) -> List[datetime.date]:
+    """start から end までの日付リスト（inclusive）を返す."""
     if start > end:
         return []
     days = []
@@ -271,9 +262,7 @@ for day in day_list:
     ]
     out_path = "work/edinet_api_test/selected_fields.csv"
     # 抽出して保存。DataFrameで欲しいので return_df=True にする（ダウンロード直後からDataFrameで扱える）
-    submission_info_df = extract_and_save(
-        data.get("results", []), selected_keys, out_path
-    )
+    submission_info_df = extract_and_save(data.get("results", []), selected_keys, out_path)
     # ダウンロード件数が0件の場合はスキップ
     if submission_info_df.empty:
         continue
@@ -284,14 +273,9 @@ for day in day_list:
     #     & (submission_info_df["secCode"] == stock_code)
     # ]
 
-    submission_info_df = submission_info_df[
-        (submission_info_df["secCode"].notnull())
-    ]
+    submission_info_df = submission_info_df[(submission_info_df["secCode"].notnull())]
 
-    print(
-        "Saved selected fields to %s (items: %d)"
-        % (out_path, len(submission_info_df))
-    )
+    print("Saved selected fields to %s (items: %d)" % (out_path, len(submission_info_df)))
 
     # 有価証券報告書を抽出
     securities_reports_df = extract_securities_reports(submission_info_df)
@@ -302,22 +286,16 @@ for day in day_list:
         index=False,
         encoding="utf-8-sig",
     )
-    print(
-        "Saved securities reports to work/edinet_api_test/securities_reports.csv"
-    )
+    print("Saved securities reports to work/edinet_api_test/securities_reports.csv")
 
     # mainルートから download_document を呼び出す（将来の拡張を想定して現状の関数を利用）
     if not securities_reports_df.empty:
         # work\edinet_api_test\downloads配下に年/月/日フォルダを作成して保存
-        out_dir = os.path.join(
-            "work", "edinet_api_test", "downloads", day.strftime("%Y/%m/%d")
-        )
+        out_dir = os.path.join("work", "edinet_api_test", "downloads", day.strftime("%Y/%m/%d"))
         os.makedirs(out_dir, exist_ok=True)
 
         # docID -> secCode マップ（出力時に現在の銘柄コードを表示するため）
-        docid_to_seccode = securities_reports_df.set_index("docID")[
-            "secCode"
-        ].to_dict()
+        docid_to_seccode = securities_reports_df.set_index("docID")["secCode"].to_dict()
 
         for doc_id in securities_reports_df["docID"]:
             print("#################################")
@@ -328,10 +306,7 @@ for day in day_list:
                     print(f"download_document returned None for {doc_id}")
                 else:
                     status = getattr(resp, "status_code", "N/A")
-                    print(
-                        "Called download_document for %s, status=%s"
-                        % (doc_id, status)
-                    )
+                    print("Called download_document for %s, status=%s" % (doc_id, status))
                 # スクレイピング対象の XBRL ファイルの存在を確認
                 xbrl_paths = find_xbrl_files(doc_id, out_dir=out_dir)
                 if xbrl_paths:
@@ -356,8 +331,6 @@ for day in day_list:
                 else:
                     print("  no xbrl found for %s" % doc_id)
             except Exception as e:
-                print(
-                    "Error calling download_document for %s: %s" % (doc_id, e)
-                )
+                print("Error calling download_document for %s: %s" % (doc_id, e))
     else:
         print("No securities reports to download.")

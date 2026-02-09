@@ -1,5 +1,4 @@
-"""
-単体テスト - Auth 依存性プロバイダ
+"""単体テスト - Auth 依存性プロバイダ.
 
 app.api.dependencies.auth モジュールの単体テストを実施する。
 JWTのデコード結果やアカウント取得結果に応じて適切な例外が発生するかを検証する。
@@ -15,7 +14,10 @@ from app.api.dependencies import auth as deps_auth
 
 
 class DummyAccount:
+    """テスト用のダミーアカウントオブジェクト."""
+
     def __init__(self, **kwargs):
+        """アカウントの属性を初期化する."""
         self.id = kwargs.get("id", 1)
         self.email = kwargs.get("email", "u@example.com")
         self.is_active = kwargs.get("is_active", True)
@@ -24,6 +26,7 @@ class DummyAccount:
 
 @pytest.mark.asyncio
 async def test_get_current_user_success(mock_db_session):
+    """有効なトークンで現在ユーザを取得できることを確認する."""
     token = "valid-token"
     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
@@ -46,14 +49,13 @@ async def test_get_current_user_success(mock_db_session):
     deps_auth.auth_service.decode_access_token = dummy_decode
     deps_auth.AccountRepository = DummyRepo
 
-    res = await deps_auth.get_current_user(
-        credentials=creds, db=mock_db_session
-    )
+    res = await deps_auth.get_current_user(credentials=creds, db=mock_db_session)
     assert res is dummy_account
 
 
 @pytest.mark.asyncio
 async def test_get_current_user_decode_failure(mock_db_session):
+    """トークンデコード失敗時に 401 が返ることを確認する."""
     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="x")
 
     def raising_decode(t):
@@ -69,6 +71,7 @@ async def test_get_current_user_decode_failure(mock_db_session):
 
 @pytest.mark.asyncio
 async def test_get_current_user_missing_sub(mock_db_session):
+    """デコード結果に sub が含まれない場合に 401 が返ることを確認する."""
     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="x")
 
     def decode_no_sub(t):
@@ -84,6 +87,7 @@ async def test_get_current_user_missing_sub(mock_db_session):
 
 @pytest.mark.asyncio
 async def test_get_current_user_account_not_found(mock_db_session):
+    """アカウントが見つからない場合に 401 が返ることを確認する."""
     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="x")
 
     def decode_sub(t):
@@ -107,6 +111,7 @@ async def test_get_current_user_account_not_found(mock_db_session):
 
 @pytest.mark.asyncio
 async def test_get_current_active_user_allows_active():
+    """アクティブなユーザが許可されることを確認する."""
     account = DummyAccount(is_active=True)
     res = await deps_auth.get_current_active_user(current_user=account)
     assert res is account
@@ -114,6 +119,7 @@ async def test_get_current_active_user_allows_active():
 
 @pytest.mark.asyncio
 async def test_get_current_active_user_rejects_inactive():
+    """非アクティブなユーザは拒否されることを確認する."""
     account = DummyAccount(is_active=False)
     with pytest.raises(HTTPException) as excinfo:
         await deps_auth.get_current_active_user(current_user=account)
@@ -122,6 +128,7 @@ async def test_get_current_active_user_rejects_inactive():
 
 @pytest.mark.asyncio
 async def test_get_current_superuser_allows_superuser():
+    """スーパーユーザが許可されることを確認する."""
     account = DummyAccount(is_active=True, is_superuser=True)
     res = await deps_auth.get_current_superuser(current_user=account)
     assert res is account
@@ -129,6 +136,7 @@ async def test_get_current_superuser_allows_superuser():
 
 @pytest.mark.asyncio
 async def test_get_current_superuser_rejects_non_superuser():
+    """スーパーユーザでない場合は拒否されることを確認する."""
     account = DummyAccount(is_active=True, is_superuser=False)
     with pytest.raises(HTTPException) as excinfo:
         await deps_auth.get_current_superuser(current_user=account)

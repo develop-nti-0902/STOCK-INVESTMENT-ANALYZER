@@ -1,6 +1,4 @@
-"""
-例外処理モジュールのテスト - システム・設定関連例外
-"""
+"""例外処理モジュールのテスト - システム・設定関連例外."""
 
 from app.exceptions.base import AppException
 from app.exceptions.system import (
@@ -13,12 +11,10 @@ from app.exceptions.system import (
 
 
 class TestConfigurationError:
-    """ConfigurationError基底クラスのテスト"""
+    """ConfigurationError基底クラスのテスト."""
 
     def test_default_initialization(self):
-        """
-        デフォルト値での初期化
-        """
+        """デフォルト値での初期化."""
         # Arrange: (特になし)
 
         # Act: デフォルト値でConfigurationErrorを初期化
@@ -31,9 +27,7 @@ class TestConfigurationError:
         assert isinstance(exc, AppException)
 
     def test_custom_message(self):
-        """
-        カスタムメッセージでの初期化
-        """
+        """カスタムメッセージでの初期化."""
         # Arrange: (特になし)
 
         # Act: カスタムメッセージでConfigurationErrorを初期化
@@ -45,12 +39,10 @@ class TestConfigurationError:
 
 
 class TestSettingsValidationError:
-    """SettingsValidationErrorのテスト"""
+    """SettingsValidationErrorのテスト."""
 
     def test_default_initialization(self):
-        """
-        デフォルト値での初期化
-        """
+        """デフォルト値での初期化."""
         # Arrange: (特になし)
 
         # Act: デフォルト値でSettingsValidationErrorを初期化
@@ -63,9 +55,7 @@ class TestSettingsValidationError:
         assert isinstance(exc, ConfigurationError)
 
     def test_with_details(self):
-        """
-        詳細情報を含む初期化
-        """
+        """詳細情報を含む初期化."""
         # Arrange: (特になし)
 
         # Act: 詳細情報を含めてSettingsValidationErrorを初期化
@@ -91,30 +81,23 @@ class TestSettingsValidationError:
 
 
 class TestEnvironmentVariableError:
-    """EnvironmentVariableErrorのテスト"""
+    """EnvironmentVariableErrorのテスト."""
 
     def test_default_initialization(self):
-        """
-        デフォルト値での初期化
-        """
+        """デフォルト値での初期化."""
         # Arrange: (特になし)
 
         # Act: デフォルト値でEnvironmentVariableErrorを初期化
         exc = EnvironmentVariableError()
 
         # Assert: デフォルト値が正しく設定され、ConfigurationErrorを継承していることを確認
-        assert (
-            exc.message
-            == "Required environment variable is missing or invalid"
-        )
+        assert exc.message == "Required environment variable is missing or invalid"
         assert exc.error_code == "ENV_VARIABLE_ERROR"
         assert exc.status_code == 500
         assert isinstance(exc, ConfigurationError)
 
     def test_with_details(self):
-        """
-        詳細情報を含む初期化
-        """
+        """詳細情報を含む初期化."""
         # Arrange: (特になし)
 
         # Act: 詳細情報を含めてEnvironmentVariableErrorを初期化
@@ -129,12 +112,10 @@ class TestEnvironmentVariableError:
 
 
 class TestFileSystemError:
-    """FileSystemErrorのテスト"""
+    """FileSystemErrorのテスト."""
 
     def test_default_initialization(self):
-        """
-        デフォルト値での初期化
-        """
+        """デフォルト値での初期化."""
         # Arrange: (特になし)
 
         # Act: デフォルト値でFileSystemErrorを初期化
@@ -147,9 +128,7 @@ class TestFileSystemError:
         assert isinstance(exc, AppException)
 
     def test_with_details(self):
-        """
-        詳細情報を含む初期化
-        """
+        """詳細情報を含む初期化."""
         # Arrange: (特になし)
 
         # Act: 詳細情報を含めてFileSystemErrorを初期化
@@ -169,12 +148,10 @@ class TestFileSystemError:
 
 
 class TestLoggingError:
-    """LoggingErrorのテスト"""
+    """LoggingErrorのテスト."""
 
     def test_default_initialization(self):
-        """
-        デフォルト値での初期化
-        """
+        """デフォルト値での初期化."""
         # Arrange: (特になし)
 
         # Act: デフォルト値でLoggingErrorを初期化
@@ -187,9 +164,7 @@ class TestLoggingError:
         assert isinstance(exc, AppException)
 
     def test_with_details(self):
-        """
-        詳細情報を含む初期化
-        """
+        """詳細情報を含む初期化."""
         # Arrange: (特になし)
 
         # Act: 詳細情報を含めてLoggingErrorを初期化

@@ -1,7 +1,4 @@
-"""追加の unit tests for app.api.v1.views.latest_stocks
-
-場所: tests/unit/api/v1/views1
-"""
+"""追加の unit tests for app.api.v1.views.latest_stocks."""
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -14,11 +11,15 @@ from app.exceptions.business import ServiceError
 
 
 class FakeLatestService:
+    """テスト用のフェイクサービス実装."""
+
     def __init__(self, *, result=None, raise_exc: Exception | None = None):
+        """インスタンスを初期化する."""
         self._result = result
         self._raise = raise_exc
 
     async def get_latest_stock(self, symbol: str):
+        """指定銘柄の最新株価情報を返す（モック挙動）."""
         if self._raise:
             raise self._raise
         return self._result
@@ -26,6 +27,7 @@ class FakeLatestService:
 
 @pytest.mark.asyncio
 async def test_get_latest_stock_success():
+    """正常系: 最新株価が返ることを検証する."""
     now = datetime.now(timezone.utc)
     fake = SimpleNamespace(
         id=11,
@@ -50,9 +52,8 @@ async def test_get_latest_stock_success():
 
 @pytest.mark.asyncio
 async def test_get_latest_stock_not_found_raises_404():
-    service = FakeLatestService(
-        raise_exc=ServiceError(message="Not found for symbol")
-    )
+    """対象銘柄が存在しない場合に 404 を返すことを検証する."""
+    service = FakeLatestService(raise_exc=ServiceError(message="Not found for symbol"))
 
     with pytest.raises(HTTPException) as exc:
         await ls_module.get_latest_stock(symbol="XXXX", service=service)
@@ -62,9 +63,8 @@ async def test_get_latest_stock_not_found_raises_404():
 
 @pytest.mark.asyncio
 async def test_get_latest_stock_other_service_error_raises_500():
-    service = FakeLatestService(
-        raise_exc=ServiceError(message="something bad")
-    )
+    """サービス側エラー時に 500 を返すことを検証する."""
+    service = FakeLatestService(raise_exc=ServiceError(message="something bad"))
 
     with pytest.raises(HTTPException) as exc:
         await ls_module.get_latest_stock(symbol="7203", service=service)

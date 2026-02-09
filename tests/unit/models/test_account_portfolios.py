@@ -1,13 +1,14 @@
+"""AccountPortfolios モデルの単体テスト."""
+
 from __future__ import annotations
 
 from app.models import account_portfolios
 
 
 def test_account_portfolios_defaults_and_repr():
+    """デフォルト値と repr 表示を検証する."""
     # quantity のカラムデフォルトはコンストラクタ時に自動で埋まらないため明示する
-    inst = account_portfolios.AccountPortfolios(
-        account_id=42, symbol="7203.T", quantity=0
-    )
+    inst = account_portfolios.AccountPortfolios(account_id=42, symbol="7203.T", quantity=0)
 
     assert inst.account_id == 42
     assert inst.symbol == "7203.T"
