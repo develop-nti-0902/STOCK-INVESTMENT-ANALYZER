@@ -28,15 +28,9 @@ class StockMasterRaw(BaseModel):
     # 日本語カラム名（JPXエクセルファイルの実際のカラム名）
     # Pydanticではフィールド名をPythonの識別子として定義し、aliasで元のカラム名を指定
     # Excel読み込み時に数値型として読み込まれる可能性があるため、Union[str, int]で定義
-    date: Optional[Union[str, int]] = Field(
-        default=None, alias="日付", description="データ取得日"
-    )
-    code: Optional[Union[str, int]] = Field(
-        default=None, alias="コード", description="銘柄コード"
-    )
-    name: Optional[str] = Field(
-        default=None, alias="銘柄名", description="銘柄名"
-    )
+    date: Optional[Union[str, int]] = Field(default=None, alias="日付", description="データ取得日")
+    code: Optional[Union[str, int]] = Field(default=None, alias="コード", description="銘柄コード")
+    name: Optional[str] = Field(default=None, alias="銘柄名", description="銘柄名")
     market: Optional[str] = Field(
         default=None, alias="市場・商品区分", description="市場・商品区分"
     )
@@ -57,9 +51,7 @@ class StockMasterRaw(BaseModel):
     scale_code: Optional[Union[str, int]] = Field(
         default=None, alias="規模コード", description="規模コード"
     )
-    scale_category: Optional[str] = Field(
-        default=None, alias="規模区分", description="規模区分"
-    )
+    scale_category: Optional[str] = Field(default=None, alias="規模区分", description="規模区分")
 
 
 class StockMasterNormalized(BaseModel):
@@ -81,33 +73,19 @@ class StockMasterNormalized(BaseModel):
         extra="forbid",
     )
 
-    stock_code: str = Field(
-        ..., description="銘柄コード", min_length=4, max_length=10
-    )
+    stock_code: str = Field(..., description="銘柄コード", min_length=4, max_length=10)
     stock_name: str = Field(..., description="銘柄名", min_length=1)
-    market_category: Optional[str] = Field(
-        default=None, description="市場区分"
-    )
-    sector_code_33: Optional[str] = Field(
-        default=None, description="33業種コード"
-    )
-    sector_name_33: Optional[str] = Field(
-        default=None, description="33業種区分名"
-    )
-    sector_code_17: Optional[str] = Field(
-        default=None, description="17業種コード"
-    )
-    sector_name_17: Optional[str] = Field(
-        default=None, description="17業種区分名"
-    )
+    market_category: Optional[str] = Field(default=None, description="市場区分")
+    sector_code_33: Optional[str] = Field(default=None, description="33業種コード")
+    sector_name_33: Optional[str] = Field(default=None, description="33業種区分名")
+    sector_code_17: Optional[str] = Field(default=None, description="17業種コード")
+    sector_name_17: Optional[str] = Field(default=None, description="17業種区分名")
     scale_code: Optional[str] = Field(default=None, description="規模コード")
     scale_category: Optional[str] = Field(default=None, description="規模区分")
     data_date: Optional[str] = Field(
         default=None, description="データ日付（YYYYMMDD形式）", max_length=8
     )
-    is_active: int = Field(
-        default=1, description="有効フラグ（1:有効, 0:無効）"
-    )
+    is_active: int = Field(default=1, description="有効フラグ（1:有効, 0:無効）")
 
 
 class StockMasterResponse(StockMasterNormalized):

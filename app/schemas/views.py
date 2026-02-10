@@ -11,7 +11,7 @@ from app.schemas.stock_data import StockPrice1D
 
 
 class LatestStockBase(StockPrice1D):
-    """latest_stocks_1dビューの基本スキーマ。
+    """latest_stocks_1dビューの基本スキーマ.
 
     `StockPrice1D` を継承して共通定義を再利用します。
     """

@@ -1,4 +1,4 @@
-"""内部者取引情報モデル。
+"""内部者取引情報モデル.
 
 このモジュールは `stock_insider_transactions` テーブルに対応します.
 """
@@ -14,37 +14,21 @@ from .base import Base, SerialPKMixin, TimestampMixin
 
 
 class StockInsiderTransactions(Base, SerialPKMixin, TimestampMixin):
+    """内部者取引の履歴エントリを表すモデル."""
+
     __tablename__ = "stock_insider_transactions"
 
     symbol: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
-    transaction_date: Mapped[Optional[str]] = mapped_column(
-        Date, nullable=False
-    )
+    transaction_date: Mapped[Optional[str]] = mapped_column(Date, nullable=False)
     insider_name: Mapped[str] = mapped_column(String(200), nullable=False)
-    relationship: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True
-    )
-    transaction_type: Mapped[Optional[str]] = mapped_column(
-        String(50), nullable=True
-    )
-    shares: Mapped[Optional[int]] = mapped_column(
-        Numeric(20, 0), nullable=True
-    )
-    price: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 4), nullable=True
-    )
-    total_value: Mapped[Optional[float]] = mapped_column(
-        Numeric(24, 2), nullable=True
-    )
-    ownership_after: Mapped[Optional[int]] = mapped_column(
-        Numeric(20, 0), nullable=True
-    )
-    ownership_percent: Mapped[Optional[float]] = mapped_column(
-        Numeric(6, 4), nullable=True
-    )
-    filing_url: Mapped[Optional[str]] = mapped_column(
-        String(500), nullable=True
-    )
+    relationship: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    transaction_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    shares: Mapped[Optional[int]] = mapped_column(Numeric(20, 0), nullable=True)
+    price: Mapped[Optional[float]] = mapped_column(Numeric(20, 4), nullable=True)
+    total_value: Mapped[Optional[float]] = mapped_column(Numeric(24, 2), nullable=True)
+    ownership_after: Mapped[Optional[int]] = mapped_column(Numeric(20, 0), nullable=True)
+    ownership_percent: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
+    filing_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
 

@@ -26,9 +26,7 @@ class LatestStocksRepository(BaseRepository):
         """
         super().__init__(session)
 
-    async def get_latest_stock_by_symbol(
-        self, symbol: str
-    ) -> dict[str, Any] | None:
+    async def get_latest_stock_by_symbol(self, symbol: str) -> dict[str, Any] | None:
         """指定されたシンボルの最新株価情報を取得する.
 
         Args:
@@ -73,11 +71,7 @@ class LatestStocksRepository(BaseRepository):
             "high": Decimal(str(row.high)),
             "low": Decimal(str(row.low)),
             "close": Decimal(str(row.close)),
-            "adj_close": (
-                Decimal(str(row.adj_close))
-                if row.adj_close is not None
-                else None
-            ),
+            "adj_close": (Decimal(str(row.adj_close)) if row.adj_close is not None else None),
             "volume": int(row.volume),
         }
 

@@ -1,4 +1,4 @@
-"""古い `batch_execution_details` を削除するユーティリティスクリプト。
+"""古い `batch_execution_details` を削除するユーティリティスクリプト.
 
 使い方:
     - ドライラン: `python scripts/maintenance/cleanup_batch_history.py --dry-run`
@@ -20,9 +20,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models.batch_execution_details import BatchExecutionDetails
-from app.utils.database import get_session_maker
+from app.utils.database import get_engine
 
 logger = logging.getLogger("cleanup_batch_history")
 logging.basicConfig(level=logging.INFO)
@@ -35,29 +36,21 @@ def _get_retention_days(cli_days: Optional[int]) -> int:
     try:
         return int(env_val) if env_val is not None else 365
     except Exception:
-        logger.warning(
-            "Invalid BATCH_HISTORY_RETENTION_DAYS=%s, fallback to 365", env_val
-        )
+        logger.warning("Invalid BATCH_HISTORY_RETENTION_DAYS=%s, fallback to 365", env_val)
         return 365
 
 
-async def _collect_candidates(
-    session_maker, cutoff: datetime
-) -> list[BatchExecutionDetails]:
+async def _collect_candidates(session_maker, cutoff: datetime) -> list[BatchExecutionDetails]:
     async with session_maker() as session:
         result = await session.execute(
-            select(BatchExecutionDetails).where(
-                BatchExecutionDetails.created_at < cutoff
-            )
+            select(BatchExecutionDetails).where(BatchExecutionDetails.created_at < cutoff)
         )
         return list(result.scalars().all())
 
 
 async def _delete_older_than(session_maker, cutoff: datetime) -> int:
     async with session_maker() as session:
-        stmt = delete(BatchExecutionDetails).where(
-            BatchExecutionDetails.created_at < cutoff
-        )
+        stmt = delete(BatchExecutionDetails).where(BatchExecutionDetails.created_at < cutoff)
         result = await session.execute(stmt)
         # SQLAlchemy Core の execute が返す rowcount は場合により None になり得る
         try:
@@ -69,12 +62,15 @@ async def _delete_older_than(session_maker, cutoff: datetime) -> int:
 
 
 async def main(argv: list[str] | None = None) -> int:
+    """Delete old BatchExecutionDetails records and return exit code.
+
+    If `--dry-run` is passed, only logs candidates without deleting.
+    Returns 0 on success.
+    """
     parser = argparse.ArgumentParser(
         description="古い batch_execution_details レコードを削除します"
     )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="削除せず報告のみ行う"
-    )
+    parser.add_argument("--dry-run", action="store_true", help="削除せず報告のみ行う")
     parser.add_argument(
         "--days",
         type=int,
@@ -86,11 +82,12 @@ async def main(argv: list[str] | None = None) -> int:
     retention_days = _get_retention_days(args.days)
     cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
 
-    session_maker = get_session_maker()
-
-    logger.info(
-        "Retention days=%s, cutoff=%s", retention_days, cutoff.isoformat()
+    engine = get_engine()
+    session_maker = async_sessionmaker(
+        bind=engine, class_=AsyncSession, autocommit=False, autoflush=False, expire_on_commit=False
     )
+
+    logger.info("Retention days=%s, cutoff=%s", retention_days, cutoff.isoformat())
 
     candidates = await _collect_candidates(session_maker, cutoff)
     logger.info("Found %d candidate(s) older than cutoff", len(candidates))

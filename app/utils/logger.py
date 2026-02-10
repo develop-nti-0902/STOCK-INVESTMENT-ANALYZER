@@ -1,4 +1,4 @@
-"""ロギング設定およびユーティリティ。
+"""ロギング設定およびユーティリティ.
 
 構造化（JSON）出力、ファイル/コンソールハンドラ、ログローテーション、
 リクエストIDによる関連付けなどの共通ロギング設定を提供します。
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import platform
 import sys
 from contextvars import ContextVar
 from datetime import datetime, timezone
@@ -27,9 +28,7 @@ from app.utils.config import get_settings
 # =============================================================================
 
 # リクエストIDを格納するコンテキスト変数
-request_id_var: ContextVar[Optional[str]] = ContextVar(
-    "request_id", default=None
-)
+request_id_var: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
 
 
 # =============================================================================
@@ -38,7 +37,7 @@ request_id_var: ContextVar[Optional[str]] = ContextVar(
 
 
 class StructuredFormatter(logging.Formatter):
-    """構造化ログフォーマッタ
+    """構造化ログフォーマッタ.
 
     JSON形式のログ出力をサポートします。
     """
@@ -49,7 +48,7 @@ class StructuredFormatter(logging.Formatter):
         datefmt: Optional[str] = None,
         use_json: bool = False,
     ) -> None:
-        """初期化
+        """初期化.
 
         Args:
             fmt: ログフォーマット文字列
@@ -60,7 +59,7 @@ class StructuredFormatter(logging.Formatter):
         self.use_json = use_json
 
     def format(self, record: logging.LogRecord) -> str:
-        """ログレコードをフォーマット
+        """ログレコードをフォーマット.
 
         Args:
             record: ログレコード
@@ -74,7 +73,7 @@ class StructuredFormatter(logging.Formatter):
         return self._format_text(record)
 
     def _format_json(self, record: logging.LogRecord) -> str:
-        """JSON形式でログレコードをフォーマット
+        """JSON形式でログレコードをフォーマット.
 
         Args:
             record: ログレコード
@@ -83,9 +82,7 @@ class StructuredFormatter(logging.Formatter):
             JSON形式のログメッセージ
         """
         log_data: dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(
-                record.created, tz=timezone.utc
-            ).isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
             "level": record.levelname,
             "module": record.name,
             "message": record.getMessage(),
@@ -107,7 +104,7 @@ class StructuredFormatter(logging.Formatter):
         return json.dumps(log_data, ensure_ascii=False)
 
     def _format_text(self, record: logging.LogRecord) -> str:
-        """テキスト形式でログレコードをフォーマット
+        """テキスト形式でログレコードをフォーマット.
 
         Args:
             record: ログレコード
@@ -115,16 +112,13 @@ class StructuredFormatter(logging.Formatter):
         Returns:
             テキスト形式のログメッセージ
         """
-        timestamp = datetime.fromtimestamp(
-            record.created, tz=timezone.utc
-        ).isoformat()
+        timestamp = datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat()
         request_id = request_id_var.get()
         request_id_str = f" [{request_id}]" if request_id else ""
         message = record.getMessage()
 
         log_line = (
-            f"[{timestamp}] [{record.levelname}]{request_id_str} "
-            f"[{record.name}] {message}"
+            f"[{timestamp}] [{record.levelname}]{request_id_str} " f"[{record.name}] {message}"
         )
 
         # 例外情報がある場合は追加
@@ -135,7 +129,7 @@ class StructuredFormatter(logging.Formatter):
 
 
 class _DefaultLogger:
-    """デフォルトロガーのシングルトンホルダー
+    """デフォルトロガーのシングルトンホルダー.
 
     グローバル変数を使わずに遅延初期化を実現します。
     """
@@ -144,7 +138,7 @@ class _DefaultLogger:
 
     @classmethod
     def get(cls) -> logging.Logger:
-        """デフォルトロガーを取得（遅延初期化）
+        """デフォルトロガーを取得（遅延初期化）.
 
         Returns:
             デフォルトロガー
@@ -155,7 +149,7 @@ class _DefaultLogger:
 
     @classmethod
     def set(cls, logger: logging.Logger) -> None:
-        """デフォルトロガーを明示的に設定する
+        """デフォルトロガーを明示的に設定する.
 
         テストや外部からカスタムロガーを注入する際に利用します。
         pylint の `too-few-public-methods` 指摘を解消するためにも
@@ -183,7 +177,7 @@ def setup_logger(
 ) -> logging.Logger:
     # pylint: disable=too-many-arguments,too-many-locals
     # pylint: disable=too-many-positional-arguments
-    """ロガーをセットアップ
+    """ロガーをセットアップ.
 
     Args:
         name: ロガー名（通常はモジュール名）
@@ -237,17 +231,30 @@ def setup_logger(
             log_path = Path("logs") / log_file_name
 
         log_path.parent.mkdir(parents=True, exist_ok=True)
+        # Windows 環境ではファイルロックによる rename エラーが発生しやすいため
+        # ローテーションではなくシンプルな FileHandler を使う（テスト安定化）。
+        try:
+            # Windows かつログディレクトリを明示していない（デフォルトのアプリログ）の場合は
+            # FileHandler を使ってファイルロックによる rename エラーを回避する。
+            # テストなどで `log_dir` を指定した場合はローテーションを有効にする。
+            if platform.system() == "Windows" and log_dir is None:
+                file_handler = logging.FileHandler(filename=str(log_path), encoding="utf-8")
+            else:
+                file_handler = RotatingFileHandler(
+                    filename=str(log_path),
+                    maxBytes=max_bytes,
+                    backupCount=backup_count,
+                    encoding="utf-8",
+                )
 
-        # ローテーションファイルハンドラ
-        file_handler = RotatingFileHandler(
-            filename=str(log_path),
-            maxBytes=max_bytes,
-            backupCount=backup_count,
-            encoding="utf-8",
-        )
-        file_handler.setLevel(log_level_num)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+            file_handler.setLevel(log_level_num)
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+        except (OSError, PermissionError):
+            # テスト環境やファイルロック中に発生する可能性があるため安全にフォールバック
+            # コンソールハンドラのみでログを出力する。
+            console_handler.setLevel(log_level_num)
+            console_handler.setFormatter(formatter)
 
     # 親ロガーへの伝播を無効化（重複出力防止）
     logger.propagate = False
@@ -256,7 +263,7 @@ def setup_logger(
 
 
 def get_logger(name: str = __name__) -> logging.Logger:
-    """ロガーを取得（シンプルなインターフェース）
+    """ロガーを取得（シンプルなインターフェース）.
 
     Args:
         name: ロガー名
@@ -268,7 +275,7 @@ def get_logger(name: str = __name__) -> logging.Logger:
 
 
 def get_default_logger() -> logging.Logger:
-    """デフォルトロガーを取得
+    """デフォルトロガーを取得.
 
     Returns:
         デフォルトロガー
@@ -282,7 +289,7 @@ def get_default_logger() -> logging.Logger:
 
 
 def set_request_id(request_id: str) -> None:
-    """リクエストIDを設定
+    """リクエストIDを設定.
 
     Args:
         request_id: リクエストID
@@ -291,7 +298,7 @@ def set_request_id(request_id: str) -> None:
 
 
 def get_request_id() -> Optional[str]:
-    """リクエストIDを取得
+    """リクエストIDを取得.
 
     Returns:
         リクエストID（未設定の場合はNone）
@@ -300,5 +307,5 @@ def get_request_id() -> Optional[str]:
 
 
 def clear_request_id() -> None:
-    """リクエストIDをクリア"""
+    """リクエストIDをクリア."""
     request_id_var.set(None)

@@ -1,13 +1,12 @@
+"""認証関連API. 登録・ログインなどのエンドポイントを提供します."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, status
 
-from app.exceptions.business import (
-    DuplicateEmailError,
-    InvalidCredentialsError,
-)
+from app.exceptions.business import DuplicateEmailError, InvalidCredentialsError
 from app.repositories.account_repository import AccountRepository
 from app.schemas.accounts import (
     AccountLoginRequest,
@@ -49,22 +48,16 @@ async def login(
     payload: AccountLoginRequest,
     repo: AccountRepository = Depends(get_account_repo),
 ):
-    user = await auth_service.authenticate_user(
-        repo, payload.email, payload.password
-    )
+    user = await auth_service.authenticate_user(repo, payload.email, payload.password)
     if user is None:
         raise InvalidCredentialsError()
 
-    token = auth_service.create_access_token(
-        subject=str(getattr(user, "id", payload.email))
-    )
+    token = auth_service.create_access_token(subject=str(getattr(user, "id", payload.email)))
     # 更新は非ブロッキング（DB上で記録）
     try:
         user_id = getattr(user, "id", None)
         if user_id is not None:
-            await repo.update_last_login(
-                int(user_id), datetime.now(timezone.utc)
-            )
+            await repo.update_last_login(int(user_id), datetime.now(timezone.utc))
     except Exception:
         # ログのために黙殺し、トークン発行自体は成功扱いとする
         pass

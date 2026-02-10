@@ -100,10 +100,6 @@ def retry_on_error(
             raise RuntimeError("Retry logic error: no exception recorded")
 
         # 関数が非同期かどうかで切り替え
-        return (
-            async_wrapper
-            if inspect.iscoroutinefunction(func)
-            else sync_wrapper
-        )
+        return async_wrapper if inspect.iscoroutinefunction(func) else sync_wrapper
 
     return decorator

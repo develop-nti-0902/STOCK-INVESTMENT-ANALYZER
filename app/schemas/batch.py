@@ -12,11 +12,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .base import (
-    BaseRequestSchema,
-    BaseResponseSchema,
-    PaginationResponseSchema,
-)
+from .base import BaseRequestSchema, BaseResponseSchema, PaginationResponseSchema
 
 
 class SingleStockDataRequest(BaseRequestSchema):
@@ -64,9 +60,7 @@ class BatchJobResponse(BaseResponseSchema):
     job_id: str = Field(..., description="ジョブID")
     job_type: str = Field(..., description="ジョブ種別")
     status: str = Field(..., description="ジョブステータス")
-    estimated_completion: Optional[str] = Field(
-        None, description="推定完了日時（ISO-8601）"
-    )
+    estimated_completion: Optional[str] = Field(None, description="推定完了日時（ISO-8601）")
 
 
 class BatchJobProgress(BaseRequestSchema):
@@ -100,9 +94,7 @@ class BatchJobStatusResponse(BaseResponseSchema):
     status: str = Field(..., description="ジョブステータス")
     progress: BatchJobProgress = Field(..., description="進捗情報")
     started_at: str = Field(..., description="開始日時（ISO-8601）")
-    estimated_completion: Optional[str] = Field(
-        None, description="推定完了日時（ISO-8601）"
-    )
+    estimated_completion: Optional[str] = Field(None, description="推定完了日時（ISO-8601）")
 
 
 class BatchHistoryItem(BaseRequestSchema):
@@ -120,9 +112,7 @@ class BatchHistoryItem(BaseRequestSchema):
     job_type: str = Field(..., description="ジョブ種別")
     status: str = Field(..., description="ジョブステータス")
     started_at: str = Field(..., description="開始日時（ISO-8601）")
-    completed_at: Optional[str] = Field(
-        None, description="完了日時（ISO-8601）"
-    )
+    completed_at: Optional[str] = Field(None, description="完了日時（ISO-8601）")
 
 
 class BatchHistoryResponse(PaginationResponseSchema):
@@ -138,13 +128,18 @@ class BatchHistoryResponse(PaginationResponseSchema):
 
 
 class JobType(str, Enum):
+    """バッチジョブの種別を表す列挙型."""
+
     SINGLE_STOCK = "SINGLE_STOCK"
     JPX_ALL_STOCKS = "JPX_ALL_STOCKS"
     STOCK_MASTER_UPDATE = "STOCK_MASTER_UPDATE"
     FUNDAMENTAL_DATA = "FUNDAMENTAL_DATA"
+    EDINET_BALANCE_SHEET = "EDINET_BALANCE_SHEET"
 
 
 class JobStatus(str, Enum):
+    """バッチジョブの実行ステータスを表す列挙型."""
+
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
@@ -161,12 +156,8 @@ class BatchJobParams(BaseModel):
 
     model_config = ConfigDict(validate_assignment=True, extra="allow")
 
-    symbol: Optional[str] = Field(
-        None, description="Stock symbol (for single-stock jobs)"
-    )
-    timeframe: Optional[str] = Field(
-        None, description="Timeframe (e.g. 1d, 1m)"
-    )
+    symbol: Optional[str] = Field(None, description="Stock symbol (for single-stock jobs)")
+    timeframe: Optional[str] = Field(None, description="Timeframe (e.g. 1d, 1m)")
 
 
 class BatchExecutionBase(BaseModel):
@@ -188,21 +179,11 @@ class BatchExecutionBase(BaseModel):
 
     job_type: JobType = Field(..., description="Job type")
     status: Optional[JobStatus] = Field(None, description="Job status")
-    params: Optional[BatchJobParams] = Field(
-        None, description="Job parameters"
-    )
-    progress: Optional[float] = Field(
-        None, description="Progress (0.0–100.0)", ge=0.0, le=100.0
-    )
-    success_count: Optional[int] = Field(
-        None, description="Number of successful items", ge=0
-    )
-    failed_count: Optional[int] = Field(
-        None, description="Number of failed items", ge=0
-    )
-    error_message: Optional[str] = Field(
-        None, description="Error message (if any)"
-    )
+    params: Optional[BatchJobParams] = Field(None, description="Job parameters")
+    progress: Optional[float] = Field(None, description="Progress (0.0–100.0)", ge=0.0, le=100.0)
+    success_count: Optional[int] = Field(None, description="Number of successful items", ge=0)
+    failed_count: Optional[int] = Field(None, description="Number of failed items", ge=0)
+    error_message: Optional[str] = Field(None, description="Error message (if any)")
     started_at: Optional[datetime] = Field(None, description="Start time")
     finished_at: Optional[datetime] = Field(None, description="Finish time")
 
@@ -231,12 +212,8 @@ class BatchExecutionUpdate(BaseModel):
     success_count: Optional[int] = Field(
         None, description="Update number of successful items", ge=0
     )
-    failed_count: Optional[int] = Field(
-        None, description="Update number of failed items", ge=0
-    )
-    error_message: Optional[str] = Field(
-        None, description="Error message (for update)"
-    )
+    failed_count: Optional[int] = Field(None, description="Update number of failed items", ge=0)
+    error_message: Optional[str] = Field(None, description="Error message (for update)")
 
 
 class BatchExecutionResponse(BaseResponseSchema, BatchExecutionBase):
@@ -255,9 +232,7 @@ class JPXAllMultiSequenceRequest(BaseRequestSchema):
         batch_size (Optional[int]): 一度に処理する銘柄数（デフォルト: 50）
     """
 
-    batch_size: Optional[int] = Field(
-        50, description="一度に処理する銘柄数", ge=1, le=200
-    )
+    batch_size: Optional[int] = Field(50, description="一度に処理する銘柄数", ge=1, le=200)
 
 
 class TimeframeResult(BaseModel):
@@ -279,9 +254,7 @@ class TimeframeResult(BaseModel):
     failed_count: int = Field(0, description="失敗件数", ge=0)
     error_message: Optional[str] = Field(None, description="エラーメッセージ")
     started_at: Optional[str] = Field(None, description="開始時刻（ISO-8601）")
-    finished_at: Optional[str] = Field(
-        None, description="終了時刻（ISO-8601）"
-    )
+    finished_at: Optional[str] = Field(None, description="終了時刻（ISO-8601）")
 
 
 class JPXAllMultiSequenceResponse(BaseResponseSchema):
@@ -298,6 +271,46 @@ class JPXAllMultiSequenceResponse(BaseResponseSchema):
     results: List[TimeframeResult] = Field(
         default_factory=list, description="各タイムフレームの実行結果"
     )
+
+
+class EdinetBalanceSheetRequest(BaseRequestSchema):
+    """EDINET貸借対照表取得リクエスト.
+
+    Attributes:
+        start_date (str): 検索開始日（YYYY-MM-DD形式）
+        end_date (str): 検索終了日（YYYY-MM-DD形式）
+        progress_interval (Optional[int]): 進捗更新の間隔（処理ドキュメント数、デフォルト: 10）
+        max_documents (Optional[int]): 処理する最大ドキュメント数（Noneの場合は全件処理）
+    """
+
+    start_date: str = Field(..., description="検索開始日（YYYY-MM-DD形式）")
+    end_date: str = Field(..., description="検索終了日（YYYY-MM-DD形式）")
+    progress_interval: Optional[int] = Field(
+        10, description="進捗更新の間隔（処理ドキュメント数）", ge=1
+    )
+    max_documents: Optional[int] = Field(
+        None, description="処理する最大ドキュメント数（Noneの場合は全件処理）", ge=1
+    )
+
+
+class EdinetBalanceSheetResponse(BaseResponseSchema):
+    """EDINET貸借対照表取得レスポンス.
+
+    Attributes:
+        job_id (str): ジョブID（同期実行のため固定値）
+        status (str): ジョブステータス
+        total_documents (int): 検索された書類数
+        processed_documents (int): 処理済み書類数
+        saved_years (int): 保存された年度数
+        failed_documents (int): 失敗した書類数
+    """
+
+    job_id: str = Field(..., description="ジョブID（同期実行のため固定値）")
+    status: str = Field(..., description="ジョブステータス")
+    total_documents: int = Field(0, description="検索された書類数", ge=0)
+    processed_documents: int = Field(0, description="処理済み書類数", ge=0)
+    saved_years: int = Field(0, description="保存された年度数", ge=0)
+    failed_documents: int = Field(0, description="失敗した書類数", ge=0)
 
 
 __all__ = [
@@ -318,4 +331,6 @@ __all__ = [
     "JPXAllMultiSequenceRequest",
     "TimeframeResult",
     "JPXAllMultiSequenceResponse",
+    "EdinetBalanceSheetRequest",
+    "EdinetBalanceSheetResponse",
 ]

@@ -23,7 +23,7 @@ class BaseSaver(ABC, Generic[T]):
     @abstractmethod
     async def save(self, data: T, **kwargs: Any) -> bool:
         """
-        単一データ保存（サブクラスで実装）
+        単一データ保存（サブクラスで実装）.
 
         Args:
             data: 保存するデータ（Pydanticモデルなど）
@@ -40,7 +40,7 @@ class BaseSaver(ABC, Generic[T]):
     @abstractmethod
     async def save_batch(self, data_list: list[T], **kwargs: Any) -> int:
         """
-        複数データ一括保存（サブクラスで実装）
+        複数データ一括保存（サブクラスで実装）.
 
         Args:
             data_list: 保存するデータのリスト
@@ -60,7 +60,7 @@ class BaseSaver(ABC, Generic[T]):
 
     async def validate_data(self, data: T) -> bool:
         """
-        データの検証（オプション、サブクラスでオーバーライド可能）
+        データの検証（オプション、サブクラスでオーバーライド可能）.
 
         Args:
             data: 検証対象のデータ
@@ -74,7 +74,7 @@ class BaseSaver(ABC, Generic[T]):
 
     async def prepare_for_save(self, data: T) -> dict[str, Any]:
         """
-        保存前のデータ準備（オプション、サブクラスでオーバーライド可能）
+        保存前のデータ準備（オプション、サブクラスでオーバーライド可能）.
 
         Args:
             data: 準備するデータ
@@ -95,7 +95,7 @@ class BaseSaver(ABC, Generic[T]):
 
     async def handle_save_error(self, data: T, error: Exception) -> None:
         """
-        保存エラーのハンドリング（オプション、サブクラスでオーバーライド可能）
+        保存エラーのハンドリング（オプション、サブクラスでオーバーライド可能）.
 
         Args:
             data: エラーが発生したデータ

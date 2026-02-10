@@ -26,6 +26,7 @@ class BatchExecutionDetailsRepository(BaseRepository[BatchExecutionDetails]):
     """`BatchExecutionDetails` 専用の Repository 実装."""
 
     def __init__(self, session: AsyncSession):
+        """初期化。セッションを受け取り `BatchExecutionDetails` モデルをセットします."""
         super().__init__(session, model=BatchExecutionDetails)
 
     async def init(
@@ -62,19 +63,13 @@ class BatchExecutionDetailsRepository(BaseRepository[BatchExecutionDetails]):
         """処理済み件数をインクリメントする。該当レコードがなければ初期化してから更新する."""
         instance = await self._find(batch_execution_id, interval)
         if instance is None:
-            instance = await self.init(
-                batch_execution_id=batch_execution_id, interval=interval
-            )
+            instance = await self.init(batch_execution_id=batch_execution_id, interval=interval)
 
         # 安全に整数化して加算
         try:
-            instance.processed_stocks = int(
-                getattr(instance, "processed_stocks", 0)
-            ) + int(count)
+            instance.processed_stocks = int(getattr(instance, "processed_stocks", 0)) + int(count)
         except Exception:
-            instance.processed_stocks = (
-                getattr(instance, "processed_stocks", 0) or 0
-            ) + count
+            instance.processed_stocks = (getattr(instance, "processed_stocks", 0) or 0) + count
 
         return await flush_return_with_log(
             self.session,
@@ -88,7 +83,7 @@ class BatchExecutionDetailsRepository(BaseRepository[BatchExecutionDetails]):
     async def set_status(
         self, batch_execution_id: int, interval: Optional[str], status: str
     ) -> Optional[BatchExecutionDetails]:
-        """指定レコードのステータスを更新する。"""
+        """指定レコードのステータスを更新する."""
         instance = await self._find(batch_execution_id, interval)
         if instance is None:
             return None
@@ -102,14 +97,10 @@ class BatchExecutionDetailsRepository(BaseRepository[BatchExecutionDetails]):
             interval,
         )
 
-    async def get_progress(
-        self, batch_execution_id: int
-    ) -> List[BatchExecutionDetails]:
-        """指定ジョブの interval ごとの進捗集計一覧を返す。"""
+    async def get_progress(self, batch_execution_id: int) -> List[BatchExecutionDetails]:
+        """指定ジョブの interval ごとの進捗集計一覧を返す."""
         result = await self.session.execute(
-            select(self.model).where(
-                self.model.batch_execution_id == batch_execution_id
-            )
+            select(self.model).where(self.model.batch_execution_id == batch_execution_id)
         )
         return list(result.scalars().all())
 

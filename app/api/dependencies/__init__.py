@@ -1,5 +1,5 @@
 """
-API層 - 依存性注入プロバイダ
+API層 - 依存性注入プロバイダ.
 
 FastAPIのDependsパターンを使用したRepositoryとService提供を定義する。
 共通モジュール（app.utils.database）のget_db()を使用してDBセッションを取得する。
@@ -7,11 +7,7 @@ FastAPIのDependsパターンを使用したRepositoryとService提供を定義�
 仕様書: docs/architecture/layers/data_access_layer.md 3.3章
 """
 
-from .auth import (
-    get_current_active_user,
-    get_current_superuser,
-    get_current_user,
-)
+from .auth import get_current_active_user, get_current_superuser, get_current_user
 from .repositories import (
     get_base_repository,
     get_batch_execution_repository,

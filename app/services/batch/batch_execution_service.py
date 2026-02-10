@@ -1,3 +1,8 @@
+"""バッチ実行管理に関するサービス群.
+
+`BatchExecutionService` と非同期コンテキスト `BatchExecutionContext` を提供します.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -5,6 +10,7 @@ from typing import Any, Dict, Optional
 
 from app.exceptions.business import ServiceError
 from app.models.batch_execution import BatchExecution
+from app.models.enums import BatchExecutionStatus
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -18,11 +24,14 @@ class BatchExecutionService:
     """
 
     def __init__(self, repository: Any):
+        """リポジトリインスタンスを受け取りサービスを初期化する.
+
+        Args:
+            repository: バッチ実行を永続化するリポジトリ実装
+        """
         self.repository = repository
 
-    async def create_job(
-        self, job_type: str, params: Optional[Dict] = None
-    ) -> BatchExecution:
+    async def create_job(self, job_type: str, params: Optional[Dict] = None) -> BatchExecution:
         """ジョブを作成する.
 
         Args:
@@ -51,7 +60,7 @@ class BatchExecutionService:
             Optional[BatchExecution]: 更新後のジョブインスタンス、存在しない場合は None
         """
         return await self.repository.update_status(
-            record_id=job_id, status="running"
+            record_id=job_id, status=BatchExecutionStatus.RUNNING
         )
 
     async def update_progress(
@@ -78,12 +87,7 @@ class BatchExecutionService:
             Optional[BatchExecution]: 更新後のジョブインスタンス、存在しない場合は None
         """
         # 進捗値が指定されていない場合は、現在のジョブ状態を返す。
-        if (
-            processed is None
-            and total is None
-            and success is None
-            and failed is None
-        ):
+        if processed is None and total is None and success is None and failed is None:
             return await self.repository.get(job_id)
 
         # リポジトリ側の専用メソッド `update_progress` に処理を委譲する。
@@ -99,9 +103,7 @@ class BatchExecutionService:
         if failed is not None:
             progress_data["failed"] = failed
 
-        return await self.repository.update_progress(
-            record_id=job_id, progress_data=progress_data
-        )
+        return await self.repository.update_progress(record_id=job_id, progress_data=progress_data)
 
     async def complete_job(
         self, job_id: int, success_count: int, failed_count: int
@@ -122,9 +124,7 @@ class BatchExecutionService:
             failed_count=failed_count,
         )
 
-    async def fail_job(
-        self, job_id: int, error_message: str
-    ) -> Optional[BatchExecution]:
+    async def fail_job(self, job_id: int, error_message: str) -> Optional[BatchExecution]:
         """ジョブを失敗状態として記録する.
 
         Args:
@@ -135,7 +135,7 @@ class BatchExecutionService:
             Optional[BatchExecution]: 更新後のジョブインスタンス、存在しない場合は None
         """
         data = {
-            "status": "failed",
+            "status": BatchExecutionStatus.FAILED,
             "error_message": error_message,
             "end_time": datetime.now(timezone.utc),
         }
@@ -190,6 +190,13 @@ class BatchExecutionContext:
         job_type: str,
         params: Optional[Dict] = None,
     ):
+        """コンテキスト用にサービス、ジョブ種別、パラメータを初期化する.
+
+        Args:
+            service: `BatchExecutionService` のインスタンス
+            job_type: ジョブの種別文字列
+            params: ジョブ実行時に使う任意パラメータ
+        """
         self.service = service
         self.job_type = job_type
         self.params = params or {}
@@ -218,9 +225,7 @@ class BatchExecutionContext:
                 self._job_id = job_id
 
             async def update_progress(self, **kwargs):
-                return await self._service.update_progress(
-                    self._job_id, **kwargs
-                )
+                return await self._service.update_progress(self._job_id, **kwargs)
 
             @property
             def job_id(self) -> int:

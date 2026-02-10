@@ -21,23 +21,15 @@ class StockBasicInfo(SerialPKMixin, TimestampMixin, Base):
     for `stock_basic_info`.
     """
 
-    symbol: Mapped[str] = mapped_column(
-        String(20), nullable=False, unique=True
-    )
-    short_name: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True
-    )
-    long_name: Mapped[Optional[str]] = mapped_column(
-        String(200), nullable=True
-    )
+    symbol: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
+    short_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    long_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     sector: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     industry: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     country: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     website: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
-    full_time_employees: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )
+    full_time_employees: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     address: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
 
@@ -47,10 +39,8 @@ class StockBasicInfo(SerialPKMixin, TimestampMixin, Base):
     )
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
-        return (
-            "<StockBasicInfo(symbol="
-            + f"{self.symbol!r}, short_name={self.short_name!r})>"
-        )
+        """簡易表現を返す（デバッグ用）."""
+        return "<StockBasicInfo(symbol=" + f"{self.symbol!r}, short_name={self.short_name!r})>"
 
 
 __all__ = ["StockBasicInfo"]

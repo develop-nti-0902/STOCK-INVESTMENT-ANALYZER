@@ -57,9 +57,7 @@ def create_error_response(
     }
 
 
-async def app_exception_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+async def app_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """`AppException`（カスタム例外）を処理して統一レスポンスを返すハンドラ.
 
     Args:
@@ -117,9 +115,7 @@ async def app_exception_handler(
     )
 
 
-async def http_exception_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """`HTTPException` を処理して統一レスポンスを返すハンドラ.
 
     Args:
@@ -185,9 +181,7 @@ async def http_exception_handler(
     )
 
 
-async def validation_exception_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+async def validation_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """`RequestValidationError` を整形して返すハンドラ.
 
     Args:
@@ -244,9 +238,7 @@ async def validation_exception_handler(
     )
 
 
-async def general_exception_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """予期しない例外をキャッチして統一レスポンスを返す汎用ハンドラ.
 
     Args:

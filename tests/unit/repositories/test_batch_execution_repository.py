@@ -1,16 +1,17 @@
+"""`BatchExecutionRepository` の単体テスト集."""
+
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.repositories.batch_execution_repository import (
-    BatchExecutionRepository,
-)
+from app.repositories.batch_execution_repository import BatchExecutionRepository
 
 
 @pytest.mark.asyncio
 async def test_create_job_calls_session_and_returns_instance():
+    """create_job がセッションに追加してインスタンスを返すことを確認します."""
     # Arrange
     session = AsyncMock()
     session.flush = AsyncMock()
@@ -48,6 +49,7 @@ class _MockResult:
 
 @pytest.mark.asyncio
 async def test_get_by_job_type_returns_list():
+    """指定したジョブタイプでリストを返すことを検証します."""
     # Arrange
     session = AsyncMock()
     repo = BatchExecutionRepository(session)
@@ -66,6 +68,7 @@ async def test_get_by_job_type_returns_list():
 
 @pytest.mark.asyncio
 async def test_get_by_job_type_empty_returns_empty_list():
+    """空の結果が返るケースを検証します."""
     # Arrange
     session = AsyncMock()
     repo = BatchExecutionRepository(session)
@@ -80,6 +83,7 @@ async def test_get_by_job_type_empty_returns_empty_list():
 
 @pytest.mark.asyncio
 async def test_update_status_updates_and_commits():
+    """update_status がレコードを更新し flush を呼ぶことを検証します."""
     # Arrange
     session = AsyncMock()
     session.flush = AsyncMock()
@@ -102,6 +106,7 @@ async def test_update_status_updates_and_commits():
 
 @pytest.mark.asyncio
 async def test_update_status_not_found_returns_none():
+    """該当レコードが無い場合に None を返すことを検証します."""
     # Arrange
     session = AsyncMock()
     repo = BatchExecutionRepository(session)
@@ -116,6 +121,7 @@ async def test_update_status_not_found_returns_none():
 
 @pytest.mark.asyncio
 async def test_mark_completed_sets_counts_and_end_time():
+    """mark_completed がカウントと終了時刻を設定することを検証します."""
     # Arrange
     session = AsyncMock()
     session.flush = AsyncMock()
@@ -148,6 +154,7 @@ async def test_mark_completed_sets_counts_and_end_time():
 
 @pytest.mark.asyncio
 async def test_mark_completed_not_found_returns_none():
+    """対象が見つからない場合に None を返すことを検証します."""
     # Arrange
     session = AsyncMock()
     repo = BatchExecutionRepository(session)
@@ -162,6 +169,7 @@ async def test_mark_completed_not_found_returns_none():
 
 @pytest.mark.asyncio
 async def test_get_recent_returns_list():
+    """最近のジョブ一覧を取得できることを検証します."""
     # Arrange
     session = AsyncMock()
     repo = BatchExecutionRepository(session)
@@ -179,6 +187,7 @@ async def test_get_recent_returns_list():
 
 @pytest.mark.asyncio
 async def test_create_job_rollback_on_failure():
+    """create_job が例外発生時に例外を伝播することを検証します."""
     # Arrange
     session = AsyncMock()
     session.flush = AsyncMock()
@@ -201,6 +210,7 @@ async def test_create_job_rollback_on_failure():
 
 @pytest.mark.asyncio
 async def test_update_progress_updates_fields_and_flushes():
+    """update_progress が各フィールドを更新し flush を呼ぶことを検証します."""
     # Arrange
     session = AsyncMock()
     session.flush = AsyncMock()
@@ -235,6 +245,7 @@ async def test_update_progress_updates_fields_and_flushes():
 
 @pytest.mark.asyncio
 async def test_get_running_jobs_returns_list():
+    """実行中ジョブのリストを返すことを検証します."""
     # Arrange
     session = AsyncMock()
     repo = BatchExecutionRepository(session)
@@ -254,6 +265,7 @@ async def test_get_running_jobs_returns_list():
 
 @pytest.mark.asyncio
 async def test_cancel_job_sets_status_and_end_time_and_flush():
+    """cancel_job がステータス更新と終了時刻設定を行い flush を呼ぶことを検証します."""
     # Arrange
     session = AsyncMock()
     session.flush = AsyncMock()

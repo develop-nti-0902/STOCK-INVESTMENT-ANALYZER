@@ -24,24 +24,12 @@ class StockCashflowAnnual(SerialPKMixin, TimestampMixin, Base):
     fiscal_year: Mapped[int] = mapped_column(Integer, nullable=False)
     period_end: Mapped[Optional[str]] = mapped_column(Date, nullable=True)
 
-    operating_cashflow: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    investing_cashflow: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    financing_cashflow: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    net_change_in_cash: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    free_cashflow: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    cash_and_equivalents_end: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
+    operating_cashflow: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    investing_cashflow: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    financing_cashflow: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    net_change_in_cash: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    free_cashflow: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    cash_and_equivalents_end: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
 
     __table_args__ = (
         Index("idx_stock_cashflow_symbol", "symbol"),
@@ -49,9 +37,9 @@ class StockCashflowAnnual(SerialPKMixin, TimestampMixin, Base):
     )
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """簡易表現を返す（デバッグ用）."""
         return (
-            "<StockCashflowAnnual(symbol="
-            + f"{self.symbol!r}, fiscal_year={self.fiscal_year!r})>"
+            "<StockCashflowAnnual(symbol=" + f"{self.symbol!r}, fiscal_year={self.fiscal_year!r})>"
         )
 
 

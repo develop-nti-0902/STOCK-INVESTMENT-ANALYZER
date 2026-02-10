@@ -27,9 +27,7 @@ class StockPriceBase(BaseModel):
     )
 
     symbol: str = Field(description="銘柄コード")
-    timestamp: datetime = Field(
-        description="取引日時（タイムスタンプ、JST）", alias="trade_date"
-    )
+    timestamp: datetime = Field(description="取引日時（タイムスタンプ、JST）")
     open_price: Optional[float] = Field(None, description="始値")
     high: Optional[float] = Field(None, description="高値")
     low: Optional[float] = Field(None, description="安値")
@@ -84,9 +82,7 @@ class StockPriceBatch(BaseModel):
     )
 
     symbol: str = Field(description="銘柄コード")
-    timeframe: str = Field(
-        description="時間軸（1m, 5m, 15m, 1h, 1d, 1wk, 1mo）"
-    )
+    timeframe: str = Field(description="時間軸（1m, 5m, 15m, 1h, 1d, 1wk, 1mo）")
     data: List[StockPriceCreate] = Field(description="株価データリスト")
 
     @field_validator("timeframe")

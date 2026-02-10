@@ -31,7 +31,7 @@ sys.stderr = sys.stdout
 
 
 def extract_and_save(results, keys, out_path):
-    """指定されたキーのみを抽出してdataFrameに変換し、CSVファイルに保存する。
+    """指定されたキーのみを抽出してdataFrameに変換し、CSVファイルに保存する.
 
     Args:
         results (list): `data["results"]` に該当するオブジェクトのリスト
@@ -58,7 +58,7 @@ def extract_and_save(results, keys, out_path):
 def extract_securities_reports(
     submission_info_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """有価証券報告書（受益証券を除く）を抽出してDataFrameで返す。
+    """有価証券報告書（受益証券を除く）を抽出してDataFrameで返す.
 
     条件:
     - `docDescription` が None でない
@@ -99,7 +99,7 @@ def download_document(
     out_dir: str = "work/edinet_api_test/downloads",
     doc_type: int = 1,
 ) -> Optional[str]:
-    """指定の `doc_id` をダウンロードしてファイルに保存する。
+    """指定の `doc_id` をダウンロードしてファイルに保存する.
 
     Args:
         doc_id: ドキュメントID（例: 'S100N8ST'）
@@ -118,10 +118,7 @@ def download_document(
     document_response = requests.get(endpoint, params=params)
 
     if document_response.status_code != 200:
-        print(
-            "Failed to download %s: status %s"
-            % (doc_id, document_response.status_code)
-        )
+        print("Failed to download %s: status %s" % (doc_id, document_response.status_code))
         return None
 
     # 帰ってきたデータをzip形式で保存する
@@ -137,10 +134,8 @@ def download_document(
     return document_response
 
 
-def find_xbrl_files(
-    doc_id: str, out_dir: str = "work/edinet_api_test/downloads"
-) -> List[str]:
-    """ダウンロード済みフォルダ内で PublicDoc 配下の .xbrl を再帰検索してパス一覧を返す。
+def find_xbrl_files(doc_id: str, out_dir: str = "work/edinet_api_test/downloads") -> List[str]:
+    """ダウンロード済みフォルダ内で PublicDoc 配下の .xbrl を再帰検索してパス一覧を返す.
 
     Args:
         doc_id: ドキュメントID
@@ -158,9 +153,7 @@ def find_xbrl_files(
     return paths
 
 
-def get_context_candidates_from_text(
-    txt: str, candidate_contexts: List[str]
-) -> List[str]:
+def get_context_candidates_from_text(txt: str, candidate_contexts: List[str]) -> List[str]:
     found = set(re.findall(r'contextRef="([^"]+)"', txt))
     context_candidates: List[str] = []
     for cand in candidate_contexts:
@@ -174,7 +167,7 @@ def get_context_candidates_from_text(
 
 
 def extract_current_year_instant_date(xbrl_path: str) -> Optional[str]:
-    """XBRL ファイルから CurrentYearInstant 系の context に対応する日付を抽出する。"""
+    """XBRL ファイルから CurrentYearInstant 系の context に対応する日付を抽出する."""
     try:
         with open(xbrl_path, "r", encoding="utf-8") as fh:
             txt = fh.read()
@@ -204,7 +197,7 @@ def extract_current_year_instant_date(xbrl_path: str) -> Optional[str]:
 
 
 def parse_report_metrics(xbrl_path: str) -> dict:
-    """複数の指標を一括で解析して辞書で返す。
+    """複数の指標を一括で解析して辞書で返す.
 
     戻り値キー: total_assets, net_assets, shareholders_equity, retained_earnings,
     short_term_loans, long_term_loans, bps, equity_to_asset_ratio
@@ -267,9 +260,7 @@ def parse_report_metrics(xbrl_path: str) -> dict:
     try:
         with open(xbrl_path, "r", encoding="utf-8") as fh:
             txt = fh.read()
-        context_candidates = get_context_candidates_from_text(
-            txt, candidate_contexts
-        )
+        context_candidates = get_context_candidates_from_text(txt, candidate_contexts)
     except Exception:
         context_candidates = candidate_contexts.copy()
 
@@ -324,10 +315,8 @@ def parse_report_metrics(xbrl_path: str) -> dict:
     return results
 
 
-def build_dataframe_from_metrics(
-    metrics: dict, date_str: Optional[str]
-) -> pd.DataFrame:
-    """指定順で DataFrame を作る。
+def build_dataframe_from_metrics(metrics: dict, date_str: Optional[str]) -> pd.DataFrame:
+    """指定順で DataFrame を作る.
 
     カラム順: 月日, 総資産, 純資産, 株主資本, 利益剰余金, 短期借入金, 長期借入金, BPS, 自己資本比率
     """
@@ -358,10 +347,8 @@ def build_dataframe_from_metrics(
     return df
 
 
-def make_day_list(
-    start: datetime.date, end: datetime.date
-) -> List[datetime.date]:
-    """start から end までの日付リスト（inclusive）を返す。"""
+def make_day_list(start: datetime.date, end: datetime.date) -> List[datetime.date]:
+    """start から end までの日付リスト（inclusive）を返す."""
     if start > end:
         return []
     days = []
@@ -406,9 +393,7 @@ for day in day_list:
     ]
     out_path = "work/edinet_api_test/selected_fields.csv"
     # 抽出して保存。DataFrameで欲しいので return_df=True にする（ダウンロード直後からDataFrameで扱える）
-    submission_info_df = extract_and_save(
-        data.get("results", []), selected_keys, out_path
-    )
+    submission_info_df = extract_and_save(data.get("results", []), selected_keys, out_path)
     # ダウンロード件数が0件の場合はスキップ
     if submission_info_df.empty:
         continue
@@ -419,14 +404,9 @@ for day in day_list:
     #     & (submission_info_df["secCode"] == stock_code)
     # ]
 
-    submission_info_df = submission_info_df[
-        (submission_info_df["secCode"].notnull())
-    ]
+    submission_info_df = submission_info_df[(submission_info_df["secCode"].notnull())]
 
-    print(
-        "Saved selected fields to %s (items: %d)"
-        % (out_path, len(submission_info_df))
-    )
+    print("Saved selected fields to %s (items: %d)" % (out_path, len(submission_info_df)))
 
     # 有価証券報告書を抽出
     securities_reports_df = extract_securities_reports(submission_info_df)
@@ -437,9 +417,7 @@ for day in day_list:
         index=False,
         encoding="utf-8-sig",
     )
-    print(
-        "Saved securities reports to work/edinet_api_test/securities_reports.csv"
-    )
+    print("Saved securities reports to work/edinet_api_test/securities_reports.csv")
 
     # mainルートから download_document を呼び出す（将来の拡張を想定して現状の関数を利用）
     if not securities_reports_df.empty:
@@ -453,9 +431,7 @@ for day in day_list:
         os.makedirs(out_dir, exist_ok=True)
 
         # docID -> secCode マップ（出力時に現在の銘柄コードを表示するため）
-        docid_to_seccode = securities_reports_df.set_index("docID")[
-            "secCode"
-        ].to_dict()
+        docid_to_seccode = securities_reports_df.set_index("docID")["secCode"].to_dict()
 
         for doc_id in securities_reports_df["docID"]:
             print("#################################")
@@ -466,10 +442,7 @@ for day in day_list:
                     print(f"download_document returned None for {doc_id}")
                 else:
                     status = getattr(resp, "status_code", "N/A")
-                    print(
-                        "Called download_document for %s, status=%s"
-                        % (doc_id, status)
-                    )
+                    print("Called download_document for %s, status=%s" % (doc_id, status))
                 # スクレイピング対象の XBRL ファイルの存在を確認
                 xbrl_paths = find_xbrl_files(doc_id, out_dir=out_dir)
                 if xbrl_paths:
@@ -481,12 +454,8 @@ for day in day_list:
                     # 先頭の XBRL を解析して各メトリクスを抽出、DataFrame を作成して保存
                     try:
                         metrics = parse_report_metrics(xbrl_paths[0])
-                        date_str = extract_current_year_instant_date(
-                            xbrl_paths[0]
-                        )
-                        df_metrics = build_dataframe_from_metrics(
-                            metrics, date_str
-                        )
+                        date_str = extract_current_year_instant_date(xbrl_paths[0])
+                        df_metrics = build_dataframe_from_metrics(metrics, date_str)
                         if df_metrics is None or df_metrics.empty:
                             print("  metrics: None (no matching tags)")
                         else:
@@ -498,9 +467,7 @@ for day in day_list:
                                 "parsed_metrics.csv",
                             )
                             if not os.path.exists(out_csv):
-                                df_metrics.to_csv(
-                                    out_csv, index=False, encoding="utf-8-sig"
-                                )
+                                df_metrics.to_csv(out_csv, index=False, encoding="utf-8-sig")
                             else:
                                 df_metrics.to_csv(
                                     out_csv,
@@ -514,8 +481,6 @@ for day in day_list:
                 else:
                     print("  no xbrl found for %s" % doc_id)
             except Exception as e:
-                print(
-                    "Error calling download_document for %s: %s" % (doc_id, e)
-                )
+                print("Error calling download_document for %s: %s" % (doc_id, e))
     else:
         print("No securities reports to download.")

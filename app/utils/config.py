@@ -1,8 +1,14 @@
+"""アプリケーション設定読み込みユーティリティ.
+
+Pydantic Settings v2 を用いて環境変数や .env から設定を読み込みます。
+このモジュールはアプリケーション全体で共有する設定スキーマを定義します.
+"""
+
 from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.exceptions.system import SettingsValidationError
@@ -23,14 +29,10 @@ class BatchProcessingSettings(BaseSettings):
     """
 
     # バッチサイズ
-    batch_size: int = Field(
-        default=100, ge=1, le=1000, description="Number of symbols per batch"
-    )
+    batch_size: int = Field(default=100, ge=1, le=1000, description="Number of symbols per batch")
 
     # 並列実行数（同時処理銘柄数）
-    max_concurrent: int = Field(
-        default=20, ge=1, le=100, description="Maximum concurrent tasks"
-    )
+    max_concurrent: int = Field(default=20, ge=1, le=100, description="Maximum concurrent tasks")
 
     # リトライ設定
     retry_attempts: int = Field(
@@ -102,12 +104,13 @@ class Settings(BaseSettings):
     )
 
     # データベース設定
-    DB_HOST: str = Field(..., description="Database host")
-    DB_PORT: int = Field(..., description="Database port")
-    DB_NAME: str = Field(..., description="Database name")
-    DB_USER: str = Field(..., description="Database user")
-    DB_PASSWORD: str = Field(..., description="Database password")
-    # 接続プール設定（環境変数で上書き可能）
+    # `DATABASE_URL` を必須の接続設定として扱います（SQLite も URL 指定で指定してください）。
+    DATABASE_URL: Optional[str] = Field(
+        None,
+        description="Full database URL (e.g. sqlite:///path/to/db or postgresql+asyncpg://...)",
+    )
+
+    # Engine tuning (kept for runtime configuration regardless of DB engine)
     DB_POOL_SIZE: int = Field(
         5,
         description="SQLAlchemy engine pool size (default: 5)",
@@ -137,9 +140,7 @@ class Settings(BaseSettings):
     # 最大取得件数の上限値（例: get_recent やページネーションで使用）
     MAX_RECENT_LIMIT: int = Field(
         1000,
-        description=(
-            "Maximum number of records returned by get_recent-style " "queries"
-        ),
+        description=("Maximum number of records returned by get_recent-style " "queries"),
     )
 
     # Yahoo Finance API設定
@@ -167,8 +168,7 @@ class Settings(BaseSettings):
             "http://127.0.0.1:3000",
         ],
         description=(
-            "Allowed origins for CORS. In environment variables, "
-            "provide a comma-separated list"
+            "Allowed origins for CORS. In environment variables, " "provide a comma-separated list"
         ),
     )
 
@@ -193,9 +193,7 @@ class Settings(BaseSettings):
     )
 
     # バッチ処理設定
-    batch: BatchProcessingSettings = Field(
-        default_factory=BatchProcessingSettings
-    )
+    batch: BatchProcessingSettings = Field(default_factory=BatchProcessingSettings)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -203,21 +201,37 @@ class Settings(BaseSettings):
         extra="ignore",  # 未定義の環境変数は無視する
     )
 
+    @model_validator(mode="after")
+    def _validate_database_configuration(self) -> "Settings":
+        """`DATABASE_URL` が指定されていなければ、個別の DB_* 設定が揃っていることを確認する.
+
+        CI 環境では `.env` が存在しないことがあるため、`DATABASE_URL` が与えられれば
+        個別設定を省略できるようにする。
+        """
+        # Require a full DATABASE_URL to be defined.
+        if not self.DATABASE_URL:
+            raise ValueError("Database configuration incomplete. Provide DATABASE_URL.")
+
+        return self
+
     @property
     def is_production(self) -> bool:
+        """実行環境が Production かどうかを返す."""
         return str(self.ENV).lower() == "production"
 
     @property
     def is_development(self) -> bool:
+        """実行環境が Development かどうかを返す."""
         return str(self.ENV).lower() == "development"
 
     @property
     def is_test(self) -> bool:
+        """実行環境が Test かどうかを返す."""
         return str(self.ENV).lower() == "test"
 
 
 def get_settings() -> Settings:
-    """設定インスタンスを返す（カスタム例外でラップ）
+    """設定インスタンスを返す（カスタム例外でラップ）.
 
     Returns:
         Settings: アプリケーション設定インスタンス

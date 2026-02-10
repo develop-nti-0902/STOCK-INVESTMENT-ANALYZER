@@ -1,3 +1,8 @@
+"""EDINET API へのリクエストを簡易に行うクライアントモジュール.
+
+JSON/バイナリ取得の共通的なリトライ処理を提供します.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -12,6 +17,14 @@ from app.utils.config import get_settings
 
 @dataclass
 class EdinetAPIClient:
+    """EDINET API との通信を担うクライアント.
+
+    Attributes:
+        base_url: API のベース URL
+        timeout: リクエストタイムアウト秒数
+        max_retries: リトライ回数
+    """
+
     # EDINET の実運用は v2 を利用する
     base_url: str = "https://disclosure.edinet-fsa.go.jp/api/v2"
     timeout: int = 10
@@ -30,9 +43,7 @@ class EdinetAPIClient:
             attempt += 1
             close_session = False
             if session is None:
-                session = aiohttp.ClientSession(
-                    timeout=aiohttp.ClientTimeout(total=self.timeout)
-                )
+                session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout))
                 close_session = True
             try:
                 async with session.get(
@@ -68,9 +79,7 @@ class EdinetAPIClient:
             attempt += 1
             close_session = False
             if session is None:
-                session = aiohttp.ClientSession(
-                    timeout=aiohttp.ClientTimeout(total=self.timeout)
-                )
+                session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout))
                 close_session = True
             try:
                 async with session.get(
@@ -101,7 +110,7 @@ class EdinetAPIClient:
         session: Optional[aiohttp.ClientSession] = None,
         subscription_key: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """指定日付に公開された文書を検索します。
+        """指定日付に公開された文書を検索します.
 
         戻り値はパース済みのJSONリストです。リトライとタイムアウトを使用します。
 
@@ -148,7 +157,7 @@ class EdinetAPIClient:
         subscription_key: Optional[str] = None,
         session: Optional[aiohttp.ClientSession] = None,
     ) -> bytes:
-        """文書IDでZIPをダウンロードし、生のバイト列を返します。
+        """文書IDでZIPをダウンロードし、生のバイト列を返します.
 
         実運用スクリプトに合わせ、`/documents/{doc_id}` エンドポイントを使用し、
         `type` パラメータや `Subscription-Key` を渡せるようにします。
@@ -160,9 +169,7 @@ class EdinetAPIClient:
         # subscription_key が渡されなかった場合は Settings から取得を試みる。
         # Settings の取得に失敗した場合は例外をそのまま伝播させる（明示的にエラーにする）。
         if not subscription_key:
-            settings = (
-                get_settings()
-            )  # 失敗した場合は SettingsValidationError 等が発生して伝播する
+            settings = get_settings()  # 失敗した場合は SettingsValidationError 等が発生して伝播する
             subscription_key = cast(
                 Optional[str],
                 getattr(settings, "EDINET_SUBSCRIPTION_KEY", None),
@@ -170,9 +177,7 @@ class EdinetAPIClient:
 
         # Settings にキーが無ければ明示的にエラーとする（環境変数へのフォールバックは行わない）
         if not subscription_key:
-            raise RuntimeError(
-                "EDINET_SUBSCRIPTION_KEY is not set in settings"
-            )
+            raise RuntimeError("EDINET_SUBSCRIPTION_KEY is not set in settings")
 
         if subscription_key:
             # EDINETのサンプルではクエリパラメータに含めている場合があるが、
@@ -180,6 +185,4 @@ class EdinetAPIClient:
             params["Subscription-Key"] = subscription_key
             headers["Subscription-Key"] = subscription_key
 
-        return await self._request_bytes(
-            path, params=params, headers=headers, session=session
-        )
+        return await self._request_bytes(path, params=params, headers=headers, session=session)

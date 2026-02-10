@@ -25,9 +25,7 @@ class StockDividends(SerialPKMixin, TimestampMixin, Base):
     ex_date: Mapped[str] = mapped_column(Date, nullable=False)
     record_date: Mapped[Optional[str]] = mapped_column(Date, nullable=True)
     payment_date: Mapped[Optional[str]] = mapped_column(Date, nullable=True)
-    declaration_date: Mapped[Optional[str]] = mapped_column(
-        Date, nullable=True
-    )
+    declaration_date: Mapped[Optional[str]] = mapped_column(Date, nullable=True)
     amount: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
     currency: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     frequency: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
@@ -39,10 +37,8 @@ class StockDividends(SerialPKMixin, TimestampMixin, Base):
     )
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
-        return (
-            "<StockDividends(symbol="
-            + f"{self.symbol!r}, ex_date={self.ex_date!r})>"
-        )
+        """簡易表現を返す（デバッグ用）."""
+        return "<StockDividends(symbol=" + f"{self.symbol!r}, ex_date={self.ex_date!r})>"
 
 
 __all__ = ["StockDividends"]

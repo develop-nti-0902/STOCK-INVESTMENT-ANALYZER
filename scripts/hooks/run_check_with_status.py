@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""チェックを実行してコミットステータスを出力するラッパーです。
+"""チェックを実行してコミットステータスを出力するラッパーです.
 
 処理の流れ:
 1) 指定されたチェック（black/isort/flake8/mypy/pylint/pytest）を実行します。
@@ -8,7 +8,7 @@
 4) チェックに失敗があれば非ゼロで終了します。
 
 ステータスファイル: .git/.precommit_status.json
-このファイルは各チェックの pass/fail と全体の failed 状態を保持します。
+このファイルは各チェックの pass/fail と全体の failed 状態を保持します.
 """
 from __future__ import annotations
 
@@ -25,17 +25,17 @@ STATUS_FILE = REPO_ROOT / ".git" / ".precommit_status.json"
 
 
 def load_status() -> Dict[str, Any]:
-    # ステータスファイルを読み込み、存在しなければ初期化
+    """Load pre-commit status from the status file.
+
+    Returns a dict with keys `checks` and `failed`. If the file is missing
+    or invalid, returns an initialized structure.
+    """
     if STATUS_FILE.exists():
         try:
             with STATUS_FILE.open("r", encoding="utf-8") as f:
                 data = json.load(f)
             # 最低限の構造保証
-            if (
-                not isinstance(data, dict)
-                or "checks" not in data
-                or "failed" not in data
-            ):
+            if not isinstance(data, dict) or "checks" not in data or "failed" not in data:
                 raise ValueError("invalid status json")
             return data
         except (json.JSONDecodeError, OSError, ValueError):
@@ -45,6 +45,10 @@ def load_status() -> Dict[str, Any]:
 
 
 def save_status(status: Dict[str, Any]) -> None:
+    """Persist the given status dict to the status file.
+
+    Ensures parent directory exists and writes JSON with indenting.
+    """
     STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
     with STATUS_FILE.open("w", encoding="utf-8") as f:
         json.dump(status, f, ensure_ascii=False, indent=2)
@@ -61,13 +65,19 @@ def set_check_result(status: Dict[str, Any], name: str, passed: bool) -> None:
 
 
 def print_commit_status_after(check_name: str, status: Dict[str, Any]) -> None:
-    # 現時点で一つでも失敗があれば、このコミットは失敗扱い
+    """Print a short summary line showing overall commit status.
+
+    `check_name` is the name of the check that just ran.
+    """
     overall = "FAIL" if status.get("failed") else "SUCCESS"
     print(f"Commit status after {check_name}: {overall}")
 
 
 def run(cmd: List[str]) -> int:
-    # 標準出力/標準エラーはそのまま継承して表示
+    """Execute the given command list and return its exit code.
+
+    Returns 127 when the command is not found.
+    """
     try:
         result = subprocess.run(cmd, check=False)
         return result.returncode
@@ -76,10 +86,12 @@ def run(cmd: List[str]) -> int:
         return 127
 
 
-def run_black(
-    args: List[str], files: List[str], status: Dict[str, Any]
-) -> int:
-    # まず --check で判定し、必要なら実フォーマットを実施
+def run_black(args: List[str], files: List[str], status: Dict[str, Any]) -> int:
+    """Run Black on given files, attempt to auto-fix if check fails.
+
+    Updates `status` accordingly and returns exit code (0 on success,
+    non-zero on failure or when auto-fixes were applied).
+    """
     cmd_check = [sys.executable, "-m", "black", "--check", *args, *files]
     rc_check = run(cmd_check)
     if rc_check != 0:
@@ -99,9 +111,11 @@ def run_black(
     return 0
 
 
-def run_isort(
-    args: List[str], files: List[str], status: Dict[str, Any]
-) -> int:
+def run_isort(args: List[str], files: List[str], status: Dict[str, Any]) -> int:
+    """Run isort on given files, auto-fix when check fails.
+
+    Updates `status` and returns exit code (0 on success).
+    """
     cmd_check = [sys.executable, "-m", "isort", "--check-only", *args, *files]
     rc_check = run(cmd_check)
     if rc_check != 0:
@@ -120,9 +134,11 @@ def run_isort(
     return 0
 
 
-def run_flake8(
-    args: List[str], files: List[str], status: Dict[str, Any]
-) -> int:
+def run_flake8(args: List[str], files: List[str], status: Dict[str, Any]) -> int:
+    """Run flake8 against the given files, with sensible exclusions.
+
+    Updates `status` and returns flake8's exit code.
+    """
     # flake8 が hooks 自身を解析して pyflakes の互換性問題を起こす場合があるため
     # デフォルトで scripts/hooks を除外する。ユーザーが明示的に --exclude を渡した
     # 場合はその指定を尊重する。
@@ -142,20 +158,14 @@ def run_flake8(
             continue
 
         # scripts/hooks 以下であれば除外
-        if (
-            len(rel.parts) >= 2
-            and rel.parts[0] == "scripts"
-            and (rel.parts[1] == "hooks")
-        ):
+        if len(rel.parts) >= 2 and rel.parts[0] == "scripts" and (rel.parts[1] == "hooks"):
             continue
 
         filtered_files.append(f)
 
     if not filtered_files:
         # 対象ファイルが無ければ flake8 をスキップ
-        print(
-            "Skipping flake8: only files under scripts/hooks would be checked."
-        )
+        print("Skipping flake8: only files under scripts/hooks would be checked.")
         rc = 0
     else:
         cmd = [
@@ -175,7 +185,7 @@ def run_flake8(
 
 
 def run_mypy(args: List[str], files: List[str], status: Dict[str, Any]) -> int:
-    # mypyにもターゲット（ディレクトリ/ファイル）を渡す
+    """Run mypy for the given file list and record the result in status."""
     cmd = [sys.executable, "-m", "mypy", *args, *files]
     rc = run(cmd)
     set_check_result(status, "mypy", rc == 0)
@@ -186,10 +196,8 @@ def run_mypy(args: List[str], files: List[str], status: Dict[str, Any]) -> int:
     return rc
 
 
-def run_pylint(
-    args: List[str], files: List[str], status: Dict[str, Any]
-) -> int:
-    # pylint を実行（ファイル指定があればそのファイル群を対象に）
+def run_pylint(args: List[str], files: List[str], status: Dict[str, Any]) -> int:
+    """Run pylint on the provided files and update status accordingly."""
     cmd = [sys.executable, "-m", "pylint", *args, *files]
     rc = run(cmd)
     set_check_result(status, "pylint", rc == 0)
@@ -200,9 +208,12 @@ def run_pylint(
     return rc
 
 
-def run_pytest(
-    args: List[str], files: List[str], status: Dict[str, Any]
-) -> int:
+def run_pytest(args: List[str], files: List[str], status: Dict[str, Any]) -> int:
+    """Run pytest for the repository (ignoring integration/e2e).
+
+    Treats "no tests collected" as success to accommodate projects
+    without tests. Updates `status` and returns pytest exit code.
+    """
     # シンプル化: pytest は常に全体実行し、integration/e2e を除外する。
     # pre-commit 側で `pass_filenames: false` を推奨する。
     cmd = [
@@ -241,9 +252,12 @@ def run_pytest(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Run check and print commit status"
-    )
+    """選択されたチェックを実行してステータスを更新します.
+
+    引数の解析と対象ファイル/オプションの分離、各チェックの実行、
+    ならびにステータスファイルへの反映を行い、終了コードを返します.
+    """
+    parser = argparse.ArgumentParser(description="Run check and print commit status")
     parser.add_argument(
         "--check",
         required=True,

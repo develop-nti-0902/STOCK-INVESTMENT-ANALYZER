@@ -23,7 +23,7 @@ class BaseFetcher(ABC, Generic[T]):
     @abstractmethod
     async def fetch(self, identifier: str, **kwargs: Any) -> T:
         """
-        単一データ取得（サブクラスで実装）
+        単一データ取得（サブクラスで実装）.
 
         Args:
             identifier: データを識別する文字列（銘柄コード、URLなど）
@@ -38,11 +38,9 @@ class BaseFetcher(ABC, Generic[T]):
         """
 
     @abstractmethod
-    async def fetch_batch(
-        self, identifiers: list[str], **kwargs: Any
-    ) -> list[T]:
+    async def fetch_batch(self, identifiers: list[str], **kwargs: Any) -> list[T]:
         """
-        複数データ一括取得（サブクラスで実装）
+        複数データ一括取得（サブクラスで実装）.
 
         Args:
             identifiers: データ識別子のリスト
@@ -62,7 +60,7 @@ class BaseFetcher(ABC, Generic[T]):
 
     async def validate_identifier(self, identifier: str) -> bool:
         """
-        識別子の検証（オプション、サブクラスでオーバーライド可能）
+        識別子の検証（オプション、サブクラスでオーバーライド可能）.
 
         Args:
             identifier: 検証対象の識別子
@@ -74,11 +72,9 @@ class BaseFetcher(ABC, Generic[T]):
             return False
         return True
 
-    async def handle_fetch_error(
-        self, identifier: str, error: Exception
-    ) -> None:
+    async def handle_fetch_error(self, identifier: str, error: Exception) -> None:
         """
-        取得エラーのハンドリング（オプション、サブクラスでオーバーライド可能）
+        取得エラーのハンドリング（オプション、サブクラスでオーバーライド可能）.
 
         Args:
             identifier: エラーが発生した識別子

@@ -1,3 +1,5 @@
+"""API パッケージ. サブパッケージのルーターと依存関係を公開します."""
+
 from fastapi import APIRouter
 
 from app.api.v1 import router as v1_router

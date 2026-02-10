@@ -93,10 +93,6 @@ def handle_service_error(
                 return None
 
         # 関数が非同期かどうかで切り替え
-        return (
-            async_wrapper
-            if inspect.iscoroutinefunction(func)
-            else sync_wrapper
-        )
+        return async_wrapper if inspect.iscoroutinefunction(func) else sync_wrapper
 
     return decorator

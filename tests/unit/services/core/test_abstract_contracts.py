@@ -1,60 +1,42 @@
-"""
-抽象基底クラス契約テスト
-
-対象:
-- BaseFetcher
-- BaseSaver
-- BaseValidator
-- BaseConverter
-
-検証内容:
-1. 抽象クラスは直接インスタンス化できず TypeError を送出する
-2. 抽象メソッドの一部未実装サブクラスも TypeError を送出する
-
-注意:
-Generic型境界は現時点で未設定(bound未使用)のため、型境界テストはスキップ。
-"""
+"""抽象基底クラスの契約に関する単体テスト."""
 
 import pytest
 
 from app.services.core.converters.base_converter import BaseConverter
 from app.services.core.fetchers.base_fetcher import BaseFetcher
 from app.services.core.savers.base_saver import BaseSaver
-from app.services.core.validators.base_validator import (
-    BaseValidator,
-    ValidationResult,
-)
+from app.services.core.validators.base_validator import BaseValidator, ValidationResult
 
 
 class TestAbstractClassInstantiation:
-    """抽象クラス直接インスタンス化不可テスト"""
+    """抽象クラスの直接インスタンス化不可を検証します."""
 
     def test_base_fetcher_instantiation_raises_type_error(self):
-        """BaseFetcherは抽象メソッド未実装のため直接生成不可"""
+        """BaseFetcher は抽象メソッド未実装のため生成時に TypeError を送出します."""
         with pytest.raises(TypeError):
             BaseFetcher()  # type: ignore[abstract]
 
     def test_base_saver_instantiation_raises_type_error(self):
-        """BaseSaverは抽象メソッド未実装のため直接生成不可"""
+        """BaseSaver は抽象メソッド未実装のため生成時に TypeError を送出します."""
         with pytest.raises(TypeError):
             BaseSaver()  # type: ignore[abstract]
 
     def test_base_validator_instantiation_raises_type_error(self):
-        """BaseValidatorは抽象メソッド未実装のため直接生成不可"""
+        """BaseValidator は抽象メソッド未実装のため生成時に TypeError を送出します."""
         with pytest.raises(TypeError):
             BaseValidator()  # type: ignore[abstract]
 
     def test_base_converter_instantiation_raises_type_error(self):
-        """BaseConverterは抽象メソッド未実装のため直接生成不可"""
+        """BaseConverter は抽象メソッド未実装のため生成時に TypeError を送出します."""
         with pytest.raises(TypeError):
             BaseConverter()  # type: ignore[abstract]
 
 
 class TestPartialImplementation:
-    """抽象メソッド未実装サブクラスの挙動テスト"""
+    """抽象メソッド未実装サブクラスの挙動を検証します."""
 
     def test_fetcher_partial_implementation_raises(self):
-        """fetch_batch未実装サブクラスは生成不可"""
+        """fetch_batch 未実装のサブクラスの生成が失敗することを検証します."""
 
         class PartialFetcher(BaseFetcher[str]):
             async def fetch(self, identifier: str, **kwargs) -> str:
@@ -64,7 +46,7 @@ class TestPartialImplementation:
             PartialFetcher()  # type: ignore[abstract]
 
     def test_saver_partial_implementation_raises(self):
-        """save_batch未実装サブクラスは生成不可"""
+        """save_batch 未実装のサブクラスの生成が失敗することを検証します."""
 
         class PartialSaver(BaseSaver[dict]):  # noqa: D401
             async def save(self, data: dict, **kwargs) -> bool:  # noqa: D401
@@ -74,7 +56,7 @@ class TestPartialImplementation:
             PartialSaver()  # type: ignore[abstract]
 
     def test_converter_partial_implementation_raises(self):
-        """from_pydantic未実装サブクラスは生成不可"""
+        """from_pydantic 未実装のサブクラスの生成が失敗することを検証します."""
 
         class PartialConverter(BaseConverter[dict]):  # noqa: D401
             def to_pydantic(self, data: dict) -> dict:  # noqa: D401
@@ -84,11 +66,7 @@ class TestPartialImplementation:
             PartialConverter()  # type: ignore[abstract]
 
     def test_validator_partial_implementation_not_applicable(self):
-        """
-        BaseValidatorは validate が唯一の抽象メソッドのため
-        部分実装パターン（validate以外のみ実装）は存在しないことを明示する。
-        ここではダミー検証: validate未実装ならTypeError、実装すれば生成可。
-        """
+        """BaseValidator の部分実装パターンが該当しないことを検証します."""
 
         class PartialValidator(BaseValidator):  # noqa: D401
             pass

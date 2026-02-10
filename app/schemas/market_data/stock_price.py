@@ -15,7 +15,7 @@ class StockData(BaseModel):
 
     Attributes:
         symbol (str): 銘柄コード
-        trade_date (datetime): 日時（intraday の場合は時刻を含む）
+        timestamp (datetime): 日時（intraday の場合は時刻を含む）
         open_price (Optional[float]): 始値
         high (Optional[float]): 高値
         low (Optional[float]): 安値
@@ -35,7 +35,7 @@ class StockData(BaseModel):
 
     symbol: str = Field(description="銘柄コード")
     # intraday の場合は時刻情報を含むため datetime を受け取る
-    trade_date: datetime = Field(description="日時（日次は00:00:00）")
+    timestamp: datetime = Field(description="日時（日次は00:00:00）")
     open_price: Optional[float] = Field(None, description="始値")
     high: Optional[float] = Field(None, description="高値")
     low: Optional[float] = Field(None, description="安値")

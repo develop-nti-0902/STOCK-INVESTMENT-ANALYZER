@@ -1,3 +1,5 @@
+"""EDINET ドキュメントフェッチャの単体テスト."""
+
 import shutil
 import zipfile
 from io import BytesIO
@@ -5,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from app.services.market_data.edinet.balance_sheet.fetcher import (
-    EdinetDocumentFetcher,
-)
+from app.services.market_data.edinet.balance_sheet.fetcher import EdinetDocumentFetcher
 
 
 class _MockClient:
+    """zip バイト列を返すダミー API クライアント."""
+
     def __init__(self, zip_bytes: bytes):
         self._zip = zip_bytes
 
@@ -19,6 +21,7 @@ class _MockClient:
 
 
 def _make_sample_zip() -> bytes:
+    """サンプルの ZIP バイト列を作成します (XBRL を含む構造)."""
     bio = BytesIO()
     with zipfile.ZipFile(bio, "w") as z:
         # create nested path similar to EDINET layout
@@ -28,6 +31,7 @@ def _make_sample_zip() -> bytes:
 
 @pytest.mark.asyncio
 async def test_fetch_writes_and_returns_xbrl(tmp_path):
+    """fetch が XBRL ファイルを書き出し、パスを返すことを検証します."""
     zip_bytes = _make_sample_zip()
     client = _MockClient(zip_bytes)
     work_dir = tmp_path / "edinet_work"
@@ -45,6 +49,7 @@ async def test_fetch_writes_and_returns_xbrl(tmp_path):
 
 @pytest.mark.asyncio
 async def test_fetch_batch_returns_list(tmp_path):
+    """複数 ID を fetch_batch で処理できることを検証します."""
     zip_bytes = _make_sample_zip()
     client = _MockClient(zip_bytes)
     work_dir = tmp_path / "edinet_work"

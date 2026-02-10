@@ -28,7 +28,7 @@ class HttpFetcher:
     """
 
     def __init__(self) -> None:
-        """HttpFetcherを初期化します。"""
+        """HttpFetcherを初期化します."""
         config = get_settings()
 
         # タイムアウト設定
@@ -57,9 +57,7 @@ class HttpFetcher:
         await self._ensure_session()
         return self
 
-    async def __aexit__(
-        self, exc_type: Any, exc_val: Any, exc_tb: Any
-    ) -> None:
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """非同期コンテキストマネージャ終了処理.
 
         Args:
@@ -88,7 +86,7 @@ class HttpFetcher:
         **kwargs: Any
     ) -> aiohttp.ClientResponse:
         """
-        GETリクエストを実行します。
+        GETリクエストを実行します.
 
         Args:
             url: リクエストURL
@@ -135,7 +133,7 @@ class HttpFetcher:
         **kwargs: Any
     ) -> aiohttp.ClientResponse:
         """
-        POSTリクエストを実行します。
+        POSTリクエストを実行します.
 
         Args:
             url: リクエストURL
@@ -176,7 +174,7 @@ class HttpFetcher:
 
     def update_timeout(self, timeout_seconds: float) -> None:
         """
-        タイムアウト設定を更新します。
+        タイムアウト設定を更新します.
 
         Args:
             timeout_seconds: 新しいタイムアウト時間（秒）
@@ -188,7 +186,7 @@ class HttpFetcher:
 
     def update_rate_limit(self, delay_seconds: float) -> None:
         """
-        レート制限の遅延時間を更新します。
+        レート制限の遅延時間を更新します.
 
         Args:
             delay_seconds: リクエスト間の待機時間（秒）

@@ -1,12 +1,17 @@
+"""バッチ実行モデル群. バッチ実行のサマリを記録するモデルを提供します."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, text
+from sqlalchemy import DateTime
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import Index, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, SerialPKMixin, TimestampMixin
+from .enums import BatchExecutionStatus
 
 
 class BatchExecution(SerialPKMixin, TimestampMixin, Base):
@@ -30,30 +35,30 @@ class BatchExecution(SerialPKMixin, TimestampMixin, Base):
     __tablename__ = "batch_executions"
 
     batch_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[BatchExecutionStatus] = mapped_column(
+        SQLEnum(
+            BatchExecutionStatus,
+            values_callable=lambda x: [e.value for e in x],
+            native_enum=False,
+            length=20,
+        ),
+        nullable=False,
+    )
 
     # 実行開始 / 終了
     # SQL スクリプトに合わせたカラム名・仕様に変更
     total_stocks: Mapped[int] = mapped_column(Integer, nullable=False)
-    processed_stocks: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
-    successful_stocks: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
-    failed_stocks: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
+    processed_stocks: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    successful_stocks: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    failed_stocks: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     start_time: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
-        server_default=text("now()"),
+        server_default=text("CURRENT_TIMESTAMP"),
     )
-    end_time: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
@@ -64,7 +69,7 @@ class BatchExecution(SerialPKMixin, TimestampMixin, Base):
     )
 
     def to_dict(self) -> dict:
-        """モデルの簡易辞書表現を返す（ログ / テスト用）。"""
+        """モデルの簡易辞書表現を返す（ログ / テスト用)."""
         return {
             "id": getattr(self, "id", None),
             "batch_type": getattr(self, "batch_type", None),

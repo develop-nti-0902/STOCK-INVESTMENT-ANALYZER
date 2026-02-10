@@ -16,7 +16,6 @@ uvicorn = "^0.38.0"
 pydantic = "^2.9.0"
 pydantic-settings = "^2.5.0"
 sqlalchemy = { version = "2.0.44", extras = ["asyncio"] }
-asyncpg = "0.31.0"
 anyio = ">=4.11.0,<5.0"
 pandas = "^2.3.3"
 xlrd = "^2.0.2"
@@ -33,6 +32,7 @@ passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 email-validator = "^2.3.0"
 psutil = "^7.2.1"
 edinet-xbrl = "^0.2.0"
+aiosqlite = "^0.22.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4"
@@ -46,8 +46,8 @@ pylint = "^4.0"
 astroid = "^4.0.1"
 pytest-cov = "^4.0"
 coverage = "^7.0"
-psycopg = { version = "^3.2", extras = ["binary"] }
 alembic = "^1.17.0"
+flake8-docstrings = "^1.7.0"
 
 [tool.poetry.scripts]
 # 例: `poetry run sia` で main を起動したい場合
@@ -58,7 +58,7 @@ requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
-line-length = 79
+line-length = 100
 # Exclude the development "work" directory from formatting checks
 exclude = '''/(
     |\.git
@@ -68,7 +68,7 @@ exclude = '''/(
 
 [tool.isort]
 profile = "black"
-line_length = 79
+line_length = 100
 # Skip the development "work" directory from isort checks
 skip = ["work"]
 
@@ -94,6 +94,12 @@ markers = [
     "e2e: mark a test as end-to-end",
     "slow: mark a test as slow (e.g., performance tests)",
 ]
+filterwarnings = [
+    # Ignore deprecation warnings originating from third-party XBRL parser internals
+    "ignore::DeprecationWarning:edinet_xbrl.*",
+    # BeautifulSoup may warn when XML is parsed with an HTML parser; suppress during tests
+    "ignore::bs4.builder.XMLParsedAsHTMLWarning",
+]
 
 [tool.coverage.run]
 branch = true
@@ -112,3 +118,16 @@ exclude_lines = [
     "# pragma: no cover - pragma comment",
 ]
 fail_under = 80
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203", "W503", "D403", "D202"]
+exclude = [".git", ".venv", "build", "dist", "__pycache__", "work", "tests"]
+count = true
+show-source = true
+statistics = true
+select = ["E", "F", "W", "C", "D"]
+
+[tool.pydocstyle]
+convention = "numpy"
+add-ignore = ["D403"]

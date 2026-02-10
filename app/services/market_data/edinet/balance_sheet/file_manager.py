@@ -1,3 +1,8 @@
+"""EDINET 向けの一時ファイル管理ユーティリティ.
+
+一時ディレクトリの作成、XBRL ファイル探索、古いファイルのクリーンアップを提供します.
+"""
+
 from __future__ import annotations
 
 import shutil
@@ -6,13 +11,11 @@ from pathlib import Path
 from typing import Optional
 
 from app.services.core.file_managers.base_file_manager import BaseFileManager
-from app.services.core.file_managers.temp_file_manager_mixin import (
-    TempFileManagerMixin,
-)
+from app.services.core.file_managers.temp_file_manager_mixin import TempFileManagerMixin
 
 
 class EdinetFileManager(BaseFileManager, TempFileManagerMixin):
-    """EDINET向けの一時ファイル管理ユーティリティ。
+    """EDINET向けの一時ファイル管理ユーティリティ.
 
     - 一時ディレクトリの作成・クリーンアップ
     - XBRLファイルの探索
@@ -20,21 +23,27 @@ class EdinetFileManager(BaseFileManager, TempFileManagerMixin):
     """
 
     def create_temp_directory(self, prefix: str = "edinet_") -> Path:
-        # 明示的に TempFileManagerMixin の実装を呼ぶ
+        """一時ディレクトリを作成してパスを返す.
+
+        明示的に `TempFileManagerMixin` の実装を使用します.
+        """
         return TempFileManagerMixin.create_temp_directory(self, prefix=prefix)
 
     def cleanup(self, path: Path) -> None:
-        # 明示的に TempFileManagerMixin の実装を呼ぶ
+        """指定パスを削除する.
+
+        `TempFileManagerMixin` の実装を呼び出します.
+        """
         return TempFileManagerMixin.cleanup(self, path)
 
     def find_xbrl_file(self, base_path: Path) -> Optional[Path]:
-        """base_path の下から XBRL ファイル（拡張子 .xbrl）を探索して最初のパスを返す。
+        """base_path の下から XBRL ファイル（拡張子 .xbrl）を探索して最初のパスを返す.
 
         探索順序:
         1. base_path / "XBRL" / "PublicDoc" 以下
         2. base_path 以下を再帰探索
 
-        見つからなければ None を返す。
+        見つからなければ None を返す.
         """
         candidates = []
 
@@ -53,8 +62,9 @@ class EdinetFileManager(BaseFileManager, TempFileManagerMixin):
         return None
 
     def cleanup_old_files(self, base_dir: Path, max_age_days: int = 7) -> int:
-        """base_dir の下にある一時ディレクトリを走査し、最終更新日時が
-        `max_age_days` より古いものを削除する。削除したエントリ数を返す。
+        """base_dir 下の古い一時ファイルを削除する.
+
+        `max_age_days` より古いエントリを削除し、削除数を返します.
         """
         if not base_dir.exists():
             return 0
@@ -65,9 +75,7 @@ class EdinetFileManager(BaseFileManager, TempFileManagerMixin):
 
         for child in base_dir.iterdir():
             try:
-                mtime = datetime.fromtimestamp(
-                    child.stat().st_mtime, timezone.utc
-                )
+                mtime = datetime.fromtimestamp(child.stat().st_mtime, timezone.utc)
                 if mtime < cutoff:
                     if child.is_dir():
                         shutil.rmtree(child)

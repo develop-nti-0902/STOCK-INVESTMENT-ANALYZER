@@ -1,3 +1,5 @@
+"""認証サービスのユニットテスト."""
+
 import pytest
 
 from app.services import (
@@ -11,6 +13,7 @@ from app.services import (
 
 
 def test_hash_and_verify_password():
+    """ハッシュ化と照合が正しく動作することを確認する."""
     # Arrange: 平文パスワードを用意
     pw = "strong-password-123"
 
@@ -22,15 +25,15 @@ def test_hash_and_verify_password():
 
 
 def test_jwt_create_and_decode(monkeypatch):
+    """アクセストークンの作成と復号が整合することを確認する."""
+
     class MockSettings:
         SECRET_KEY = "test-secret"
         ALGORITHM = "HS256"
         ACCESS_TOKEN_EXPIRE_MINUTES = 15
 
     # Arrange: 設定をモック
-    monkeypatch.setattr(
-        "app.services.auth_service.get_settings", lambda: MockSettings()
-    )
+    monkeypatch.setattr("app.services.auth_service.get_settings", lambda: MockSettings())
 
     # Act: トークン生成・復号
     token = create_access_token("user-id-1")
@@ -42,14 +45,14 @@ def test_jwt_create_and_decode(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_authenticate_and_register(monkeypatch):
+    """認証と登録の基本フローが動作することを検証する (モック)."""
+
     class MockSettings:
         SECRET_KEY = "test-secret"
         ALGORITHM = "HS256"
         ACCESS_TOKEN_EXPIRE_MINUTES = 15
 
-    monkeypatch.setattr(
-        "app.services.auth_service.get_settings", lambda: MockSettings()
-    )
+    monkeypatch.setattr("app.services.auth_service.get_settings", lambda: MockSettings())
 
     # Arrange: ダミーリポジトリとユーザを用意
     class DummyUser:
@@ -73,9 +76,7 @@ async def test_authenticate_and_register(monkeypatch):
 
     # Act: 既存ユーザー認証と新規登録
     user = await authenticate_user(repo, "exists@example.com", "pwd123")
-    new_user = await register_user(
-        repo, "new@example.com", "newpwd", "New User"
-    )
+    new_user = await register_user(repo, "new@example.com", "newpwd", "New User")
 
     # Assert: 認証成功と登録結果の検証
     assert user is not None

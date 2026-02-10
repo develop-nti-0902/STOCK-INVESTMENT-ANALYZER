@@ -1,4 +1,4 @@
-"""merge heads: 0d5d2098df45, b7f3c1a2d9e4
+"""merge heads: 0d5d2098df45, b7f3c1a2d9e4.
 
 このマイグレーションは複数の head を統合するためのマージコミットです。
 実際のスキーマ変更は含まず、 Alembic の履歴を一本化するために使用します。
@@ -22,10 +22,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """ヘッド統合用の空アップグレード（変更なし）。"""
+    """ヘッド統合用の空アップグレード（変更なし）。."""
     pass
 
 
 def downgrade() -> None:
-    """ヘッド統合を元に戻す操作は定義していません（非可逆）。"""
+    """ヘッド統合を元に戻す操作は定義していません（非可逆）。."""
     pass

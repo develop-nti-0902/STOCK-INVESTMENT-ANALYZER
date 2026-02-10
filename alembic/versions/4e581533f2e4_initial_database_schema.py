@@ -1,4 +1,4 @@
-"""Initial database schema
+"""Initial database schema.
 
 Revision ID: 4e581533f2e4
 Revises:
@@ -33,7 +33,7 @@ def upgrade() -> None:
         sa.Column(
             "start_time",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column("end_time", sa.DateTime(timezone=True), nullable=True),
@@ -42,13 +42,13 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id"),
@@ -88,24 +88,20 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("stock_code"),
     )
-    op.create_index(
-        "idx_stock_master_active", "stock_master", ["is_active"], unique=False
-    )
-    op.create_index(
-        "idx_stock_master_code", "stock_master", ["stock_code"], unique=False
-    )
+    op.create_index("idx_stock_master_active", "stock_master", ["is_active"], unique=False)
+    op.create_index("idx_stock_master_code", "stock_master", ["stock_code"], unique=False)
     op.create_index(
         "idx_stock_master_market",
         "stock_master",
@@ -126,34 +122,26 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column("open", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("high", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("low", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("close", sa.Numeric(precision=14, scale=4), nullable=False),
-        sa.Column(
-            "adj_close", sa.Numeric(precision=14, scale=4), nullable=True
-        ),
+        sa.Column("adj_close", sa.Numeric(precision=14, scale=4), nullable=True),
         sa.Column("volume", sa.BigInteger(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_15m_symbol_timestamp"
-        ),
+        sa.UniqueConstraint("symbol", "timestamp", name="uix_stocks_15m_symbol_timestamp"),
     )
-    op.create_index(
-        "idx_stocks_15m_timestamp", "stocks_15m", ["timestamp"], unique=False
-    )
+    op.create_index("idx_stocks_15m_timestamp", "stocks_15m", ["timestamp"], unique=False)
     op.create_table(
         "stocks_1d",
         sa.Column("symbol", sa.String(length=10), nullable=False),
@@ -162,34 +150,26 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column("open", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("high", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("low", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("close", sa.Numeric(precision=14, scale=4), nullable=False),
-        sa.Column(
-            "adj_close", sa.Numeric(precision=14, scale=4), nullable=True
-        ),
+        sa.Column("adj_close", sa.Numeric(precision=14, scale=4), nullable=True),
         sa.Column("volume", sa.BigInteger(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_1d_symbol_timestamp"
-        ),
+        sa.UniqueConstraint("symbol", "timestamp", name="uix_stocks_1d_symbol_timestamp"),
     )
-    op.create_index(
-        "idx_stocks_1d_timestamp", "stocks_1d", ["timestamp"], unique=False
-    )
+    op.create_index("idx_stocks_1d_timestamp", "stocks_1d", ["timestamp"], unique=False)
     op.create_table(
         "stocks_1h",
         sa.Column("symbol", sa.String(length=10), nullable=False),
@@ -198,34 +178,26 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column("open", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("high", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("low", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("close", sa.Numeric(precision=14, scale=4), nullable=False),
-        sa.Column(
-            "adj_close", sa.Numeric(precision=14, scale=4), nullable=True
-        ),
+        sa.Column("adj_close", sa.Numeric(precision=14, scale=4), nullable=True),
         sa.Column("volume", sa.BigInteger(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_1h_symbol_timestamp"
-        ),
+        sa.UniqueConstraint("symbol", "timestamp", name="uix_stocks_1h_symbol_timestamp"),
     )
-    op.create_index(
-        "idx_stocks_1h_timestamp", "stocks_1h", ["timestamp"], unique=False
-    )
+    op.create_index("idx_stocks_1h_timestamp", "stocks_1h", ["timestamp"], unique=False)
     op.create_table(
         "stocks_1m",
         sa.Column("symbol", sa.String(length=10), nullable=False),
@@ -234,34 +206,26 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column("open", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("high", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("low", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("close", sa.Numeric(precision=14, scale=4), nullable=False),
-        sa.Column(
-            "adj_close", sa.Numeric(precision=14, scale=4), nullable=True
-        ),
+        sa.Column("adj_close", sa.Numeric(precision=14, scale=4), nullable=True),
         sa.Column("volume", sa.BigInteger(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_1m_symbol_timestamp"
-        ),
+        sa.UniqueConstraint("symbol", "timestamp", name="uix_stocks_1m_symbol_timestamp"),
     )
-    op.create_index(
-        "idx_stocks_1m_timestamp", "stocks_1m", ["timestamp"], unique=False
-    )
+    op.create_index("idx_stocks_1m_timestamp", "stocks_1m", ["timestamp"], unique=False)
     op.create_table(
         "stocks_1mo",
         sa.Column("symbol", sa.String(length=10), nullable=False),
@@ -270,34 +234,26 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column("open", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("high", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("low", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("close", sa.Numeric(precision=14, scale=4), nullable=False),
-        sa.Column(
-            "adj_close", sa.Numeric(precision=14, scale=4), nullable=True
-        ),
+        sa.Column("adj_close", sa.Numeric(precision=14, scale=4), nullable=True),
         sa.Column("volume", sa.BigInteger(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_1mo_symbol_timestamp"
-        ),
+        sa.UniqueConstraint("symbol", "timestamp", name="uix_stocks_1mo_symbol_timestamp"),
     )
-    op.create_index(
-        "idx_stocks_1mo_timestamp", "stocks_1mo", ["timestamp"], unique=False
-    )
+    op.create_index("idx_stocks_1mo_timestamp", "stocks_1mo", ["timestamp"], unique=False)
     op.create_table(
         "stocks_1wk",
         sa.Column("symbol", sa.String(length=10), nullable=False),
@@ -306,34 +262,26 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column("open", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("high", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("low", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("close", sa.Numeric(precision=14, scale=4), nullable=False),
-        sa.Column(
-            "adj_close", sa.Numeric(precision=14, scale=4), nullable=True
-        ),
+        sa.Column("adj_close", sa.Numeric(precision=14, scale=4), nullable=True),
         sa.Column("volume", sa.BigInteger(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_1wk_symbol_timestamp"
-        ),
+        sa.UniqueConstraint("symbol", "timestamp", name="uix_stocks_1wk_symbol_timestamp"),
     )
-    op.create_index(
-        "idx_stocks_1wk_timestamp", "stocks_1wk", ["timestamp"], unique=False
-    )
+    op.create_index("idx_stocks_1wk_timestamp", "stocks_1wk", ["timestamp"], unique=False)
     op.create_table(
         "stocks_30m",
         sa.Column("symbol", sa.String(length=10), nullable=False),
@@ -342,34 +290,26 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column("open", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("high", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("low", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("close", sa.Numeric(precision=14, scale=4), nullable=False),
-        sa.Column(
-            "adj_close", sa.Numeric(precision=14, scale=4), nullable=True
-        ),
+        sa.Column("adj_close", sa.Numeric(precision=14, scale=4), nullable=True),
         sa.Column("volume", sa.BigInteger(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_30m_symbol_timestamp"
-        ),
+        sa.UniqueConstraint("symbol", "timestamp", name="uix_stocks_30m_symbol_timestamp"),
     )
-    op.create_index(
-        "idx_stocks_30m_timestamp", "stocks_30m", ["timestamp"], unique=False
-    )
+    op.create_index("idx_stocks_30m_timestamp", "stocks_30m", ["timestamp"], unique=False)
     op.create_table(
         "stocks_5m",
         sa.Column("symbol", sa.String(length=10), nullable=False),
@@ -378,34 +318,26 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column("open", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("high", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("low", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("close", sa.Numeric(precision=14, scale=4), nullable=False),
-        sa.Column(
-            "adj_close", sa.Numeric(precision=14, scale=4), nullable=True
-        ),
+        sa.Column("adj_close", sa.Numeric(precision=14, scale=4), nullable=True),
         sa.Column("volume", sa.BigInteger(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["symbol"], ["stock_master.stock_code"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "symbol", "timestamp", name="uix_stocks_5m_symbol_timestamp"
-        ),
+        sa.UniqueConstraint("symbol", "timestamp", name="uix_stocks_5m_symbol_timestamp"),
     )
-    op.create_index(
-        "idx_stocks_5m_timestamp", "stocks_5m", ["timestamp"], unique=False
-    )
+    op.create_index("idx_stocks_5m_timestamp", "stocks_5m", ["timestamp"], unique=False)
     # ### end Alembic commands ###
 
 
@@ -434,11 +366,7 @@ def downgrade() -> None:
     op.drop_index("idx_stock_master_active", table_name="stock_master")
     op.drop_table("stock_master")
     op.drop_index("idx_batch_executions_status", table_name="batch_executions")
-    op.drop_index(
-        "idx_batch_executions_start_time", table_name="batch_executions"
-    )
-    op.drop_index(
-        "idx_batch_executions_batch_type", table_name="batch_executions"
-    )
+    op.drop_index("idx_batch_executions_start_time", table_name="batch_executions")
+    op.drop_index("idx_batch_executions_batch_type", table_name="batch_executions")
     op.drop_table("batch_executions")
     # ### end Alembic commands ###

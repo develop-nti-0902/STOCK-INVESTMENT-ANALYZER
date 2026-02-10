@@ -160,9 +160,7 @@ class BaseRepository(ABC, Generic[T]):
 
         サブクラスでオーバーライドして実装してください。
         """
-        raise NotImplementedError(
-            "upsert is not implemented for this repository"
-        )
+        raise NotImplementedError("upsert is not implemented for this repository")
 
     async def get(self, record_id: int) -> Optional[T]:
         """ID による単一レコード取得.
@@ -176,9 +174,7 @@ class BaseRepository(ABC, Generic[T]):
         if self.model is None:
             raise ValidationError(message="Repository model is not set")
 
-        result = await self.session.execute(
-            select(self.model).where(self.model.id == record_id)
-        )
+        result = await self.session.execute(select(self.model).where(self.model.id == record_id))
         return result.scalar_one_or_none()
 
     async def get_multi(self, skip: int = 0, limit: int = 100) -> List[T]:
@@ -197,9 +193,7 @@ class BaseRepository(ABC, Generic[T]):
         # 引数検証: 共通ユーティリティへ移譲
         validate_pagination(skip, limit)
 
-        result = await self.session.execute(
-            select(self.model).limit(limit).offset(skip)
-        )
+        result = await self.session.execute(select(self.model).limit(limit).offset(skip))
         return list(result.scalars().all())
 
     async def update(self, record_id: int, data: Dict) -> Optional[T]:
@@ -312,7 +306,5 @@ class BaseRepository(ABC, Generic[T]):
         if self.model is None:
             raise ValidationError(message="Repository model is not set")
 
-        result = await self.session.execute(
-            select(self.model).where(self.model.id == record_id)
-        )
+        result = await self.session.execute(select(self.model).where(self.model.id == record_id))
         return result.scalar_one_or_none() is not None

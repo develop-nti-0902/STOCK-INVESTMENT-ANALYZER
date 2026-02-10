@@ -1,6 +1,4 @@
-"""
-デコレータ（error_handler、retry）の単体テスト
-"""
+"""デコレータ（error_handler、retry）の単体テスト."""
 
 import pytest
 
@@ -9,13 +7,12 @@ from app.services.core.decorators import handle_service_error, retry_on_error
 
 
 class TestHandleServiceError:
-    """handle_service_errorデコレータのテスト"""
+    """handle_service_errorデコレータのテスト."""
 
     @pytest.mark.asyncio
     async def test_async_function_success(self):
-        """非同期関数の正常動作テスト"""
+        """非同期関数の正常動作テスト."""
 
-        # Arrange: デコレータ付きの非同期関数を定義
         @handle_service_error(error_message="Test failed")
         async def async_func(value: int) -> int:
             return value * 2
@@ -28,12 +25,9 @@ class TestHandleServiceError:
 
     @pytest.mark.asyncio
     async def test_async_function_with_error(self):
-        """非同期関数でのエラーハンドリングテスト"""
+        """非同期関数でのエラーハンドリングテスト."""
 
-        # Arrange: エラーを起こす非同期関数をデコレータでラップ
-        @handle_service_error(
-            error_message="Test failed", error_code="TEST_ERROR"
-        )
+        @handle_service_error(error_message="Test failed", error_code="TEST_ERROR")
         async def async_func_with_error():
             raise ValueError("Original error")
 
@@ -45,9 +39,8 @@ class TestHandleServiceError:
         assert exc_info.value.error_code == "TEST_ERROR"
 
     def test_sync_function_success(self):
-        """同期関数の正常動作テスト"""
+        """同期関数の正常動作テスト."""
 
-        # Arrange: デコレータ付きの同期関数を定義
         @handle_service_error(error_message="Test failed")
         def sync_func(value: int) -> int:
             return value * 2
@@ -59,12 +52,9 @@ class TestHandleServiceError:
         assert result == 10
 
     def test_sync_function_with_error(self):
-        """同期関数でのエラーハンドリングテスト"""
+        """同期関数でのエラーハンドリングテスト."""
 
-        # Arrange: エラーを起こす同期関数をデコレータでラップ
-        @handle_service_error(
-            error_message="Test failed", error_code="TEST_ERROR"
-        )
+        @handle_service_error(error_message="Test failed", error_code="TEST_ERROR")
         def sync_func_with_error():
             raise ValueError("Original error")
 
@@ -77,9 +67,8 @@ class TestHandleServiceError:
 
     @pytest.mark.asyncio
     async def test_service_error_passthrough(self):
-        """ServiceErrorはそのまま再送出されることを確認"""
+        """ServiceErrorはそのまま再送出されることを確認."""
 
-        # Arrange: ServiceErrorを直接送出する非同期関数を定義
         @handle_service_error(error_message="Test failed")
         async def async_func_with_service_error():
             raise ServiceError(message="Direct service error")
@@ -92,9 +81,8 @@ class TestHandleServiceError:
 
     @pytest.mark.asyncio
     async def test_reraise_false(self):
-        """reraise=Falseの場合、例外を再送出せずNoneを返す"""
+        """reraise=Falseの場合、例外を再送出せずNoneを返す."""
 
-        # Arrange: reraise=Falseでラップした非同期関数を定義
         @handle_service_error(error_message="Test failed", reraise=False)
         async def async_func_with_error():
             raise ValueError("Original error")
@@ -107,13 +95,12 @@ class TestHandleServiceError:
 
 
 class TestRetryOnError:
-    """retry_on_errorデコレータのテスト"""
+    """retry_on_errorデコレータのテスト."""
 
     @pytest.mark.asyncio
     async def test_async_function_success_first_try(self):
-        """非同期関数が初回で成功する場合のテスト"""
+        """非同期関数が初回で成功する場合のテスト."""
 
-        # Arrange: リトライデコレータ付きの関数を定義
         @retry_on_error(max_retries=3)
         async def async_func():
             return "success"
@@ -126,8 +113,7 @@ class TestRetryOnError:
 
     @pytest.mark.asyncio
     async def test_async_function_success_after_retry(self):
-        """非同期関数がリトライ後に成功する場合のテスト"""
-        # Arrange: 実行回数を追跡するための状態を準備
+        """非同期関数がリトライ後に成功する場合のテスト."""
         attempt = {"count": 0}
 
         @retry_on_error(max_retries=3, delay=0.01)
@@ -146,9 +132,8 @@ class TestRetryOnError:
 
     @pytest.mark.asyncio
     async def test_async_function_all_retries_failed(self):
-        """非同期関数が全てのリトライに失敗する場合のテスト"""
+        """非同期関数が全てのリトライに失敗する場合のテスト."""
 
-        # Arrange: 常に失敗する非同期関数を定義
         @retry_on_error(max_retries=2, delay=0.01)
         async def async_func_always_fail():
             raise ValueError("Permanent error")
@@ -158,9 +143,8 @@ class TestRetryOnError:
             await async_func_always_fail()
 
     def test_sync_function_success_first_try(self):
-        """同期関数が初回で成功する場合のテスト"""
+        """同期関数が初回で成功する場合のテスト."""
 
-        # Arrange: リトライデコレータ付きの同期関数を定義
         @retry_on_error(max_retries=3)
         def sync_func():
             return "success"
@@ -172,8 +156,7 @@ class TestRetryOnError:
         assert result == "success"
 
     def test_sync_function_success_after_retry(self):
-        """同期関数がリトライ後に成功する場合のテスト"""
-        # Arrange: 実行回数を追跡する状態を準備
+        """同期関数がリトライ後に成功する場合のテスト."""
         attempt = {"count": 0}
 
         @retry_on_error(max_retries=3, delay=0.01)
@@ -191,9 +174,8 @@ class TestRetryOnError:
         assert attempt["count"] == 3
 
     def test_sync_function_all_retries_failed(self):
-        """同期関数が全てのリトライに失敗する場合のテスト"""
+        """同期関数が全てのリトライに失敗する場合のテスト."""
 
-        # Arrange: 常に失敗する同期関数を定義
         @retry_on_error(max_retries=2, delay=0.01)
         def sync_func_always_fail():
             raise ValueError("Permanent error")
@@ -204,9 +186,8 @@ class TestRetryOnError:
 
     @pytest.mark.asyncio
     async def test_specific_exceptions_only(self):
-        """特定の例外のみをリトライ対象とするテスト"""
+        """特定の例外のみをリトライ対象とするテスト."""
 
-        # Arrange: 特定例外のみリトライ対象の関数を定義
         @retry_on_error(max_retries=2, delay=0.01, exceptions=(ValueError,))
         async def async_func_with_specific_error():
             raise TypeError("This should not be retried")
@@ -217,7 +198,7 @@ class TestRetryOnError:
 
     @pytest.mark.asyncio
     async def test_backoff_strategy(self):
-        """指数バックオフ戦略のテスト"""
+        """指数バックオフ戦略のテスト."""
         # Arrange: 実行回数を追跡する状態を準備
         attempt = {"count": 0}
 

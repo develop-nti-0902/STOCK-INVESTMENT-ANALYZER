@@ -1,4 +1,4 @@
-"""バッチ処理ユーティリティの単体テスト"""
+"""バッチ処理ユーティリティの単体テスト."""
 
 import asyncio
 import time
@@ -11,60 +11,56 @@ from app.utils.batch_utils import ProgressTracker, chunk_list, parallel_execute
 
 
 class TestChunkList:
-    """chunk_list関数のテスト"""
+    """chunk_list関数のテスト."""
 
     def test_empty_list(self):
-        """空リストのテスト"""
+        """空リストのテスト."""
         result = chunk_list([], 5)
         assert result == []
 
     def test_chunk_size_one(self):
-        """チャンクサイズ1のテスト"""
+        """チャンクサイズ1のテスト."""
         items = [1, 2, 3, 4, 5]
         result = chunk_list(items, 1)
         expected = [[1], [2], [3], [4], [5]]
         assert result == expected
 
     def test_even_chunks(self):
-        """均等に分割できる場合のテスト"""
+        """均等に分割できる場合のテスト."""
         items = [1, 2, 3, 4, 5, 6]
         result = chunk_list(items, 2)
         expected = [[1, 2], [3, 4], [5, 6]]
         assert result == expected
 
     def test_uneven_chunks(self):
-        """均等に分割できない場合のテスト"""
+        """均等に分割できない場合のテスト."""
         items = [1, 2, 3, 4, 5]
         result = chunk_list(items, 2)
         expected = [[1, 2], [3, 4], [5]]
         assert result == expected
 
     def test_chunk_size_larger_than_list(self):
-        """チャンクサイズがリストサイズより大きい場合のテスト"""
+        """チャンクサイズがリストサイズより大きい場合のテスト."""
         items = [1, 2, 3]
         result = chunk_list(items, 5)
         expected = [[1, 2, 3]]
         assert result == expected
 
     def test_invalid_chunk_size(self):
-        """無効なチャンクサイズのテスト"""
-        with pytest.raises(
-            FieldValidationError, match="chunk_size must be greater than 0"
-        ):
+        """無効なチャンクサイズのテスト."""
+        with pytest.raises(FieldValidationError, match="chunk_size must be greater than 0"):
             chunk_list([1, 2, 3], 0)
 
-        with pytest.raises(
-            FieldValidationError, match="chunk_size must be greater than 0"
-        ):
+        with pytest.raises(FieldValidationError, match="chunk_size must be greater than 0"):
             chunk_list([1, 2, 3], -1)
 
 
 class TestParallelExecute:
-    """parallel_execute関数のテスト"""
+    """parallel_execute関数のテスト."""
 
     @pytest.mark.asyncio
     async def test_successful_execution(self):
-        """正常実行のテスト"""
+        """正常実行のテスト."""
 
         async def dummy_task(value: int) -> int:
             await asyncio.sleep(0.01)  # 短い遅延
@@ -77,7 +73,7 @@ class TestParallelExecute:
 
     @pytest.mark.asyncio
     async def test_exception_handling_return_exceptions_true(self):
-        """例外処理のテスト（return_exceptions=True）"""
+        """例外処理のテスト（return_exceptions=True）."""
 
         async def failing_task():
             await asyncio.sleep(0.01)
@@ -88,9 +84,7 @@ class TestParallelExecute:
             return "success"
 
         tasks = [failing_task(), success_task(), failing_task()]
-        results = await parallel_execute(
-            tasks, max_concurrent=2, return_exceptions=True
-        )
+        results = await parallel_execute(tasks, max_concurrent=2, return_exceptions=True)
 
         assert len(results) == 3
         assert isinstance(results[0], ValueError)
@@ -99,7 +93,7 @@ class TestParallelExecute:
 
     @pytest.mark.asyncio
     async def test_exception_handling_return_exceptions_false(self):
-        """例外処理のテスト（return_exceptions=False）"""
+        """例外処理のテスト（return_exceptions=False）."""
 
         async def failing_task():
             await asyncio.sleep(0.01)
@@ -107,13 +101,11 @@ class TestParallelExecute:
 
         tasks = [failing_task()]
         with pytest.raises(ValueError, match="Test error"):
-            await parallel_execute(
-                tasks, max_concurrent=1, return_exceptions=False
-            )
+            await parallel_execute(tasks, max_concurrent=1, return_exceptions=False)
 
     @pytest.mark.asyncio
     async def test_concurrency_limit(self):
-        """同時実行数制限のテスト"""
+        """同時実行数制限のテスト."""
         execution_times = []
 
         async def timed_task(task_id: int) -> int:
@@ -135,10 +127,10 @@ class TestParallelExecute:
 
 
 class TestProgressTracker:
-    """ProgressTrackerクラスのテスト"""
+    """ProgressTrackerクラスのテスト."""
 
     def test_initialization(self):
-        """初期化のテスト"""
+        """初期化のテスト."""
         tracker = ProgressTracker(total=10)
         assert tracker.total == 10
         assert tracker.processed == 0
@@ -148,7 +140,7 @@ class TestProgressTracker:
         assert tracker.callback is None
 
     def test_increment_success(self):
-        """成功カウント増加のテスト"""
+        """成功カウント増加のテスト."""
         tracker = ProgressTracker(total=5)
 
         tracker.increment_success()
@@ -160,7 +152,7 @@ class TestProgressTracker:
         assert tracker.processed == 2
 
     def test_increment_failed(self):
-        """失敗カウント増加のテスト"""
+        """失敗カウント増加のテスト."""
         tracker = ProgressTracker(total=5)
 
         error = ValueError("Test error")
@@ -173,7 +165,7 @@ class TestProgressTracker:
         assert tracker.errors[0]["error_message"] == "Test error"
 
     def test_increment_failed_with_context(self):
-        """失敗カウント増加（コンテキスト付き）のテスト"""
+        """失敗カウント増加（コンテキスト付き）のテスト."""
         tracker = ProgressTracker(total=5)
 
         error = RuntimeError("Runtime error")
@@ -185,7 +177,7 @@ class TestProgressTracker:
         assert tracker.errors[0]["context"] == context
 
     def test_get_progress_percent(self):
-        """進捗率計算のテスト"""
+        """進捗率計算のテスト."""
         tracker = ProgressTracker(total=10)
 
         assert tracker.get_progress_percent() == 0.0
@@ -198,12 +190,12 @@ class TestProgressTracker:
         assert tracker.get_progress_percent() == 30.0
 
     def test_get_progress_percent_zero_total(self):
-        """総数が0の場合の進捗率テスト"""
+        """総数が0の場合の進捗率テスト."""
         tracker = ProgressTracker(total=0)
         assert tracker.get_progress_percent() == 100.0
 
     def test_get_elapsed_time(self):
-        """経過時間取得のテスト"""
+        """経過時間取得のテスト."""
         tracker = ProgressTracker(total=1)
 
         # 少し待つ
@@ -214,7 +206,7 @@ class TestProgressTracker:
         assert elapsed < 1.0  # 現実的な範囲
 
     def test_get_summary(self):
-        """サマリー取得のテスト"""
+        """サマリー取得のテスト."""
         tracker = ProgressTracker(total=5)
 
         tracker.increment_success()
@@ -233,7 +225,7 @@ class TestProgressTracker:
         assert len(summary["errors"]) == 2
 
     def test_get_summary_with_many_errors(self):
-        """多数のエラーがある場合のサマリー取得テスト"""
+        """多数のエラーがある場合のサマリー取得テスト."""
         tracker = ProgressTracker(total=20)
 
         # 15個のエラーを追加
@@ -248,7 +240,7 @@ class TestProgressTracker:
 
     @pytest.mark.asyncio
     async def test_callback_notification(self):
-        """コールバック通知のテスト"""
+        """コールバック通知のテスト."""
         callback_results = []
 
         async def mock_callback(summary: Dict[str, Any]) -> None:

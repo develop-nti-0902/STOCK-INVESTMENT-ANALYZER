@@ -27,9 +27,7 @@ class TestLatestStocksRepository:
     """LatestStocksRepositoryのテストクラス."""
 
     @pytest.mark.asyncio
-    async def test_get_latest_stock_by_symbol_success(
-        self, repository, mock_session
-    ):
+    async def test_get_latest_stock_by_symbol_success(self, repository, mock_session):
         """正常系: 指定したシンボルの最新株価情報を取得できる."""
         symbol = "7203.T"
 
@@ -57,9 +55,7 @@ class TestLatestStocksRepository:
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_latest_stock_by_symbol_not_found(
-        self, repository, mock_session
-    ):
+    async def test_get_latest_stock_by_symbol_not_found(self, repository, mock_session):
         """異常系: 指定したシンボルが見つからない場合にNoneを返す."""
         symbol = "NOTFOUND"
 

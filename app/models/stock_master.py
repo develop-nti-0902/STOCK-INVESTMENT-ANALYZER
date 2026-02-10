@@ -35,37 +35,21 @@ class StockMaster(SerialPKMixin, TimestampMixin, Base):
         data_date (Optional[str]): データ日付（YYYYMMDD）
         is_active (int): 有効フラグ（`IS_ACTIVE` / `IS_INACTIVE`）
 
-        Notes:
-                - `scripts/databaseSetup/sql/create_management_tables.sql`
-                    に合わせたカラム定義です。
-                - 後方互換性のため `symbol` / `name` のプロパティを提供します。
+    Notes:
+        - `scripts/databaseSetup/sql/create_management_tables.sql`
+            に合わせたカラム定義です。
+        - 後方互換性のため `symbol` / `name` のプロパティを提供します。
     """
 
-    stock_code: Mapped[str] = mapped_column(
-        String(10), nullable=False, unique=True
-    )
+    stock_code: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)
     stock_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    market_category: Mapped[Optional[str]] = mapped_column(
-        String(50), nullable=True
-    )
-    sector_code_33: Mapped[Optional[str]] = mapped_column(
-        String(10), nullable=True
-    )
-    sector_name_33: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True
-    )
-    sector_code_17: Mapped[Optional[str]] = mapped_column(
-        String(10), nullable=True
-    )
-    sector_name_17: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True
-    )
-    scale_code: Mapped[Optional[str]] = mapped_column(
-        String(10), nullable=True
-    )
-    scale_category: Mapped[Optional[str]] = mapped_column(
-        String(50), nullable=True
-    )
+    market_category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    sector_code_33: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    sector_name_33: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    sector_code_17: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    sector_name_17: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    scale_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    scale_category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     data_date: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
     is_active: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
@@ -114,10 +98,8 @@ class StockMaster(SerialPKMixin, TimestampMixin, Base):
         self.stock_name = value
 
     def __repr__(self) -> str:
-        return (
-            "<StockMaster(stock_code="
-            f"{self.stock_code!r}, stock_name={self.stock_name!r})>"
-        )
+        """簡易表現を返す（デバッグ用）."""
+        return "<StockMaster(stock_code=" f"{self.stock_code!r}, stock_name={self.stock_name!r})>"
 
 
 __all__ = ["StockMaster"]

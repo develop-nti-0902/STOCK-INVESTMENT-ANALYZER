@@ -1,6 +1,4 @@
-"""
-BulkSaverMixinの単体テスト
-"""
+"""BulkSaverMixinの単体テスト."""
 
 import asyncio
 
@@ -10,9 +8,10 @@ from app.services.core.savers.bulk_saver_mixin import BulkSaverMixin
 
 
 class ConcreteBulkSaver(BulkSaverMixin[dict]):
-    """テスト用のBulkSaverMixin実装"""
+    """テスト用のBulkSaverMixin実装."""
 
     def __init__(self, batch_size: int = 10, max_concurrent_batches: int = 3):
+        """初期化: バッチ設定を注入する."""
         super().__init__(
             batch_size=batch_size,
             max_concurrent_batches=max_concurrent_batches,
@@ -20,25 +19,25 @@ class ConcreteBulkSaver(BulkSaverMixin[dict]):
         self.executed_chunks: list[list[dict]] = []
 
     async def save(self, data: dict, **kwargs) -> bool:
-        """単一保存の実装（テスト用）"""
+        """単一保存の実装（テスト用）."""
         return True
 
     async def save_batch(self, data_list: list[dict], **kwargs) -> int:
-        """一括保存の実装（テスト用）"""
+        """一括保存の実装（テスト用）."""
         return await self.save_in_chunks(data_list)
 
     async def _execute_bulk_insert(self, chunk: list[dict]) -> int:
-        """チャンク挿入の実装（テスト用）"""
+        """チャンク挿入の実装（テスト用）."""
         self.executed_chunks.append(chunk)
         return len(chunk)
 
 
 class TestBulkSaverMixin:
-    """BulkSaverMixinの単体テスト"""
+    """BulkSaverMixinの単体テスト."""
 
     @pytest.mark.asyncio
     async def test_save_in_chunks_empty_list(self):
-        """空のデータリストでのチャンク保存テスト"""
+        """空のデータリストでのチャンク保存テスト."""
         # Arrange
         saver = ConcreteBulkSaver()
 
@@ -51,7 +50,7 @@ class TestBulkSaverMixin:
 
     @pytest.mark.asyncio
     async def test_save_in_chunks_single_chunk(self):
-        """単一チャンクでの保存テスト"""
+        """単一チャンクでの保存テスト."""
         # Arrange
         saver = ConcreteBulkSaver(batch_size=10)
         data_list = [{"id": i} for i in range(5)]
@@ -66,7 +65,7 @@ class TestBulkSaverMixin:
 
     @pytest.mark.asyncio
     async def test_save_in_chunks_multiple_chunks(self):
-        """複数チャンクでの保存テスト"""
+        """複数チャンクでの保存テスト."""
         # Arrange
         saver = ConcreteBulkSaver(batch_size=3)
         data_list = [{"id": i} for i in range(7)]  # 3 + 3 + 1 = 3チャンク
@@ -83,16 +82,14 @@ class TestBulkSaverMixin:
 
     @pytest.mark.asyncio
     async def test_save_in_chunks_custom_chunk_size(self):
-        """カスタムチャンクサイズでの保存テスト"""
+        """カスタムチャンクサイズでの保存テスト."""
         # Arrange
         saver = ConcreteBulkSaver(batch_size=10)  # デフォルトは10
         data_list = [{"id": i} for i in range(12)]
         custom_chunk_size = 4
 
         # Act
-        result = await saver.save_in_chunks(
-            data_list, chunk_size=custom_chunk_size
-        )
+        result = await saver.save_in_chunks(data_list, chunk_size=custom_chunk_size)
 
         # Assert
         assert result == 12
@@ -101,23 +98,17 @@ class TestBulkSaverMixin:
 
     @pytest.mark.asyncio
     async def test_save_in_chunks_with_progress_callback(self):
-        """進捗コールバック付きの保存テスト"""
+        """進捗コールバック付きの保存テスト."""
         # Arrange
         saver = ConcreteBulkSaver(batch_size=2)
         data_list = [{"id": i} for i in range(5)]
         progress_calls = []
 
-        async def progress_callback(
-            chunk_index, total_chunks, saved_count, total_saved
-        ):
-            progress_calls.append(
-                (chunk_index, total_chunks, saved_count, total_saved)
-            )
+        async def progress_callback(chunk_index, total_chunks, saved_count, total_saved):
+            progress_calls.append((chunk_index, total_chunks, saved_count, total_saved))
 
         # Act
-        result = await saver.save_in_chunks(
-            data_list, progress_callback=progress_callback
-        )
+        result = await saver.save_in_chunks(data_list, progress_callback=progress_callback)
 
         # Assert
         assert result == 5
@@ -129,7 +120,7 @@ class TestBulkSaverMixin:
 
     @pytest.mark.asyncio
     async def test_save_in_chunks_with_partial_failure(self):
-        """一部失敗する場合の保存テスト"""
+        """一部失敗する場合の保存テスト."""
 
         # Arrange
         class FailingBulkSaver(ConcreteBulkSaver):
@@ -139,22 +130,18 @@ class TestBulkSaverMixin:
                 return len(chunk)
 
         saver = FailingBulkSaver(batch_size=2)
-        data_list = [
-            {"id": i} for i in range(6)
-        ]  # 3チャンク: [0,1], [2,3], [4,5]
+        data_list = [{"id": i} for i in range(6)]  # 3チャンク: [0,1], [2,3], [4,5]
 
         # Act
         result = await saver.save_in_chunks(data_list)
 
         # Assert
         assert result == 4  # 0 + 2 + 2 = 4件成功（最初のチャンク失敗）
-        assert (
-            len(saver.executed_chunks) == 0
-        )  # 失敗したチャンクは実行されない
+        assert len(saver.executed_chunks) == 0  # 失敗したチャンクは実行されない
 
     @pytest.mark.asyncio
     async def test_validate_batch_data(self):
-        """バッチデータ検証のテスト"""
+        """バッチデータ検証のテスト."""
         # Arrange
         saver = ConcreteBulkSaver()
         data_list = [
@@ -173,7 +160,7 @@ class TestBulkSaverMixin:
 
     @pytest.mark.asyncio
     async def test_get_progress_info(self):
-        """進捗情報取得のテスト"""
+        """進捗情報取得のテスト."""
         # Arrange
         saver = ConcreteBulkSaver()
 
@@ -188,7 +175,7 @@ class TestBulkSaverMixin:
 
     @pytest.mark.asyncio
     async def test_get_progress_info_zero_total(self):
-        """総数が0の場合の進捗情報テスト"""
+        """総数が0の場合の進捗情報テスト."""
         # Arrange
         saver = ConcreteBulkSaver()
 
@@ -200,7 +187,7 @@ class TestBulkSaverMixin:
 
     @pytest.mark.asyncio
     async def test_concurrent_batch_limit(self):
-        """同時実行バッチ数の制限テスト"""
+        """同時実行バッチ数の制限テスト."""
         # Arrange
         saver = ConcreteBulkSaver(batch_size=1, max_concurrent_batches=2)
         data_list = [{"id": i} for i in range(5)]

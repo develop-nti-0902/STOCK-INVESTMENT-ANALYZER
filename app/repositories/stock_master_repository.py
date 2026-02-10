@@ -8,7 +8,7 @@ import logging
 from typing import Any, List, Optional
 
 from sqlalchemy import delete, or_, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def _escape_like(query: str, escape_char: str = "\\") -> str:
-    """LIKE クエリ用のエスケープを行う.
+    r"""LIKE クエリ用のエスケープを行う.
 
     Args:
         query (str): 入力クエリ文字列
@@ -45,6 +45,7 @@ class StockMasterRepository(BaseRepository[StockMaster]):
     """
 
     def __init__(self, session: AsyncSession):
+        """初期化。セッションを受け取り `StockMaster` モデルをセットします."""
         super().__init__(session, model=StockMaster)
 
     async def get_by_symbol(self, symbol: str) -> Optional[StockMaster]:
@@ -68,9 +69,7 @@ class StockMasterRepository(BaseRepository[StockMaster]):
             List[str]: 銘柄コードのリスト
         """
         result = await self.session.execute(
-            select(self.model.stock_code).where(
-                self.model.is_active == IS_ACTIVE
-            )
+            select(self.model.stock_code).where(self.model.is_active == IS_ACTIVE)
         )
         return [row[0] for row in result.all()]
 
@@ -162,8 +161,7 @@ class StockMasterRepository(BaseRepository[StockMaster]):
             NotImplementedError: 常に発生
         """
         raise NotImplementedError(
-            "bulk_create is not supported for StockMaster; "
-            "use bulk_upsert instead"
+            "bulk_create is not supported for StockMaster; use bulk_upsert instead"
         )
 
     async def upsert(self, data: dict) -> StockMaster:
@@ -173,8 +171,7 @@ class StockMasterRepository(BaseRepository[StockMaster]):
             NotImplementedError: 常に発生
         """
         raise NotImplementedError(
-            "Single upsert is not supported for StockMaster; "
-            "use bulk_upsert instead"
+            "Single upsert is not supported for StockMaster; use bulk_upsert instead"
         )
 
     async def bulk_upsert(self, records: List[dict]) -> int:
@@ -193,17 +190,14 @@ class StockMasterRepository(BaseRepository[StockMaster]):
             return 0
 
         table = self.model.__table__
-        insert_stmt = pg_insert(table).values(records)
+        insert_stmt = insert(table).values(records)
 
+        # excluded は on_conflict_do_update 内で参照可能
         update_dict = {
-            c.name: getattr(insert_stmt.excluded, c.name)
-            for c in table.c
-            if c.name != "id"
+            c.name: getattr(insert_stmt.excluded, c.name) for c in table.c if c.name != "id"
         }
 
-        stmt = insert_stmt.on_conflict_do_update(
-            index_elements=["stock_code"], set_=update_dict
-        )
+        stmt = insert_stmt.on_conflict_do_update(index_elements=["stock_code"], set_=update_dict)
 
         try:
             await self.session.execute(stmt)

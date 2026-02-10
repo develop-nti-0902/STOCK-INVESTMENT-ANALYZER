@@ -1,10 +1,10 @@
+"""Unit tests for TempFileManagerMixin."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
-from app.services.core.file_managers.temp_file_manager_mixin import (
-    TempFileManagerMixin,
-)
+from app.services.core.file_managers.temp_file_manager_mixin import TempFileManagerMixin
 
 
 class _Dummy(TempFileManagerMixin):
@@ -12,6 +12,7 @@ class _Dummy(TempFileManagerMixin):
 
 
 def test_tempdir_create_and_cleanup():
+    """一時ディレクトリの作成とクリーンアップを検証します."""
     d = _Dummy()
     path = d.create_temp_directory(prefix="test_edinet_")
     assert isinstance(path, Path)

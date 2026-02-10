@@ -1,3 +1,11 @@
+"""Authentication dependency providers.
+
+Provides FastAPI dependency callables to obtain the current user,
+active user and superuser from a JWT access token.
+
+Note: function docstrings use a single-line summary ending with a period.
+"""
+
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
@@ -16,8 +24,7 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> Account:
-    """
-    JWT トークンから現在のユーザーを取得する依存性。
+    """JWT トークンから現在のユーザーを取得する依存性.
 
     - 正常: `Account` インスタンスを返す
     - トークンが無効またはユーザーが存在しない: HTTP 401 を発生させる
@@ -55,8 +62,7 @@ async def get_current_user(
 async def get_current_active_user(
     current_user: Account = Depends(get_current_user),
 ) -> Account:
-    """
-    アクティブなユーザーのみを許可する依存性。
+    """アクティブなユーザーのみを許可する依存性.
 
     - `is_active` が False の場合は HTTP 403 を返す。
     """
@@ -71,8 +77,7 @@ async def get_current_active_user(
 async def get_current_superuser(
     current_user: Account = Depends(get_current_active_user),
 ) -> Account:
-    """
-    スーパーユーザー権限をチェックする依存性。
+    """スーパーユーザー権限をチェックする依存性.
 
     - `is_superuser` が False の場合は HTTP 403 を返す。
     """

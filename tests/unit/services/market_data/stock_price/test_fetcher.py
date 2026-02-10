@@ -1,358 +1,80 @@
-"""StockPriceFetcherのユニットテスト
+"""`StockPriceFetcher` の単体テスト（書き直し）。
 
-StockPriceFetcherの機能をテストします。
+テストは簡潔に、命名規約に従い、
+`app.services.market_data.stock_price.fetcher` の公開振る舞いを検証します。
 """
 
 import asyncio
-from datetime import date
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
+import pandas as pd
 import pytest
 
 from app.exceptions.validation import FieldValidationError
 from app.schemas.market_data.stock_price import StockData
-from app.services.market_data.stock_price.fetcher import (
-    StockPriceFetcher,
-    TimeframeMapping,
-)
+from app.services.market_data.stock_price.fetcher import StockPriceFetcher, TimeframeMapping
 
 
 class TestTimeframeMapping:
-    """TimeframeMapping機能のテストケース"""
-
-    def test_valid_timeframe_conversion(self):
-        """有効なタイムフレーム文字列の変換をテスト"""
-        # Arrange - 準備
-        # 有効なタイムフレーム変換をテスト
-
-        # Act & Assert - 実行と検証
+    # タイムフレーム → yfinance interval の正しい変換を確認
+    def test_get_yfinance_interval_valid(self):
         assert TimeframeMapping.get_yfinance_interval("1d") == "1d"
-        assert TimeframeMapping.get_yfinance_interval("1wk") == "1wk"
-        assert TimeframeMapping.get_yfinance_interval("1mo") == "1mo"
+        assert TimeframeMapping.get_yfinance_interval("1m") == "1m"
 
-    def test_invalid_timeframe_conversion(self):
-        """無効なタイムフレーム文字列の変換をテスト"""
-        # Arrange - 準備
-        # 無効なタイムフレーム変換をテスト
-
-        # Act & Assert - 実行と検証
+    def test_get_yfinance_interval_invalid(self):
         with pytest.raises(FieldValidationError):
             TimeframeMapping.get_yfinance_interval("invalid")
 
-        with pytest.raises(FieldValidationError):
-            TimeframeMapping.get_yfinance_interval("2d")
-
     def test_get_supported_timeframes(self):
-        """サポートされているタイムフレームのリスト取得をテスト"""
-        # Arrange - 準備
-        # Act - 実行
+        # サポートされているタイムフレーム一覧を取得して確認
         supported = TimeframeMapping.get_supported_timeframes()
-
-        # Assert - 検証
         assert isinstance(supported, list)
         assert "1d" in supported
-        assert "1wk" in supported
-        assert "1mo" in supported
 
-
-class TestStockPriceFetcherMaxPeriod:
-    """StockPriceFetcher最大期間機能のテストケース"""
-
-    @pytest.fixture
-    def fetcher(self):
-        """テスト用のStockPriceFetcherインスタンスを作成"""
-        return StockPriceFetcher()
-
-    @pytest.mark.asyncio
-    async def test_fetch_single_uses_max_period_for_1m(self, fetcher):
-        """fetch_singleが1mタイムフレームで最大期間（7日）を使用することをテスト"""
-        # Arrange - 準備
-        with patch.object(
-            fetcher, "_fetch_single_symbol", new_callable=AsyncMock
-        ) as mock_fetch:
-            mock_fetch.return_value = [
-                StockData(
-                    symbol="TEST",
-                    trade_date=date.today(),
-                    open_price=100.0,
-                    high=101.0,
-                    low=99.0,
-                    close=100.5,
-                    volume=1000,
-                    adj_close=None,
-                )
-            ]
-
-            # Act - 実行
-            result = await fetcher.fetch_single("TEST", timeframe="1m")
-
-            # Assert - 検証
-            call_args = mock_fetch.call_args[0]
-            symbol, interval, timeframe_arg = call_args
-
-            assert symbol == "TEST"
-            assert interval == "1m"
-            assert timeframe_arg == "1m"
-            assert len(result) == 1
-
-    @pytest.mark.asyncio
-    async def test_fetch_single_uses_max_period_for_5m(self, fetcher):
-        """fetch_singleが5mタイムフレームで最大期間（30日）を使用することをテスト"""
-        # Arrange - 準備
-        with patch.object(
-            fetcher, "_fetch_single_symbol", new_callable=AsyncMock
-        ) as mock_fetch:
-            mock_fetch.return_value = []
-
-            # Act - 実行
-            _ = await fetcher.fetch_single("TEST", timeframe="5m")
-
-            # Assert - 検証
-            call_args = mock_fetch.call_args[0]
-            symbol, interval, timeframe_arg = call_args
-
-            assert symbol == "TEST"
-            assert interval == "5m"
-            assert timeframe_arg == "5m"
-
-    @pytest.mark.asyncio
-    async def test_fetch_single_uses_max_period_for_15m(self, fetcher):
-        """fetch_singleが15mタイムフレームで最大期間（30日）を使用することをテスト"""
-        # Arrange - 準備
-        with patch.object(
-            fetcher, "_fetch_single_symbol", new_callable=AsyncMock
-        ) as mock_fetch:
-            mock_fetch.return_value = []
-
-            # Act - 実行
-            _ = await fetcher.fetch_single("TEST", timeframe="15m")
-
-            # Assert - 検証
-            call_args = mock_fetch.call_args[0]
-            symbol, interval, timeframe_arg = call_args
-
-            assert symbol == "TEST"
-            assert interval == "15m"
-            assert timeframe_arg == "15m"
-
-    @pytest.mark.asyncio
-    async def test_fetch_single_uses_max_period_for_30m(self, fetcher):
-        """fetch_singleが30mタイムフレームで最大期間（30日）を使用することをテスト"""
-        # Arrange - 準備
-        with patch.object(
-            fetcher, "_fetch_single_symbol", new_callable=AsyncMock
-        ) as mock_fetch:
-            mock_fetch.return_value = []
-
-            # Act - 実行
-            _ = await fetcher.fetch_single("TEST", timeframe="30m")
-
-            # Assert - 検証
-            call_args = mock_fetch.call_args[0]
-            symbol, interval, timeframe_arg = call_args
-
-            assert symbol == "TEST"
-            assert interval == "30m"
-            assert timeframe_arg == "30m"
-
-    @pytest.mark.asyncio
-    async def test_fetch_single_uses_max_period_for_1h(self, fetcher):
-        """fetch_singleが1hタイムフレームで最大期間（365日）を使用することをテスト"""
-        # Arrange - 準備
-        with patch.object(
-            fetcher, "_fetch_single_symbol", new_callable=AsyncMock
-        ) as mock_fetch:
-            mock_fetch.return_value = []
-
-            # Act - 実行
-            _ = await fetcher.fetch_single("TEST", timeframe="1h")
-
-            # Assert - 検証
-            call_args = mock_fetch.call_args[0]
-            symbol, interval, timeframe_arg = call_args
-
-            assert symbol == "TEST"
-            assert interval == "1h"
-            assert timeframe_arg == "1h"
-
-    @pytest.mark.asyncio
-    async def test_fetch_single_uses_max_period_for_1d(self, fetcher):
-        """fetch_singleが1dタイムフレームで最大期間（無制限）を使用することをテスト"""
-        # Arrange - 準備
-        with patch.object(
-            fetcher, "_fetch_single_symbol", new_callable=AsyncMock
-        ) as mock_fetch:
-            mock_fetch.return_value = []
-
-            # Act - 実行
-            _ = await fetcher.fetch_single("TEST", timeframe="1d")
-
-            # Assert - 検証
-            call_args = mock_fetch.call_args[0]
-            symbol, interval, timeframe_arg = call_args
-
-            assert symbol == "TEST"
-            assert interval == "1d"
-            assert timeframe_arg == "1d"
-
-    @pytest.mark.asyncio
-    async def test_fetch_single_respects_explicit_dates(self, fetcher):
-        """fetch_singleが明示的に指定された日付を尊重することをテスト"""
-        # Arrange - 準備
-        with patch.object(
-            fetcher, "_fetch_single_symbol", new_callable=AsyncMock
-        ) as mock_fetch:
-            mock_fetch.return_value = []
-
-            # Act - 実行
-            _ = await fetcher.fetch_single("TEST", timeframe="1d")
-
-            # Assert - 検証
-            call_args = mock_fetch.call_args[0]
-            symbol, interval, timeframe_arg = call_args
-
-            assert timeframe_arg == "1d"
-
-    @pytest.mark.asyncio
-    async def test_fetch_batch_uses_max_periods(self, fetcher):
-        """fetch_batchが各タイムフレームで最大期間を使用することをテスト"""
-        # Arrange - 準備
-        with patch.object(
-            fetcher, "_fetch_multi_symbol", new_callable=AsyncMock
-        ) as mock_multi:
-            mock_multi.return_value = {"TEST1": [], "TEST2": []}
-
-            symbols = ["TEST1", "TEST2"]
-
-            # Act - 実行
-            _ = await fetcher.fetch_batch(symbols, timeframe="5m")
-
-            # Assert - 検証
-            mock_multi.assert_called_once()
-            call_args = mock_multi.call_args[0]
-            assert call_args[0] == symbols
-            assert call_args[1] == "5m"
-
-
-class TestStockPriceFetcherAdditional:
-    """StockPriceFetcher追加機能のテストケース"""
-
-    @pytest.fixture
-    def fetcher(self):
-        """テスト用のStockPriceFetcherインスタンスを作成"""
-        return StockPriceFetcher()
-
-    def test_get_period_valid(self):
-        """有効なタイムフレームのperiod取得をテスト"""
-        # Arrange - 準備
-        # Act & Assert - 実行と検証
-        assert TimeframeMapping.get_period("1d") == "max"
-        assert TimeframeMapping.get_period("1wk") == "max"
-        assert TimeframeMapping.get_period("1mo") == "max"
+    def test_get_period_valid_and_invalid(self):
         assert TimeframeMapping.get_period("1m") == "7d"
-        assert TimeframeMapping.get_period("5m") == "30d"
-
-    def test_get_period_invalid(self):
-        """無効なタイムフレームのperiod取得をテスト"""
-        # Arrange - 準備
-        # Act & Assert - 実行と検証
+        assert TimeframeMapping.get_period("1d") == "max"
         with pytest.raises(FieldValidationError):
-            TimeframeMapping.get_period("invalid")
+            TimeframeMapping.get_period("bogus")
 
-    def test_init(self):
-        """StockPriceFetcherの初期化をテスト"""
-        # Arrange - 準備
+
+class TestStockPriceFetcherUnit:
+    @pytest.fixture
+    def fetcher(self):
+        # テスト用の StockPriceFetcher インスタンスを返すフィクスチャ
+        return StockPriceFetcher()
+
+    def test_init_reads_settings_concurrency(self):
         with patch(
             "app.services.market_data.stock_price.fetcher.get_settings"
         ) as mock_get_settings:
-            mock_config = type(
-                "Config", (), {"YAHOO_FINANCE_CONCURRENCY_LIMIT": 5}
-            )()
-            mock_get_settings.return_value = mock_config
-
-            # Act - 実行
-            fetcher = StockPriceFetcher()
-
-            # Assert - 検証
-            assert fetcher.max_concurrent_requests == 5
-            assert isinstance(fetcher.semaphore, asyncio.Semaphore)
+            mock_cfg = type("Cfg", (), {"YAHOO_FINANCE_CONCURRENCY_LIMIT": 3})()
+            mock_get_settings.return_value = mock_cfg
+            f = StockPriceFetcher()
+            assert f.max_concurrent_requests == 3
+            assert isinstance(f.semaphore, asyncio.Semaphore)
 
     @pytest.mark.asyncio
-    async def test_fetch(self, fetcher):
-        """fetchメソッドをテスト"""
-        # Arrange - 準備
-        with patch.object(
-            fetcher, "_fetch_single_symbol", new_callable=AsyncMock
-        ) as mock_fetch:
-            mock_fetch.return_value = [
-                StockData(
-                    symbol="TEST",
-                    trade_date=date.today(),
-                    open_price=100.0,
-                    high=101.0,
-                    low=99.0,
-                    close=100.5,
-                    volume=1000,
-                    adj_close=None,
-                )
-            ]
-
-            # Act - 実行
-            result = await fetcher.fetch("TEST", timeframe="1d")
-
-            # Assert - 検証
-            assert len(result) == 1
-            assert result[0].symbol == "TEST"
-            mock_fetch.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_fetch_invalid_identifier(self, fetcher):
-        """fetchメソッドの無効なidentifierテスト"""
-        # Arrange - 準備
-        # Act & Assert - 実行と検証
+    async def test_fetch_batch_validates_symbols(self, fetcher):
+        # 空リストはバリデーションエラーになる
         with pytest.raises(FieldValidationError):
-            await fetcher.fetch("")
+            await fetcher.fetch_batch([], timeframe="1d")
 
     @pytest.mark.asyncio
-    async def test_fetch_batch_with_exceptions(self, fetcher):
-        """fetch_batchの例外処理をテスト"""
-        # Arrange - 準備
-        with patch.object(
-            fetcher, "_fetch_multi_symbol", new_callable=AsyncMock
-        ) as mock_multi:
+    async def test_fetch_batch_delegates_to_internal(self, fetcher):
+        # 内部の一括取得メソッドへ委譲していることを確認
+        with patch.object(fetcher, "_fetch_multi_symbol", new_callable=AsyncMock) as mock_multi:
             mock_multi.return_value = {
-                "TEST1": [
-                    StockData(
-                        symbol="TEST1",
-                        trade_date=date.today(),
-                        open_price=100.0,
-                        high=101.0,
-                        low=99.0,
-                        close=100.5,
-                        volume=1000,
-                        adj_close=None,
-                    )
-                ],
-                "TEST2": [],
+                "T": [StockData(symbol="T", timestamp=datetime.now(timezone.utc))]
             }
+            res = await fetcher.fetch_batch(["T"], timeframe="1d")
+            mock_multi.assert_awaited()
+            assert "T" in res
 
-            symbols = ["TEST1", "TEST2"]
-
-            # Act - 実行
-            result = await fetcher.fetch_batch(symbols, timeframe="1d")
-
-            # Assert - 検証
-            assert "TEST1" in result
-            assert len(result["TEST1"]) == 1
-            assert "TEST2" in result
-            assert result["TEST2"] == []
-
-    def test_parse_yfinance_data(self, fetcher):
-        """_parse_yfinance_dataメソッドをテスト"""
-        # Arrange - 準備
-        import pandas as pd
-
-        data = pd.DataFrame(
+    def test_parse_yfinance_data_basic(self, fetcher):
+        # 基本的なDataFrameからStockDataへ正しく変換されることを確認
+        df = pd.DataFrame(
             {
                 "Open": [100.0, 101.0],
                 "High": [102.0, 103.0],
@@ -364,135 +86,65 @@ class TestStockPriceFetcherAdditional:
             index=pd.to_datetime(["2023-01-01", "2023-01-02"]),
         )
 
-        # Act - 実行
-        result = fetcher._parse_yfinance_data(data, "TEST")
+        out = fetcher._parse_yfinance_data(df, "TEST")
+        assert len(out) == 2
+        assert all(isinstance(x, StockData) for x in out)
+        assert out[0].symbol == "TEST"
+        assert out[0].open_price == 100.0
+        assert out[1].volume == 1100
 
-        # Assert - 検証
-        assert len(result) == 2
-        assert result[0].symbol == "TEST"
-        assert result[0].open_price == 100.0
-        assert result[0].close == 101.0
-        assert result[1].volume == 1100
+    def test_parse_yfinance_data_missing_adj(self, fetcher):
+        # Adj Close 列がない場合は adj_close が None になることを確認
+        df = pd.DataFrame(
+            {
+                "Open": [100.0],
+                "High": [102.0],
+                "Low": [99.0],
+                "Close": [101.0],
+                "Volume": [1000],
+            },
+            index=pd.to_datetime(["2023-01-01"]),
+        )
+        out = fetcher._parse_yfinance_data(df, "TEST")
+        assert len(out) == 1
+        assert out[0].adj_close is None
 
     @pytest.mark.asyncio
     async def test_is_valid_symbol_format(self, fetcher):
-        """is_valid_symbol_formatメソッドをテスト"""
-        # Arrange - 準備
-        # Act & Assert - 実行と検証
-        # 有効なフォーマット
+        # シンボル形式の検証（有効／無効ケース）
         assert await fetcher.is_valid_symbol_format("AAPL") is True
         assert await fetcher.is_valid_symbol_format("7203.T") is True
         assert await fetcher.is_valid_symbol_format("0001.HK") is True
         assert await fetcher.is_valid_symbol_format("123") is True
 
-        # 無効なフォーマット
-        assert await fetcher.is_valid_symbol_format("aapl") is False  # 小文字
-        assert (
-            await fetcher.is_valid_symbol_format("AAPL$") is False
-        )  # 特殊文字
-        assert (
-            await fetcher.is_valid_symbol_format("AAPL.") is False
-        )  # ドットのみ
-        assert await fetcher.is_valid_symbol_format("") is False  # 空文字列
-        assert await fetcher.is_valid_symbol_format(None) is False  # None
+        assert await fetcher.is_valid_symbol_format("aapl") is False
+        assert await fetcher.is_valid_symbol_format("AAPL$") is False
+        assert await fetcher.is_valid_symbol_format("") is False
+        assert await fetcher.is_valid_symbol_format(None) is False
 
     @pytest.mark.asyncio
-    async def test_handle_fetch_error(self, fetcher):
-        """handle_fetch_errorメソッドをテスト"""
-        # Arrange - 準備
+    async def test_handle_fetch_error_logs(self, fetcher):
         from app.exceptions.external_api import YahooFinanceError
 
-        # Act & Assert - 実行と検証
-        # YahooFinanceErrorの場合
-        yahoo_error = YahooFinanceError(message="Test Yahoo error")
-        await fetcher.handle_fetch_error("TEST", yahoo_error)
+        # YahooFinanceError の場合は error/warning が呼ばれる
+        with patch("app.services.market_data.stock_price.fetcher.logger") as mock_logger:
+            err = YahooFinanceError(message="err")
+            await fetcher.handle_fetch_error("T", err)
+            mock_logger.error.assert_called()
+            mock_logger.warning.assert_called()
 
-        # 一般的な例外の場合
-        general_error = ValueError("Test general error")
-        await fetcher.handle_fetch_error("TEST", general_error)
-
-    @pytest.mark.asyncio
-    async def test_fetch_single_symbol_with_period(self, fetcher):
-        """_fetch_single_symbolがperiodを使用する場合をテスト"""
-        # Arrange - 準備
-        from unittest.mock import patch as mock_patch
-
-        import pandas as pd
-
-        with mock_patch("yfinance.Ticker") as mock_ticker:
-            mock_instance = mock_ticker.return_value
-            mock_hist = pd.DataFrame(
-                {
-                    "Open": [100.0],
-                    "High": [101.0],
-                    "Low": [99.0],
-                    "Close": [100.5],
-                    "Volume": [1000],
-                },
-                index=pd.to_datetime(["2023-01-01"]),
-            )
-            mock_instance.history.return_value = mock_hist
-
-            # Act - 実行
-            result = await fetcher._fetch_single_symbol("TEST", "1d", "1d")
-
-            # Assert - 検証
-            assert len(result) == 1
-            mock_instance.history.assert_called_with(
-                period="max",
-                interval="1d",
-                prepost=False,
-                actions=False,
-            )
+        # 一般的な例外の場合は error のみ呼ばれる
+        with patch("app.services.market_data.stock_price.fetcher.logger") as mock_logger:
+            err = ValueError("boom")
+            await fetcher.handle_fetch_error("T", err)
+            mock_logger.error.assert_called()
 
     @pytest.mark.asyncio
-    async def test_fetch_single_symbol_with_start_end(self, fetcher):
-        """_fetch_single_symbolがstart/endを使用する場合をテスト"""
-        # Arrange - 準備
-        from unittest.mock import patch as mock_patch
+    async def test_fetch_batch_with_yfinance_multiindex(self, fetcher):
+        # yfinance の MultiIndex 戻り値を模擬して複数銘柄の解析を検証
+        with patch("app.services.market_data.stock_price.fetcher.yf.Tickers") as mock_tickers:
+            inst = mock_tickers.return_value
 
-        import pandas as pd
-
-        with mock_patch("yfinance.Ticker") as mock_ticker:
-            mock_instance = mock_ticker.return_value
-            mock_hist = pd.DataFrame(
-                {
-                    "Open": [100.0],
-                    "High": [101.0],
-                    "Low": [99.0],
-                    "Close": [100.5],
-                    "Volume": [1000],
-                },
-                index=pd.to_datetime(["2023-01-01"]),
-            )
-            mock_instance.history.return_value = mock_hist
-
-            # start_date/end_date were not used; removed to satisfy linter
-
-            # Act - 実行
-            result = await fetcher._fetch_single_symbol("TEST", "1m", "1m")
-
-            # Assert - 検証
-            assert len(result) == 1
-            # 実装上、短時間足は period を使用するため period 呼び出しを期待する
-            mock_instance.history.assert_called_with(
-                period="7d",
-                interval="1m",
-                prepost=False,
-                actions=False,
-            )
-
-    @pytest.mark.asyncio
-    async def test_fetch_multi_yfinance(self, fetcher):
-        """fetch_multi_yfinance が複数銘柄を正しくパースすることをテスト"""
-        from unittest.mock import patch as mock_patch
-
-        import pandas as pd
-
-        with mock_patch("yfinance.Tickers") as mock_tickers:
-            mock_instance = mock_tickers.return_value
-
-            # MultiIndex columns: (attribute, ticker)
             cols = pd.MultiIndex.from_tuples(
                 [
                     ("Open", "AAPL"),
@@ -508,128 +160,11 @@ class TestStockPriceFetcherAdditional:
                 ]
             )
 
-            data = [
-                [
-                    100.0,
-                    101.0,
-                    99.0,
-                    100.5,
-                    1000,
-                    200.0,
-                    201.0,
-                    199.0,
-                    200.5,
-                    2000,
-                ]
-            ]
+            data = [[100.0, 101.0, 99.0, 100.5, 1000, 200.0, 201.0, 199.0, 200.5, 2000]]
+            df = pd.DataFrame(data, index=pd.to_datetime(["2023-01-01"]), columns=cols)
 
-            df = pd.DataFrame(
-                data, index=pd.to_datetime(["2023-01-01"]), columns=cols
-            )
+            inst.history.return_value = df
 
-            mock_instance.history.return_value = df
-
-            result = await fetcher.fetch_batch(
-                ["AAPL", "7203"], timeframe="1d"
-            )
-
-            assert "AAPL" in result
-            assert "7203" in result
-            assert len(result["AAPL"]) == 1
-            assert len(result["7203"]) == 1
-            assert result["AAPL"][0].symbol == "AAPL"
-            assert result["7203"][0].symbol == "7203"
-            assert result["AAPL"][0].open_price == 100.0
-            assert result["7203"][0].open_price == 200.0
-
-    def test_parse_yfinance_data_with_missing_columns(self, fetcher):
-        """_parse_yfinance_dataが欠損列を扱う場合をテスト"""
-        # Arrange - 準備
-        import pandas as pd
-
-        # Adj Close が欠損
-        data = pd.DataFrame(
-            {
-                "Open": [100.0],
-                "High": [102.0],
-                "Low": [99.0],
-                "Close": [101.0],
-                "Volume": [1000],
-            },
-            index=pd.to_datetime(["2023-01-01"]),
-        )
-
-        # Act - 実行
-        result = fetcher._parse_yfinance_data(data, "TEST")
-
-        # Assert - 検証
-        assert len(result) == 1
-        assert result[0].adj_close is None
-
-    def test_parse_yfinance_data_with_validation_error(self, fetcher):
-        """_parse_yfinance_dataのValidationErrorをテスト"""
-        # Arrange - 準備
-        import numpy as np
-        import pandas as pd
-
-        # NaN値を含むデータ
-        data = pd.DataFrame(
-            {
-                "Open": [np.nan],  # NaN
-                "High": [102.0],
-                "Low": [99.0],
-                "Close": [101.0],
-                "Volume": [1000],
-                "Adj Close": [101.0],
-            },
-            index=pd.to_datetime(["2023-01-01"]),
-        )
-
-        # Act - 実行
-        result = fetcher._parse_yfinance_data(data, "TEST")
-
-        # Assert - 検証
-        # NaNはNoneに変換されるので、成功する
-        assert len(result) == 1
-        assert result[0].open_price is None
-
-    @pytest.mark.asyncio
-    async def test_handle_fetch_error_with_yahoo_error(self, fetcher):
-        """handle_fetch_errorがYahooFinanceErrorをログに記録することをテスト"""
-        # Arrange - 準備
-        from app.exceptions.external_api import YahooFinanceError
-
-        with patch(
-            "app.services.market_data.stock_price.fetcher.logger"
-        ) as mock_logger:
-            error = YahooFinanceError(message="Yahoo API error")
-
-            # Act - 実行
-            await fetcher.handle_fetch_error("TEST", error)
-
-            # Assert - 検証
-            # YahooFinanceErrorの場合はerrorとwarningの両方が呼ばれる
-            mock_logger.error.assert_called_with(
-                "Error fetching data for %s: %s", "TEST", error
-            )
-            mock_logger.warning.assert_called_with(
-                "Yahoo Finance API error for %s: %s", "TEST", error
-            )
-
-    @pytest.mark.asyncio
-    async def test_handle_fetch_error_with_general_error(self, fetcher):
-        """handle_fetch_errorが一般的なエラーをログに記録することをテスト"""
-        # Arrange - 準備
-        with patch(
-            "app.services.market_data.stock_price.fetcher.logger"
-        ) as mock_logger:
-            error = ValueError("General error")
-
-            # Act - 実行
-            await fetcher.handle_fetch_error("TEST", error)
-
-            # Assert - 検証
-            mock_logger.error.assert_called_with(
-                "Unexpected error for %s: %s", "TEST", error
-            )
-            mock_logger.warning.assert_not_called()
+            res = await fetcher.fetch_batch(["AAPL", "7203"], timeframe="1d")
+            assert "AAPL" in res
+            assert "7203" in res

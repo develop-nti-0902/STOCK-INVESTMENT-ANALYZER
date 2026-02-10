@@ -4,16 +4,13 @@
 トヨタ自動車（7203）を例に使用します。
 """
 
-import json
-from datetime import datetime
-
 import pandas as pd
 import yfinance as yf
 
 
 def fetch_historical_financial_data(symbol: str) -> dict:
     """
-    指定された銘柄の過去の財務データを取得します。
+    指定された銘柄の過去の財務データを取得します.
 
     Args:
         symbol: 銘柄コード（例: "7203.T"）
@@ -21,9 +18,9 @@ def fetch_historical_financial_data(symbol: str) -> dict:
     Returns:
         dict: 各種財務データを格納した辞書
     """
-    print(f"\n{'='*60}")
+    print("\n" + "=" * 60)
     print(f"銘柄コード: {symbol}")
-    print(f"{'='*60}\n")
+    print("" + "=" * 60 + "\n")
 
     ticker = yf.Ticker(symbol)
 
@@ -69,7 +66,7 @@ def fetch_historical_financial_data(symbol: str) -> dict:
 
 def display_financials_overview(financials: pd.DataFrame) -> None:
     """
-    損益計算書の概要を表示します。
+    損益計算書の概要を表示します.
 
     Args:
         financials: yfinance.Ticker.financialsから取得したDataFrame
@@ -108,7 +105,7 @@ def display_financials_overview(financials: pd.DataFrame) -> None:
 
 def display_balance_sheet_overview(balance_sheet: pd.DataFrame) -> None:
     """
-    バランスシートの概要を表示します。
+    バランスシートの概要を表示します.
 
     Args:
         balance_sheet: yfinance.Ticker.balance_sheetから取得したDataFrame
@@ -146,12 +143,7 @@ def display_balance_sheet_overview(balance_sheet: pd.DataFrame) -> None:
 
 
 def display_dividends_history(dividends: pd.Series) -> None:
-    """
-    配当履歴を表示します。
-
-    Args:
-        dividends: yfinance.Ticker.dividendsから取得したSeries
-    """
+    """配当履歴を表示します."""
     print("\n【配当履歴】")
 
     if dividends.empty:
@@ -159,9 +151,12 @@ def display_dividends_history(dividends: pd.Series) -> None:
         return
 
     print(f"  取得期間: {len(dividends)}回分")
-    print(
-        f"  期間: {dividends.index[0].strftime('%Y-%m-%d')} ～ {dividends.index[-1].strftime('%Y-%m-%d')}"
-    )
+    if len(dividends.index) >= 2:
+        start = dividends.index[0].strftime("%Y-%m-%d")
+        end = dividends.index[-1].strftime("%Y-%m-%d")
+        print(f"  期間: {start} ～ {end}")
+    else:
+        print("  期間: 不明")
 
     # 最新10件を表示
     print("\n  最新の配当記録:")
@@ -177,7 +172,7 @@ def display_dividends_history(dividends: pd.Series) -> None:
 
 def display_shares_history(shares) -> None:
     """
-    発行済株式数の履歴を表示します。
+    発行済株式数の履歴を表示します.
 
     Args:
         shares: 発行済株式数のDataFrameまたはSeries
@@ -203,7 +198,7 @@ def display_shares_history(shares) -> None:
 
 def calculate_historical_metrics(data: dict) -> pd.DataFrame:
     """
-    過去のPER、PBR、配当利回り、配当性向を計算します。
+    過去のPER、PBR、配当利回り、配当性向を計算します.
 
     Args:
         data: fetch_historical_financial_dataで取得したデータ
@@ -265,17 +260,13 @@ def calculate_historical_metrics(data: dict) -> pd.DataFrame:
         if shares_outstanding is not None and not shares_outstanding.empty:
             # その年に最も近い株式数を取得
             if isinstance(shares_outstanding, pd.Series):
-                shares_for_year = shares_outstanding[
-                    shares_outstanding.index.year <= year
-                ]
+                shares_for_year = shares_outstanding[shares_outstanding.index.year <= year]
                 if not shares_for_year.empty:
                     shares_count = shares_for_year.iloc[-1]
                 else:
                     shares_count = None
             else:
-                shares_for_year = shares_outstanding[
-                    shares_outstanding.index.year <= year
-                ]
+                shares_for_year = shares_outstanding[shares_outstanding.index.year <= year]
                 if not shares_for_year.empty:
                     shares_count = (
                         shares_for_year.iloc[-1].iloc[0]
@@ -287,11 +278,7 @@ def calculate_historical_metrics(data: dict) -> pd.DataFrame:
 
         # BPS（1株当たり純資産）を計算
         bps = None
-        if (
-            equity is not None
-            and shares_count is not None
-            and shares_count > 0
-        ):
+        if equity is not None and shares_count is not None and shares_count > 0:
             bps = equity / shares_count
 
         # 純利益
@@ -301,17 +288,13 @@ def calculate_historical_metrics(data: dict) -> pd.DataFrame:
 
         # その年の配当
         year_dividends = yearly_dividends[yearly_dividends.index.year == year]
-        total_dividend = (
-            year_dividends.iloc[0] if not year_dividends.empty else None
-        )
+        total_dividend = year_dividends.iloc[0] if not year_dividends.empty else None
 
         # 指標を計算
         per = stock_price / eps if eps and eps > 0 else None
         pbr = stock_price / bps if bps and bps > 0 else None
         dividend_yield = (
-            (total_dividend / stock_price * 100)
-            if total_dividend and stock_price > 0
-            else None
+            (total_dividend / stock_price * 100) if total_dividend and stock_price > 0 else None
         )
 
         # 配当性向 = 配当総額 ÷ 純利益
@@ -343,7 +326,7 @@ def calculate_historical_metrics(data: dict) -> pd.DataFrame:
 
 def display_calculated_metrics(df: pd.DataFrame) -> None:
     """
-    計算された指標を表示します。
+    計算された指標を表示します.
 
     Args:
         df: 計算結果のDataFrame
@@ -404,7 +387,7 @@ def display_calculated_metrics(df: pd.DataFrame) -> None:
 
 def save_to_csv(df: pd.DataFrame, symbol: str) -> None:
     """
-    計算結果をCSVファイルに保存します。
+    計算結果をCSVファイルに保存します.
 
     Args:
         df: 計算結果のDataFrame
@@ -412,13 +395,13 @@ def save_to_csv(df: pd.DataFrame, symbol: str) -> None:
     """
     filename = f"work/historical_metrics_{symbol.replace('.', '_')}.csv"
     df.to_csv(filename, index=False, encoding="utf-8-sig")
-    print(f"\n{'='*60}")
+    print("\n" + "=" * 60)
     print(f"計算結果を {filename} に保存しました")
-    print(f"{'='*60}")
+    print("=" * 60)
 
 
 def main():
-    """メイン処理"""
+    """メイン処理."""
     symbol = "7203.T"
 
     try:
@@ -442,12 +425,8 @@ def main():
 
         print("\n【注意事項】")
         print("  - 計算には年度末（12月末）の株価を使用しています")
-        print(
-            "  - N/A や計算できない項目は、元データが取得できなかった項目です"
-        )
-        print(
-            "  - EPSやBPSはyfinanceから取得した財務諸表データを使用しています"
-        )
+        print("  - N/A や計算できない項目は、元データが取得できなかった項目です")
+        print("  - EPSやBPSはyfinanceから取得した財務諸表データを使用しています")
         print("  - 配当性向は、配当総額を純利益で割って計算しています")
 
     except Exception as e:

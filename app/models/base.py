@@ -11,9 +11,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import DateTime, Integer, text
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy import CHAR, DateTime, Integer, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.types import TypeDecorator
 
 
 def _camel_to_snake(name: str) -> str:
@@ -40,21 +40,59 @@ class Base(DeclarativeBase):
     """
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
+        """サブクラス初期化時にテーブル名を自動設定します."""
         # サブクラスで明示的に__tablename__がなければ自動でスネークケースを付与
         if "__tablename__" not in cls.__dict__:
             cls.__tablename__ = _camel_to_snake(cls.__name__)
         super().__init_subclass__(**kwargs)
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
-        # モデルインスタンスの簡易表現。`id` があれば含める。
+        """モデルインスタンスの簡易表現を返す（デバッグ用)."""
+        # `id` があれば含める。
         ident = getattr(self, "id", None)
         if ident is not None:
             return f"<{self.__class__.__name__} id={ident!r}>"
         return f"<{self.__class__.__name__}>"
 
     def model_name(self) -> str:  # pragma: no cover - trivial
-        """モデルのクラス名を返すユーティリティメソッド。テストやログで便利。"""
+        """モデルのクラス名を返すユーティリティメソッド. テストやログで便利."""
         return self.__class__.__name__
+
+
+class GUID(TypeDecorator):  # pylint: disable=too-many-ancestors
+    """汎用 UUID 型の TypeDecorator.
+
+    SQLite 等の方言では CHAR(36) の文字列として保存し、アプリ側では
+    `uuid.UUID` オブジェクトを受け渡し可能にします。
+    """
+
+    impl = CHAR
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        # Postgres をサポートする必要がないため、常に CHAR(36) を使う
+        return dialect.type_descriptor(CHAR(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, uuid.UUID):
+            return str(value)
+        # 文字列の場合はそのまま格納するが、検証のため UUID に変換してから文字列化する
+        return str(uuid.UUID(value))
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return uuid.UUID(value)
+
+    def process_literal_param(self, value, dialect):
+        # リテラル表現が必要な場合は bind_param と同様に処理する
+        return self.process_bind_param(value, dialect)
+
+    @property
+    def python_type(self):
+        return uuid.UUID
 
 
 class SerialPKMixin:
@@ -64,15 +102,15 @@ class SerialPKMixin:
         id (int): 自動増分プライマリキー
     """
 
-    id: Mapped[int] = mapped_column(
-        Integer, primary_key=True, autoincrement=True
-    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """簡易表現を返す（デバッグ用)."""
         ident = getattr(self, "id", None)
         return f"<{self.__class__.__name__} id={ident!r}>"
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返すユーティリティメソッド."""
         return self.__class__.__name__
 
 
@@ -83,15 +121,15 @@ class UUIDPKMixin:
         id (uuid.UUID): UUID プライマリキー（デフォルトで uuid.uuid4 を使用）
     """
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """簡易表現を返す（デバッグ用)."""
         ident = getattr(self, "id", None)
         return f"<{self.__class__.__name__} id={ident!r}>"
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返すユーティリティメソッド."""
         return self.__class__.__name__
 
 
@@ -111,17 +149,18 @@ class TimestampMixin:
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
-        server_default=text("now()"),
+        server_default=text("CURRENT_TIMESTAMP"),
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
-        server_default=text("now()"),
+        server_default=text("CURRENT_TIMESTAMP"),
     )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """初期化時に作成/更新時刻のデフォルト値を設定します."""
         now = datetime.now(timezone.utc)
         if "created_at" not in kwargs or kwargs.get("created_at") is None:
             kwargs["created_at"] = now
@@ -130,11 +169,13 @@ class TimestampMixin:
         super().__init__(*args, **kwargs)
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """簡易表現を返す（デバッグ用)."""
         # created_at/updated_at を含めず簡潔に表現
         ident = getattr(self, "id", None)
         return f"<{self.__class__.__name__} id={ident!r}>"
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """モデルのクラス名を返すユーティリティメソッド."""
         return self.__class__.__name__
 
 

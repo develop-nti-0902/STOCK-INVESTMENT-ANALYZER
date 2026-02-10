@@ -25,9 +25,7 @@ class StockSplits(SerialPKMixin, TimestampMixin, Base):
     symbol: Mapped[str] = mapped_column(String(20), nullable=False)
     split_date: Mapped[str] = mapped_column(Date, nullable=False)
     ratio: Mapped[float] = mapped_column(Numeric(18, 8), nullable=False)
-    split_type: Mapped[Optional[str]] = mapped_column(
-        String(20), nullable=True
-    )
+    split_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
@@ -36,10 +34,8 @@ class StockSplits(SerialPKMixin, TimestampMixin, Base):
     )
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
-        return (
-            "<StockSplits(symbol="
-            + f"{self.symbol!r}, split_date={self.split_date!r})>"
-        )
+        """簡易表現を返す（デバッグ用）."""
+        return "<StockSplits(symbol=" + f"{self.symbol!r}, split_date={self.split_date!r})>"
 
 
 __all__ = ["StockSplits"]

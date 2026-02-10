@@ -1,3 +1,8 @@
+"""バッチ実行詳細モデルの単体テスト.
+
+`BatchExecutionDetails` が `BatchExecution` と連携して永続化できることを検証します.
+"""
+
 from __future__ import annotations
 
 from sqlalchemy import create_engine
@@ -5,15 +10,11 @@ from sqlalchemy.orm import sessionmaker
 
 
 def test_batch_execution_details_fk_and_fields():
-    """`BatchExecutionDetails` が `BatchExecution` と連携して永続化できることを確認する。"""
+    """BatchExecutionDetails と BatchExecution の関連付けを検証します."""
     engine = create_engine("sqlite:///:memory:", future=True)
 
     # 遅延 import
-    from app.models import (  # noqa: E402
-        Base,
-        BatchExecution,
-        BatchExecutionDetails,
-    )
+    from app.models import Base, BatchExecution, BatchExecutionDetails  # noqa: E402
 
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)

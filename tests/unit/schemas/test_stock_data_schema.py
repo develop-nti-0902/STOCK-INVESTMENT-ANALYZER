@@ -32,7 +32,7 @@ class TestStockPriceBase:
         """有効なデータで作成できることを確認"""
         data = {
             "symbol": "AAPL",
-            "trade_date": datetime(2023, 1, 1, 12, 0, 0),
+            "timestamp": datetime(2023, 1, 1, 12, 0, 0),
             "open_price": 150.0,
             "high": 155.0,
             "low": 148.0,
@@ -49,7 +49,7 @@ class TestStockPriceBase:
         """オプションのフィールドがNoneでも作成できることを確認"""
         data = {
             "symbol": "AAPL",
-            "trade_date": datetime(2023, 1, 1, 12, 0, 0),
+            "timestamp": datetime(2023, 1, 1, 12, 0, 0),
         }
         stock = StockPriceBase(**data)
         assert stock.open_price is None
@@ -63,7 +63,7 @@ class TestStockPriceCreate:
         """有効なデータで作成できることを確認"""
         data = {
             "symbol": "aapl",  # 小文字で入力
-            "trade_date": datetime(2023, 1, 1, 12, 0, 0),
+            "timestamp": datetime(2023, 1, 1, 12, 0, 0),
             "open_price": 150.0,
             "high": 155.0,
             "low": 148.0,
@@ -92,7 +92,7 @@ class TestStockPriceResponse:
         data = {
             "id": 1,
             "symbol": "AAPL",
-            "trade_date": datetime(2023, 1, 1, 12, 0, 0),
+            "timestamp": datetime(2023, 1, 1, 12, 0, 0),
             "created_at": datetime(2023, 1, 1, 10, 0, 0),
             "updated_at": datetime(2023, 1, 1, 11, 0, 0),
             "close": 152.0,
@@ -114,7 +114,7 @@ class TestStockPriceBatch:
             "data": [
                 {
                     "symbol": "AAPL",
-                    "trade_date": datetime(2023, 1, 1, 12, 0, 0),
+                    "timestamp": datetime(2023, 1, 1, 12, 0, 0),
                     "close": 152.0,
                 }
             ],
@@ -142,7 +142,7 @@ class TestTimeframeSchemas:
         """各タイムフレームスキーマが作成できることを確認"""
         base_data = {
             "symbol": "AAPL",
-            "trade_date": datetime(2023, 1, 1, 12, 0, 0),
+            "timestamp": datetime(2023, 1, 1, 12, 0, 0),
             "close": 152.0,
         }
 

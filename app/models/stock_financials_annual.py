@@ -24,29 +24,15 @@ class StockFinancialsAnnual(SerialPKMixin, TimestampMixin, Base):
     fiscal_year: Mapped[int] = mapped_column(Integer, nullable=False)
     period_end: Mapped[Optional[str]] = mapped_column(Date, nullable=True)
 
-    revenue: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    operating_income: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    net_income: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    basic_eps: Mapped[Optional[float]] = mapped_column(
-        Numeric(18, 4), nullable=True
-    )
+    revenue: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    operating_income: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    net_income: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    basic_eps: Mapped[Optional[float]] = mapped_column(Numeric(18, 4), nullable=True)
     roe: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
     roa: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
-    total_assets: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    total_liabilities: Mapped[Optional[float]] = mapped_column(
-        Numeric(20, 2), nullable=True
-    )
-    dividends_per_share: Mapped[Optional[float]] = mapped_column(
-        Numeric(18, 4), nullable=True
-    )
+    total_assets: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    total_liabilities: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True)
+    dividends_per_share: Mapped[Optional[float]] = mapped_column(Numeric(18, 4), nullable=True)
 
     __table_args__ = (
         Index("idx_stock_finann_symbol", "symbol"),
@@ -54,6 +40,7 @@ class StockFinancialsAnnual(SerialPKMixin, TimestampMixin, Base):
     )
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """簡易表現を返す（デバッグ用）."""
         return (
             "<StockFinancialsAnnual(symbol="
             + f"{self.symbol!r}, fiscal_year={self.fiscal_year!r})>"

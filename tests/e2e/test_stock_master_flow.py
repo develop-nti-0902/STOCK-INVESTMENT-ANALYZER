@@ -1,15 +1,34 @@
+"""Stock master flow E2E tests."""
+
+# flake8: noqa
+
 import asyncio
 import time
 
-from tests.e2e.utils import fetch_stock_master_for_artifact, write_csv_artifact
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
+
+from app.utils.database import get_database_url
+from tests.e2e.utils import fetch_stock_master_for_artifact, run_async_safely, write_csv_artifact
+
+
+async def _cleanup_batch_executions() -> None:
+    """バッチ実行レコードをすべて削除する。"""
+    engine = create_async_engine(get_database_url())
+    try:
+        async with engine.begin() as conn:
+            # batch_execution_details は CASCADE で削除される
+            await conn.execute(text("DELETE FROM batch_executions"))
+    finally:
+        await engine.dispose()
 
 
 def test_stock_master_flow(client):
     """統合フローで `/api/v1/stock-master` の主要エンドポイントを検証する。
 
     処理順:
-    1. POST /api/v1/stock-master/refresh/sample
-    2. POST /api/v1/stock-master/refresh
+    1. POST /api/v1/stock-master/fetch/sample
+    2. POST /api/v1/stock-master/fetch
     3. GET  /api/v1/stock-master/symbols
     4. GET  /api/v1/stock-master/symbols/market/{market}
     5. DELETE /api/v1/stock-master/reset (クリーンアップ)
@@ -18,12 +37,12 @@ def test_stock_master_flow(client):
     r0 = client.delete("/api/v1/stock-master/reset")
     assert r0.status_code in (200, 404)
 
+    # 前準備: バッチ実行履歴をクリーンアップ
+    run_async_safely(_cleanup_batch_executions())
+
     try:
-        # 1) refresh/sample (テスト用パラメータ指定: sample_size=50 を使用)
-        sample_url = (
-            "/api/v1/stock-master/refresh/sample?"
-            "sample_size=50&batch_size=50"
-        )
+        # 1) fetch/sample (テスト用パラメータ指定: sample_size=50 を使用)
+        sample_url = "/api/v1/stock-master/fetch/sample?" "sample_size=50&batch_size=50"
         r_sample = client.post(sample_url)
         assert r_sample.status_code in (200, 201, 204)
         # レスポンスに sample_size=50 が反映されていることを簡易検証
@@ -35,12 +54,8 @@ def test_stock_master_flow(client):
 
         # artifact: refresh/sample後のstock_masterデータを取得
         try:
-            stock_master_data_sample = asyncio.run(
-                fetch_stock_master_for_artifact()
-            )
-            base_name_sample = (
-                "test_stock_master_flow_test_stock_master_flow_stock_master_1"
-            )
+            stock_master_data_sample = run_async_safely(fetch_stock_master_for_artifact())
+            base_name_sample = "test_stock_master_flow_test_stock_master_flow_stock_master_1"
             write_csv_artifact(stock_master_data_sample, name=base_name_sample)
         except Exception as e:
             print(f"DEBUG: Failed to write artifact after refresh/sample: {e}")
@@ -48,18 +63,16 @@ def test_stock_master_flow(client):
 
             traceback.print_exc()
 
-        # 2) refresh
-        r_refresh = client.post("/api/v1/stock-master/refresh")
+        # 2) fetch
+        r_refresh = client.post("/api/v1/stock-master/fetch")
         assert r_refresh.status_code == 200
         refresh_data = r_refresh.json()
         assert isinstance(refresh_data.get("updated_count"), int)
 
         # artifact: refresh後のstock_masterデータを取得
         try:
-            stock_master_data = asyncio.run(fetch_stock_master_for_artifact())
-            base_name = (
-                "test_stock_master_flow_test_stock_master_flow_stock_master_2"
-            )
+            stock_master_data = run_async_safely(fetch_stock_master_for_artifact())
+            base_name = "test_stock_master_flow_test_stock_master_flow_stock_master_2"
             write_csv_artifact(stock_master_data, name=base_name)
         except Exception as e:
             print(f"DEBUG: Failed to write artifact after refresh: {e}")
@@ -86,9 +99,7 @@ def test_stock_master_flow(client):
             client.post(sample_url)
             time.sleep(1)
 
-        assert isinstance(
-            symbols, list
-        ), "symbols はリストである必要があります"
+        assert isinstance(symbols, list), "symbols はリストである必要があります"
         assert (
             len(symbols) > 0
         ), "symbols が空です。refresh が正しくデータを作成しているか確認してください"
@@ -116,9 +127,7 @@ def test_stock_master_flow(client):
             items = r_market.json()
             if isinstance(items, dict):
                 items = items.get("symbols") or []
-            assert isinstance(
-                items, list
-            ), f"{m} のレスポンスがリストではありません"
+            assert isinstance(items, list), f"{m} のレスポンスがリストではありません"
             assert len(items) > 0, f"市場 {m} のsymbolsが空です"
             market_results[m] = items
 
@@ -126,4 +135,14 @@ def test_stock_master_flow(client):
 
     finally:
         # 5) クリーンアップ
-        client.delete("/api/v1/stock-master/reset")
+        try:
+            client.delete("/api/v1/stock-master/reset")
+        except Exception as e:
+            print(f"DEBUG: Failed to reset stock_master: {e}")
+
+        # バッチ実行レコードのクリーンアップ
+        try:
+            run_async_safely(_cleanup_batch_executions())
+            print("DEBUG: Cleanup - Batch execution records deleted")
+        except Exception as e:
+            print(f"DEBUG: Failed to cleanup batch_executions: {e}")

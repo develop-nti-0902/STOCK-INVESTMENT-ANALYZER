@@ -1,4 +1,4 @@
-"""add stock_master_updates handling
+"""add stock_master_updates handling.
 
 Revision ID: 0d5d2098df45
 Revises: 5eb81fa2fa7a

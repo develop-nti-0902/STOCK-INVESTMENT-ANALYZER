@@ -1,5 +1,5 @@
 """
-BaseRepositoryの単体テスト
+BaseRepositoryの単体テスト.
 
 BaseRepositoryの汎用CRUD操作をテストする。
 非同期セッションのモックを使用し、実際のDBに依存しないテストを実施する。
@@ -16,56 +16,58 @@ from app.repositories.base import BaseRepository
 
 
 class MockModel:
-    """テスト用のモデルクラス"""
+    """テスト用のモデルクラス."""
 
     # BaseRepository がクラス属性へアクセスするため、クラスレベルに id を定義する
     id: int = 0
 
     def __init__(self, **kwargs):
+        """テスト用モデルのインスタンスを初期化する."""
         self.id: int = kwargs.get("id", 0)
         for key, value in kwargs.items():
             setattr(self, key, value)
 
 
 class ConcreteRepository(BaseRepository[MockModel]):
-    """テスト用の具体的なRepository実装"""
+    """テスト用の具体的なRepository実装."""
 
     def __init__(self, session: AsyncSession):
+        """ConcreteRepository を初期化する (session を設定)."""
         super().__init__(session, MockModel)
 
     async def get(self, record_id: int):
-        """SQLAlchemyのselectをモック化したget"""
+        """SQLAlchemyのselectをモック化したget."""
         result: Result = await self.session.execute(MagicMock())
         return result.scalar_one_or_none()
 
     async def get_multi(self, skip: int = 0, limit: int = 100):
-        """SQLAlchemyのselectをモック化したget_multi"""
+        """SQLAlchemyのselectをモック化したget_multi."""
         result: Result = await self.session.execute(MagicMock())
         return list(result.scalars().all())
 
     async def count(self) -> int:
-        """SQLAlchemyのselectをモック化したcount"""
+        """SQLAlchemyのselectをモック化したcount."""
         result: Result = await self.session.execute(MagicMock())
         return result.scalar_one()
 
 
 class TestBaseRepository:
-    """BaseRepositoryの単体テスト"""
+    """BaseRepositoryの単体テスト."""
 
     @pytest.fixture
     def mock_session(self):
-        """非同期セッションのモックを作成"""
+        """非同期セッションのモックを作成."""
         session = AsyncMock(spec=AsyncSession)
         return session
 
     @pytest.fixture
     def repository(self, mock_session):
-        """ConcreteRepositoryのインスタンスを作成"""
+        """ConcreteRepositoryのインスタンスを作成."""
         return ConcreteRepository(mock_session)
 
     @pytest.mark.asyncio
     async def test_create(self, repository, mock_session):
-        """新規レコード作成のテスト（Repository層はflushのみ）"""
+        """新規レコード作成のテスト（Repository層はflushのみ）."""
         # Arrange
         test_data = {"id": 1, "name": "Test"}
         mock_session.flush = AsyncMock()
@@ -83,7 +85,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_create_rollback_on_error(self, repository, mock_session):
-        """create で例外が発生したらそのまま例外が伝播されることを確認"""
+        """create で例外が発生したらそのまま例外が伝播されることを確認."""
         mock_session.flush = AsyncMock(side_effect=SQLAlchemyError("boom"))
 
         with pytest.raises(SQLAlchemyError):
@@ -93,7 +95,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_get_by_id_found(self, repository, mock_session):
-        """ID検索（レコードが見つかる場合）のテスト"""
+        """ID検索（レコードが見つかる場合）のテスト."""
         # Arrange
         expected_model = MockModel(id=1, name="Test")
         mock_result = MagicMock()
@@ -110,7 +112,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_get_by_id_not_found(self, repository, mock_session):
-        """ID検索（レコードが見つからない場合）のテスト"""
+        """ID検索（レコードが見つからない場合）のテスト."""
         # Arrange
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -125,7 +127,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_get_all(self, repository, mock_session):
-        """全件取得のテスト"""
+        """全件取得のテスト."""
         # Arrange
         models = [
             MockModel(id=1, name="Test1"),
@@ -148,7 +150,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_update_found(self, repository, mock_session):
-        """レコード更新（レコードが見つかる場合）のテスト"""
+        """レコード更新（レコードが見つかる場合）のテスト."""
         # Arrange
         existing_model = MockModel(id=1, name="Old Name")
         mock_result = MagicMock()
@@ -167,7 +169,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_update_not_found(self, repository, mock_session):
-        """レコード更新（レコードが見つからない場合）のテスト"""
+        """レコード更新（レコードが見つからない場合）のテスト."""
         # Arrange
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -181,7 +183,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_update_rollback_on_error(self, repository, mock_session):
-        """update が失敗した場合に例外が伝播されることを確認"""
+        """update が失敗した場合に例外が伝播されることを確認."""
         existing_model = MockModel(id=1, name="Old Name")
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = existing_model
@@ -195,7 +197,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_delete_found(self, repository, mock_session):
-        """レコード削除（レコードが見つかる場合）のテスト"""
+        """レコード削除（レコードが見つかる場合）のテスト."""
         # Arrange
         existing_model = MockModel(id=1, name="Test")
         mock_result = MagicMock()
@@ -215,7 +217,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_delete_rollback_on_error(self, repository, mock_session):
-        """delete が失敗した場合に例外が伝播されることを確認"""
+        """delete が失敗した場合に例外が伝播されることを確認."""
         existing_model = MockModel(id=1, name="Test")
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = existing_model
@@ -229,7 +231,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_delete_not_found(self, repository, mock_session):
-        """レコード削除（レコードが見つからない場合）のテスト"""
+        """レコード削除（レコードが見つからない場合）のテスト."""
         # Arrange
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -243,7 +245,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_bulk_create(self, repository, mock_session):
-        """一括作成のテスト"""
+        """一括作成のテスト."""
         # 準備
         records = [
             {"id": 1, "name": "Test1"},
@@ -264,7 +266,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_bulk_create_rollback(self, repository, mock_session):
-        """bulk_create で失敗した場合に例外が伝播されることを確認"""
+        """bulk_create で失敗した場合に例外が伝播されることを確認."""
         records = [{"id": 1}, {"id": 2}]
         mock_session.flush = AsyncMock(side_effect=SQLAlchemyError("boom"))
 
@@ -275,7 +277,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_count_all(self, repository, mock_session):
-        """全件数取得のテスト"""
+        """全件数取得のテスト."""
         # Arrange
         mock_result = MagicMock()
         mock_result.scalar_one.return_value = 42
@@ -290,7 +292,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_exists_true_false(self, repository, mock_session):
-        """exists が True/False を返すことを確認"""
+        """exists が True/False を返すことを確認."""
         # BaseRepository.exists はモジュールレベルの select() を使用し、
         # SQLAlchemy のマップ済みクラスを期待します。
         # 型変換（coercion）エラーを回避するため select を差し替えます。
@@ -318,17 +320,19 @@ class TestBaseRepository:
 
 
 class RealRepository(BaseRepository[MockModel]):
-    """Baseクラス実装そのままを使うリポジトリ（テスト用）"""
+    """Baseクラス実装そのままを使うリポジトリ（テスト用）."""
 
     def __init__(self, session: AsyncSession):
+        """RealRepository を初期化する."""
         super().__init__(session, MockModel)
 
 
 class TestBaseRepositoryImplementation:
-    """BaseRepository 実装そのままの振る舞いをテスト"""
+    """BaseRepository 実装そのままの振る舞いをテスト."""
 
     @pytest.fixture
     def repository_real(self):
+        """テスト用の実際のリポジトリインスタンスを生成する fixture."""
         session = AsyncMock(spec=AsyncSession)
 
         # モデルが SQLAlchemy にマップされていないため、module-level の
@@ -360,7 +364,7 @@ class TestBaseRepositoryImplementation:
 
     @pytest.mark.asyncio
     async def test_base_get_by_id_found(self, repository_real):
-        """Base実装の get_by_id が期待通り返すことを確認"""
+        """Base実装の get_by_id が期待通り返すことを確認."""
         # Arrange
         expected = MockModel(id=10, name="Real")
         mock_result = MagicMock()
@@ -376,7 +380,7 @@ class TestBaseRepositoryImplementation:
 
     @pytest.mark.asyncio
     async def test_base_get_all_with_limit_offset(self, repository_real):
-        """Base実装の get_all が scalars().all を返すことを確認"""
+        """Base実装の get_all が scalars().all を返すことを確認."""
         # Arrange
         models = [
             MockModel(id=1, name="A"),
@@ -397,7 +401,7 @@ class TestBaseRepositoryImplementation:
 
     @pytest.mark.asyncio
     async def test_update_skips_nonexistent_attributes(self, repository_real):
-        """update が存在しない属性を無視することを確認"""
+        """update が存在しない属性を無視することを確認."""
         # Arrange
         existing = MockModel(id=5, name="Old")
         mock_result = MagicMock()
@@ -406,9 +410,7 @@ class TestBaseRepositoryImplementation:
         repository_real.session.flush = AsyncMock()
 
         # Act
-        result = await repository_real.update(
-            5, {"name": "New", "does_not_exist": "X"}
-        )
+        result = await repository_real.update(5, {"name": "New", "does_not_exist": "X"})
 
         # Assert
         assert result is not None
@@ -418,7 +420,7 @@ class TestBaseRepositoryImplementation:
 
     @pytest.mark.asyncio
     async def test_bulk_create_empty_list(self, repository_real):
-        """空リストの bulk_create が空を返すことを確認"""
+        """空リストの bulk_create が空を返すことを確認."""
         # Arrange
         repository_real.session.add_all = MagicMock()
         repository_real.session.flush = AsyncMock()
@@ -433,7 +435,7 @@ class TestBaseRepositoryImplementation:
 
     @pytest.mark.asyncio
     async def test_count_all_base_impl(self, repository_real):
-        """count_all が数値を返すことを確認"""
+        """count_all が数値を返すことを確認."""
         # Arrange
         mock_result = MagicMock()
         mock_result.scalar_one.return_value = 7
@@ -448,7 +450,7 @@ class TestBaseRepositoryImplementation:
 
     @pytest.mark.asyncio
     async def test_delete_not_found_base_impl(self, repository_real):
-        """delete で対象が見つからない場合 False を返すことを確認"""
+        """delete で対象が見つからない場合 False を返すことを確認."""
         # Arrange
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None

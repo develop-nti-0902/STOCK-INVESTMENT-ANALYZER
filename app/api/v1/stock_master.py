@@ -12,13 +12,13 @@ from pydantic import BaseModel
 from app.api.dependencies.services import get_stock_master_service
 from app.exceptions.business import ServiceError
 from app.exceptions.database import RecordNotFoundError
-from app.services.market_data.stock_master.service import StockMasterService
+from app.services.market_data.stock_master import StockMasterService
 
 router = APIRouter(tags=["stock-master"])
 
 
-class RefreshResponse(BaseModel):
-    """銘柄マスタ更新レスポンス.
+class FetchResponse(BaseModel):
+    """銘柄マスタ取得レスポンス.
 
     Attributes:
         message (str): 結果メッセージ
@@ -54,14 +54,14 @@ class ResetResponse(BaseModel):
 
 
 @router.post(
-    "/refresh",
-    response_model=RefreshResponse,
+    "/fetch",
+    response_model=FetchResponse,
     status_code=http_status.HTTP_200_OK,
 )
-async def refresh_stock_master(
+async def fetch_stock_master(
     service: StockMasterService = Depends(get_stock_master_service),
-) -> RefreshResponse:
-    """銘柄マスタを最新情報で更新.
+) -> FetchResponse:
+    """銘柄マスタを取得して保存します.
 
     JPXから最新の銘柄情報を取得してDBに保存します。
     更新履歴も stock_master_updates テーブルに記録されます。
@@ -70,33 +70,31 @@ async def refresh_stock_master(
         service (StockMasterService): 銘柄マスタサービス
 
     Returns:
-        RefreshResponse: 更新結果
+        FetchResponse: 更新結果
     """
     try:
-        updated_count = await service.refresh_stock_master()
-        return RefreshResponse(
-            message="Stock master refresh completed",
+        updated_count = await service.fetch_and_save()
+        return FetchResponse(
+            message="Stock master fetch completed",
             updated_count=updated_count,
         )
     except Exception as e:
         raise ServiceError(
-            message=f"Failed to refresh stock master: {str(e)}",
+            message=f"Failed to fetch stock master: {str(e)}",
         ) from e
 
 
 @router.post(
-    "/refresh/sample",
-    response_model=RefreshResponse,
+    "/fetch/sample",
+    response_model=FetchResponse,
     status_code=http_status.HTTP_200_OK,
 )
-async def refresh_stock_master_sample(
-    sample_size: int = Query(
-        100, gt=0, le=5000, description="Number of symbols to store"
-    ),
+async def fetch_stock_master_sample(
+    sample_size: int = Query(100, gt=0, le=5000, description="Number of symbols to store"),
     batch_size: int = Query(500, gt=0, le=5000, description="Batch size"),
     service: StockMasterService = Depends(get_stock_master_service),
-) -> RefreshResponse:
-    """銘柄マスタの先頭N件のみを取得してDBに保持する（テスト用）。
+) -> FetchResponse:
+    """銘柄マスタの先頭N件のみを取得してDBに保持する (テスト用).
 
     Args:
         sample_size (int): 保存する銘柄件数（デフォルト: 100）
@@ -104,22 +102,17 @@ async def refresh_stock_master_sample(
         service (StockMasterService): 銘柄マスタサービス
 
     Returns:
-        RefreshResponse: 更新結果
+        FetchResponse: 更新結果
     """
     try:
-        updated_count = await service.refresh_stock_master(
-            limit=sample_size, batch_size=batch_size
-        )
-        return RefreshResponse(
-            message=(
-                f"Stock master sample refresh completed "
-                f"(sample_size={sample_size})"
-            ),
+        updated_count = await service.fetch_and_save(limit=sample_size, batch_size=batch_size)
+        return FetchResponse(
+            message=(f"Stock master sample fetch completed " f"(sample_size={sample_size})"),
             updated_count=updated_count,
         )
     except Exception as e:
         raise ServiceError(
-            message=f"Failed to refresh stock master sample: {str(e)}",
+            message=f"Failed to fetch stock master sample: {str(e)}",
         ) from e
 
 
@@ -169,9 +162,7 @@ async def get_symbols_by_market(
     try:
         symbols = await service.get_symbols_by_market(market)
         if not symbols:
-            raise RecordNotFoundError(
-                message=f"No symbols found for market '{market}'"
-            )
+            raise RecordNotFoundError(message=f"No symbols found for market '{market}'")
         return SymbolListResponse(symbols=symbols, count=len(symbols))
     except RecordNotFoundError:
         raise

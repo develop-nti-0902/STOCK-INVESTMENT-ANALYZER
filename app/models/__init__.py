@@ -1,3 +1,5 @@
+"""Models パッケージ. プロジェクトで使用する SQLAlchemy モデルを公開します."""
+
 from __future__ import annotations
 
 from .account_portfolios import AccountPortfolios

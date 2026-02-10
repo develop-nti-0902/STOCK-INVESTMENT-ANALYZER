@@ -1,4 +1,9 @@
-# Pydantic schemas package
+"""Pydantic スキーマの公開パッケージ.
+
+このモジュールはプロジェクト内で利用可能な主要な Pydantic スキーマをまとめて
+エクスポートします。
+"""
+
 from pydantic import BaseModel
 
 from app.schemas.accounts import (  # noqa: F401
@@ -38,6 +43,12 @@ from app.schemas.stock_data import (
 
 
 class HealthResponse(BaseModel):
+    """ヘルスチェック用レスポンススキーマ.
+
+    Attributes:
+        status (str): サービスの稼働状態を表す文字列
+    """
+
     status: str
 
 

@@ -16,7 +16,7 @@ from .base import Base, SerialPKMixin, TimestampMixin
 
 
 class StockAnalystRecommendations(SerialPKMixin, TimestampMixin, Base):
-    """アナリスト推奨（`stock_analyst_recommendations`）モデル。
+    """アナリスト推奨（`stock_analyst_recommendations`）モデル.
 
     主なカラムは `symbol`, `period`, `strong_buy`, `buy`, `hold`, `sell`,
     `strong_sell`, `source` などです。

@@ -1,8 +1,4 @@
-"""yfinanceで取得可能な全データの確認スクリプト.
-
-yfinanceのTickerオブジェクトから取得できる全データを網羅的に確認し、
-データベーステーブル設計の参考情報を提供します。
-"""
+"""yfinanceで取得可能な全データの確認スクリプト."""
 
 import json
 from datetime import datetime
@@ -12,20 +8,20 @@ import yfinance as yf
 
 
 def print_section(title: str) -> None:
-    """セクションタイトルを表示"""
-    print(f"\n{'='*80}")
-    print(f"{title}")
-    print(f"{'='*80}\n")
+    """セクションタイトルを表示."""
+    print("\n" + "=" * 80)
+    print(title)
+    print("" + "=" * 80 + "\n")
 
 
 def print_dataframe_info(df: pd.DataFrame, name: str) -> dict:
     """
-    DataFrameの構造情報を表示し、辞書として返す
+    DataFrameの構造情報を表示し、辞書として返す.
 
     Returns:
         dict: テーブル設計の参考情報
     """
-    print(f"【{name}】")
+    print("【" + name + "】")
 
     if df is None or (isinstance(df, pd.DataFrame) and df.empty):
         print("  データなし\n")
@@ -34,14 +30,10 @@ def print_dataframe_info(df: pd.DataFrame, name: str) -> dict:
     info = {
         "available": True,
         "type": "DataFrame",
-        "shape": (
-            df.shape if isinstance(df, pd.DataFrame) else f"Series: {len(df)}"
-        ),
+        "shape": (df.shape if isinstance(df, pd.DataFrame) else f"Series: {len(df)}"),
     }
 
-    print(
-        f"  データ型: {'DataFrame' if isinstance(df, pd.DataFrame) else 'Series'}"
-    )
+    print("  データ型: " + ("DataFrame" if isinstance(df, pd.DataFrame) else "Series"))
 
     if isinstance(df, pd.DataFrame):
         print(f"  形状: {df.shape[0]}行 × {df.shape[1]}列")
@@ -66,14 +58,14 @@ def print_dataframe_info(df: pd.DataFrame, name: str) -> dict:
         info["columns"] = columns_info
 
         # サンプルデータ
-        print(f"\n  サンプルデータ（最初の3行）:")
+        print("\n  サンプルデータ（最初の3行）:")
         print(df.head(3).to_string(max_colwidth=30))
 
     elif isinstance(df, pd.Series):
-        print(f"  データ数: {len(df)}件")
-        print(f"  インデックス型: {type(df.index).__name__}")
-        print(f"  値の型: {df.dtype}")
-        print(f"\n  サンプルデータ（最初の5件）:")
+        print("  データ数: {}件".format(len(df)))
+        print("  インデックス型: {}".format(type(df.index).__name__))
+        print("  値の型: {}".format(df.dtype))
+        print("\n  サンプルデータ（最初の5件）:")
         for date, value in df.head(5).items():
             print(f"    {date}: {value}")
 
@@ -86,7 +78,7 @@ def print_dataframe_info(df: pd.DataFrame, name: str) -> dict:
 
 def explore_all_yfinance_data(symbol: str) -> dict:
     """
-    yfinanceの全データを取得して探索する
+    yfinanceの全データを取得して探索する.
 
     Returns:
         dict: 全データの構造情報
@@ -100,7 +92,7 @@ def explore_all_yfinance_data(symbol: str) -> dict:
     print_section("1. 基本情報 (Ticker.info)")
     info = ticker.info
     print(f"取得可能なキー数: {len(info)}")
-    print(f"主要なキー:")
+    print("主要なキー:")
 
     # カテゴリごとに分類
     categories = {
@@ -174,17 +166,15 @@ def explore_all_yfinance_data(symbol: str) -> dict:
 
     info_structure = {}
     for category, keys in categories.items():
-        print(f"\n  【{category}】")
+        print("\n  【" + category + "】")
         available_keys = []
         for key in keys:
             value = info.get(key)
             if value is not None:
-                print(f"    ✓ {key}: {type(value).__name__}")
-                available_keys.append(
-                    {"key": key, "type": type(value).__name__}
-                )
+                print("    ✓ {}: {}".format(key, type(value).__name__))
+                available_keys.append({"key": key, "type": type(value).__name__})
             else:
-                print(f"    ✗ {key}: (データなし)")
+                print("    ✗ {}: (データなし)".format(key))
         info_structure[category] = available_keys
 
     all_data_info["info"] = {
@@ -200,9 +190,7 @@ def explore_all_yfinance_data(symbol: str) -> dict:
     # 3. 損益計算書（年次）
     print_section("3. 損益計算書 - 年次 (Ticker.financials)")
     financials = ticker.financials
-    all_data_info["financials"] = print_dataframe_info(
-        financials, "損益計算書（年次）"
-    )
+    all_data_info["financials"] = print_dataframe_info(financials, "損益計算書（年次）")
 
     # 4. 損益計算書（四半期）
     print_section("4. 損益計算書 - 四半期 (Ticker.quarterly_financials)")
@@ -214,14 +202,10 @@ def explore_all_yfinance_data(symbol: str) -> dict:
     # 5. バランスシート（年次）
     print_section("5. バランスシート - 年次 (Ticker.balance_sheet)")
     balance_sheet = ticker.balance_sheet
-    all_data_info["balance_sheet"] = print_dataframe_info(
-        balance_sheet, "バランスシート（年次）"
-    )
+    all_data_info["balance_sheet"] = print_dataframe_info(balance_sheet, "バランスシート（年次）")
 
     # 6. バランスシート（四半期）
-    print_section(
-        "6. バランスシート - 四半期 (Ticker.quarterly_balance_sheet)"
-    )
+    print_section("6. バランスシート - 四半期 (Ticker.quarterly_balance_sheet)")
     quarterly_balance_sheet = ticker.quarterly_balance_sheet
     all_data_info["quarterly_balance_sheet"] = print_dataframe_info(
         quarterly_balance_sheet, "バランスシート（四半期）"
@@ -230,9 +214,7 @@ def explore_all_yfinance_data(symbol: str) -> dict:
     # 7. キャッシュフロー計算書（年次）
     print_section("7. キャッシュフロー - 年次 (Ticker.cashflow)")
     cashflow = ticker.cashflow
-    all_data_info["cashflow"] = print_dataframe_info(
-        cashflow, "キャッシュフロー（年次）"
-    )
+    all_data_info["cashflow"] = print_dataframe_info(cashflow, "キャッシュフロー（年次）")
 
     # 8. キャッシュフロー計算書（四半期）
     print_section("8. キャッシュフロー - 四半期 (Ticker.quarterly_cashflow)")
@@ -269,9 +251,7 @@ def explore_all_yfinance_data(symbol: str) -> dict:
     print_section("13. アナリスト推奨 (Ticker.recommendations)")
     try:
         recommendations = ticker.recommendations
-        all_data_info["recommendations"] = print_dataframe_info(
-            recommendations, "アナリスト推奨"
-        )
+        all_data_info["recommendations"] = print_dataframe_info(recommendations, "アナリスト推奨")
     except Exception as e:
         print(f"  取得エラー: {e}\n")
         all_data_info["recommendations"] = {
@@ -283,7 +263,7 @@ def explore_all_yfinance_data(symbol: str) -> dict:
     print_section("14. カレンダー (Ticker.calendar)")
     try:
         calendar = ticker.calendar
-        print(f"【カレンダー】")
+        print("【カレンダー】")
         if calendar is not None and not calendar.empty:
             print(calendar)
             all_data_info["calendar"] = {
@@ -301,9 +281,7 @@ def explore_all_yfinance_data(symbol: str) -> dict:
     print_section("15. 決算発表日 (Ticker.earnings_dates)")
     try:
         earnings_dates = ticker.earnings_dates
-        all_data_info["earnings_dates"] = print_dataframe_info(
-            earnings_dates, "決算発表日"
-        )
+        all_data_info["earnings_dates"] = print_dataframe_info(earnings_dates, "決算発表日")
     except Exception as e:
         print(f"  取得エラー: {e}\n")
         all_data_info["earnings_dates"] = {"available": False, "error": str(e)}
@@ -326,9 +304,7 @@ def explore_all_yfinance_data(symbol: str) -> dict:
     print_section("17. 主要株主 (Ticker.major_holders)")
     try:
         major_holders = ticker.major_holders
-        all_data_info["major_holders"] = print_dataframe_info(
-            major_holders, "主要株主"
-        )
+        all_data_info["major_holders"] = print_dataframe_info(major_holders, "主要株主")
     except Exception as e:
         print(f"  取得エラー: {e}\n")
         all_data_info["major_holders"] = {"available": False, "error": str(e)}
@@ -379,9 +355,7 @@ def explore_all_yfinance_data(symbol: str) -> dict:
     print_section("21. ESG情報 (Ticker.sustainability)")
     try:
         sustainability = ticker.sustainability
-        all_data_info["sustainability"] = print_dataframe_info(
-            sustainability, "ESG情報"
-        )
+        all_data_info["sustainability"] = print_dataframe_info(sustainability, "ESG情報")
     except Exception as e:
         print(f"  取得エラー: {e}\n")
         all_data_info["sustainability"] = {"available": False, "error": str(e)}
@@ -390,11 +364,11 @@ def explore_all_yfinance_data(symbol: str) -> dict:
     print_section("22. オプション有効期限 (Ticker.options)")
     try:
         options = ticker.options
-        print(f"【オプション有効期限】")
+        print("【オプション有効期限】")
         if options and len(options) > 0:
-            print(f"  利用可能な期限: {len(options)}件")
+            print("  利用可能な期限: {}件".format(len(options)))
             for opt in options[:5]:
-                print(f"    - {opt}")
+                print("    - {}".format(opt))
             all_data_info["options"] = {
                 "available": True,
                 "count": len(options),
@@ -410,9 +384,7 @@ def explore_all_yfinance_data(symbol: str) -> dict:
     print_section("23. 四半期決算 (Ticker.earnings)")
     try:
         earnings = ticker.earnings
-        all_data_info["earnings"] = print_dataframe_info(
-            earnings, "四半期決算"
-        )
+        all_data_info["earnings"] = print_dataframe_info(earnings, "四半期決算")
     except Exception as e:
         print(f"  取得エラー: {e}\n")
         all_data_info["earnings"] = {"available": False, "error": str(e)}
@@ -435,9 +407,7 @@ def explore_all_yfinance_data(symbol: str) -> dict:
 
 
 def generate_table_design_recommendations(all_data_info: dict) -> None:
-    """
-    取得したデータ構造に基づいて、テーブル設計の推奨案を生成
-    """
+    """取得したデータ構造に基づいて、テーブル設計の推奨案を生成."""
     print_section("テーブル設計の推奨案")
 
     tables = {
@@ -679,7 +649,7 @@ def generate_table_design_recommendations(all_data_info: dict) -> None:
         print(f"  説明: {info['説明']}")
         print(f"  更新頻度: {info['更新頻度']}")
         print(f"  データソース: {info['データソース']}")
-        print(f"  主要カラム:")
+        print("  主要カラム:")
         for col in info["主要カラム"]:
             print(f"    - {col}")
 
@@ -713,10 +683,8 @@ def generate_table_design_recommendations(all_data_info: dict) -> None:
 
 
 def save_results(all_data_info: dict, symbol: str) -> None:
-    """結果をJSONファイルに保存"""
-    filename = (
-        f"work/yfinance_all_data_structure_{symbol.replace('.', '_')}.json"
-    )
+    """結果をJSONファイルに保存."""
+    filename = f"work/yfinance_all_data_structure_{symbol.replace('.', '_')}.json"
 
     # DataFrameなどをJSON化できる形式に変換
     def convert_to_serializable(obj):
@@ -735,13 +703,13 @@ def save_results(all_data_info: dict, symbol: str) -> None:
             default=convert_to_serializable,
         )
 
-    print(f"\n\n{'='*80}")
-    print(f"データ構造情報を {filename} に保存しました")
-    print(f"{'='*80}")
+    print("\n\n" + "=" * 80)
+    print("データ構造情報を {} に保存しました".format(filename))
+    print("" + "=" * 80)
 
 
 def main():
-    """メイン処理"""
+    """メイン処理."""
     symbol = "7203.T"  # トヨタ自動車
 
     try:

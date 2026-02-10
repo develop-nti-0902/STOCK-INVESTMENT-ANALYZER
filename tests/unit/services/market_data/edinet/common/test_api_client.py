@@ -1,3 +1,5 @@
+"""Edinet API クライアントのユニットテスト（モックを使った非同期テスト）."""
+
 import os
 from datetime import date
 
@@ -10,9 +12,7 @@ os.environ.setdefault("EDINET_SUBSCRIPTION_KEY", "dummy_key")
 
 
 class _MockResponse:
-    def __init__(
-        self, json_data=None, bytes_data: bytes = b"", status: int = 200
-    ):
+    def __init__(self, json_data=None, bytes_data: bytes = b"", status: int = 200):
         self._json = json_data
         self._bytes = bytes_data
         self.status = status
@@ -52,6 +52,7 @@ class _MockSession:
 
 @pytest.mark.asyncio
 async def test_search_documents_returns_list():
+    """search_documents が結果のリストを返すことを確認する."""
     data = {"results": [{"docID": "A1"}, {"docID": "A2"}]}
     resp = _MockResponse(json_data=data, status=200)
     session = _MockSession(resp)
@@ -63,6 +64,7 @@ async def test_search_documents_returns_list():
 
 @pytest.mark.asyncio
 async def test_download_document_returns_bytes():
+    """download_document がバイト列を返すことを確認する."""
     content = b"PDFDATA"
     resp = _MockResponse(bytes_data=content, status=200)
     session = _MockSession(resp)
@@ -73,11 +75,10 @@ async def test_download_document_returns_bytes():
 
 @pytest.mark.asyncio
 async def test_retry_on_failure_then_success():
+    """最初の失敗の後に再試行が成功する振る舞いを確認する."""
     # first response fails, second succeeds
     resp_fail = _MockResponse(status=500)
-    resp_ok = _MockResponse(
-        json_data={"results": [{"docID": "OK"}]}, status=200
-    )
+    resp_ok = _MockResponse(json_data={"results": [{"docID": "OK"}]}, status=200)
 
     class SessionSequence:
         def __init__(self):

@@ -1,6 +1,6 @@
-"""`EdinetBalanceSheetRepository` の単体テスト。
+"""`EdinetBalanceSheetRepository` の単体テスト集.
 
-非同期セッションをモック化して、DB に接続せずに振る舞いを検証する。
+非同期セッションをモック化して DB に接続せずに振る舞いを検証します.
 """
 
 from datetime import date
@@ -10,27 +10,29 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.edinet_balance_sheet import EdinetBalanceSheet
-from app.repositories.edinet_balance_sheet_repository import (
-    EdinetBalanceSheetRepository,
-)
+from app.repositories.edinet_balance_sheet_repository import EdinetBalanceSheetRepository
 
 
 @pytest.fixture
 def mock_session():
+    """AsyncSession のモックフィクスチャを返します."""
     return AsyncMock(spec=AsyncSession)
 
 
 @pytest.fixture
 def repository(mock_session):
+    """`EdinetBalanceSheetRepository` のインスタンスフィクスチャを返します."""
     return EdinetBalanceSheetRepository(mock_session)
 
 
 def make_model(**kwargs):
+    """テスト用の `EdinetBalanceSheet` モデルインスタンスを作成します."""
     return EdinetBalanceSheet(**kwargs)
 
 
 @pytest.mark.asyncio
 async def test_crud_basic_operations(repository, mock_session):
+    """基本的な CRUD 処理の振る舞いを検証します."""
     # create は BaseRepository 側で flush を呼ぶだけなので、session.flush をモック
     mock_session.flush = AsyncMock()
 
@@ -80,9 +82,8 @@ async def test_crud_basic_operations(repository, mock_session):
 
 
 @pytest.mark.asyncio
-async def test_upsert_updates_when_newer_and_not_when_older(
-    repository, mock_session
-):
+async def test_upsert_updates_when_newer_and_not_when_older(repository, mock_session):
+    """upsert の新旧判定ロジックを検証します."""
     # シーケンス: upsert -> find_by_period の呼び出しが行われる
 
     # ケース1: 新しい submission_date の場合（更新される）
@@ -98,9 +99,7 @@ async def test_upsert_updates_when_newer_and_not_when_older(
     mock_result_upsert = MagicMock()
     mock_result_find = MagicMock()
     mock_result_find.scalar_one_or_none.return_value = new_model
-    mock_session.execute = AsyncMock(
-        side_effect=[mock_result_upsert, mock_result_find]
-    )
+    mock_session.execute = AsyncMock(side_effect=[mock_result_upsert, mock_result_find])
     mock_session.flush = AsyncMock()
 
     ret = await repository.upsert(input_data_new)
@@ -125,9 +124,7 @@ async def test_upsert_updates_when_newer_and_not_when_older(
     mock_result_upsert2 = MagicMock()
     mock_result_find2 = MagicMock()
     mock_result_find2.scalar_one_or_none.return_value = existing_model
-    mock_session.execute = AsyncMock(
-        side_effect=[mock_result_upsert2, mock_result_find2]
-    )
+    mock_session.execute = AsyncMock(side_effect=[mock_result_upsert2, mock_result_find2])
     mock_session.flush = AsyncMock()
 
     ret2 = await repository.upsert(input_data_old)
@@ -137,6 +134,7 @@ async def test_upsert_updates_when_newer_and_not_when_older(
 
 @pytest.mark.asyncio
 async def test_get_latest_by_sec_codes_and_count(repository, mock_session):
+    """get_latest_by_sec_codes と count_by_sec_code の振る舞いを検証します."""
     # get_latest_by_sec_codes
     models = [
         make_model(

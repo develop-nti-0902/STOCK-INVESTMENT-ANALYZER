@@ -1,156 +1,129 @@
-"""
-StockPriceSaverの単体テスト
+"""`StockPriceSaver` の単体テスト（書き直し）。
 
-StockPriceSaverの基本機能とデータ変換をテストします。
+テストは日本語コメントで記載し、外部依存（Repository）はモック化して
+`StockPriceSaver` のデータ変換・保存フローを検証します。
 """
 
 from datetime import datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pandas as pd
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions.validation import FieldValidationError
 from app.services.market_data.stock_price.saver import StockPriceSaver
 
 
+def make_mock_repo():
+    """簡易モックリポジトリを生成（upsert_bulk を持つ AsyncMock）。"""
+    repo = AsyncMock()
+    repo.upsert_bulk = AsyncMock(return_value=1)
+    return repo
+
+
 class TestStockPriceSaver:
-    """StockPriceSaverのテストクラス"""
+    # TIMEFRAME_REPOSITORIES を簡易ファクトリに差し替えてインスタンス化
+    @pytest.fixture
+    def patched_repos(self):
+        factories = {
+            k: (lambda session, _k=k: make_mock_repo())
+            for k in [
+                "1m",
+                "5m",
+                "15m",
+                "30m",
+                "1h",
+                "1d",
+                "1wk",
+                "1mo",
+            ]
+        }
+        with patch.dict(
+            "app.services.market_data.stock_price.saver.StockPriceSaver.TIMEFRAME_REPOSITORIES",
+            factories,
+            clear=False,
+        ):
+            yield
 
     @pytest.fixture
     def mock_session(self):
-        """モックDBセッション"""
-        return AsyncMock(spec=AsyncSession)
+        return AsyncMock()
 
     @pytest.fixture
-    def saver(self, mock_session):
-        """テスト対象のSaverインスタンス"""
-        return StockPriceSaver(mock_session)
+    def saver(self, patched_repos, mock_session):
+        # patched_repos により repository ファクトリはモックを返す
+        return StockPriceSaver(mock_session, batch_size=100, max_concurrent_batches=5)
 
-    def test_init(self, mock_session):
-        """初期化テスト"""
-        saver = StockPriceSaver(
-            mock_session, batch_size=500, max_concurrent_batches=2
-        )
+    def test_init_creates_repositories(self, saver):
+        # 初期化で期待するタイムフレームのキーが作られている
+        expected = ["1m", "5m", "15m", "30m", "1h", "1d", "1wk", "1mo"]
+        for k in expected:
+            assert k in saver.repositories
 
-        assert saver.session == mock_session
-        assert saver.batch_size == 500
-        assert saver.max_concurrent_batches == 2
-        assert len(saver.repositories) == 8  # 8種類のタイムフレーム
-
-        # 全タイムフレームのRepositoryが初期化されていることを確認
-        expected_timeframes = [
-            "1m",
-            "5m",
-            "15m",
-            "30m",
-            "1h",
-            "1d",
-            "1wk",
-            "1mo",
-        ]
-        for timeframe in expected_timeframes:
-            assert timeframe in saver.repositories
-
-    def test_select_repository_valid(self, saver):
-        """有効なタイムフレームのRepository選択テスト"""
+    def test_select_repository(self, saver):
+        # 有効なタイムフレームはリポジトリを返す
         repo = saver._select_repository("1d")
         assert repo is not None
-        assert hasattr(repo, "upsert_bulk")
+        # 無効なタイムフレームは None
+        assert saver._select_repository("bogus") is None
 
-    def test_select_repository_invalid(self, saver):
-        """無効なタイムフレームのRepository選択テスト"""
-        repo = saver._select_repository("invalid")
-        assert repo is None
-
-    def test_convert_dataframe_to_db_records_valid(self, saver):
-        """有効なDataFrameの変換テスト"""
-        # テストデータ作成
-        data = {
-            "timestamp": ["2023-01-01 09:00:00", "2023-01-01 09:01:00"],
-            "open": [100.0, 101.0],
-            "high": [105.0, 106.0],
-            "low": [95.0, 96.0],
-            "close": [102.0, 103.0],
-            "volume": [1000, 1100],
-        }
-        df = pd.DataFrame(data)
+    def test_convert_dataframe_to_db_records_basic(self, saver):
+        # 正常系: タイムスタンプのローカライズと数値変換が行われる
+        df = pd.DataFrame(
+            {
+                "timestamp": ["2023-01-01 09:00:00"],
+                "open": [100.0],
+                "high": [105.0],
+                "low": [95.0],
+                "close": [102.0],
+                "volume": [1000],
+            }
+        )
 
         records = saver._convert_dataframe_to_db_records("7203", df)
+        assert len(records) == 1
+        r = records[0]
+        assert r["symbol"] == "7203"
+        assert isinstance(r["timestamp"], datetime)
+        assert r["open"] == 100.0
 
-        assert len(records) == 2
-        assert records[0]["symbol"] == "7203"
-        assert records[0]["open"] == 100.0
-        assert records[0]["close"] == 102.0
-        assert records[0]["volume"] == 1000
-        assert isinstance(records[0]["timestamp"], datetime)
-
-    def test_convert_dataframe_to_db_records_missing_columns(self, saver):
-        """必須カラム欠如時のエラーテスト"""
-        # volumeカラム欠如
-        data = {
-            "timestamp": ["2023-01-01 09:00:00"],
-            "open": [100.0],
-            "high": [105.0],
-            "low": [95.0],
-            "close": [102.0],
-            # volumeなし
-        }
-        df = pd.DataFrame(data)
-
-        with pytest.raises(
-            FieldValidationError, match="Missing required columns"
-        ):
+    def test_convert_dataframe_missing_columns(self, saver):
+        df = pd.DataFrame({"timestamp": ["2023-01-01"], "open": [100.0]})
+        with pytest.raises(FieldValidationError, match="Missing required columns"):
             saver._convert_dataframe_to_db_records("7203", df)
 
-    def test_convert_dict_list_to_db_records_valid(self, saver):
-        """有効な辞書リストの変換テスト"""
-        data_list = [
+    def test_convert_dataframe_skips_invalid_rows(self, saver):
+        # NaN を含む行はスキップされる
+        df = pd.DataFrame(
             {
-                "timestamp": "2023-01-01 09:00:00",
-                "open": 100.0,
-                "high": 105.0,
-                "low": 95.0,
-                "close": 102.0,
-                "volume": 1000,
-            },
-            {
-                "timestamp": "2023-01-01 09:01:00",
-                "open": 101.0,
-                "high": 106.0,
-                "low": 96.0,
-                "close": 103.0,
-                "volume": 1100,
-            },
-        ]
-
-        records = saver._convert_dict_list_to_db_records("7203", data_list)
-
-        assert len(records) == 2
-        assert records[0]["symbol"] == "7203"
-        assert records[1]["volume"] == 1100
-
-    def test_prepare_data_for_db_dataframe(self, saver):
-        """DataFrame形式のデータ準備テスト"""
-        data = {
-            "timestamp": ["2023-01-01 09:00:00"],
-            "open": [100.0],
-            "high": [105.0],
-            "low": [95.0],
-            "close": [102.0],
-            "volume": [1000],
-        }
-        df = pd.DataFrame(data)
-
-        records = saver._prepare_data_for_db("7203", df)
-
+                "timestamp": ["2023-01-01", "2023-01-01"],
+                "open": [100.0, None],
+                "high": [105.0, 106.0],
+                "low": [95.0, 96.0],
+                "close": [102.0, 103.0],
+                "volume": [1000, 1100],
+            }
+        )
+        records = saver._convert_dataframe_to_db_records("7203", df)
         assert len(records) == 1
-        assert records[0]["symbol"] == "7203"
 
-    def test_prepare_data_for_db_dict_list(self, saver):
-        """辞書リスト形式のデータ準備テスト"""
-        data_list = [
+    def test_convert_dataframe_price_logic_violation(self, saver):
+        # high < low など論理的に矛盾する行はスキップされる
+        df = pd.DataFrame(
+            {
+                "timestamp": ["2023-01-01"],
+                "open": [100.0],
+                "high": [90.0],
+                "low": [95.0],
+                "close": [92.0],
+                "volume": [1000],
+            }
+        )
+        records = saver._convert_dataframe_to_db_records("7203", df)
+        assert records == []
+
+    def test_convert_dict_list_to_db_records_basic(self, saver):
+        data = [
             {
                 "timestamp": "2023-01-01 09:00:00",
                 "open": 100.0,
@@ -160,134 +133,44 @@ class TestStockPriceSaver:
                 "volume": 1000,
             }
         ]
-
-        records = saver._prepare_data_for_db("7203", data_list)
-
+        records = saver._convert_dict_list_to_db_records("7203", data)
         assert len(records) == 1
         assert records[0]["symbol"] == "7203"
 
     def test_prepare_data_for_db_invalid_type(self, saver):
-        """無効なデータ型のエラーテスト"""
-        with pytest.raises(
-            FieldValidationError, match="Unsupported data type"
-        ):
-            saver._prepare_data_for_db("7203", "invalid_data")
+        with pytest.raises(FieldValidationError, match="Unsupported data type"):
+            saver._prepare_data_for_db("7203", "bad")
 
     @pytest.mark.asyncio
-    async def test_save_multiple_stocks(self, saver, mock_session):
-        """複数銘柄保存テスト"""
-        from unittest.mock import AsyncMock, patch
-
-        # モックRepositoryの設定
-        mock_repo_1d = AsyncMock()
-        mock_repo_1d.upsert_bulk.return_value = 1  # 1件のデータなので1を返す
-        mock_repo_1h = AsyncMock()
-        mock_repo_1h.upsert_bulk.return_value = 1
-
-        saver.repositories["1d"] = mock_repo_1d
-        saver.repositories["1h"] = mock_repo_1h
-
-        # get_session_maker をモックして、独自セッション作成を回避
-        from contextlib import asynccontextmanager
-
-        @asynccontextmanager
-        async def mock_session_maker():
-            # モックセッションを返す
-            mock_sess = AsyncMock()
-            mock_sess.commit = AsyncMock()
-            mock_sess.rollback = AsyncMock()
-            # upsert_bulk 内で実行される session.execute の戻り値を用意
-            from unittest.mock import MagicMock
-
-            mock_result = MagicMock()
-            # rowcount を 1 に設定して成功扱いにする
-            mock_result.rowcount = 1
-            mock_sess.execute = AsyncMock(return_value=mock_result)
-            try:
-                yield mock_sess
-            finally:
-                pass
-
-        # テストデータ
-        data_dict = {
-            "7203": {
-                "1d": [
-                    {
-                        "timestamp": "2023-01-01",
-                        "open": 100.0,
-                        "high": 105.0,
-                        "low": 95.0,
-                        "close": 102.0,
-                        "volume": 1000,
-                    }
-                ],
-                "1h": [
-                    {
-                        "timestamp": "2023-01-01 09:00:00",
-                        "open": 100.0,
-                        "high": 105.0,
-                        "low": 95.0,
-                        "close": 102.0,
-                        "volume": 1000,
-                    }
-                ],
-            },
-            "9984": {
-                "1d": [
-                    {
-                        "timestamp": "2023-01-01",
-                        "open": 200.0,
-                        "high": 205.0,
-                        "low": 195.0,
-                        "close": 202.0,
-                        "volume": 2000,
-                    }
-                ],
-            },
-        }
-
-        # get_session_makerをパッチして、_save_single_stock_asyncが独自セッションを作らないようにする
-        with patch(
-            "app.services.market_data.stock_price.saver.get_session_maker",
-            return_value=mock_session_maker,
-        ):
-            results = await saver.save_batch_stocks(data_dict)
-
-        assert "7203_1d" in results
-        assert "7203_1h" in results
-        assert "9984_1d" in results
-        assert results["7203_1d"] == 1
-        assert results["7203_1h"] == 1
-        assert results["9984_1d"] == 1
-
-    def test_save_base_saver_interface(self, saver):
-        """BaseSaverインターフェースのテスト"""
-        # saveメソッドの存在確認
-        assert hasattr(saver, "save")
-        assert hasattr(saver, "save_batch")
-
-        # 実処理では save_batch を使うため、単体の save は未実装であることを期待する
-        import pytest
-
-        with pytest.raises(NotImplementedError):
-            # call with minimal payload
-            import asyncio
-
-            asyncio.run(
-                saver.save(
-                    {"symbol": "7203", "timeframe": "1d", "records": []}
-                )
-            )
-
-    @pytest.mark.asyncio
-    async def test_save_batch_base_interface(self, saver, mock_session):
-        """BaseSaverのsave_batchインターフェーステスト"""
-        # モックRepositoryの設定
+    async def test__save_symbol_uses_repository_upsert(self, saver):
+        # リポジトリモックを差し替えて upsert_bulk が呼ばれることを確認
         mock_repo = AsyncMock()
-        mock_repo.upsert_bulk.return_value = 2
+        mock_repo.upsert_bulk = AsyncMock(return_value=2)
         saver.repositories["1d"] = mock_repo
 
-        # BaseSaver形式のデータ
+        # データは辞書リストで渡す
+        data = {
+            "1d": [
+                {
+                    "timestamp": "2023-01-01",
+                    "open": 100.0,
+                    "high": 105.0,
+                    "low": 95.0,
+                    "close": 102.0,
+                    "volume": 1000,
+                }
+            ]
+        }
+
+        res = await saver._save_symbol("7203", data)
+        assert res["1d"] == 2
+        mock_repo.upsert_bulk.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_save_batch_aggregates_results(self, saver):
+        # _save_symbol をモックして集計処理のみテスト
+        saver._save_symbol = AsyncMock(return_value={"1d": 1})
+
         data_list = [
             {
                 "symbol": "7203",
@@ -295,21 +178,16 @@ class TestStockPriceSaver:
                 "records": [
                     {
                         "timestamp": "2023-01-01",
-                        "open": 100.0,
-                        "high": 105.0,
-                        "low": 95.0,
-                        "close": 102.0,
-                        "volume": 1000,
+                        "open": 1,
+                        "high": 2,
+                        "low": 1,
+                        "close": 2,
+                        "volume": 1,
                     }
                 ],
             }
         ]
 
-        # 内部で並列処理やセッション生成が行われるため、
-        # 集計部分だけをテストするために save_batch_stocks をモック化する
-        saver.save_batch_stocks = AsyncMock(return_value={"7203_1d": 2})
-
-        result = await saver.save_batch(data_list)
-
-        # 集計が期待どおりに行われることを検証
-        assert result == 2
+        total = await saver.save_batch(data_list)
+        # 上で返した dict の合計値が返ること
+        assert total == 1

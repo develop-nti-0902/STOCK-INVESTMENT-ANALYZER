@@ -1,3 +1,5 @@
+"""Views: 最新株価取得API. latest_stocks ビューの取得と更新を提供します."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -20,12 +22,9 @@ router = APIRouter(tags=["views"])  # OpenAPI tag: views
     summary="Refresh latest_stocks view",
 )
 async def refresh_latest_stocks(
-    service: LatestStocksRefreshService = Depends(
-        get_latest_stocks_refresh_service
-    ),
+    service: LatestStocksRefreshService = Depends(get_latest_stocks_refresh_service),
 ):
-    """Enqueue a background refresh job for the
-    `latest_stocks_1d` materialized view.
+    """Enqueue a background refresh job for the `latest_stocks_1d` materialized view.
 
     呼び出すと更新処理を非同期ジョブとして登録します。
     登録したジョブのIDをレスポンスとして返却します。

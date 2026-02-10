@@ -1,5 +1,5 @@
 """
-Repository層パッケージ
+Repository層パッケージ.
 
 データアクセス層の実装を提供する。
 Repository Patternを採用し、データベース操作の抽象化を行う。
@@ -7,9 +7,7 @@ Repository Patternを採用し、データベース操作の抽象化を行う�
 
 from app.repositories.account_repository import AccountRepository
 from app.repositories.base import BaseRepository
-from app.repositories.batch_execution_repository import (
-    BatchExecutionRepository,
-)
+from app.repositories.batch_execution_repository import BatchExecutionRepository
 from app.repositories.edinet_balance_sheet_repository import (  # noqa: F401
     EdinetBalanceSheetRepository,
 )

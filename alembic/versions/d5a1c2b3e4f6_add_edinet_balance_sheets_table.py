@@ -1,4 +1,4 @@
-"""add edinet_balance_sheets table
+"""add edinet_balance_sheets table.
 
 Revision ID: d5a1c2b3e4f6
 Revises: c1f9d2b3e4f5
@@ -56,19 +56,17 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "sec_code", "period_end_date", name="uq_edinet_sec_period"
-        ),
+        sa.UniqueConstraint("sec_code", "period_end_date", name="uq_edinet_sec_period"),
     )
     op.create_index(
         "idx_edinet_balance_doc_id",
@@ -90,7 +88,5 @@ def downgrade() -> None:
         "idx_edinet_balance_sec_code_period",
         table_name="edinet_balance_sheets",
     )
-    op.drop_index(
-        "idx_edinet_balance_doc_id", table_name="edinet_balance_sheets"
-    )
+    op.drop_index("idx_edinet_balance_doc_id", table_name="edinet_balance_sheets")
     op.drop_table("edinet_balance_sheets")

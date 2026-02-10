@@ -1,5 +1,5 @@
 """
-株価データSaver
+株価データSaver.
 
 StockPriceSaverクラスを実装し、タイムフレームに応じたRepository選択とデータ変換を提供します。
 DataFrameからDB形式への変換と一括保存をサポートします。
@@ -7,9 +7,8 @@ DataFrameからDB形式への変換と一括保存をサポートします。
 仕様書: docs/architecture/layers/service_layer.md 3.2.1章
 """
 
-import asyncio
 import logging
-from typing import Any, Callable, Dict, List, Optional, Union, cast
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,14 +26,15 @@ from app.repositories.stock_data_repository import (
     StockDataRepository,
 )
 from app.services.core.savers.bulk_saver_mixin import BulkSaverMixin
-from app.utils.database import get_session_maker
+
+# セッションは外部から注入される想定（FastAPIの依存注入 `get_db`）
 
 logger = logging.getLogger(__name__)
 
 
 class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
     """
-    株価データSaver
+    株価データSaver.
 
     タイムフレームに応じたRepositoryを選択し、DataFrameからDB形式への変換を行います。
     一括保存と単一保存の両方をサポートします。
@@ -45,9 +45,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
     """
 
     # タイムフレームとRepositoryクラスのマッピング
-    TIMEFRAME_REPOSITORIES: Dict[
-        str, Callable[[AsyncSession], StockDataRepository]
-    ] = {
+    TIMEFRAME_REPOSITORIES: Dict[str, Callable[[AsyncSession], StockDataRepository]] = {
         "1m": StockData1mRepository,
         "5m": StockData5mRepository,
         "15m": StockData15mRepository,
@@ -68,7 +66,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         max_concurrent_batches: int = 25,
     ):
         """
-        初期化
+        初期化.
 
         Args:
             session: 非同期DBセッション
@@ -86,27 +84,9 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         for timeframe, repo_class in self.TIMEFRAME_REPOSITORIES.items():
             self.repositories[timeframe] = repo_class(self.session)
 
-    async def save(self, data: Dict[str, Any], **kwargs: Any) -> bool:
+    async def save_batch(self, data_list: List[Dict[str, Any]], **kwargs: Any) -> int:
         """
-        単一データ保存（BaseSaverの実装）
-
-        Args:
-            data: 保存するデータ（symbol, timeframe, recordsを含むDict）
-            **kwargs: 追加パラメータ
-
-        Notes:
-            実処理では `save_batch` を使用しているため、
-            単体の `save` は派生クラスで必要に応じて実装してください。
-        """
-        raise NotImplementedError(
-            "save is not implemented for saver. Implement when needed."
-        )
-
-    async def save_batch(
-        self, data_list: List[Dict[str, Any]], **kwargs: Any
-    ) -> int:
-        """
-        一括データ保存（BaseSaverの実装）
+        一括データ保存（BaseSaverの実装）.
 
         Args:
             data_list: 保存するデータのリスト
@@ -131,144 +111,79 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 grouped_data[symbol][timeframe] = []
             grouped_data[symbol][timeframe].extend(records)
 
-        result = await self.save_batch_stocks(grouped_data)
-        return sum(result.values())
-
-    async def save_batch_stocks(
-        self,
-        data_dict: Dict[
-            str, Dict[str, Union[pd.DataFrame, List[Dict[str, Any]]]]
-        ],
-    ) -> Dict[str, int]:
-        """
-        複数銘柄の株価データを並列保存
-
-        Args:
-            data_dict: {symbol: {timeframe: data}} の形式
-
-        Returns:
-            Dict[str, int]: {symbol: 保存件数} の形式
-
-        Example:
-            >>> data = {
-            ...     "7203": {"1d": df1, "1h": df2},
-            ...     "9984": {"1d": df3}
-            ... }
-            >>> result = await saver.save_multiple_stocks(data)
-        """
+        # grouped_data の処理をここに統合
         results: Dict[str, int] = {}
 
-        # self.max_concurrent_batches ごとにチャンク分割して順次処理する。
-        symbols_items = list(data_dict.items())
+        symbols_items = list(grouped_data.items())
         if not symbols_items:
-            return results
+            return 0
 
-        # 並列数を増やして高速化（10 → 20）
         batch_size = max(1, getattr(self, "max_concurrent_batches", 20))
 
         for i in range(0, len(symbols_items), batch_size):
             batch = symbols_items[i : i + batch_size]
-            # バッチ内は並列実行して高速化する
-            tasks = [
-                self._save_symbol_async(symbol, timeframe_data)
-                for symbol, timeframe_data in batch
-            ]
-
-            task_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # バッチ結果を集計
-            for idx, (symbol, timeframe_data) in enumerate(batch):
-                result = task_results[idx]
-                if isinstance(result, Exception):
-                    logger.error(
-                        "Failed to save symbol %s: %s", symbol, result
-                    )
+            for symbol, timeframe_data in batch:
+                try:
+                    per_symbol: Dict[str, int] = await self._save_symbol(symbol, timeframe_data)
+                except Exception as e:
+                    logger.error("Failed to save symbol %s: %s", symbol, e)
                     for tf in timeframe_data.keys():
                         results[f"{symbol}_{tf}"] = 0
-                else:
-                    per_symbol: Dict[str, int] = cast(Dict[str, int], result)
-                    for tf in timeframe_data.keys():
-                        results[f"{symbol}_{tf}"] = per_symbol.get(tf, 0)
+                    # propagate exception to caller so caller can handle transaction
+                    raise
 
-            # バッチ処理後にローカル参照を解放してメモリ圧を下げる
-            del tasks
-            del task_results
+                for tf in timeframe_data.keys():
+                    results[f"{symbol}_{tf}"] = per_symbol.get(tf, 0)
 
-        return results
+        return sum(results.values())
 
-    async def _save_symbol_async(
+    async def _save_symbol(
         self,
         symbol: str,
         timeframe_data: Dict[str, Union[pd.DataFrame, List[Dict[str, Any]]]],
     ) -> Dict[str, int]:
-        """
-        銘柄単位で複数タイムフレームをまとめて保存し、
+        """銘柄単位で複数タイムフレームをまとめて保存します.
+
         最後に一度だけコミット/ロールバックする。
 
         Returns:
             Dict[str,int]: {timeframe: saved_count} の辞書
         """
-        session_maker = get_session_maker()
-        async with session_maker() as session:
-            results: Dict[str, int] = {}
-            try:
-                for timeframe, data in timeframe_data.items():
-                    repo_class = self.TIMEFRAME_REPOSITORIES.get(timeframe)
-                    if not repo_class:
-                        logger.error(
-                            "Unsupported timeframe for symbol %s: %s",
-                            symbol,
-                            timeframe,
-                        )
-                        results[timeframe] = 0
-                        continue
-
-                    db_records = self._prepare_data_for_db(symbol, data)
-                    if not db_records:
-                        logger.warning(
-                            "No DB records prepared for %s (%s)",
-                            symbol,
-                            timeframe,
-                        )
-                        results[timeframe] = 0
-                        continue
-
-                    repository = repo_class(session)
-                    saved_count = await repository.upsert_bulk(db_records)
-
-                    results[timeframe] = saved_count
-
-                total_saved = sum(results.values())
-                if total_saved > 0:
-                    await session.commit()
-                    logger.info(
-                        "_save_symbol_async: %s committed (total_saved=%s)",
+        # 注入されたセッション (`self.session`) のみを使用して保存処理を行う。
+        # 内部でセッションを新たに作成することはありません。
+        results: Dict[str, int] = {}
+        try:
+            for timeframe, data in timeframe_data.items():
+                repository = self.repositories.get(timeframe)
+                if not repository:
+                    logger.error(
+                        "Unsupported timeframe for symbol %s: %s",
                         symbol,
-                        total_saved,
+                        timeframe,
                     )
-                else:
-                    await session.rollback()
-                    logger.info(
-                        "_save_symbol_async: %s rolled back (no records)",
-                        symbol,
-                    )
+                    results[timeframe] = 0
+                    continue
 
-                return results
-
-            except Exception:
-                logger.exception(
-                    "Exception saving symbol (bulk) for %s",
-                    symbol,
-                )
-                try:
-                    await session.rollback()
-                except Exception as rollback_error:
-                    logger.exception(
-                        "Rollback failed for %s: %s",
+                db_records = self._prepare_data_for_db(symbol, data)
+                if not db_records:
+                    logger.warning(
+                        "No DB records prepared for %s (%s)",
                         symbol,
-                        rollback_error,
+                        timeframe,
                     )
-                return {tf: 0 for tf in timeframe_data.keys()}
+                    results[timeframe] = 0
+                    continue
+
+                saved_count = await repository.upsert_bulk(db_records)
+                results[timeframe] = saved_count
+
+            # saver はコミットを行わない。トランザクションは呼び出し元で管理する。
+            return results
+
+        except Exception:
+            logger.exception("Exception saving symbol (bulk) for %s", symbol)
+            # 例外は呼び出し元へ伝搬させ、トランザクション管理は呼び出し元で行う
+            raise
 
     def _prepare_data_for_db(
         self,
@@ -276,7 +191,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         data: Union[pd.DataFrame, List[Dict[str, Any]]],
     ) -> List[Dict[str, Any]]:
         """
-        DataFrameまたは辞書のリストをDB保存形式に変換
+        DataFrameまたは辞書のリストをDB保存形式に変換.
 
         Args:
             symbol: 銘柄コード
@@ -294,15 +209,11 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
                 return self._convert_dataframe_to_db_records(symbol, data)
 
             # 辞書のリストの場合
-            elif isinstance(data, list) and all(
-                isinstance(item, dict) for item in data
-            ):
+            elif isinstance(data, list) and all(isinstance(item, dict) for item in data):
                 return self._convert_dict_list_to_db_records(symbol, data)
 
             else:
-                raise FieldValidationError(
-                    message=f"Unsupported data type: {type(data)}"
-                )
+                raise FieldValidationError(message=f"Unsupported data type: {type(data)}")
 
         except Exception as e:
             logger.error("Failed to prepare data for DB: %s", e)
@@ -312,7 +223,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         self, symbol: str, df: pd.DataFrame
     ) -> List[Dict[str, Any]]:
         """
-        DataFrameをDBレコード形式に変換
+        DataFrameをDBレコード形式に変換.
 
         Args:
             symbol: 銘柄コード
@@ -324,9 +235,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         # 必須カラムの検証
         missing_columns = set(self.REQUIRED_COLUMNS) - set(df.columns)
         if missing_columns:
-            raise FieldValidationError(
-                message=f"Missing required columns: {missing_columns}"
-            )
+            raise FieldValidationError(message=f"Missing required columns: {missing_columns}")
 
         records = []
         skipped = 0
@@ -407,7 +316,7 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
         self, symbol: str, data_list: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
-        辞書のリストをDBレコード形式に変換
+        辞書のリストをDBレコード形式に変換.
 
         Args:
             symbol: 銘柄コード
@@ -494,11 +403,9 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
 
         return records
 
-    def _select_repository(
-        self, timeframe: str
-    ) -> Optional[StockDataRepository]:
+    def _select_repository(self, timeframe: str) -> Optional[StockDataRepository]:
         """
-        タイムフレームに応じたRepositoryを選択
+        タイムフレームに応じたRepositoryを選択.
 
         Args:
             timeframe: タイムフレーム識別子
@@ -507,3 +414,17 @@ class StockPriceSaver(BulkSaverMixin[Dict[str, Any]]):
             Any: 対応するRepositoryインスタンス、存在しない場合はNone
         """
         return self.repositories.get(timeframe)
+
+    async def save(self, data: Dict[str, Any], **kwargs: Any) -> bool:
+        """
+        単一データ保存（BaseSaverの実装）.
+
+        Args:
+            data: 保存するデータ（symbol, timeframe, recordsを含むDict）
+            **kwargs: 追加パラメータ
+
+        Notes:
+            実処理では `save_batch` を使用しているため、
+            単体の `save` は派生クラスで必要に応じて実装してください。
+        """
+        raise NotImplementedError("save is not implemented for saver. Implement when needed.")

@@ -54,3 +54,6 @@ tests/integration/batch/artifact/
 
 # Temporary files and directories
 work/edinet_temp
+
+# Mypy cache
+.mypy_cache

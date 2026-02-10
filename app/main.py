@@ -1,3 +1,8 @@
+"""FastAPI アプリケーションのエントリポイントモジュール.
+
+ライフサイクルハンドラ、例外ハンドラ、ルーティングの登録を行います。
+"""
+
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
@@ -21,7 +26,7 @@ from app.utils.logger import get_logger
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """`on_event` の代替として動作するライフスパンハンドラ。
+    """`on_event` の代替として動作するライフスパンハンドラ.
 
     起動時に DB プールをウォームアップし、終了時に `close_db` を呼んで
     DB リソースをクリーンアップします。
@@ -91,6 +96,11 @@ app.add_exception_handler(Exception, general_exception_handler)
 
 @app.get("/health", response_model=HealthResponse)
 async def health():
+    """ヘルスチェックエンドポイント.
+
+    Returns:
+        サービスの稼働状態を示す辞書
+    """
     return {"status": "ok"}
 
 

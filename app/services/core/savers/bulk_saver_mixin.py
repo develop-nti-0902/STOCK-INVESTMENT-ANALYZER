@@ -24,11 +24,9 @@ class BulkSaverMixin(BaseSaver[T], Generic[T]):
         max_concurrent_batches (int): 最大同時処理バッチ数
     """
 
-    def __init__(
-        self, batch_size: int = 1000, max_concurrent_batches: int = 3
-    ):
+    def __init__(self, batch_size: int = 1000, max_concurrent_batches: int = 3):
         """
-        BulkSaverMixinの初期化
+        BulkSaverMixinの初期化.
 
         Args:
             batch_size: 1回のバッチ処理で保存するレコード数
@@ -44,7 +42,7 @@ class BulkSaverMixin(BaseSaver[T], Generic[T]):
         progress_callback: Callable[..., Any] | None = None,
     ) -> int:
         """
-        データをチャンクに分割して一括保存
+        データをチャンクに分割して一括保存.
 
         Args:
             data_list: 保存するデータのリスト
@@ -76,17 +74,14 @@ class BulkSaverMixin(BaseSaver[T], Generic[T]):
 
         # データをチャンクに分割
         chunks = [
-            data_list[i : i + actual_chunk_size]
-            for i in range(0, total_records, actual_chunk_size)
+            data_list[i : i + actual_chunk_size] for i in range(0, total_records, actual_chunk_size)
         ]
 
         total_saved = 0
         semaphore = asyncio.Semaphore(self.max_concurrent_batches)
 
-        async def save_chunk_with_semaphore(
-            chunk: list[T], chunk_index: int
-        ) -> int:
-            """セマフォ制御付きチャンク保存"""
+        async def save_chunk_with_semaphore(chunk: list[T], chunk_index: int) -> int:
+            """セマフォ制御付きチャンク保存."""
             async with semaphore:
                 try:
                     saved_count = await self._execute_bulk_insert(chunk)
@@ -119,10 +114,7 @@ class BulkSaverMixin(BaseSaver[T], Generic[T]):
                     return 0
 
         # 全チャンクを並列処理
-        tasks = [
-            save_chunk_with_semaphore(chunk, i)
-            for i, chunk in enumerate(chunks)
-        ]
+        tasks = [save_chunk_with_semaphore(chunk, i) for i, chunk in enumerate(chunks)]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -150,7 +142,7 @@ class BulkSaverMixin(BaseSaver[T], Generic[T]):
 
     async def _execute_bulk_insert(self, chunk: list[T]) -> int:
         """
-        チャンクごとの一括挿入処理（サブクラスで実装）
+        チャンクごとの一括挿入処理（サブクラスで実装）.
 
         Args:
             chunk: 保存するデータのチャンク
@@ -172,7 +164,7 @@ class BulkSaverMixin(BaseSaver[T], Generic[T]):
 
     async def validate_batch_data(self, data_list: list[T]) -> list[T]:
         """
-        バッチデータの検証
+        バッチデータの検証.
 
         Args:
             data_list: 検証対象のデータリスト
@@ -195,7 +187,7 @@ class BulkSaverMixin(BaseSaver[T], Generic[T]):
 
     def get_progress_info(self, current: int, total: int) -> dict[str, Any]:
         """
-        進捗情報を取得
+        進捗情報を取得.
 
         Args:
             current: 現在の処理数

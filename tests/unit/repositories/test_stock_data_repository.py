@@ -1,5 +1,5 @@
 """
-StockDataRepository単体テスト
+StockDataRepository単体テスト.
 
 StockDataRepositoryのUPSERT処理とデータ取得機能をテストします。
 """
@@ -23,11 +23,11 @@ from app.repositories.stock_data_repository import (
 
 
 class TestStockDataRepository:
-    """StockDataRepository基底クラスのテスト"""
+    """StockDataRepository基底クラスのテスト."""
 
     @pytest.fixture
     def mock_session(self):
-        """モックDBセッション"""
+        """モックDBセッション."""
         session = AsyncMock()
         session.commit = AsyncMock()
         session.rollback = AsyncMock()
@@ -36,17 +36,17 @@ class TestStockDataRepository:
 
     @pytest.fixture
     def repo_1m(self, mock_session):
-        """1分足Repositoryインスタンス"""
+        """1分足Repositoryインスタンス."""
         return StockData1mRepository(mock_session)
 
     @pytest.fixture
     def repo_1d(self, mock_session):
-        """日足Repositoryインスタンス"""
+        """日足Repositoryインスタンス."""
         return StockData1dRepository(mock_session)
 
     @pytest.mark.asyncio
     async def test_upsert_single_success_insert(self, repo_1m):
-        """単一UPSERT（新規挿入）の成功"""
+        """単一UPSERT（新規挿入）の成功."""
         # Arrange
         # テストデータ
         data = {
@@ -79,7 +79,7 @@ class TestStockDataRepository:
 
     @pytest.mark.asyncio
     async def test_upsert_single_success_update(self, repo_1m):
-        """単一UPSERT（更新）の成功"""
+        """単一UPSERT（更新）の成功."""
         # Arrange
         # テストデータ
         data = {
@@ -107,7 +107,7 @@ class TestStockDataRepository:
 
     @pytest.mark.asyncio
     async def test_upsert_single_missing_fields(self, repo_1m):
-        """必須フィールド不足時のエラー"""
+        """必須フィールド不足時のエラー."""
         # Arrange
         # 不完全なデータ
         data = {
@@ -117,21 +117,19 @@ class TestStockDataRepository:
         }
 
         # Act & Assert
-        with pytest.raises(
-            FieldValidationError, match="Missing required fields"
-        ):
+        with pytest.raises(FieldValidationError, match="Missing required fields"):
             await repo_1m.upsert_single(data)
 
     @pytest.mark.asyncio
     async def test_upsert_single_empty_data(self, repo_1m):
-        """空データ時のエラー"""
+        """空データ時のエラー."""
         # Act & Assert
         with pytest.raises(FieldValidationError, match="Data cannot be empty"):
             await repo_1m.upsert_single({})
 
     @pytest.mark.asyncio
     async def test_upsert_bulk_success(self, repo_1m):
-        """一括UPSERTの成功"""
+        """一括UPSERTの成功."""
         # Arrange
         # テストデータ
         data_list = [
@@ -171,7 +169,7 @@ class TestStockDataRepository:
 
     @pytest.mark.asyncio
     async def test_upsert_bulk_partial_failure(self, repo_1m):
-        """一括UPSERTの部分失敗"""
+        """一括UPSERTの部分失敗."""
         # Arrange
         # テストデータ（1つは不完全）
         data_list = [
@@ -205,7 +203,7 @@ class TestStockDataRepository:
 
     @pytest.mark.asyncio
     async def test_get_by_symbol_and_range_1m(self, repo_1m):
-        """1分足データの期間指定取得"""
+        """1分足データの期間指定取得."""
         # Arrange
         # モック設定
         mock_records = [MagicMock(), MagicMock()]
@@ -224,7 +222,7 @@ class TestStockDataRepository:
 
     @pytest.mark.asyncio
     async def test_get_by_symbol_and_range_1d(self, repo_1d):
-        """日足データの期間指定取得"""
+        """日足データの期間指定取得."""
         # Arrange
         # モック設定
         mock_records = [MagicMock(), MagicMock()]
@@ -243,7 +241,7 @@ class TestStockDataRepository:
 
     @pytest.mark.asyncio
     async def test_get_latest(self, repo_1m):
-        """最新データの取得"""
+        """最新データの取得."""
         # Arrange
         # モック設定
         mock_records = [MagicMock()]
@@ -260,14 +258,15 @@ class TestStockDataRepository:
 
 
 class TestTimeframeSpecificRepositories:
-    """タイムフレーム別Repositoryのテスト"""
+    """タイムフレーム別Repositoryのテスト."""
 
     @pytest.fixture
     def mock_session(self):
+        """モックDBセッション."""
         return AsyncMock()
 
     def test_timeframe_properties(self, mock_session):
-        """各Repositoryのタイムフレームプロパティ確認"""
+        """各Repositoryのタイムフレームプロパティ確認."""
         # Arrange
         repos = [
             (StockData1mRepository(mock_session), "1m", "timestamp"),

@@ -60,9 +60,7 @@ class AppException(Exception):
             else getattr(self, "default_error_code", "APP_ERROR")
         )
         resolved_status = (
-            status_code
-            if status_code is not None
-            else getattr(self, "default_status_code", 500)
+            status_code if status_code is not None else getattr(self, "default_status_code", 500)
         )
 
         super().__init__(resolved_message)
@@ -74,7 +72,7 @@ class AppException(Exception):
         self.original_error = ctx.get("original_error")
 
     def to_dict(self) -> dict:
-        """例外を辞書形式に変換（APIレスポンス用）"""
+        """例外を辞書形式に変換（APIレスポンス用)."""
         return {
             "error": {
                 "code": self.error_code,
@@ -84,16 +82,18 @@ class AppException(Exception):
         }
 
     def to_http_exception(self) -> HTTPException:
-        """FastAPI HTTPExceptionに変換"""
+        """FastAPI `HTTPException` に変換します."""
         return HTTPException(
             status_code=self.status_code,
             detail=self.to_dict(),
         )
 
     def __str__(self) -> str:
+        """ユーザ向けの文字列表現を返す."""
         return f"[{self.error_code}] {self.message}"
 
     def __repr__(self) -> str:
+        """デバッグ用の詳細な表現を返す."""
         return (
             f"{self.__class__.__name__}("
             f"message={self.message!r}, "

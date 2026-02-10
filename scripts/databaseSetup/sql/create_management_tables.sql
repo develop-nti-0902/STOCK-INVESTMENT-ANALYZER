@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS stock_master (
   scale_category VARCHAR(50),
   data_date VARCHAR(8),
   is_active INTEGER NOT NULL DEFAULT 1,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_stock_master_code ON stock_master (stock_code);
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS stock_master_updates (
   removed_stocks INTEGER DEFAULT 0,
   status VARCHAR(20) NOT NULL,
   error_message TEXT,
-  started_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  started_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   completed_at TIMESTAMP WITH TIME ZONE
 );
 
@@ -61,11 +61,11 @@ CREATE TABLE IF NOT EXISTS batch_executions (
   processed_stocks INTEGER DEFAULT 0,
   successful_stocks INTEGER DEFAULT 0,
   failed_stocks INTEGER DEFAULT 0,
-  start_time TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  start_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   end_time TIMESTAMP WITH TIME ZONE,
   error_message TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_batch_executions_status ON batch_executions (status);
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS batch_execution_details (
   end_time TIMESTAMP WITH TIME ZONE,
   error_message TEXT,
   records_inserted INTEGER DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_batch_execution_details_batch_id
