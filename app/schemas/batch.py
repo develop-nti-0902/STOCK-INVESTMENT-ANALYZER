@@ -297,7 +297,7 @@ class EdinetBalanceSheetResponse(BaseResponseSchema):
     """EDINET貸借対照表取得レスポンス.
 
     Attributes:
-        job_id (str): ジョブID
+        job_id (str): ジョブID（同期実行のため固定値）
         status (str): ジョブステータス
         total_documents (int): 検索された書類数
         processed_documents (int): 処理済み書類数
@@ -305,7 +305,7 @@ class EdinetBalanceSheetResponse(BaseResponseSchema):
         failed_documents (int): 失敗した書類数
     """
 
-    job_id: str = Field(..., description="ジョブID")
+    job_id: str = Field(..., description="ジョブID（同期実行のため固定値）")
     status: str = Field(..., description="ジョブステータス")
     total_documents: int = Field(0, description="検索された書類数", ge=0)
     processed_documents: int = Field(0, description="処理済み書類数", ge=0)
