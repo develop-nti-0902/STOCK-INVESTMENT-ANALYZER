@@ -80,9 +80,11 @@ setlocal DISABLEDELAYEDEXPANSION
 set "OLD_DBURL=%DATABASE_URL%"
 endlocal & set "DATABASE_URL=%OLD_DBURL%"
 
-%PYTHON_CMD% -m alembic downgrade base || (
+pushd "%REPO_ROOT%" >nul 2>&1
+%PYTHON_CMD% -m alembic -c "%REPO_ROOT%alembic.ini" downgrade base || (
   echo [WARN] Alembic downgrade failed or not initialized for this DB; continuing to file removal
 )
+popd >nul 2>&1
 
 echo Deleting DB file: %DB_FILE%
 del /f /q "%DB_FILE%" >nul 2>&1 || (
