@@ -12,7 +12,9 @@
     - [2.2 一時ファイル管理（非データベース）](#22-一時ファイル管理非データベース)
     - [2.3 edinet\_balance\_sheets（EDINET貸借対照表データ）](#23-edinet_balance_sheetsedinet貸借対照表データ)
     - [2.3.1 XBRLタグとカラムの対応関係](#231-xbrlタグとカラムの対応関係)
-    - [2.4 進捗管理とエラーハンドリング](#24-進捗管理とエラーハンドリング)
+    - [2.4 edinet\_profit\_and\_loss（EDINET損益・キャッシュフローデータ）](#24-edinet_profit_and_lossedinet損益キャッシュフローデータ)
+    - [2.4.1 XBRLタグとカラムの対応関係](#241-xbrlタグとカラムの対応関係)
+    - [2.5 進捗管理とエラーハンドリング](#25-進捗管理とエラーハンドリング)
   - [3. データ更新戦略](#3-データ更新戦略)
     - [3.1 最新データ優先ポリシー](#31-最新データ優先ポリシー)
     - [3.2 重複データの判定](#32-重複データの判定)
@@ -91,6 +93,7 @@ EDINET（金融商品取引法に基づく有価証券報告書等の開示書�
 
 ```
 edinet_balance_sheets          # 貸借対照表データ（永続化）
+edinet_profit_and_loss         # 損益・キャッシュフローデータ（永続化）
 ```
 
 **設計方針**:
@@ -250,7 +253,94 @@ UNIQUE (sec_code, period_end_date)
 
 ---
 
-### 2.4 進捗管理とエラーハンドリング
+### 2.4 edinet_profit_and_loss（EDINET損益・キャッシュフローデータ）
+
+**目的**: XBRLから解析した損益計算書およびキャッシュフロー計算書の財務データを保存
+
+| カラム名           | 型             | NULL     | デフォルト        | 説明                                                                                            |
+| ------------------ | -------------- | -------- | ----------------- | ----------------------------------------------------------------------------------------------- |
+| id                 | SERIAL         | NOT NULL | -                 | 主キー（自動採番）                                                                              |
+| doc_id             | VARCHAR(50)    | NOT NULL | -                 | EDINET文書ID（例: S100N8ST）                                                                    |
+| sec_code           | VARCHAR(10)    | NOT NULL | -                 | 証券コード（例: 7203）                                                                          |
+| submission_date    | DATE           | NOT NULL | -                 | 有価証券報告書の提出日                                                                          |
+| period_end_date    | DATE           | NOT NULL | -                 | 決算期末日                                                                                      |
+| fiscal_year        | INTEGER        | NULL     | -                 | 会計年度（例: 2024）                                                                            |
+| report_type        | VARCHAR(20)    | NOT NULL | 'annual'          | 報告種別（annual: 年次, quarterly: 四半期）                                                     |
+| operating_profit   | NUMERIC(20, 2) | NULL     | -                 | 営業キャッシュフロー（百万円）                                                                  |
+| eps                | NUMERIC(20, 2) | NULL     | -                 | EPS（1株当たり当期純利益、円）                                                                  |
+| candidate_contexts | VARCHAR(50)    | NULL     | -                 | 実際に解析で使用された `context`（例: CurrentYearDuration）                                     |
+| candidate_keys     | VARCHAR(50)    | NULL     | -                 | 実際に解析で使用された `key`（例: jpcrp_cor:BasicEarningsLossPerShareSummaryOfBusinessResults） |
+| is_consolidated    | BOOLEAN        | NULL     | -                 | 連結決算フラグ（TRUE: 連結、FALSE: 単体）                                                       |
+| created_at         | TIMESTAMP      | NOT NULL | CURRENT_TIMESTAMP | レコード作成日時                                                                                |
+| updated_at         | TIMESTAMP      | NOT NULL | CURRENT_TIMESTAMP | レコード更新日時                                                                                |
+
+### 2.4.1 XBRLタグとカラムの対応関係
+
+**candidate_contexts（コンテキスト優先順位）**:
+解析時には以下のコンテキストを優先順位順に検索します。
+有価証券報告書には当期を含めて過去5年分のデータが含まれているため、各年度について順次解析を行います：
+
+**当期（CurrentYear）**:
+1. `CurrentYearDuration`: 当期末時点
+2. `CurrentYearDuration_ConsolidatedMember`: 当期末時点（連結）
+3. `CurrentYearDuration_NonConsolidatedMember`: 当期末時点（個別）
+
+**前期（Prior1Year）**:
+1. `Prior1YearDuration`: 前期末時点
+2. `Prior1YearDuration_ConsolidatedMember`: 前期末時点（連結）
+3. `Prior1YearDuration_NonConsolidatedMember`: 前期末時点（個別）
+
+**前々期（Prior2Year）**:
+1. `Prior2YearDuration`: 前々期末時点
+2. `Prior2YearDuration_ConsolidatedMember`: 前々期末時点（連結）
+3. `Prior2YearDuration_NonConsolidatedMember`: 前々期末時点（個別）
+
+**3期前（Prior3Year）**:
+1. `Prior3YearDuration`: 3期前末時点
+2. `Prior3YearDuration_ConsolidatedMember`: 3期前末時点（連結）
+3. `Prior3YearDuration_NonConsolidatedMember`: 3期前末時点（個別）
+
+**4期前（Prior4Year）**:
+1. `Prior4YearDuration`: 4期前末時点
+2. `Prior4YearDuration_ConsolidatedMember`: 4期前末時点（連結）
+3. `Prior4YearDuration_NonConsolidatedMember`: 4期前末時点（個別）
+
+**candidate_keys（XBRLタグ）とカラムの対応**:
+
+| カラム名         | XBRLタグ（candidate_keys）                                    | 備考                                                             |
+| ---------------- | ------------------------------------------------------------- | ---------------------------------------------------------------- |
+| eps              | `jpcrp_cor:BasicEarningsLossPerShareSummaryOfBusinessResults` | 1株当たり当期純利益（経営指標サマリーから取得）                  |
+| operating_profit | `jppfs_cor:NetCashProvidedByUsedInOperatingActivities`        | 営業活動によるキャッシュフロー（キャッシュフロー計算書から取得） |
+
+**特記事項**:
+- **コンテキストの違い**: 貸借対照表では `Instant`（時点）を使用しますが、損益計算書とキャッシュフロー計算書では `Duration`（期間）を使用します。
+- **EPS（1株当たり当期純利益）**: 経営指標等のサマリーから取得します。企業によっては基本的EPSと希薄化後EPSの両方が記載されている場合がありますが、ここでは基本的EPSを使用します。
+- **営業キャッシュフロー**: キャッシュフロー計算書の営業活動セクションから取得します。プラスの値は現金の増加、マイナスの値は現金の減少を示します。
+- **タグの名前空間**:
+  - `jpcrp_cor`: 企業内容等の開示に関する内閣府令（Consolidated Results）
+  - `jppfs_cor`: 財務諸表等の用語、様式及び作成方法に関する規則（Financial Statements）
+
+**制約・インデックス**:
+```sql
+PRIMARY KEY (id)
+INDEX idx_edinet_pl_doc_id (doc_id)
+INDEX idx_edinet_pl_sec_code (sec_code)
+INDEX idx_edinet_pl_period_end (period_end_date DESC)
+INDEX idx_edinet_pl_sec_period (sec_code, period_end_date DESC)
+UNIQUE (sec_code, period_end_date)
+```
+
+**特徴**:
+- `doc_id` はEDINET文書IDで、重複提出を識別
+- **UNIQUE制約**: `(sec_code, period_end_date)` で同一年度は1レコードのみ保持
+- `submission_date` で最新データを判定し、新しい提出日のデータが来たら既存レコードを**UPDATE**
+- 金額は百万円単位で保存（EPSは円単位）
+- `is_consolidated` で連結/単体を区別
+- **外部キーなし**: メタデータテーブルが存在しないため、doc_idは参照整合性チェックなし
+
+---
+
+### 2.5 進捗管理とエラーハンドリング
 
 **バッチ全体の進捗管理**: 既存の `batch_executions` テーブルを使用
 

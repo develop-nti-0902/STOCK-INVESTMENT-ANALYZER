@@ -12,7 +12,11 @@ from typing import List, Optional
 import pandas as pd
 import requests
 from bs4 import XMLParsedAsHTMLWarning
+from dotenv import load_dotenv
 from edinet_xbrl.edinet_xbrl_parser import EdinetXbrlParser
+
+# .envファイルから環境変数を読み込み
+load_dotenv()
 
 # suppress noisy third-party warnings (bs4 XML-as-HTML)
 # and SyntaxWarning from xbrl package
@@ -112,7 +116,7 @@ def download_document(
     endpoint = f"{baseUrl}/documents/{doc_id}"
     params = {
         "type": doc_type,
-        "Subscription-Key": "edff30e4028e4ba2a5871f8330cc1230",
+        "Subscription-Key": os.getenv("EDINET_SUBSCRIPTION_KEY", ""),
     }
 
     document_response = requests.get(endpoint, params=params)
@@ -373,7 +377,7 @@ for day in day_list:
     params = {
         "date": fmt_day,  # 取得したい日付
         "type": 2,  # 2は有価証券報告書などの決算書類
-        "Subscription-Key": "edff30e4028e4ba2a5871f8330cc1230",
+        "Subscription-Key": os.getenv("EDINET_SUBSCRIPTION_KEY", ""),
     }
 
     # APIリクエストを送信
