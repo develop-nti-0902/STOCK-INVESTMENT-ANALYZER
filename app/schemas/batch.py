@@ -134,7 +134,6 @@ class JobType(str, Enum):
     JPX_ALL_STOCKS = "JPX_ALL_STOCKS"
     STOCK_MASTER_UPDATE = "STOCK_MASTER_UPDATE"
     FUNDAMENTAL_DATA = "FUNDAMENTAL_DATA"
-    EDINET_BALANCE_SHEET = "EDINET_BALANCE_SHEET"
 
 
 class JobStatus(str, Enum):
@@ -273,46 +272,6 @@ class JPXAllMultiSequenceResponse(BaseResponseSchema):
     )
 
 
-class EdinetBalanceSheetRequest(BaseRequestSchema):
-    """EDINET貸借対照表取得リクエスト.
-
-    Attributes:
-        start_date (str): 検索開始日（YYYY-MM-DD形式）
-        end_date (str): 検索終了日（YYYY-MM-DD形式）
-        progress_interval (Optional[int]): 進捗更新の間隔（処理ドキュメント数、デフォルト: 10）
-        max_documents (Optional[int]): 処理する最大ドキュメント数（Noneの場合は全件処理）
-    """
-
-    start_date: str = Field(..., description="検索開始日（YYYY-MM-DD形式）")
-    end_date: str = Field(..., description="検索終了日（YYYY-MM-DD形式）")
-    progress_interval: Optional[int] = Field(
-        10, description="進捗更新の間隔（処理ドキュメント数）", ge=1
-    )
-    max_documents: Optional[int] = Field(
-        None, description="処理する最大ドキュメント数（Noneの場合は全件処理）", ge=1
-    )
-
-
-class EdinetBalanceSheetResponse(BaseResponseSchema):
-    """EDINET貸借対照表取得レスポンス.
-
-    Attributes:
-        job_id (str): ジョブID（同期実行のため固定値）
-        status (str): ジョブステータス
-        total_documents (int): 検索された書類数
-        processed_documents (int): 処理済み書類数
-        saved_years (int): 保存された年度数
-        failed_documents (int): 失敗した書類数
-    """
-
-    job_id: str = Field(..., description="ジョブID（同期実行のため固定値）")
-    status: str = Field(..., description="ジョブステータス")
-    total_documents: int = Field(0, description="検索された書類数", ge=0)
-    processed_documents: int = Field(0, description="処理済み書類数", ge=0)
-    saved_years: int = Field(0, description="保存された年度数", ge=0)
-    failed_documents: int = Field(0, description="失敗した書類数", ge=0)
-
-
 __all__ = [
     "SingleStockDataRequest",
     "JPXAllStocksRequest",
@@ -331,6 +290,4 @@ __all__ = [
     "JPXAllMultiSequenceRequest",
     "TimeframeResult",
     "JPXAllMultiSequenceResponse",
-    "EdinetBalanceSheetRequest",
-    "EdinetBalanceSheetResponse",
 ]

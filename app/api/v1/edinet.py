@@ -7,12 +7,12 @@ EDINET APIを利用した貸借対照表データの取得・保存エンドポ�
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import date
+from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.dependencies.services import get_edinet_balance_sheet_service
-from app.schemas.batch import EdinetBalanceSheetRequest, EdinetBalanceSheetResponse
 from app.services.market_data.edinet.balance_sheet.service import EdinetBalanceSheetService
 
 router = APIRouter(tags=["edinet"])
@@ -20,9 +20,9 @@ router = APIRouter(tags=["edinet"])
 logger = logging.getLogger(__name__)
 
 
-@router.post("/balance-sheet", response_model=EdinetBalanceSheetResponse)
+@router.post("/balance-sheet")
 async def run_edinet_balance_sheet_batch(
-    request: EdinetBalanceSheetRequest,
+    request: Dict[str, Any],
     service: EdinetBalanceSheetService = Depends(get_edinet_balance_sheet_service),
 ):
     """EDINET 貸借対照表を一括取得します.
@@ -35,17 +35,17 @@ async def run_edinet_balance_sheet_batch(
         service: EDINET 貸借対照表サービス
 
     Returns:
-        EdinetBalanceSheetResponse: 処理結果
+        dict: 処理結果の要約（サービスが返す辞書をそのまま返します）
     """
     logger.info(
         "Starting EDINET balance sheet fetch: %s to %s",
-        request.start_date,
-        request.end_date,
+        request.get("start_date"),
+        request.get("end_date"),
     )
 
     try:
-        start_date = date.fromisoformat(request.start_date)
-        end_date = date.fromisoformat(request.end_date)
+        start_date = date.fromisoformat(str(request.get("start_date")))
+        end_date = date.fromisoformat(str(request.get("end_date")))
     except ValueError as e:
         raise HTTPException(
             status_code=422,
@@ -56,24 +56,12 @@ async def run_edinet_balance_sheet_batch(
         result = await service.fetch_multiple_balance_sheets(
             start_date=start_date,
             end_date=end_date,
-            progress_interval=request.progress_interval or 10,
-            max_documents=request.max_documents,
+            progress_interval=int(request.get("progress_interval") or 10),
+            max_documents=request.get("max_documents"),
         )
 
-        # job_idは同期実行のため、タイムスタンプベースの固定値
-        job_id = f"sync-{datetime.now(timezone.utc).isoformat()}"
-
-        response = EdinetBalanceSheetResponse(
-            job_id=job_id,
-            status=result.get("status", "completed"),
-            total_documents=result.get("total_documents", 0),
-            processed_documents=result.get("processed_documents", 0),
-            saved_years=result.get("saved_years", 0),
-            failed_documents=result.get("failed_documents", 0),
-        )
-
-        logger.info("EDINET balance sheet fetch completed: %s", response.model_dump())
-        return response
+        logger.info("EDINET balance sheet fetch completed: %s", result)
+        return result
 
     except Exception as e:
         logger.exception("EDINET balance sheet fetch failed: %s", e)
