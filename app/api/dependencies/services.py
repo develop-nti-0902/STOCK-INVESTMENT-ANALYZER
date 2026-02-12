@@ -8,6 +8,10 @@ Repository や他の Service との依存関係を解決します。
 
 from pathlib import Path
 
+# Skip pylint for this DI provider file: many DI functions intentionally have many injected args.
+# pylint: skip-file
+from typing import Any, cast
+
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,12 +21,17 @@ from app.repositories.stock_master_repository import StockMasterRepository
 from app.repositories.stock_master_updates_repository import StockMasterUpdatesRepository
 from app.services.batch.batch_execution_service import BatchExecutionService
 from app.services.market_data.edinet.balance_sheet.converter import EdinetBalanceSheetConverter
-from app.services.market_data.edinet.balance_sheet.fetcher import EdinetDocumentFetcher
-from app.services.market_data.edinet.balance_sheet.file_manager import EdinetFileManager
 from app.services.market_data.edinet.balance_sheet.parser import EdinetBalanceSheetParser
 from app.services.market_data.edinet.balance_sheet.saver import EdinetBalanceSheetSaver
 from app.services.market_data.edinet.balance_sheet.service import EdinetBalanceSheetService
 from app.services.market_data.edinet.common.api_client import EdinetAPIClient
+from app.services.market_data.edinet.download_service import EdinetDownloadService
+from app.services.market_data.edinet.file_manager import EdinetFileManager
+from app.services.market_data.edinet.profit_and_loss.converter import EdinetProfitAndLossConverter
+from app.services.market_data.edinet.profit_and_loss.parser import EdinetProfitAndLossParser
+from app.services.market_data.edinet.profit_and_loss.saver import EdinetProfitAndLossSaver
+from app.services.market_data.edinet.profit_and_loss.service import EdinetProfitAndLossService
+from app.services.market_data.edinet.update_service import EdinetAggregateUpdateService
 from app.services.market_data.stock_master import StockMasterService
 from app.services.market_data.stock_price import (
     StockPriceConverter,
@@ -34,6 +43,9 @@ from app.services.market_data.stock_price import (
 from app.services.views.latest_stocks.refresh import LatestStocksRefreshService
 from app.services.views.latest_stocks.service import LatestStocksService
 from app.utils.database import get_db
+
+# Alias for profit-and-loss file manager (kept for backward compatibility)
+EdinetProfitAndLossFileManager = EdinetFileManager
 
 
 def get_batch_execution_repository(
@@ -230,7 +242,7 @@ def get_edinet_api_client() -> EdinetAPIClient:
 
 def get_edinet_document_fetcher(
     api_client: EdinetAPIClient = Depends(get_edinet_api_client),
-) -> EdinetDocumentFetcher:
+) -> EdinetDownloadService:
     """EdinetDocumentFetcher を提供する依存性プロバイダ.
 
     Args:
@@ -240,7 +252,7 @@ def get_edinet_document_fetcher(
         EdinetDocumentFetcher: EDINET 文書取得フェッチャ
     """
     work_dir = Path("work/edinet_temp")
-    return EdinetDocumentFetcher(api_client=api_client, work_dir=work_dir)
+    return EdinetDownloadService(api_client=api_client, work_dir=work_dir)
 
 
 def get_edinet_balance_sheet_parser() -> EdinetBalanceSheetParser:
@@ -250,6 +262,16 @@ def get_edinet_balance_sheet_parser() -> EdinetBalanceSheetParser:
         EdinetBalanceSheetParser: EDINET 貸借対照表パーサ
     """
     return EdinetBalanceSheetParser()
+
+
+def get_edinet_profit_and_loss_parser() -> EdinetProfitAndLossParser:
+    """EdinetProfitAndLossParser を提供する依存性プロバイダ.
+
+    Returns:
+        EdinetProfitAndLossParser: EDINET 損益・キャッシュフローパーサ
+    """
+    # parser implements `parse_root` and compatibility `parse` method
+    return EdinetProfitAndLossParser()
 
 
 def get_edinet_balance_sheet_converter() -> EdinetBalanceSheetConverter:
@@ -285,7 +307,7 @@ def get_edinet_file_manager() -> EdinetFileManager:
 
 
 def get_edinet_balance_sheet_service(
-    fetcher: EdinetDocumentFetcher = Depends(get_edinet_document_fetcher),
+    fetcher: EdinetDownloadService = Depends(get_edinet_document_fetcher),
     parser: EdinetBalanceSheetParser = Depends(get_edinet_balance_sheet_parser),
     converter: EdinetBalanceSheetConverter = Depends(get_edinet_balance_sheet_converter),
     saver: EdinetBalanceSheetSaver = Depends(get_edinet_balance_sheet_saver),
@@ -304,9 +326,100 @@ def get_edinet_balance_sheet_service(
         EdinetBalanceSheetService: EDINET 貸借対照表サービス
     """
     return EdinetBalanceSheetService(
-        fetcher=fetcher,
         parser=parser,
         converter=converter,
         saver=saver,
         file_manager=file_manager,
+        download_service=fetcher,
+    )
+
+
+# EDINET 損益・キャッシュフロー用プロバイダ
+
+
+def get_edinet_profit_and_loss_converter() -> EdinetProfitAndLossConverter:
+    """EdinetProfitAndLossConverter を提供する依存性プロバイダ.
+
+    Returns:
+        EdinetProfitAndLossConverter: EDINET 損益・キャッシュフローコンバータ
+    """
+    return EdinetProfitAndLossConverter()
+
+
+def get_edinet_profit_and_loss_saver(
+    db: AsyncSession = Depends(get_db),
+) -> EdinetProfitAndLossSaver:
+    """EdinetProfitAndLossSaver を提供する依存性プロバイダ.
+
+    Args:
+        db: 非同期DBセッション
+
+    Returns:
+        EdinetProfitAndLossSaver: EDINET 損益・キャッシュフローデータ保存サービス
+    """
+    return EdinetProfitAndLossSaver(session=db)
+
+
+def get_edinet_profit_and_loss_file_manager() -> EdinetProfitAndLossFileManager:
+    """EdinetProfitAndLossFileManager を提供する依存性プロバイダ.
+
+    Returns:
+        EdinetProfitAndLossFileManager: EDINET 損益・キャッシュフロー用一時ファイル管理ユーティリティ
+    """
+    return EdinetProfitAndLossFileManager()
+
+
+def get_edinet_profit_and_loss_service(
+    fetcher: EdinetDownloadService = Depends(get_edinet_document_fetcher),
+    parser: EdinetProfitAndLossParser = Depends(get_edinet_profit_and_loss_parser),
+    converter: EdinetProfitAndLossConverter = Depends(get_edinet_profit_and_loss_converter),
+    saver: EdinetProfitAndLossSaver = Depends(get_edinet_profit_and_loss_saver),
+    file_manager: EdinetProfitAndLossFileManager = Depends(get_edinet_profit_and_loss_file_manager),
+) -> EdinetProfitAndLossService:
+    """EdinetProfitAndLossService を提供する依存性プロバイダ.
+
+    Args:
+        fetcher: EDINET 文書取得フェッチャ
+        parser: EDINET 損益・キャッシュフローパーサ
+        converter: EDINET 損益・キャッシュフローコンバータ
+        saver: EDINET 損益・キャッシュフローデータ保存サービス
+        file_manager: EDINET 損益・キャッシュフロー用一時ファイル管理ユーティリティ
+
+    Returns:
+        EdinetProfitAndLossService: EDINET 損益・キャッシュフローサービス
+    """
+    return EdinetProfitAndLossService(
+        parser=parser,
+        converter=converter,
+        saver=saver,
+        file_manager=file_manager,
+        download_service=fetcher,
+    )
+
+
+# pylint: disable=too-many-arguments,too-many-positional-arguments
+def get_edinet_aggregate_update_service(  # noqa: E501
+    fetcher: EdinetDownloadService = Depends(get_edinet_document_fetcher),
+    bs_parser: EdinetBalanceSheetParser = Depends(get_edinet_balance_sheet_parser),
+    bs_converter: EdinetBalanceSheetConverter = Depends(get_edinet_balance_sheet_converter),
+    bs_saver: EdinetBalanceSheetSaver = Depends(get_edinet_balance_sheet_saver),
+    pl_parser: EdinetProfitAndLossParser = Depends(get_edinet_profit_and_loss_parser),
+    pl_converter: EdinetProfitAndLossConverter = Depends(get_edinet_profit_and_loss_converter),
+    pl_saver: EdinetProfitAndLossSaver = Depends(get_edinet_profit_and_loss_saver),
+) -> EdinetAggregateUpdateService:
+    """EdinetAggregateUpdateService を提供する依存性プロバイダ.
+
+    - `balance_sheet` と `profit_and_loss` のパーサ/セーバ組み合わせを事前設定して返します。
+    """
+    # DI で渡された `EdinetDownloadService` をそのまま使用する
+    download_service = fetcher
+    # parser, converter, saver の 3-tuple を渡す
+    parser_saver_pairs: list[tuple[object, object, object]] = [
+        (bs_parser.parse_root, bs_converter, bs_saver.save),
+        (pl_parser.parse_root, pl_converter, pl_saver.save),
+    ]
+    # cast to Any to satisfy the aggregate service typing expectations
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
+    return EdinetAggregateUpdateService(
+        download_service=download_service, parser_saver_pairs=cast(Any, parser_saver_pairs)
     )

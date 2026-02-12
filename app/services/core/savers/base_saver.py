@@ -21,7 +21,7 @@ class BaseSaver(ABC, Generic[T]):
     """
 
     @abstractmethod
-    async def save(self, data: T, **kwargs: Any) -> bool:
+    async def save(self, data: T, **kwargs: Any) -> Any:
         """
         単一データ保存（サブクラスで実装）.
 
@@ -38,7 +38,7 @@ class BaseSaver(ABC, Generic[T]):
         """
 
     @abstractmethod
-    async def save_batch(self, data_list: list[T], **kwargs: Any) -> int:
+    async def save_batch(self, data_list: list[T], **kwargs: Any) -> Any:
         """
         複数データ一括保存（サブクラスで実装）.
 

@@ -1,26 +1,30 @@
-"""EDINET 貸借対照表サービスの orchestration モジュール.
+"""EDINET 損益・キャッシュフローサービスの orchestration モジュール.
 
 fetcher, parser, converter, saver, file_manager を組み合わせて
-文書取得→解析→変換→保存 を行います.
+文書取得→解析→変換→保存 を行います。
 """
 
 from __future__ import annotations
 
 from datetime import date
+from typing import Any, List
 
-from app.services.market_data.edinet.balance_sheet.converter import EdinetBalanceSheetConverter
-from app.services.market_data.edinet.balance_sheet.parser import EdinetBalanceSheetParser
-from app.services.market_data.edinet.balance_sheet.saver import EdinetBalanceSheetSaver
+from app.models.edinet_profit_and_loss import EdinetProfitAndLoss
 from app.services.market_data.edinet.download_service import EdinetDownloadService
-from app.services.market_data.edinet.file_manager import EdinetFileManager
+from app.services.market_data.edinet.file_manager import (
+    EdinetFileManager as EdinetProfitAndLossFileManager,
+)
+from app.services.market_data.edinet.profit_and_loss.converter import EdinetProfitAndLossConverter
+from app.services.market_data.edinet.profit_and_loss.parser import EdinetProfitAndLossParser
+from app.services.market_data.edinet.profit_and_loss.saver import EdinetProfitAndLossSaver
 from app.services.market_data.edinet.update_service import EdinetAggregateUpdateService
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-class EdinetBalanceSheetService:
-    """EDINET 貸借対照表のオーケストレーションサービス.
+class EdinetProfitAndLossService:
+    """EDINET 損益・キャッシュフローのオーケストレーションサービス.
 
     Attributes:
         parser: XBRL パーサ
@@ -32,10 +36,10 @@ class EdinetBalanceSheetService:
 
     def __init__(
         self,
-        parser: EdinetBalanceSheetParser,
-        converter: EdinetBalanceSheetConverter,
-        saver: EdinetBalanceSheetSaver,
-        file_manager: EdinetFileManager,
+        parser: EdinetProfitAndLossParser,
+        converter: EdinetProfitAndLossConverter,
+        saver: EdinetProfitAndLossSaver,
+        file_manager: EdinetProfitAndLossFileManager,
         download_service: EdinetDownloadService,
     ) -> None:
         """インスタンスを初期化する.
@@ -51,10 +55,10 @@ class EdinetBalanceSheetService:
         self.converter = converter
         self.saver = saver
         self.file_manager = file_manager
-
         self.download_service = download_service
 
         # 内部で統合サービスに委譲するインスタンスを作成
+        # parser/saver の互換性を柔軟に扱う（parse_root が無ければ parse を使う等）
         parser_callable = getattr(self.parser, "parse_root", getattr(self.parser, "parse", None))
         saver_callable = getattr(self.saver, "save", getattr(self.saver, "save_single", None))
         pairs = []
@@ -65,18 +69,18 @@ class EdinetBalanceSheetService:
             download_service=download_service, parser_saver_pairs=pairs
         )
 
-    async def get_latest_by_sec_code(self, sec_code: str):
-        """指定した証券コードの最新レコードを返す.
+    async def get_latest_data(self, sec_code: str) -> Any:
+        """指定の証券コードの最新の損益・キャッシュフローデータを取得する.
 
         Args:
             sec_code: 証券コード
 
         Returns:
-            最新のモデルまたは None
+            最新のデータ（存在しない場合は None）
         """
-        return await self.saver.repository.find_latest_by_sec_code(sec_code)
+        return await self.saver.get_latest_by_sec_code(sec_code)
 
-    async def get_by_period(self, sec_code: str, period_end_date: date):
+    async def get_by_period(self, sec_code: str, period_end_date: date) -> Any:
         """指定した期のレコードを返す.
 
         Args:
@@ -88,7 +92,7 @@ class EdinetBalanceSheetService:
         """
         return await self.saver.repository.find_by_period(sec_code, period_end_date)
 
-    async def get_annual_data(self, sec_code: str, fiscal_year: int):
+    async def get_annual_data(self, sec_code: str, fiscal_year: int) -> Any:
         """指定した会計年度のデータを返す.
 
         Args:
@@ -100,7 +104,7 @@ class EdinetBalanceSheetService:
         """
         return await self.saver.repository.find_by_fiscal_year(sec_code, fiscal_year)
 
-    async def get_multiple_latest(self, sec_codes: list[str]):
+    async def get_multiple_latest(self, sec_codes: list[str]) -> List[EdinetProfitAndLoss]:
         """複数の証券コードについて最新レコードを一括で取得する.
 
         Args:
@@ -111,5 +115,19 @@ class EdinetBalanceSheetService:
         """
         return await self.saver.repository.get_latest_by_sec_codes(sec_codes)
 
+    async def cleanup_old_files(self, max_age_hours: int = 24) -> int:
+        """古い一時ファイルをクリーンアップする.
 
-__all__ = ["EdinetBalanceSheetService"]
+        Args:
+            max_age_hours: この時間より古いファイルを削除
+
+        Returns:
+            削除されたファイル数
+        """
+        work_dir = getattr(self.download_service, "work_dir", None)
+        if work_dir is None:
+            return 0
+        return self.file_manager.cleanup_old_files(work_dir, max_age_hours=max_age_hours)
+
+
+__all__ = ["EdinetProfitAndLossService"]

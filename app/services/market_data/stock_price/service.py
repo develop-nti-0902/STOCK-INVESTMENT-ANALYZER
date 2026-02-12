@@ -395,65 +395,53 @@ class StockPriceService:
             job_type="jpx_all",
             params={"timeframe": timeframe, "market": market},
         ) as ctx:
-            # バッチ分割
+            # バッチ分割して一括処理
             for i in range(0, total, batch_size):
                 batch = symbols[i : i + batch_size]
 
-                # 順次処理（並列は行わない）
-                for s in batch:
-                    try:
-                        results = await self.fetch_and_save([s], timeframe=timeframe, period=period)
-                        res = (
-                            results[0]
-                            if results
-                            else StockPriceServiceResult(
-                                success=True,
-                                symbol=s,
-                                timeframe=timeframe,
-                                records_processed=0,
-                                records_saved=0,
-                                warnings=["No data was retrieved"],
-                            )
-                        )
-                    except Exception as exc:
-                        res = StockPriceServiceResult(
-                            success=False,
-                            symbol=s,
-                            timeframe=timeframe,
-                            errors=[str(exc)],
-                        )
+                # バッチ全体を一度に処理
+                try:
+                    results = await self.fetch_and_save(batch, timeframe=timeframe, period=period)
+                except Exception as exc:
+                    # バッチ全体が失敗した場合、各銘柄を失敗として記録
+                    logger.exception("Batch processing failed for symbols %s", batch)
+                    for s in batch:
+                        failed += 1
+                        errors.append({"symbol": s, "errors": [str(exc)]})
+                    continue
 
-                    # 集計
+                # 各結果を集計
+                for res in results:
                     if res.success:
                         success += 1
                     else:
                         failed += 1
                         errors.append({"symbol": res.symbol, "errors": res.errors})
 
-            # 進捗通知
-            if progress_callback:
+                # バッチごとに進捗通知
+                if progress_callback:
+                    try:
+                        progress_callback(
+                            {
+                                "total": total,
+                                "processed": success + failed,
+                                "success": success,
+                                "failed": failed,
+                            }
+                        )
+                    except Exception:
+                        logger.exception("Progress callback failed")
+
+                # バッチサービスへ進捗を保存
                 try:
-                    progress_callback(
-                        {
-                            "total": total,
-                            "processed": success + failed,
-                            "success": success,
-                            "failed": failed,
-                        }
+                    await ctx.update_progress(
+                        processed=success + failed,
+                        total=total,
+                        success=success,
+                        failed=failed,
                     )
                 except Exception:
-                    logger.exception("Progress callback failed")
-
-            # バッチサービスへ進捗を保存
-            try:
-                await ctx.update_progress(
-                    processed=success + failed,
-                    total=total,
-                    success=success,
-                    failed=failed,
-                )
-            except Exception:
-                logger.exception("Failed to update batch progress")
+                    logger.exception("Failed to update batch progress")
 
         elapsed = perf_counter() - start_time
 

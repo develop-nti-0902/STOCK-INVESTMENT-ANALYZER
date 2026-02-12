@@ -9,6 +9,7 @@ from .base import Base, TimestampMixin
 from .batch_execution import BatchExecution
 from .batch_execution_details import BatchExecutionDetails
 from .edinet_balance_sheet import EdinetBalanceSheet
+from .edinet_profit_and_loss import EdinetProfitAndLoss
 from .stock_data import (
     Stocks1d,
     Stocks1h,
@@ -30,6 +31,7 @@ __all__ = [
     "StockMaster",
     "AccountTransactions",
     "EdinetBalanceSheet",
+    "EdinetProfitAndLoss",
     "Stocks1m",
     "Stocks5m",
     "Stocks15m",
