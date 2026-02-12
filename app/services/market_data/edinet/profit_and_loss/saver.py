@@ -129,8 +129,8 @@ class EdinetProfitAndLossSaver(BaseSaver[Dict[str, Any]]):
         """
         return await self.repository.find_latest_by_sec_code(sec_code)
 
-    async def validate_data(self, data: Dict[str, Any]) -> bool:
-        """データの妥当性を検証する（BaseSaverの抽象メソッド実装）.
+    def validate_data_sync(self, data: Dict[str, Any]) -> bool:
+        """データの妥当性を検証する（BaseSaver の同期検証メソッド実装）.
 
         Args:
             data: 検証するデータ

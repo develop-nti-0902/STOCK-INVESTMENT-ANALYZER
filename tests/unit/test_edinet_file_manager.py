@@ -10,7 +10,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from app.services.market_data.edinet.balance_sheet.file_manager import EdinetFileManager
+from app.services.market_data.edinet.file_manager import EdinetFileManager
 
 
 def test_create_and_cleanup_temp_directory(tmp_path: Path) -> None:
@@ -68,7 +68,8 @@ def test_cleanup_old_files(tmp_path: Path) -> None:
     os.utime(old, (ts, ts))
 
     m = EdinetFileManager()
-    removed = m.cleanup_old_files(base, max_age_days=7)
+    # cleanup_old_files expects hours; convert 7 days to hours for the test
+    removed = m.cleanup_old_files(base, max_age_hours=7 * 24)
     assert removed >= 1
     assert not old.exists() or removed >= 1
     assert new.exists()

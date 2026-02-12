@@ -4,6 +4,7 @@
 仕様書: docs/architecture/layers/service_layer.md 6.1章
 """
 
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar
 
@@ -58,19 +59,33 @@ class BaseSaver(ABC, Generic[T]):
             部分的な成功を許容する場合は、戻り値で成功数を返してください。
         """
 
-    async def validate_data(self, data: T) -> bool:
-        """
-        データの検証（オプション、サブクラスでオーバーライド可能）.
+    def validate_data_sync(self, data: T) -> bool:
+        """データの同期検証（サブクラスで上書き可）.
+
+        サブクラスが同期的な検証ロジックを提供する場合はこのメソッドを
+        オーバーライドしてください。非同期環境からは `validate_data`(async)
+        経由で呼ばれ、内部でこの同期メソッドを利用します。
 
         Args:
             data: 検証対象のデータ
 
         Returns:
-            bool: データが有効な場合True
+            bool: データが有効な場合 True.
         """
         if data is None:
             return False
         return True
+
+    async def validate_data(self, data: T) -> bool:
+        """非同期検証エントリポイント.
+
+        デフォルト実装は `validate_data_sync` を呼び出します。サブクラスが
+        非同期検証を直接提供する場合はこのメソッドをオーバーライドしてください.
+        """
+        res = self.validate_data_sync(data)
+        if asyncio.iscoroutine(res):
+            return await res
+        return res
 
     async def prepare_for_save(self, data: T) -> dict[str, Any]:
         """

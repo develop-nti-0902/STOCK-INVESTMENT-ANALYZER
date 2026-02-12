@@ -179,15 +179,15 @@ def test_extract_numeric_from_xbrl_success_and_errors():
 
     parsed = DummyXbrl()
     # success: should return float
-    val = p._extract_numeric_from_xbrl(
+    val = p.extract_numeric_from_xbrl(
         parsed, ["AssetsTagCandidate"], ["CTX_OK"]
     )  # tag contains AssetsTagCandidate
     assert val == 1234.5
 
     # bad numeric returns None
-    val2 = p._extract_numeric_from_xbrl(parsed, ["AssetsTagCandidate"], ["CTX_BAD"])
+    val2 = p.extract_numeric_from_xbrl(parsed, ["AssetsTagCandidate"], ["CTX_BAD"])
     assert val2 is None
 
     # exception in get_data_by_context_ref is ignored and returns None
-    val3 = p._extract_numeric_from_xbrl(parsed, ["RaiseTag"], ["CTX_OK"])
+    val3 = p.extract_numeric_from_xbrl(parsed, ["RaiseTag"], ["CTX_OK"])
     assert val3 is None

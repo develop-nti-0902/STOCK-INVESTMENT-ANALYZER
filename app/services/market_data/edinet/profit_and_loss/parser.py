@@ -15,6 +15,9 @@ from lxml import etree
 from app.services.core.parsers.base_parser import BaseParser
 from app.services.core.parsers.xml_parser_mixin import XMLParserMixin
 
+# Module-level placeholder for external XBRL parser class; tests may monkeypatch this.
+XbrlParser = None
+
 
 class EdinetProfitAndLossParser(BaseParser, XMLParserMixin):
     """XBRL から損益・キャッシュフローを抽出するパーサー.

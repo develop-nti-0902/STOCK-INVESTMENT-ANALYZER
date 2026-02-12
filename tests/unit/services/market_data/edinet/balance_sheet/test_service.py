@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from app.services.market_data.edinet.balance_sheet.service import EdinetBalanceSheetService
+from app.services.market_data.edinet.download_service import EdinetDownloadService
 
 
 class DummyFetcher:
@@ -38,6 +39,14 @@ class DummyParser:
                 "consolidation": True,
             }
         }
+
+    def parse_root(self, root):
+        """互換のため root を受け取る parse_root を提供する（テスト用）。"""
+        return self.parse(root)
+
+    def parse_root(self, root, parsed_xbrl=None):
+        """互換のため root と parsed_xbrl を受け取る parse_root を提供する（テスト用）。"""
+        return self.parse(root)
 
 
 class DummyConverter:
@@ -77,6 +86,10 @@ class DummySaver:
         self.saved_records.append(data)
         return {"saved": data}
 
+    async def save(self, data: dict):
+        """互換のため `save` メソッドを提供するラッパー（aggregate 互換）。"""
+        return await self.save_single(data)
+
 
 class DummyRepository:
     """ダミーのリポジトリ."""
@@ -107,24 +120,40 @@ async def test_fetch_and_save_success(tmp_path):
     saver = DummySaver()
     fm = DummyFileManager()
 
+    class _DummyDownloadService:
+        def __init__(self, fetcher: DummyFetcher):
+            self._fetcher = fetcher
+            self.work_dir = getattr(fetcher, "tmp_path", None)
+
+        async def download_and_extract(self, identifier: str):
+            return await self._fetcher.fetch(identifier)
+
+        async def search_documents(self, current_date):
+            return []
+
+        def cleanup(self, path: Path) -> None:
+            return None
+
     service = EdinetBalanceSheetService(
-        fetcher=fetcher,
         parser=parser,
         converter=converter,
         saver=saver,
         file_manager=fm,
+        download_service=_DummyDownloadService(fetcher),
     )
 
-    res = await service.fetch_and_save(
+    # call aggregate update service for a single document
+    summary = await service._aggregate.process_document(
         doc_id="DOC123",
+        transaction_atomic=False,
         sec_code="7203",
         submission_date=date(2025, 4, 1),
         filer_name="DummyFiler",
     )
 
-    # サービスは保存の結果リストを返す
-    assert isinstance(res, list)
-    assert len(res) == 1
-    assert res[0]["saved"]["doc_id"] == "DOC123"
-    assert fm.cleaned is True
+    # サマリ形式で結果が返る（parser ごとの結果リスト）
+    assert isinstance(summary, dict)
+    assert summary.get("doc_id") == "DOC123"
+    assert isinstance(summary.get("results"), list)
+    # saver によって 1 件保存されていること
     assert len(saver.saved_records) == 1

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import shutil
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Literal, Optional
 
@@ -112,7 +112,7 @@ class EdinetFileManager:
             max_age = int(max_age_hours)
             unit = "hours"
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         delta = timedelta(hours=max_age) if unit == "hours" else timedelta(days=max_age)
         cutoff = now - delta
         removed = 0
@@ -120,7 +120,7 @@ class EdinetFileManager:
         try:
             for child in directory.iterdir():
                 try:
-                    mtime = datetime.utcfromtimestamp(child.stat().st_mtime)
+                    mtime = datetime.fromtimestamp(child.stat().st_mtime, timezone.utc)
                     if mtime < cutoff:
                         if child.is_file():
                             child.unlink()
