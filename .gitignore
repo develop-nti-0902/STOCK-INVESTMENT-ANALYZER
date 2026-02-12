@@ -54,6 +54,9 @@ tests/integration/batch/artifact/
 
 # Temporary files and directories
 work/edinet_temp
+work/edinet_api_test/downloads
+work/edinet_api_test/*.txt
+work/edinet_api_test/*.csv
 
 # Mypy cache
 .mypy_cache

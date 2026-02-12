@@ -27,8 +27,6 @@ warnings.filterwarnings("ignore", category=SyntaxWarning, module=".*xbrl.*")
 baseUrl = "https://disclosure.edinet-fsa.go.jp/api/v2"
 docUrl = f"{baseUrl}/documents.json"
 
-# --- ログ出力先へ標準出力/標準エラーをリダイレクト ---
-
 log_path = os.path.join("work", "edinet_api_test", "edinet_client2_output.txt")
 os.makedirs(os.path.dirname(log_path), exist_ok=True)
 # 上書きモードで出力（実行ごとに新しい内容にする）
@@ -150,7 +148,7 @@ def find_xbrl_files(doc_id: str, out_dir: str = "work/edinet_api_test/downloads"
     Returns:
         xbrl ファイルパスのリスト（見つからなければ空リスト）
     """
-    pattern = f"{out_dir}/{doc_id}/**/PublicDoc/**/*.xbrl"
+    pattern = os.path.join(out_dir, doc_id, "**", "PublicDoc", "**", "*.xbrl")
     paths = glob(pattern, recursive=True)
     if paths:
         print("Found %d xbrl file(s) for %s" % (len(paths), doc_id))
@@ -159,65 +157,115 @@ def find_xbrl_files(doc_id: str, out_dir: str = "work/edinet_api_test/downloads"
     return paths
 
 
-def parse_report_dividend_paid_per_share(xbrl_path: str) -> Optional[dict]:
-    """指定した XBRL ファイルを解析し、指定した情報を返す.
+def get_context_candidates_from_text(txt: str, candidate_contexts: List[str]) -> List[str]:
+    found = set(re.findall(r'contextRef="([^"]+)"', txt))
+    context_candidates: List[str] = []
+    for cand in candidate_contexts:
+        for f in sorted(found):
+            if cand in f and f not in context_candidates:
+                context_candidates.append(f)
+    for cand in candidate_contexts:
+        if cand not in context_candidates:
+            context_candidates.append(cand)
+    return context_candidates
 
-    Args:
-        xbrl_path: XBRL ファイルのパス
 
-    Returns:
-        １株当たり配当額情報文字列（見つからなければ None）
-    """
+def extract_current_year_instant_date(xbrl_path: str) -> Optional[str]:
+    """XBRL ファイルから CurrentYearInstant 系の context に対応する日付を抽出する."""
     try:
-        parser = EdinetXbrlParser()
-        parsed_xbrl = parser.parse_file(xbrl_path)
-
-        # 総資産の候補タグ（優先順）
-        candidate_keys = [
-            "jpcrp_cor:DividendPaidPerShareSummaryOfBusinessResults",
-        ]
-
-        # 優先するコンテキスト候補を明示的に定義（汎用 → 連結 → 個別）
+        with open(xbrl_path, "r", encoding="utf-8") as fh:
+            txt = fh.read()
+        # コンテキスト候補の優先順
         candidate_contexts = [
-            "CurrentYearDuration",
-            "CurrentYearDuration_ConsolidatedMember",
-            "CurrentYearDuration_NonConsolidatedMember",
+            "CurrentYearInstant",
+            "CurrentYearInstant_ConsolidatedMember",
+            "CurrentYearInstant_NonConsolidatedMember",
         ]
-
-        # XBRL ファイル内に定義されている contextRef を読み、
-        # 定義済み候補の順でマッチするものを優先リストとして作成する
-        context_candidates: List[str]
-        try:
-            with open(xbrl_path, "r", encoding="utf-8") as fh:
-                txt = fh.read()
-            found = set(re.findall(r'contextRef="([^"]+)"', txt))
-            context_candidates = []
-            for cand in candidate_contexts:
-                for f in sorted(found):
-                    if cand in f and f not in context_candidates:
-                        context_candidates.append(f)
-            # 見つからなかった候補はリスト末尾に付ける（解析時に試すため）
-            for cand in candidate_contexts:
-                if cand not in context_candidates:
-                    context_candidates.append(cand)
-        except Exception:
-            context_candidates = candidate_contexts.copy()
-
-        # 明示的に優先度順の候補リストを作る（キー優先→コンテキスト優先）
-        candidate_pairs = [(k, c) for k in candidate_keys for c in context_candidates]
-        for key, ctx in candidate_pairs:
-            info = parsed_xbrl.get_data_by_context_ref(key, ctx)
-            if not info:
-                continue
-            val = info.get_value()
-            if val is None:
-                continue
-            return {"tag": key, "context": ctx, "raw_value": val}
-
+        ctxs = get_context_candidates_from_text(txt, candidate_contexts)
+        # contexts は contextRef の id 候補。実際の <context id="..."> ブロックを探し instant を抽出する
+        for cid in ctxs:
+            pattern = (
+                rf'<xbrli:context[^>]*id="{re.escape(cid)}"'
+                r"[\s\S]*?<xbrli:instant>([^<]+)</xbrli:instant>"
+            )
+            m = re.search(pattern, txt)
+            if m:
+                return m.group(1)
+        # フォールバック: 単純に最初の instant を返す
+        m2 = re.search(r"<xbrli:instant>([^<]+)</xbrli:instant>", txt)
+        if m2:
+            return m2.group(1)
         return None
-    except Exception as e:
-        print("Error parsing XBRL %s: %s" % (xbrl_path, e))
+    except Exception:
         return None
+
+
+def parse_report_metrics(xbrl_path: str) -> dict:
+    """損益（EPS）と営業キャッシュフローを抽出して辞書で返す.
+
+    戻り値キー: eps_basic, eps_diluted, operating_cash_flow
+    """
+    parser = EdinetXbrlParser()
+    parsed_xbrl = parser.parse_file(xbrl_path)
+
+    # 取得対象タグ
+    field_candidates = {
+        "eps_basic": ["jpcrp_cor:BasicEarningsLossPerShareSummaryOfBusinessResults"],
+        "eps_diluted": ["jpcrp_cor:DilutedEarningsPerShareSummaryOfBusinessResults"],
+        "operating_cash_flow": ["jppfs_cor:NetCashProvidedByUsedInOperatingActivities"],
+    }
+
+    # 損益・キャッシュフローは期間コンテキスト (Duration) を優先して探す
+    candidate_contexts = [
+        "CurrentYearDuration",
+        "CurrentYearDuration_ConsolidatedMember",
+        "CurrentYearDuration_NonConsolidatedMember",
+    ]
+
+    # ファイルテキストから context 候補リストを組み立て
+    try:
+        with open(xbrl_path, "r", encoding="utf-8") as fh:
+            txt = fh.read()
+        context_candidates = get_context_candidates_from_text(txt, candidate_contexts)
+    except Exception:
+        context_candidates = candidate_contexts.copy()
+
+    results: dict = {}
+    for field, keys in field_candidates.items():
+        found_val = None
+        for k in keys:
+            for ctx in context_candidates:
+                info = parsed_xbrl.get_data_by_context_ref(k, ctx)
+                if not info:
+                    continue
+                v = info.get_value()
+                if v is None:
+                    continue
+                try:
+                    found_val = float(v)
+                except Exception:
+                    found_val = v
+                break
+            if found_val is not None:
+                break
+        results[field] = found_val
+
+    return results
+
+
+def build_dataframe_from_metrics(metrics: dict, date_str: Optional[str]) -> pd.DataFrame:
+    """指定順で DataFrame を作る.
+
+    カラム順: 月日, EPS(基本), EPS(希薄化), 営業キャッシュフロー
+    """
+    row = {
+        "date": date_str or "",
+        "eps_basic": metrics.get("eps_basic"),
+        "eps_diluted": metrics.get("eps_diluted"),
+        "operating_cash_flow": metrics.get("operating_cash_flow"),
+    }
+    df = pd.DataFrame([row])
+    return df
 
 
 def make_day_list(start: datetime.date, end: datetime.date) -> List[datetime.date]:
@@ -295,7 +343,12 @@ for day in day_list:
     # mainルートから download_document を呼び出す（将来の拡張を想定して現状の関数を利用）
     if not securities_reports_df.empty:
         # work\edinet_api_test\downloads配下に年/月/日フォルダを作成して保存
-        out_dir = os.path.join("work", "edinet_api_test", "downloads", day.strftime("%Y/%m/%d"))
+        out_dir = os.path.join(
+            "work",
+            "edinet_api_test",
+            "downloads",
+            day.strftime("%Y/%m/%d"),
+        )
         os.makedirs(out_dir, exist_ok=True)
 
         # docID -> secCode マップ（出力時に現在の銘柄コードを表示するため）
@@ -319,19 +372,33 @@ for day in day_list:
                         # 現在処理中の銘柄コードを表示
                         sec_code = docid_to_seccode.get(doc_id)
                         print("  secCode: %s" % sec_code)
-                    # 先頭の XBRL を解析して決算末日情報を取得
+                    # 先頭の XBRL を解析して各メトリクスを抽出、DataFrame を作成して保存
                     try:
-                        info = parse_report_dividend_paid_per_share(xbrl_paths[0])
-                        if info is None:
-                            print("  info: None (no matching tag/context)")
+                        metrics = parse_report_metrics(xbrl_paths[0])
+                        date_str = extract_current_year_instant_date(xbrl_paths[0])
+                        df_metrics = build_dataframe_from_metrics(metrics, date_str)
+                        if df_metrics is None or df_metrics.empty:
+                            print("  metrics: None (no matching tags)")
                         else:
-                            raw = info.get("raw_value")
-                            print(
-                                "  info: tag=%s, context=%s, raw=%s"
-                                % (info.get("tag"), info.get("context"), raw)
+                            rec = df_metrics.to_dict(orient="records")[0]
+                            print("  metrics: %s" % rec)
+                            out_csv = os.path.join(
+                                "work",
+                                "edinet_api_test",
+                                "parsed_metrics.csv",
                             )
+                            if not os.path.exists(out_csv):
+                                df_metrics.to_csv(out_csv, index=False, encoding="utf-8-sig")
+                            else:
+                                df_metrics.to_csv(
+                                    out_csv,
+                                    mode="a",
+                                    header=False,
+                                    index=False,
+                                    encoding="utf-8-sig",
+                                )
                     except Exception as e:
-                        print("  dividend parse error: %s" % e)
+                        print(f"  metrics extraction error: {e}")
                 else:
                     print("  no xbrl found for %s" % doc_id)
             except Exception as e:

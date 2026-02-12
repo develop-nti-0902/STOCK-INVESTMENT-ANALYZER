@@ -27,6 +27,12 @@ from app.schemas.edinet_balance_sheet import (  # noqa: F401
     EdinetBalanceSheetLatest,
     EdinetBalanceSheetRead,
 )
+from app.schemas.edinet_profit_and_loss import (  # noqa: F401
+    EdinetProfitAndLossBase,
+    EdinetProfitAndLossCreate,
+    EdinetProfitAndLossLatest,
+    EdinetProfitAndLossRead,
+)
 from app.schemas.stock_data import (
     StockPrice1D,
     StockPrice1H,
@@ -91,5 +97,9 @@ __all__.extend(
         "EdinetBalanceSheetCreate",
         "EdinetBalanceSheetRead",
         "EdinetBalanceSheetLatest",
+        "EdinetProfitAndLossBase",
+        "EdinetProfitAndLossCreate",
+        "EdinetProfitAndLossRead",
+        "EdinetProfitAndLossLatest",
     ]
 )

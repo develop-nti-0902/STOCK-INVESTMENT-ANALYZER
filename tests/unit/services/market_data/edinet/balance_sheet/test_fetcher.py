@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from app.services.market_data.edinet.balance_sheet.fetcher import EdinetDocumentFetcher
+from app.services.market_data.edinet.download_service import EdinetDownloadService
 
 
 class _MockClient:
@@ -35,9 +35,9 @@ async def test_fetch_writes_and_returns_xbrl(tmp_path):
     zip_bytes = _make_sample_zip()
     client = _MockClient(zip_bytes)
     work_dir = tmp_path / "edinet_work"
-    fetcher = EdinetDocumentFetcher(api_client=client, work_dir=work_dir)
+    svc = EdinetDownloadService(api_client=client, work_dir=work_dir)
 
-    xbrl_path = await fetcher.fetch("SAMPLE")
+    xbrl_path = await svc.download_and_extract("SAMPLE")
     assert xbrl_path.exists()
     assert xbrl_path.suffix == ".xbrl"
     content = xbrl_path.read_text()
@@ -53,9 +53,13 @@ async def test_fetch_batch_returns_list(tmp_path):
     zip_bytes = _make_sample_zip()
     client = _MockClient(zip_bytes)
     work_dir = tmp_path / "edinet_work"
-    fetcher = EdinetDocumentFetcher(api_client=client, work_dir=work_dir)
+    svc = EdinetDownloadService(api_client=client, work_dir=work_dir)
 
-    results = await fetcher.fetch_batch(["A", "B", "C"], concurrency=2)
+    # emulate batch by concurrently calling download_and_extract
+    import asyncio
+
+    tasks = [asyncio.create_task(svc.download_and_extract(i)) for i in ("A", "B", "C")]
+    results = await asyncio.gather(*tasks)
     assert isinstance(results, list)
     assert len(results) == 3
     for p in results:

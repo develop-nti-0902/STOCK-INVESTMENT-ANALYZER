@@ -7,14 +7,15 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from edinet_xbrl.edinet_xbrl_parser import EdinetXbrlParser as XbrlParser
 from lxml import etree
 
 from app.services.core.parsers.base_parser import BaseParser
 from app.services.core.parsers.xml_parser_mixin import XMLParserMixin
+
+# Module-level placeholder for external XBRL parser class; tests may monkeypatch this.
+XbrlParser = None
 
 
 class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
@@ -70,38 +71,19 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
         ],
     }
 
-    def parse(self, data: Any) -> Dict[str, Any]:
-        """XBRL データを解析して年度別貸借対照表辞書を返す."""
-        # XBRLファイルをパース
-        xbrl_parser = XbrlParser()
-        if isinstance(data, str):
-            parsed_xbrl = xbrl_parser.parse_file(data)
-            root = self.parse_xml(data)
-        elif isinstance(data, Path):
-            # Pathオブジェクトの場合は文字列に変換
-            file_path = str(data)
-            parsed_xbrl = xbrl_parser.parse_file(file_path)
-            root = self.parse_xml(file_path)
-        elif isinstance(data, etree._Element):
-            # etree._Element の場合は一時ファイルに書き出してパース
-            import tempfile
+    def parse_root(self, root: etree._Element, parsed_xbrl: Any) -> Dict[str, Any]:
+        """パース済の lxml ルート要素と事前に作成された `parsed_xbrl` を受け取り年度別貸借対照表辞書を返す.
 
-            with tempfile.NamedTemporaryFile(mode="wb", suffix=".xbrl", delete=False) as f:
-                f.write(etree.tostring(data, encoding="utf-8"))
-                tmp_path = f.name
-            parsed_xbrl = xbrl_parser.parse_file(tmp_path)
-            root = data
-        else:
-            raise TypeError("data must be file path (str or Path) or lxml root element")
+        注意: `parsed_xbrl` は外部で一度だけ構築して渡すことを想定します。
+        """
 
         # ファイルから実際に使用可能なコンテキストを抽出
         all_contexts = self._get_all_available_contexts(root)
 
         result: Dict[str, Any] = {}
-        # 全5年分のデータを取得
         for year_key in self.YEARS:
             year_contexts = self._get_contexts_for_year(year_key, all_contexts)
-            if year_contexts:  # コンテキストが存在する年度のみ処理
+            if year_contexts:
                 result[year_key] = self.parse_single_year(
                     parsed_xbrl, root, year_contexts, year_key
                 )
@@ -119,7 +101,6 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
         return list(context_refs)
 
     def _get_contexts_for_year(self, year_key: str, all_contexts: List[str]) -> List[str]:
-        """与えられた年度キーにマッチするコンテキストIDを優先順で返す."""
         patterns = self.CONTEXT_PATTERNS.get(year_key, [])
         prioritized = []
 
@@ -146,11 +127,30 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
         consolidation = self.determine_consolidation(root, contexts)
         metrics = self.calculate_metrics(assets, liabilities, equity)
 
+        # 正規化: period_end_date を追加して date 型に揃えて返す
+        period_end_date = None
+        try:
+            if isinstance(period_end, datetime):
+                period_end_date = period_end.date()
+            elif isinstance(period_end, date):
+                period_end_date = period_end
+            elif isinstance(period_end, str):
+                try:
+                    period_end_date = datetime.fromisoformat(period_end).date()
+                except Exception:
+                    try:
+                        period_end_date = datetime.strptime(period_end, "%Y-%m-%d").date()
+                    except Exception:
+                        period_end_date = None
+        except Exception:
+            period_end_date = None
+
         return {
             "assets": assets,
             "liabilities": liabilities,
             "equity": equity,
             "period_end": period_end,
+            "period_end_date": period_end_date,
             "consolidation": consolidation,
             "metrics": metrics,
         }
@@ -168,15 +168,15 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
 
     def extract_assets(self, parsed_xbrl: Any, contexts: List[str]) -> Optional[float]:
         """資産額を抽出して浮動小数点で返す."""
-        return self._extract_numeric_from_xbrl(parsed_xbrl, self.XBRL_TAGS["assets"], contexts)
+        return self.extract_numeric_from_xbrl(parsed_xbrl, self.XBRL_TAGS["assets"], contexts)
 
     def extract_liabilities(self, parsed_xbrl: Any, contexts: List[str]) -> Optional[float]:
         """負債額を抽出して浮動小数点で返す."""
-        return self._extract_numeric_from_xbrl(parsed_xbrl, self.XBRL_TAGS["liabilities"], contexts)
+        return self.extract_numeric_from_xbrl(parsed_xbrl, self.XBRL_TAGS["liabilities"], contexts)
 
     def extract_equity(self, parsed_xbrl: Any, contexts: List[str]) -> Optional[float]:
         """純資産（株主資本）を抽出して浮動小数点で返す."""
-        return self._extract_numeric_from_xbrl(parsed_xbrl, self.XBRL_TAGS["equity"], contexts)
+        return self.extract_numeric_from_xbrl(parsed_xbrl, self.XBRL_TAGS["equity"], contexts)
 
     def calculate_metrics(
         self,
@@ -195,79 +195,3 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
             "equity_ratio": (None if assets_val == 0 else (equity_val / assets_val)),
             "net_assets": equity_val,
         }
-
-    def determine_consolidation(self, root: etree._Element, contexts: List[str]) -> Optional[bool]:
-        """与えられたコンテキストから連結/非連結を判定して True/False/None を返す."""
-        # コンテキストに Consolidated が含まれていれば True
-        for ctx in contexts:
-            if "Consolidated" in ctx:
-                return True
-            if "NonConsolidated" in ctx:
-                return False
-        return None
-
-    def get_period_end_date(self, root: etree._Element, contexts: List[str]) -> Optional[date]:
-        """コンテキストから期末日を取得する.
-
-        戻り値は ISO 文字列ではなく datetime.date を返します。
-        """
-        # 優先するコンテキストから instant 日付を抽出
-        for ctx_id in contexts:
-            # context 要素を探す
-            context_xpath = f".//*[local-name() = 'context'][@id = '{ctx_id}']"
-            context_nodes = root.xpath(context_xpath)
-            if not context_nodes:
-                continue
-
-            # context 内の instant 要素を探す
-            instant_xpath = ".//*[local-name() = 'instant']"
-            instant_nodes = context_nodes[0].xpath(instant_xpath)
-            if instant_nodes and instant_nodes[0].text:
-                date_str = instant_nodes[0].text.strip()
-                try:
-                    dt = datetime.fromisoformat(date_str)
-                    return dt.date()
-                except Exception:
-                    try:
-                        dt = datetime.strptime(date_str, "%Y-%m-%d")
-                        return dt.date()
-                    except Exception:
-                        pass
-
-        # フォールバック: 最初の instant を使用
-        instant_nodes = root.xpath(".//*[local-name() = 'instant']")
-        if instant_nodes and instant_nodes[0].text:
-            date_str = instant_nodes[0].text.strip()
-            try:
-                dt = datetime.fromisoformat(date_str)
-                return dt.date()
-            except Exception:
-                try:
-                    dt = datetime.strptime(date_str, "%Y-%m-%d")
-                    return dt.date()
-                except Exception:
-                    pass
-
-        return None
-
-    def _extract_numeric_from_xbrl(
-        self,
-        parsed_xbrl: Any,
-        tag_candidates: List[str],
-        contexts: List[str],
-    ) -> Optional[float]:
-        """XBRLパーサーを使用してコンテキスト付きでデータを取得する."""
-        for tag in tag_candidates:
-            for ctx in contexts:
-                try:
-                    data = parsed_xbrl.get_data_by_context_ref(tag, ctx)
-                    if data:
-                        value = data.get_value()
-                        if value is not None:
-                            try:
-                                return float(value)
-                            except Exception:
-                                pass
-                except Exception:
-                    continue
-        return None

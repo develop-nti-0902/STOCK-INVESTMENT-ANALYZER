@@ -7,77 +7,50 @@ EDINET APIを利用した貸借対照表データの取得・保存エンドポ�
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies.services import get_edinet_balance_sheet_service
-from app.schemas.batch import EdinetBalanceSheetRequest, EdinetBalanceSheetResponse
-from app.services.market_data.edinet.balance_sheet.service import EdinetBalanceSheetService
+from app.api.dependencies.services import get_edinet_aggregate_update_service
+from app.services.market_data.edinet.update_service import EdinetAggregateUpdateService
+from app.utils.database import get_db
+
+# The batch endpoints that used to call per-service orchestration methods
+# have been removed in favor of the centralized update API (`EdinetAggregateUpdateService`).
+# If you need to expose batch endpoints, call the appropriate update service directly.
 
 router = APIRouter(tags=["edinet"])
 
 logger = logging.getLogger(__name__)
 
 
-@router.post("/balance-sheet", response_model=EdinetBalanceSheetResponse)
-async def run_edinet_balance_sheet_batch(
-    request: EdinetBalanceSheetRequest,
-    service: EdinetBalanceSheetService = Depends(get_edinet_balance_sheet_service),
-):
-    """EDINET 貸借対照表を一括取得します.
+@router.post("/process-date-range")
+async def process_date_range(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    start_date: date,
+    end_date: date,
+    max_documents: int | None = Query(None, ge=1),
+    progress_interval: int = Query(10, gt=0),
+    transaction_atomic: bool = Query(True),
+    service: EdinetAggregateUpdateService = Depends(get_edinet_aggregate_update_service),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """指定期間の EDINET ドキュメントを検索して処理するバッチを実行します.
 
-    指定期間の有価証券報告書を検索し、各書類から5年分の貸借対照表データを取得・保存します。
-    処理は同期的に実行され、完了後にレスポンスを返します。
-
-    Args:
-        request: バッチ実行リクエスト（開始日、終了日、進捗更新間隔、最大ドキュメント数）
-        service: EDINET 貸借対照表サービス
-
-    Returns:
-        EdinetBalanceSheetResponse: 処理結果
+    - `start_date` と `end_date` は ISO 日付 (YYYY-MM-DD) で渡してください。
+    - `max_documents` を指定すると処理対象数を制限します。
+    - 処理は同期的に実行され、完了後に集計結果を返します。
     """
-    logger.info(
-        "Starting EDINET balance sheet fetch: %s to %s",
-        request.start_date,
-        request.end_date,
-    )
-
-    try:
-        start_date = date.fromisoformat(request.start_date)
-        end_date = date.fromisoformat(request.end_date)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid date format: {str(e)}",
-        ) from e
-
-    try:
-        result = await service.fetch_multiple_balance_sheets(
+    try:  # pylint: disable=R0913,R0917
+        result = await service.process_date_range(
             start_date=start_date,
             end_date=end_date,
-            progress_interval=request.progress_interval or 10,
-            max_documents=request.max_documents,
+            progress_interval=progress_interval,
+            max_documents=max_documents,
+            session=db,
+            transaction_atomic=transaction_atomic,
         )
-
-        # job_idは同期実行のため、タイムスタンプベースの固定値
-        job_id = f"sync-{datetime.now(timezone.utc).isoformat()}"
-
-        response = EdinetBalanceSheetResponse(
-            job_id=job_id,
-            status=result.get("status", "completed"),
-            total_documents=result.get("total_documents", 0),
-            processed_documents=result.get("processed_documents", 0),
-            saved_years=result.get("saved_years", 0),
-            failed_documents=result.get("failed_documents", 0),
-        )
-
-        logger.info("EDINET balance sheet fetch completed: %s", response.model_dump())
-        return response
-
-    except Exception as e:
-        logger.exception("EDINET balance sheet fetch failed: %s", e)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to fetch EDINET balance sheets: {str(e)}",
-        ) from e
+        return result
+    except Exception as exc:
+        logger.exception("process_date_range API failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

@@ -254,7 +254,7 @@ class StockPriceFetcher(RetryMixin):
                 return results
 
             except Exception as e:
-                msg = "Failed to fetch multiple symbols due to an " "internal error."
+                msg = "Failed to fetch multiple symbols due to an internal error."
                 logger.exception(msg)
                 raise YahooFinanceError(message=msg) from e
 
