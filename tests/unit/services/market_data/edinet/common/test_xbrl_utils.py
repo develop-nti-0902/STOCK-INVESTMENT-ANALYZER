@@ -1,9 +1,12 @@
+"""Utils tests for XBRL helpers used by EDINET adapters."""
+
 from pathlib import Path
 
 from app.services.market_data.edinet.common import xbrl_utils
 
 
 def test_find_xbrl_files(tmp_path: Path):
+    """Find XBRL/XML files recursively under a directory."""
     a = tmp_path / "a.xbrl"
     a.write_text("<root/>", encoding="utf-8")
 
@@ -23,6 +26,7 @@ def test_find_xbrl_files(tmp_path: Path):
 
 
 def test_extract_contexts_basic():
+    """Extract context elements from a sample XBRL string."""
     x = (
         '<xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance">\n'
         '  <xbrli:context id="C1">'

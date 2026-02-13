@@ -37,11 +37,17 @@ repos:
         name: flake8 (project)
         entry: poetry run python scripts/hooks/run_check_with_status.py --check flake8
         language: system
-        # Exclude tests from flake8 checks at commit time to avoid test-only
-        # docstring/style rules blocking commits. Tests remain covered by CI.
-        files: '^(?!tests/).*\.py$'
+        pass_filenames: false
         stages: [commit]
-        args: ["--exclude=tests"]
+        args: ["--config=.flake8", "--exclude=tests"]
+
+      - id: flake8-tests
+        name: flake8 (tests)
+        entry: poetry run python scripts/hooks/run_check_with_status.py --check flake8
+        language: system
+        pass_filenames: false
+        stages: [commit]
+        args: ["--config=.flake8-tests", "tests"]
 
       - id: mypy
         name: mypy (project)

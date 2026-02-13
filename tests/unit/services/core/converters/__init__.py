@@ -1,1 +1,1 @@
-# Tests for core converters
+"""Unit tests for core converters package."""

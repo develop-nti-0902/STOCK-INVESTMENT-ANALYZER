@@ -1,6 +1,4 @@
-"""
-例外処理モジュールのテスト - 基底例外クラス
-"""
+"""Tests for the base exception classes."""
 
 from fastapi import HTTPException
 
@@ -8,12 +6,10 @@ from app.exceptions.base import AppException
 
 
 class TestAppException:
-    """AppException基底クラスのテスト"""
+    """Tests for AppException base class."""
 
     def test_init_with_defaults(self):
-        """
-        デフォルト値での初期化
-        """
+        """Verify initialization with default values."""
         # Arrange: (特になし)
 
         # Act: デフォルト値でAppExceptionを初期化
@@ -30,9 +26,7 @@ class TestAppException:
         assert exc.original_error is None
 
     def test_init_with_all_params(self):
-        """
-        全パラメータ指定での初期化
-        """
+        """Verify initialization with all parameters provided."""
         # Arrange: 元の例外を準備
         original = ValueError("Original error")
 
@@ -52,9 +46,7 @@ class TestAppException:
         assert exc.original_error is original
 
     def test_to_dict(self):
-        """
-        to_dict()メソッドのテスト
-        """
+        """Verify to_dict() produces expected dictionary."""
         # Arrange: 詳細情報を持つAppExceptionを準備
         exc = AppException(
             message="Test error",
@@ -76,9 +68,7 @@ class TestAppException:
         }
 
     def test_to_http_exception(self):
-        """
-        to_http_exception()メソッドのテスト
-        """
+        """Verify conversion to HTTPException."""
         # Arrange: AppExceptionを準備
         exc = AppException(
             message="Test error",
@@ -102,9 +92,7 @@ class TestAppException:
         }
 
     def test_str_representation(self):
-        """
-        文字列表現のテスト
-        """
+        """Verify string representation contains error code and message."""
         # Arrange: AppExceptionを準備
         exc = AppException(
             message="Test error",
@@ -115,9 +103,7 @@ class TestAppException:
         assert str(exc) == "[TEST_ERROR] Test error"
 
     def test_repr(self):
-        """
-        repr表現のテスト
-        """
+        """Verify repr() output includes key information."""
         # Arrange: AppExceptionを準備
         exc = AppException(
             message="Test error",
@@ -137,9 +123,7 @@ class TestAppException:
         assert "details={'field': 'test'}" in repr_str
 
     def test_exception_inheritance(self):
-        """
-        Pythonの標準Exceptionを継承していることを確認
-        """
+        """Verify AppException inherits from Exception."""
         # Arrange & Act: AppExceptionを準備
         exc = AppException(
             message="Test error",

@@ -1,3 +1,1 @@
-"""
-Repository単体テストパッケージ
-"""
+"""Unit tests for repository package."""

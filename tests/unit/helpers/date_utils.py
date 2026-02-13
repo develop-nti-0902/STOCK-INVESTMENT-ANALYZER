@@ -1,3 +1,5 @@
+"""Date utilities for tests."""
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -7,13 +9,7 @@ from typing import Optional, Union
 def normalize_date_param(
     d: Union[date, datetime, str, None],
 ) -> Optional[date]:
-    """
-    start_date/end_date パラメータを Optional[date] に正規化します。
-    - datetime -> date
-    - date -> date
-    - ISO 形式の文字列 -> date (失敗時は None)
-    - None -> None
-    """
+    """Normalize start_date/end_date parameters to Optional[date]."""
     if d is None:
         return None
     if isinstance(d, datetime):

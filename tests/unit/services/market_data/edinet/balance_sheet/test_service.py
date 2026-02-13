@@ -1,4 +1,4 @@
-"""EDINET 貸借対照表サービスのユニットテスト."""
+"""Unit tests for EDINET balance sheet service and aggregation flow."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from app.services.market_data.edinet.balance_sheet.service import EdinetBalanceSheetService
-from app.services.market_data.edinet.download_service import EdinetDownloadService
 
 
 class DummyFetcher:
@@ -26,10 +25,10 @@ class DummyFetcher:
 
 
 class DummyParser:
-    """ダミーのパーサ."""
+    """Dummy parser returning a fixed parsed structure."""
 
     def parse(self, _data):
-        """ダミーのパース結果を返す."""
+        """Return a fixed parsed structure for tests."""
         return {
             "current": {
                 "assets": 1000.0,
@@ -40,12 +39,8 @@ class DummyParser:
             }
         }
 
-    def parse_root(self, root):
-        """互換のため root を受け取る parse_root を提供する（テスト用）。"""
-        return self.parse(root)
-
     def parse_root(self, root, parsed_xbrl=None):
-        """互換のため root と parsed_xbrl を受け取る parse_root を提供する（テスト用）。"""
+        """Compatibility parse_root accepting root and optional parsed_xbrl."""
         return self.parse(root)
 
 
@@ -87,7 +82,7 @@ class DummySaver:
         return {"saved": data}
 
     async def save(self, data: dict):
-        """互換のため `save` メソッドを提供するラッパー（aggregate 互換）。"""
+        """互換のため `save` メソッドを提供するラッパー (aggregate 互換)."""
         return await self.save_single(data)
 
 

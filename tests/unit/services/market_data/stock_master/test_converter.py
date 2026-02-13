@@ -1,8 +1,8 @@
-"""`StockMasterConverter` の単体テスト。
+"""`StockMasterConverter` の単体テスト.
 
 テスト方針:
-- `StockMasterNormalized` インスタンスのリストを `to_records` に渡し、
-  各モデルが辞書に変換され、`None` の値が除外されていることを検証します。
+ - `StockMasterNormalized` インスタンスのリストを `to_records` に渡し、
+     各モデルが辞書に変換され、`None` の値が除外されていることを検証します.
 """
 
 from typing import List
@@ -12,7 +12,7 @@ from app.services.market_data.stock_master.converter import StockMasterConverter
 
 
 def test_to_records_converts_models_to_dicts():
-    """モデルリストが辞書リストに変換されることを確認する"""
+    """モデルリストが辞書リストに変換されることを確認する."""
     models: List[StockMasterNormalized] = [
         StockMasterNormalized(
             stock_code="1234",
@@ -44,7 +44,7 @@ def test_to_records_converts_models_to_dicts():
 
 
 def test_to_records_excludes_none_values():
-    """`exclude_none=True` によって None 値が除外されることを確認する"""
+    """`exclude_none=True` によって None 値が除外されることを確認する."""
     model = StockMasterNormalized(
         stock_code="9999",
         stock_name="Optional Co",

@@ -1,6 +1,4 @@
-"""
-例外処理モジュールのテスト - データベース関連例外
-"""
+"""Tests for database-related exception classes."""
 
 from app.exceptions.base import AppException
 
@@ -16,12 +14,10 @@ from app.exceptions.database import (
 
 
 class TestDatabaseError:
-    """DatabaseError基底クラスのテスト"""
+    """Tests for DatabaseError base class."""
 
     def test_default_initialization(self):
-        """
-        デフォルト値での初期化
-        """
+        """Verify default initialization of DatabaseError."""
         # Arrange: (特になし)
 
         # Act: デフォルト値でDatabaseErrorを初期化
@@ -34,9 +30,7 @@ class TestDatabaseError:
         assert isinstance(exc, AppException)
 
     def test_custom_message(self):
-        """
-        カスタムメッセージでの初期化
-        """
+        """Verify custom message is preserved on DatabaseError."""
         # Arrange: (特になし)
 
         # Act: カスタムメッセージでDatabaseErrorを初期化
@@ -48,12 +42,10 @@ class TestDatabaseError:
 
 
 class TestStockDataError:
-    """StockDataErrorのテスト"""
+    """Tests for StockDataError behavior."""
 
     def test_default_initialization(self):
-        """
-        デフォルト値での初期化
-        """
+        """Verify default initialization of StockDataError."""
         # Arrange: (特になし)
 
         # Act: デフォルト値でStockDataErrorを初期化
@@ -66,9 +58,7 @@ class TestStockDataError:
         assert isinstance(exc, DatabaseError)
 
     def test_with_details(self):
-        """
-        詳細情報を含む初期化
-        """
+        """Verify details are stored in StockDataError."""
         # Arrange: (特になし)
 
         # Act: 詳細情報を含めてStockDataErrorを初期化
@@ -82,17 +72,15 @@ class TestStockDataError:
         assert exc.details["symbol"] == "7203.T"
 
     def helper_noop(self):
-        """pylint対応用の補助メソッド（テスト動作には影響なし）。"""
+        """No-op helper for pylint compatibility."""
         return None
 
 
 class TestMasterDataError:
-    """MasterDataErrorのテスト"""
+    """Tests for MasterDataError behavior."""
 
     def test_default_initialization(self):
-        """
-        デフォルト値での初期化
-        """
+        """Verify default initialization of MasterDataError."""
         # Arrange: (特になし)
 
         # Act: デフォルト値でMasterDataErrorを初期化
@@ -104,17 +92,15 @@ class TestMasterDataError:
         assert exc.status_code == 500
 
     def helper_noop(self):
-        """pylint対応用の補助メソッド（テスト動作には影響なし）。"""
+        """No-op helper for pylint compatibility."""
         return None
 
 
 class TestConstraintViolationError:
-    """ConstraintViolationErrorのテスト"""
+    """Tests for ConstraintViolationError behavior."""
 
     def test_default_initialization(self):
-        """
-        デフォルト値での初期化
-        """
+        """Verify default initialization of ConstraintViolationError."""
         # Arrange: (特になし)
 
         # Act: デフォルト値でConstraintViolationErrorを初期化
@@ -127,17 +113,15 @@ class TestConstraintViolationError:
         assert isinstance(exc, DatabaseError)
 
     def helper_noop(self):
-        """pylint対応用の補助メソッド（テスト動作には影響なし）。"""
+        """No-op helper for pylint compatibility."""
         return None
 
 
 class TestDuplicateRecordError:
-    """DuplicateRecordErrorのテスト"""
+    """Tests for DuplicateRecordError behavior."""
 
     def test_default_initialization(self):
-        """
-        デフォルト値での初期化
-        """
+        """Verify default initialization of DuplicateRecordError."""
         # Arrange: (特になし)
 
         # Act: デフォルト値でDuplicateRecordErrorを初期化
@@ -150,9 +134,7 @@ class TestDuplicateRecordError:
         assert isinstance(exc, ConstraintViolationError)
 
     def test_with_details(self):
-        """
-        詳細情報を含む初期化
-        """
+        """Verify details are stored in DuplicateRecordError."""
         # Arrange: (特になし)
 
         # Act: 詳細情報を含めてDuplicateRecordErrorを初期化
@@ -172,17 +154,15 @@ class TestDuplicateRecordError:
         assert exc.details["symbol"] == "7203.T"
 
     def helper_noop(self):
-        """pylint対応用の補助メソッド（テスト動作には影響なし）。"""
+        """No-op helper for pylint compatibility."""
         return None
 
 
 class TestRecordNotFoundError:
-    """RecordNotFoundErrorのテスト"""
+    """Tests for RecordNotFoundError behavior."""
 
     def test_default_initialization(self):
-        """
-        デフォルト値での初期化
-        """
+        """Verify default initialization of RecordNotFoundError."""
         # Arrange: (特になし)
 
         # Act: デフォルト値でRecordNotFoundErrorを初期化
@@ -195,9 +175,7 @@ class TestRecordNotFoundError:
         assert isinstance(exc, DatabaseError)
 
     def test_with_details(self):
-        """
-        詳細情報を含む初期化
-        """
+        """Verify details are stored in RecordNotFoundError."""
         # Arrange: (特になし)
 
         # Act: 詳細情報を含めてRecordNotFoundErrorを初期化

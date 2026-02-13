@@ -1,3 +1,1 @@
-"""
-例外処理モジュールのテスト用 __init__.py
-"""
+"""Tests for exceptions package."""

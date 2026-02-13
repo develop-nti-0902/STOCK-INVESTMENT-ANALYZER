@@ -40,7 +40,6 @@ class EdinetProfitAndLossConverter(BaseConverter[EdinetProfitAndLossCreate]):
         doc_id = data.get("doc_id", "")
         sec_code = data.get("sec_code", "")
         submission_date = data.get("submission_date")
-        filer_name = data.get("filer_name")
 
         # 財務データを抽出
         period_end_date = data.get("period_end_date")
@@ -65,12 +64,15 @@ class EdinetProfitAndLossConverter(BaseConverter[EdinetProfitAndLossCreate]):
         return EdinetProfitAndLossCreate(
             doc_id=doc_id,
             sec_code=sec_code,
-            filer_name=filer_name,
             submission_date=submission_date,  # type: ignore[arg-type]
             period_end_date=period_end_date,  # type: ignore[arg-type]
             fiscal_year=fiscal_year,
             report_type="annual",
-            operating_profit=to_decimal(data.get("operating_profit")),
+            # Map legacy input `operating_profit` to new `operating_income` field
+            operating_income=to_decimal(data.get("operating_profit"))
+            or to_decimal(data.get("operating_income")),
+            # Map net sales if present
+            net_sales=to_decimal(data.get("net_sales")) or to_decimal(data.get("sales")),
             eps=to_decimal(data.get("eps")),
             candidate_contexts=data.get("candidate_contexts"),
             candidate_keys=data.get("candidate_keys"),
@@ -100,12 +102,12 @@ class EdinetProfitAndLossConverter(BaseConverter[EdinetProfitAndLossCreate]):
         return {
             "doc_id": model.doc_id,
             "sec_code": model.sec_code,
-            "filer_name": model.filer_name,
             "submission_date": model.submission_date,
             "period_end_date": model.period_end_date,
             "fiscal_year": model.fiscal_year,
             "report_type": model.report_type,
-            "operating_profit": model.operating_profit,
+            "net_sales": getattr(model, "net_sales", None),
+            "operating_income": model.operating_income,
             "eps": model.eps,
             "candidate_contexts": model.candidate_contexts,
             "candidate_keys": model.candidate_keys,

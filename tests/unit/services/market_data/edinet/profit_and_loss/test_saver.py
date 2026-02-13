@@ -1,6 +1,6 @@
-"""EdinetProfitAndLossSaver の単体テスト。
+"""EdinetProfitAndLossSaver の単体テスト.
 
-リポジトリ呼び出しはモック化して非同期挙動を検証する。
+リポジトリ呼び出しはモック化して非同期挙動を検証する.
 """
 
 from __future__ import annotations
@@ -37,14 +37,16 @@ class _DummyRepo:
 
 
 class ConcreteSaver(EdinetProfitAndLossSaver):
-    """テスト用のConcrete実装。抽象メソッドを委譲実装する。"""
+    """テスト用のConcrete実装. 抽象メソッドを委譲実装する."""
 
     async def save(self, data, **kwargs):
+        """単一保存を呼ぶテスト用実装."""
         return await self.save_single(data)
 
 
 @pytest.mark.asyncio
 async def test_validate_data_true_and_false():
+    """validate_data の真偽を検証する."""
     saver = ConcreteSaver(session=None)
 
     good = {"sec_code": "7203", "period_end_date": "2024-03-31"}
@@ -57,6 +59,7 @@ async def test_validate_data_true_and_false():
 
 @pytest.mark.asyncio
 async def test_save_single_success(monkeypatch):
+    """save_single が正常に保存を返すことを検証する."""
     # リポジトリをモック化
     monkeypatch.setattr(
         "app.services.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
@@ -75,6 +78,7 @@ async def test_save_single_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_save_single_raises_on_empty_or_missing():
+    """空や不正データで例外が上がることを検証する."""
     monkeypatch = pytest.MonkeyPatch()
     try:
         monkeypatch.setattr(
@@ -95,6 +99,7 @@ async def test_save_single_raises_on_empty_or_missing():
 
 @pytest.mark.asyncio
 async def test_save_batch_continues_on_error(monkeypatch):
+    """バッチ処理で一件の失敗が継続されることを検証する."""
     monkeypatch.setattr(
         "app.services.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
         _DummyRepo,
@@ -116,6 +121,7 @@ async def test_save_batch_continues_on_error(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_exists_and_get_latest(monkeypatch):
+    """exists と get_latest_by_sec_code の挙動を検証する."""
     monkeypatch.setattr(
         "app.services.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
         _DummyRepo,

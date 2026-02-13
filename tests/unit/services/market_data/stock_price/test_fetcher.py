@@ -1,7 +1,7 @@
-"""`StockPriceFetcher` の単体テスト（書き直し）。
+"""`StockPriceFetcher` の単体テスト（書き直し）.
 
 テストは簡潔に、命名規約に従い、
-`app.services.market_data.stock_price.fetcher` の公開振る舞いを検証します。
+`app.services.market_data.stock_price.fetcher` の公開振る舞いを検証します.
 """
 
 import asyncio
@@ -17,22 +17,26 @@ from app.services.market_data.stock_price.fetcher import StockPriceFetcher, Time
 
 
 class TestTimeframeMapping:
-    # タイムフレーム → yfinance interval の正しい変換を確認
+    """Unit tests for `TimeframeMapping` helpers."""
+
     def test_get_yfinance_interval_valid(self):
+        """Valid timeframe strings map to yfinance intervals."""
         assert TimeframeMapping.get_yfinance_interval("1d") == "1d"
         assert TimeframeMapping.get_yfinance_interval("1m") == "1m"
 
     def test_get_yfinance_interval_invalid(self):
+        """Invalid timeframe raises FieldValidationError."""
         with pytest.raises(FieldValidationError):
             TimeframeMapping.get_yfinance_interval("invalid")
 
     def test_get_supported_timeframes(self):
-        # サポートされているタイムフレーム一覧を取得して確認
+        """Supported timeframe list includes common intervals."""
         supported = TimeframeMapping.get_supported_timeframes()
         assert isinstance(supported, list)
         assert "1d" in supported
 
     def test_get_period_valid_and_invalid(self):
+        """Period mapping returns expected strings and raises on invalid input."""
         assert TimeframeMapping.get_period("1m") == "7d"
         assert TimeframeMapping.get_period("1d") == "max"
         with pytest.raises(FieldValidationError):
@@ -40,12 +44,15 @@ class TestTimeframeMapping:
 
 
 class TestStockPriceFetcherUnit:
+    """Unit tests for `StockPriceFetcher` instance methods and parsing logic."""
+
     @pytest.fixture
     def fetcher(self):
-        # テスト用の StockPriceFetcher インスタンスを返すフィクスチャ
+        """Return a test `StockPriceFetcher` instance."""
         return StockPriceFetcher()
 
     def test_init_reads_settings_concurrency(self):
+        """Constructor reads concurrency limit from settings and creates a semaphore."""
         with patch(
             "app.services.market_data.stock_price.fetcher.get_settings"
         ) as mock_get_settings:
@@ -57,13 +64,13 @@ class TestStockPriceFetcherUnit:
 
     @pytest.mark.asyncio
     async def test_fetch_batch_validates_symbols(self, fetcher):
-        # 空リストはバリデーションエラーになる
+        """fetch_batch raises FieldValidationError for empty symbol lists."""
         with pytest.raises(FieldValidationError):
             await fetcher.fetch_batch([], timeframe="1d")
 
     @pytest.mark.asyncio
     async def test_fetch_batch_delegates_to_internal(self, fetcher):
-        # 内部の一括取得メソッドへ委譲していることを確認
+        """fetch_batch delegates to internal multi-symbol fetch method."""
         with patch.object(fetcher, "_fetch_multi_symbol", new_callable=AsyncMock) as mock_multi:
             mock_multi.return_value = {
                 "T": [StockData(symbol="T", timestamp=datetime.now(timezone.utc))]
@@ -73,7 +80,7 @@ class TestStockPriceFetcherUnit:
             assert "T" in res
 
     def test_parse_yfinance_data_basic(self, fetcher):
-        # 基本的なDataFrameからStockDataへ正しく変換されることを確認
+        """Basic DataFrame rows are converted to `StockData` objects."""
         df = pd.DataFrame(
             {
                 "Open": [100.0, 101.0],
@@ -94,7 +101,7 @@ class TestStockPriceFetcherUnit:
         assert out[1].volume == 1100
 
     def test_parse_yfinance_data_missing_adj(self, fetcher):
-        # Adj Close 列がない場合は adj_close が None になることを確認
+        """Missing 'Adj Close' column results in `adj_close` being None."""
         df = pd.DataFrame(
             {
                 "Open": [100.0],
@@ -111,7 +118,7 @@ class TestStockPriceFetcherUnit:
 
     @pytest.mark.asyncio
     async def test_is_valid_symbol_format(self, fetcher):
-        # シンボル形式の検証（有効／無効ケース）
+        """Validate symbol format accepts and rejects expected patterns."""
         assert await fetcher.is_valid_symbol_format("AAPL") is True
         assert await fetcher.is_valid_symbol_format("7203.T") is True
         assert await fetcher.is_valid_symbol_format("0001.HK") is True
@@ -124,16 +131,15 @@ class TestStockPriceFetcherUnit:
 
     @pytest.mark.asyncio
     async def test_handle_fetch_error_logs(self, fetcher):
+        """handle_fetch_error logs appropriately for YahooFinanceError and general errors."""
         from app.exceptions.external_api import YahooFinanceError
 
-        # YahooFinanceError の場合は error/warning が呼ばれる
         with patch("app.services.market_data.stock_price.fetcher.logger") as mock_logger:
             err = YahooFinanceError(message="err")
             await fetcher.handle_fetch_error("T", err)
             mock_logger.error.assert_called()
             mock_logger.warning.assert_called()
 
-        # 一般的な例外の場合は error のみ呼ばれる
         with patch("app.services.market_data.stock_price.fetcher.logger") as mock_logger:
             err = ValueError("boom")
             await fetcher.handle_fetch_error("T", err)
@@ -141,7 +147,7 @@ class TestStockPriceFetcherUnit:
 
     @pytest.mark.asyncio
     async def test_fetch_batch_with_yfinance_multiindex(self, fetcher):
-        # yfinance の MultiIndex 戻り値を模擬して複数銘柄の解析を検証
+        """Parse yfinance MultiIndex history output for multiple tickers."""
         with patch("app.services.market_data.stock_price.fetcher.yf.Tickers") as mock_tickers:
             inst = mock_tickers.return_value
 

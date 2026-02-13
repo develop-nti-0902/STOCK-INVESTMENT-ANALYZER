@@ -1,7 +1,4 @@
-"""StockMasterRepository の単体テスト
-
-テストは AAA パターン（Arrange / Act / Assert）で記述します。
-"""
+"""Unit tests for StockMasterRepository using mocked sessions."""
 
 from unittest.mock import AsyncMock, Mock
 
@@ -13,6 +10,7 @@ from app.repositories.stock_master_repository import StockMasterRepository
 
 @pytest.mark.asyncio
 async def test_bulk_upsert_returns_zero_for_empty_records():
+    """Return zero and do not call DB when records list is empty."""
     # Arrange: モックセッションを用意
     mock_session = AsyncMock()
     repo = StockMasterRepository(session=mock_session)
@@ -28,6 +26,7 @@ async def test_bulk_upsert_returns_zero_for_empty_records():
 
 @pytest.mark.asyncio
 async def test_bulk_upsert_executes_insert_and_flush():
+    """Execute insert and flush for provided records."""
     # Arrange: モックセッションを用意
     mock_session = AsyncMock()
     # execute/flush は非同期で呼ばれる想定
@@ -60,6 +59,7 @@ async def test_bulk_upsert_executes_insert_and_flush():
 
 @pytest.mark.asyncio
 async def test_bulk_upsert_commits_on_success():
+    """Flush and return count when bulk_upsert succeeds."""
     # Arrange: モックセッションを用意
     mock_session = AsyncMock()
     mock_session.execute = AsyncMock()
@@ -86,6 +86,7 @@ async def test_bulk_upsert_commits_on_success():
 
 @pytest.mark.asyncio
 async def test_bulk_upsert_rolls_back_and_raises_on_sqlalchemy_error():
+    """Raise and allow rollback propagation when execute throws SQLAlchemyError."""
     # Arrange: モックセッションを用意して execute がエラーを投げる
     mock_session = AsyncMock()
 
@@ -115,6 +116,7 @@ async def test_bulk_upsert_rolls_back_and_raises_on_sqlalchemy_error():
 
 @pytest.mark.asyncio
 async def test_get_by_symbol_calls_execute_and_returns_instance():
+    """Call execute and return instance for symbol lookup."""
     mock_session = AsyncMock()
     repo = StockMasterRepository(session=mock_session)
 
@@ -135,6 +137,7 @@ async def test_get_by_symbol_calls_execute_and_returns_instance():
 
 @pytest.mark.asyncio
 async def test_get_by_market_and_search_return_list():
+    """Return lists from market and search queries."""
     mock_session = AsyncMock()
     repo = StockMasterRepository(session=mock_session)
 
@@ -157,6 +160,7 @@ async def test_get_by_market_and_search_return_list():
 
 @pytest.mark.asyncio
 async def test_upsert_is_not_supported():
+    """Raise NotImplementedError for unsupported upsert method."""
     mock_session = AsyncMock()
     repo = StockMasterRepository(session=mock_session)
 
@@ -170,7 +174,7 @@ async def test_upsert_is_not_supported():
 
 @pytest.mark.asyncio
 async def test_get_all_active_symbols_success():
-    """アクティブな全銘柄コード取得の成功ケース"""
+    """Return all active symbols successfully."""
     # Arrange
     mock_session = AsyncMock()
     mock_result = Mock()
@@ -189,7 +193,7 @@ async def test_get_all_active_symbols_success():
 
 @pytest.mark.asyncio
 async def test_get_symbols_by_market_success():
-    """市場別銘柄コード取得の成功ケース"""
+    """Return symbols for a given market successfully."""
     # Arrange
     mock_session = AsyncMock()
     mock_result = Mock()
@@ -209,7 +213,7 @@ async def test_get_symbols_by_market_success():
 
 @pytest.mark.asyncio
 async def test_get_symbols_by_sector_success():
-    """業種別銘柄コード取得の成功ケース"""
+    """Return symbols for a given sector successfully."""
     # Arrange
     mock_session = AsyncMock()
     mock_result = Mock()
@@ -229,7 +233,7 @@ async def test_get_symbols_by_sector_success():
 
 @pytest.mark.asyncio
 async def test_get_all_active_symbols_empty_result():
-    """アクティブな全銘柄コード取得で空結果の場合"""
+    """Return empty list when no active symbols exist."""
     # Arrange
     mock_session = AsyncMock()
     mock_result = Mock()
@@ -248,7 +252,7 @@ async def test_get_all_active_symbols_empty_result():
 
 @pytest.mark.asyncio
 async def test_get_symbols_by_market_empty_result():
-    """市場別銘柄コード取得で空結果の場合"""
+    """Return empty list when market query yields no symbols."""
     # Arrange
     mock_session = AsyncMock()
     mock_result = Mock()
@@ -268,7 +272,7 @@ async def test_get_symbols_by_market_empty_result():
 
 @pytest.mark.asyncio
 async def test_get_symbols_by_sector_empty_result():
-    """業種別銘柄コード取得で空結果の場合"""
+    """Return empty list when sector query yields no symbols."""
     # Arrange
     mock_session = AsyncMock()
     mock_result = Mock()

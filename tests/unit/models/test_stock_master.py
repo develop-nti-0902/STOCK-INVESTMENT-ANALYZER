@@ -1,11 +1,12 @@
+"""Tests for the `StockMaster` model fields and table naming."""
+
 from __future__ import annotations
 
 from app.models import stock_master
 
 
 def test_stock_master_basic_fields_and_tablename():
-    """DBスキーマに合わせた StockMaster のフィールドが存在することを確認する"""
-
+    """Verify StockMaster fields match DB schema and tablename assignment."""
     # Arrange / Act: インスタンス化（DB側カラム名で指定）
     inst = stock_master.StockMaster(
         stock_code="7203",

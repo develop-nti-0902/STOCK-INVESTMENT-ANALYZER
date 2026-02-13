@@ -1,6 +1,4 @@
-"""
-BaseFetcherの単体テスト
-"""
+"""Unit tests for BaseFetcher implementations and helpers."""
 
 import pytest
 
@@ -8,16 +6,16 @@ from app.services.core.fetchers.base_fetcher import BaseFetcher
 
 
 class ConcreteFetcher(BaseFetcher[str]):
-    """テスト用の具体的なFetcher実装"""
+    """Concrete fetcher used in tests."""
 
     async def fetch(self, identifier: str, **kwargs) -> str:
-        """テスト用のfetch実装"""
+        """Fetch a single identifier or raise on 'error'."""
         if identifier == "error":
             raise ValueError("Test error")
         return f"Data for {identifier}"
 
     async def fetch_batch(self, identifiers: list[str], **kwargs) -> list[str]:
-        """テスト用のfetch_batch実装"""
+        """Fetch multiple identifiers, skipping those that error."""
         results = []
         for identifier in identifiers:
             try:
@@ -29,11 +27,11 @@ class ConcreteFetcher(BaseFetcher[str]):
 
 
 class TestBaseFetcher:
-    """BaseFetcherの単体テスト"""
+    """Tests for BaseFetcher behavior and error handling."""
 
     @pytest.mark.asyncio
     async def test_fetch_success(self):
-        """正常なデータ取得のテスト"""
+        """Fetch returns expected data for valid identifier."""
         # Arrange: テスト用のFetcherを準備
         fetcher = ConcreteFetcher()
 
@@ -45,7 +43,7 @@ class TestBaseFetcher:
 
     @pytest.mark.asyncio
     async def test_fetch_error(self):
-        """エラー時の動作テスト"""
+        """Fetch raises ValueError for error identifier."""
         # Arrange: テスト用のFetcherを準備
         fetcher = ConcreteFetcher()
 
@@ -55,7 +53,7 @@ class TestBaseFetcher:
 
     @pytest.mark.asyncio
     async def test_fetch_batch_success(self):
-        """一括取得の正常動作テスト"""
+        """Fetch batch returns correct list for identifiers."""
         # Arrange: テスト用のFetcherと識別子リストを準備
         fetcher = ConcreteFetcher()
         identifiers = ["id1", "id2", "id3"]
@@ -71,7 +69,7 @@ class TestBaseFetcher:
 
     @pytest.mark.asyncio
     async def test_fetch_batch_with_errors(self):
-        """一括取得時に一部エラーが発生する場合のテスト"""
+        """Fetch batch skips identifiers that raise errors."""
         # Arrange: テスト用のFetcherと識別子リスト（途中にエラーを含む）を準備
         fetcher = ConcreteFetcher()
         identifiers = ["id1", "error", "id3"]
@@ -86,7 +84,7 @@ class TestBaseFetcher:
 
     @pytest.mark.asyncio
     async def test_validate_identifier(self):
-        """識別子検証のテスト"""
+        """Validate identifier handling for various inputs."""
         # Arrange: テスト用のFetcherを準備
         fetcher = ConcreteFetcher()
 
@@ -102,7 +100,7 @@ class TestBaseFetcher:
 
     @pytest.mark.asyncio
     async def test_handle_fetch_error(self):
-        """エラーハンドリングのテスト"""
+        """Ensure default error handler does not re-raise."""
         # Arrange: テスト用のFetcherを準備
         fetcher = ConcreteFetcher()
 

@@ -1,3 +1,5 @@
+"""Unit tests for `app.api.v1.stock_price` endpoints."""
+
 from datetime import datetime, timezone
 
 import pytest
@@ -9,52 +11,59 @@ from app.exceptions.validation import FieldValidationError
 
 
 class DummyDB:
+    """A minimal dummy DB object that supports commit/rollback for tests."""
+
     def __init__(self):
+        """Initialize DummyDB with commit/rollback tracking flags."""
         self.committed = False
         self.rolled_back = False
 
     async def commit(self):
+        """Simulate commit by marking `committed` True."""
         self.committed = True
 
     async def rollback(self):
+        """Simulate rollback by marking `rolled_back` True."""
         self.rolled_back = True
 
 
 class FakeService:
+    """Fake service used by tests to simulate data retrieval and deletion."""
+
     def __init__(
         self, *, rows=None, deleted_count: int | None = None, error: Exception | None = None
     ):
+        """Initialize FakeService with configurable rows, deleted_count and error."""
         self._rows = rows
         self._deleted_count = deleted_count
         self._error = error
 
     async def get_stock_data_from_db(self, db, symbol, timeframe, start, end, limit, offset):
+        """Return configured rows or raise configured errors."""
         if isinstance(self._error, FieldValidationError) or isinstance(
             self._error, RecordNotFoundError
         ):
             raise self._error
         if self._rows is None:
-            # simulate not found
             raise RecordNotFoundError(message=f"No data found for symbol '{symbol}'")
         return self._rows
 
     async def delete_all_for_timeframe(self, db, timeframe):
+        """Delete all and either commit or raise as configured."""
         if isinstance(self._error, FieldValidationError):
             raise self._error
         if isinstance(self._error, Exception):
-            # simulate service behavior: attempt rollback then raise
             await db.rollback()
             raise ServiceError(message=str(self._error))
-        # mimic real service which commits inside repository/service
         if self._deleted_count is None:
             return 0
-        # commit to simulate real flow
         await db.commit()
         return self._deleted_count
 
 
 @pytest.mark.asyncio
 async def test_get_stock_price_invalid_start_format_raises_400():
+    """Verify invalid start date format raises FieldValidationError."""
     with pytest.raises(FieldValidationError) as exc:
         await stock_price_module.get_stock_price_data(
             symbol="7203",
@@ -73,6 +82,7 @@ async def test_get_stock_price_invalid_start_format_raises_400():
 
 @pytest.mark.asyncio
 async def test_get_stock_price_invalid_timeframe_raises_400():
+    """Verify invalid timeframe format raises FieldValidationError."""
     svc = FakeService(rows=[], error=FieldValidationError(message="Invalid timeframe: 2h"))
 
     with pytest.raises(FieldValidationError) as exc:
@@ -92,7 +102,7 @@ async def test_get_stock_price_invalid_timeframe_raises_400():
 
 @pytest.mark.asyncio
 async def test_get_stock_price_no_results_raises_404():
-    # service returns None/raises RecordNotFoundError
+    """Verify no results causes RecordNotFoundError."""
     svc = FakeService(rows=None)
 
     with pytest.raises(RecordNotFoundError) as exc:
@@ -112,6 +122,7 @@ async def test_get_stock_price_no_results_raises_404():
 
 @pytest.mark.asyncio
 async def test_get_stock_price_success_returns_data():
+    """Verify successful retrieval returns properly shaped response."""
     now = datetime.now(timezone.utc)
     rows = [
         {
@@ -156,6 +167,7 @@ async def test_get_stock_price_success_returns_data():
 
 @pytest.mark.asyncio
 async def test_delete_all_success_commits_and_returns_count():
+    """Verify delete_all commits and returns deleted count on success."""
     db = DummyDB()
     svc = FakeService(deleted_count=5)
 
@@ -171,6 +183,7 @@ async def test_delete_all_success_commits_and_returns_count():
 
 @pytest.mark.asyncio
 async def test_delete_all_invalid_timeframe_raises_400():
+    """Verify invalid timeframe for delete_all raises FieldValidationError."""
     db = DummyDB()
     svc = FakeService(error=FieldValidationError(message="Invalid timeframe: 2h"))
 
@@ -184,6 +197,7 @@ async def test_delete_all_invalid_timeframe_raises_400():
 
 @pytest.mark.asyncio
 async def test_delete_all_failure_rolls_back_and_raises():
+    """Verify delete_all rolls back and raises on service failure."""
     db = DummyDB()
     svc = FakeService(error=RuntimeError("boom"))
 

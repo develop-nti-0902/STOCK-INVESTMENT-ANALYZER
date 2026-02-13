@@ -1,3 +1,5 @@
+"""Tests for model base utilities and mixins."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -6,9 +8,7 @@ from app.models import base
 
 
 def test_camel_to_snake_basic_cases():
-    """
-    CamelCase から snake_case への変換が正しく動作することを検証する
-    """
+    """Verify CamelCase to snake_case conversion works as expected."""
     # Arrange: クラス名を通じて公開APIで変換動作を検証する
     cases = {
         "MyModel": "my_model",
@@ -26,9 +26,7 @@ def test_camel_to_snake_basic_cases():
 
 
 def test_tablename_auto_assigned_and_preserved():
-    """
-    `__tablename__` の自動付与と、明示的設定の保持を検証する
-    """
+    """Verify `__tablename__` is auto-assigned and explicit names are preserved."""
 
     # Arrange: ダミーモデル定義（__tablename__ 未指定 / 指定）
     class SampleModel(base.SerialPKMixin, base.Base):
@@ -43,10 +41,7 @@ def test_tablename_auto_assigned_and_preserved():
 
 
 def test_timestamp_mixin_sets_defaults_and_respects_kwargs():
-    """
-    TimestampMixin がデフォルト値を埋めること、
-    明示値を保持すること、`None` を与えた場合にも現在時刻で埋めることを検証する
-    """
+    """Verify TimestampMixin sets defaults, respects kwargs, and handles None."""
 
     # Arrange: ダミーモデルを定義
     class TimeModel(base.SerialPKMixin, base.TimestampMixin, base.Base):
@@ -83,9 +78,7 @@ def test_timestamp_mixin_sets_defaults_and_respects_kwargs():
 
 
 def test_timestamp_mixin_updated_at_on_init_is_recent():
-    """
-    updated_at がインスタンス初期化時に現在に近い値となることを簡易検証する
-    """
+    """Check that `updated_at` on init is recent."""
 
     # Arrange: ダミーモデル定義
     class TimeModel2(base.SerialPKMixin, base.TimestampMixin, base.Base):

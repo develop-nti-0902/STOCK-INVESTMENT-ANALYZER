@@ -1,3 +1,5 @@
+"""Tests for the `StockMasterUpdates` model fields and defaults."""
+
 from __future__ import annotations
 
 from sqlalchemy import create_engine
@@ -5,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 
 def test_stock_master_updates_fields_and_defaults():
-    """`StockMasterUpdates` の基本フィールドとデフォルトが機能することを確認する。"""
+    """Verify StockMasterUpdates basic fields and defaults work."""
     # Arrange: in-memory SQLite を利用
     engine = create_engine("sqlite:///:memory:", future=True)
 

@@ -45,7 +45,7 @@ jobs:
         run: |
           poetry run black --check .
           poetry run isort --check-only .
-          poetry run flake8
+          poetry run flake8 --config .flake8
           poetry run mypy app
           poetry run pylint --rcfile=.pylintrc app
 

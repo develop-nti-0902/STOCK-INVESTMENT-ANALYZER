@@ -1,9 +1,8 @@
-"""
-StockPriceConverter 単体テスト（現行実装向け）
+"""StockPriceConverter 単体テスト（現行実装向け）.
 
 このテストは現在の `StockPriceConverter` 実装に合わせ、
 実装済みの機能（`to_saver_records` / `_to_saver_record`）を検証し、
-未実装のAPIが `NotImplementedError` を送出することを確認します。
+未実装のAPIが `NotImplementedError` を送出することを確認します.
 """
 
 from datetime import datetime, timezone
@@ -15,16 +14,16 @@ from app.services.market_data.stock_price.converter import StockPriceConverter
 
 
 class TestStockPriceConverter:
-    """`StockPriceConverter` の振る舞いを検証するテスト群"""
+    """`StockPriceConverter` の振る舞いを検証するテスト群."""
 
     @pytest.fixture
     def converter(self) -> StockPriceConverter:
-        """テスト対象インスタンスを返すフィクスチャ"""
+        """テスト対象インスタンスを返すフィクスチャ."""
         return StockPriceConverter()
 
     @pytest.fixture
     def sample_model(self) -> StockPriceCreate:
-        """保存用の Pydantic モデルサンプル（UTCタイムゾーン付き）"""
+        """保存用の Pydantic モデルサンプル（UTCタイムゾーン付き）."""
         return StockPriceCreate(
             symbol="7203.T",
             timestamp=datetime(2023, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
@@ -37,7 +36,7 @@ class TestStockPriceConverter:
         )
 
     def test__to_saver_record_converts_fields_correctly(self, converter, sample_model):
-        """`_to_saver_record` が期待するキーと値に変換することを検証する"""
+        """`_to_saver_record` が期待するキーと値に変換することを検証する."""
         record = converter._to_saver_record(sample_model)
 
         assert record["timestamp"] == sample_model.timestamp
@@ -49,7 +48,7 @@ class TestStockPriceConverter:
         assert record["adj_close"] == sample_model.adj_close
 
     def test_to_saver_records_converts_list(self, converter, sample_model):
-        """`to_saver_records` がリストの各モデルを辞書に変換することを検証する"""
+        """`to_saver_records` がリストの各モデルを辞書に変換することを検証する."""
         models = [sample_model, sample_model]
         records = converter.to_saver_records(models)
 
@@ -60,7 +59,7 @@ class TestStockPriceConverter:
         assert records[1] == converter._to_saver_record(sample_model)
 
     def test_unimplemented_methods_raise(self, converter):
-        """未実装のAPIが `NotImplementedError` を送出することを確認する"""
+        """未実装のAPIが `NotImplementedError` を送出することを確認する."""
         with pytest.raises(NotImplementedError):
             converter.to_pydantic({})
 

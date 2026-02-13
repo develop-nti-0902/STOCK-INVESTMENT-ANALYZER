@@ -1,6 +1,4 @@
-"""
-例外処理モジュールのテスト - ハンドラ
-"""
+"""Tests for exception handlers and error response utilities."""
 
 from types import SimpleNamespace
 
@@ -20,7 +18,7 @@ from app.exceptions.handlers import (
 
 
 def create_mock_request(path: str, method: str, app: object | None = None):
-    """軽量なモックRequestを生成する（クラス定義を避けてpylint対応）。"""
+    """Create a lightweight mock Request object for tests."""
     url = SimpleNamespace(path=path)
     ns = SimpleNamespace(url=url, method=method)
     if app is not None:
@@ -29,51 +27,30 @@ def create_mock_request(path: str, method: str, app: object | None = None):
 
 
 class TestGenerateRequestId:
-    """generate_request_id()関数のテスト"""
+    """Tests for `generate_request_id()` function."""
 
     def test_generates_request_id(self):
-        """
-        リクエストIDを生成できることを確認
-        """
-        # Arrange: (特になし)
-
-        # Act: リクエストIDを生成
+        """Generate a request id with expected prefix and length."""
         request_id = generate_request_id()
-
-        # Assert: 正しい形式で生成されていることを確認
         assert request_id.startswith("req-")
         assert len(request_id) > 10
 
     def test_generates_unique_ids(self):
-        """
-        異なるIDが生成されることを確認
-        """
-        # Arrange: (特になし)
-
-        # Act: 2つのリクエストIDを生成
+        """Generate unique request ids on subsequent calls."""
         id1 = generate_request_id()
         id2 = generate_request_id()
-
-        # Assert: 異なるIDが生成されることを確認
         assert id1 != id2
 
 
 class TestCreateErrorResponse:
-    """create_error_response()関数のテスト"""
+    """Tests for `create_error_response()` utility."""
 
     def test_creates_basic_error_response(self):
-        """
-        基本的なエラーレスポンスを生成
-        """
-        # Arrange: (特になし)
-
-        # Act: 基本的なエラーレスポンスを生成
+        """Create a basic error response and validate its structure."""
         response = create_error_response(
             error_code="TEST_ERROR",
             message="Test error message",
         )
-
-        # Assert: レスポンスの構造が正しいことを確認
         assert response["error"]["code"] == "TEST_ERROR"
         assert response["error"]["message"] == "Test error message"
         assert response["error"]["details"] == {}
@@ -82,135 +59,90 @@ class TestCreateErrorResponse:
         assert "request_id" in response["meta"]
 
     def test_creates_error_response_with_details(self):
-        """
-        詳細情報を含むエラーレスポンスを生成
-        """
-        # Arrange: (特になし)
-
-        # Act: 詳細情報を含むエラーレスポンスを生成
+        """Include details in the error response payload."""
         response = create_error_response(
             error_code="VALIDATION_ERROR",
             message="Validation failed",
             details={"field": "symbol", "value": "invalid"},
         )
-
-        # Assert: 詳細情報が正しく含まれていることを確認
         assert response["error"]["details"]["field"] == "symbol"
         assert response["error"]["details"]["value"] == "invalid"
 
     def test_creates_error_response_with_request_id(self):
-        """
-        リクエストIDを指定してエラーレスポンスを生成
-        """
-        # Arrange: (特になし)
-
-        # Act: リクエストIDを指定してエラーレスポンスを生成
+        """Use the provided request_id in the response meta."""
         response = create_error_response(
             error_code="TEST_ERROR",
             message="Test message",
             request_id="test-req-123",
         )
-
-        # Assert: 指定したリクエストIDが設定されていることを確認
         assert response["meta"]["request_id"] == "test-req-123"
 
 
 @pytest.mark.asyncio
 class TestAppExceptionHandler:
-    """app_exception_handler()関数のテスト"""
+    """Tests for `app_exception_handler()` behavior."""
 
     async def test_handles_app_exception(self):
-        """AppExceptionを処理できることを確認"""
-
-        # Arrange: モックリクエストとAppExceptionを準備
+        """Handle AppException and return proper HTTP response."""
         request = create_mock_request("/test", "GET")
-
         exc = AppException(
             message="Test app exception",
             error_code="APP_ERROR",
             status_code=400,
             context={"details": {"key": "value"}},
         )
-
-        # Act: ハンドラーを呼び出し
         response = await app_exception_handler(request, exc)
-
-        # Assert: 正しいレスポンスが返されることを確認
         assert response.status_code == 400
         body = response.body.decode()
         assert "APP_ERROR" in body
         assert "Test app exception" in body
 
     def helper_noop(self):
-        """pylint対策用の補助メソッド。"""
+        """No-op helper for pylint compatibility."""
         return None
 
 
 @pytest.mark.asyncio
 class TestHttpExceptionHandler:
-    """http_exception_handler()関数のテスト"""
+    """Tests for `http_exception_handler()` behavior."""
 
     async def test_handles_http_exception(self):
-        """HTTPExceptionを処理できることを確認"""
-
-        # Arrange: モックリクエストとHTTPExceptionを準備
+        """Handle HTTPException and return its detail in response."""
         request = create_mock_request("/test", "GET")
-
         exc = HTTPException(
             status_code=404,
             detail="Not found",
         )
-
-        # Act: ハンドラーを呼び出し
         response = await http_exception_handler(request, exc)
-
-        # Assert: 正しいレスポンスが返されることを確認
         assert response.status_code == 404
         body = response.body.decode()
         assert "Not found" in body
 
     def helper_noop(self):
-        """pylint対策用の補助メソッド。"""
+        """No-op helper for pylint compatibility."""
         return None
 
 
 @pytest.mark.asyncio
 class TestGeneralExceptionHandler:
-    """general_exception_handler()関数のテスト"""
+    """Tests for `general_exception_handler()` behavior."""
 
     async def test_handles_general_exception(self):
-        """
-        一般的な例外を処理できることを確認
-        """
-
-        # Arrange: モックリクエストと一般例外を準備
+        """Handle a generic exception and return 500 response."""
         request = create_mock_request("/test", "GET")
-
         exc = ValueError("Unexpected error")
-
-        # Act: ハンドラーを呼び出し
         response = await general_exception_handler(request, exc)
-
-        # Assert: 正しいレスポンスが返されることを確認
         assert response.status_code == 500
         body = response.body.decode()
         assert "INTERNAL_SERVER_ERROR" in body
 
     async def test_handles_general_exception_with_debug_mode(self):
-        """
-        DEBUG=Trueの場合、トレースバックが含まれることを確認
-        """
-
-        # Arrange: DEBUGモード有効なモックリクエストを準備（SimpleNamespaceで軽量生成）
+        """Include traceback when DEBUG=True in app settings."""
         settings_ns = SimpleNamespace(DEBUG=True)
         app_ns = SimpleNamespace(state=SimpleNamespace(settings=settings_ns))
         request = create_mock_request("/test", "GET", app=app_ns)
         exc = ValueError("Test error with debug")
-
-        # Act: ハンドラーを呼び出し
         response = await general_exception_handler(request, exc)
-
-        # Assert: トレースバックが含まれていることを確認
         assert response.status_code == 500
         body = response.body.decode()
         assert "INTERNAL_SERVER_ERROR" in body
@@ -218,20 +150,12 @@ class TestGeneralExceptionHandler:
         assert "Test error with debug" in body
 
     async def test_handles_general_exception_without_debug_mode(self):
-        """
-        DEBUG=Falseの場合、詳細なエラー情報が隠されることを確認
-        """
-
-        # Arrange: DEBUGモード無効なモックリクエストを準備（SimpleNamespaceで軽量生成）
+        """Hide detailed error info when DEBUG=False in app settings."""
         settings_ns = SimpleNamespace(DEBUG=False)
         app_ns = SimpleNamespace(state=SimpleNamespace(settings=settings_ns))
         request = create_mock_request("/test", "GET", app=app_ns)
         exc = ValueError("Sensitive error info")
-
-        # Act: ハンドラーを呼び出し
         response = await general_exception_handler(request, exc)
-
-        # Assert: 詳細情報が隠されていることを確認
         assert response.status_code == 500
         body = response.body.decode()
         assert "INTERNAL_SERVER_ERROR" in body
@@ -241,13 +165,10 @@ class TestGeneralExceptionHandler:
 
 @pytest.mark.asyncio
 class TestValidationExceptionHandler:
-    """validation_exception_handler()関数のテスト"""
+    """Tests for `validation_exception_handler()`."""
 
     async def test_handles_validation_exception(self):
-        """
-        RequestValidationErrorを処理できることを確認
-        """
-
+        """Handle RequestValidationError and return validation details."""
         # Arrange: モックリクエストとバリデーションエラーを準備
         request = create_mock_request("/test", "POST")
 
@@ -278,10 +199,7 @@ class TestValidationExceptionHandler:
         assert "age" in body
 
     async def test_handles_non_validation_exception(self):
-        """
-        RequestValidationError以外の例外を処理できることを確認
-        """
-
+        """Handle non-validation exceptions and return BAD_REQUEST."""
         # Arrange: モックリクエストと一般例外を準備
         request = create_mock_request("/test", "POST")
         exc = ValueError("Not a validation error")
@@ -297,13 +215,10 @@ class TestValidationExceptionHandler:
 
 @pytest.mark.asyncio
 class TestHttpExceptionHandlerExtended:
-    """http_exception_handler()関数の追加テスト"""
+    """Additional tests for `http_exception_handler()`."""
 
     async def test_handles_http_exception_with_dict_detail(self):
-        """
-        HTTPException.detailが辞書形式の場合を確認
-        """
-
+        """Handle HTTPException with dict detail and reflect fields in response."""
         # Arrange: dict形式のdetailを持つHTTPExceptionを準備
         request = create_mock_request("/test", "GET")
 
@@ -327,10 +242,7 @@ class TestHttpExceptionHandlerExtended:
         assert "field" in body
 
     async def test_handles_non_http_exception(self):
-        """
-        HTTPException以外の例外を処理できることを確認
-        """
-
+        """Handle non-HTTP exceptions and return INTERNAL_SERVER_ERROR."""
         # Arrange: モックリクエストと一般例外を準備
         request = create_mock_request("/test", "GET")
         exc = ValueError("Not an HTTP exception")
@@ -346,13 +258,10 @@ class TestHttpExceptionHandlerExtended:
 
 @pytest.mark.asyncio
 class TestAppExceptionHandlerExtended:
-    """app_exception_handler()関数の追加テスト"""
+    """Additional tests for `app_exception_handler()`."""
 
     async def test_handles_app_exception_with_original_error(self):
-        """
-        original_errorがある場合のログ出力を確認
-        """
-
+        """Handle AppException with `original_error` and include wrapped message."""
         # Arrange: original_errorを持つAppExceptionを準備
         request = create_mock_request("/test", "GET")
 
@@ -374,10 +283,7 @@ class TestAppExceptionHandlerExtended:
         assert "Wrapped exception" in body
 
     async def test_handles_non_app_exception(self):
-        """
-        AppException以外の例外を処理できることを確認
-        """
-
+        """Handle non-AppException and return INTERNAL_SERVER_ERROR."""
         # Arrange: モックリクエストと一般例外を準備
         request = create_mock_request("/test", "GET")
         exc = ValueError("Not an app exception")

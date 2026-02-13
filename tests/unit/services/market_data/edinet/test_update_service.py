@@ -1,3 +1,8 @@
+"""Unit tests for `EdinetAggregateUpdateService`.
+
+These tests exercise document processing and date-range aggregation.
+"""
+
 import asyncio
 from datetime import date
 
@@ -8,20 +13,25 @@ from app.services.market_data.edinet.update_service import EdinetAggregateUpdate
 
 
 class DummyDownloadService:
+    """Download service stub returning a pre-created path."""
+
     def __init__(self, path):
+        """Initialize with a path to return from downloads."""
         self._path = path
 
     async def download_and_extract(self, doc_id: str):
+        """Return the preset path asynchronously."""
         await asyncio.sleep(0)
         return self._path
 
     def cleanup(self, path):
-        # no-op for test
+        """No-op cleanup used in tests."""
         return None
 
 
 @pytest.mark.asyncio
 async def test_process_document_non_atomic(tmp_path):
+    """process_document が transaction_atomic=False で正常に動作することを検証する."""
     # prepare a minimal xbrl file
     xml = b"<root><d>1</d></root>"
     p = tmp_path / "s.xbrl"
@@ -58,6 +68,7 @@ async def test_process_document_non_atomic(tmp_path):
 
 @pytest.mark.asyncio
 async def test_process_date_range_single_day(tmp_path):
+    """process_date_range が単日範囲を正しく集計することを検証する."""
     # prepare a minimal xbrl file
     xml = b"<root><d>1</d></root>"
     p = tmp_path / "s.xbrl"
