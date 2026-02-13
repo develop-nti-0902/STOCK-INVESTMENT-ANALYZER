@@ -43,7 +43,12 @@ def upgrade() -> None:
         batch_op.add_column(
             sa.Column("operating_income", sa.Numeric(precision=20, scale=2), nullable=True)
         )
-        batch_op.drop_index(batch_op.f("idx_edinet_pl_sec_period"))
+        # SQLite / batch operations may not have the index present; ignore if missing
+        try:
+            batch_op.drop_index(batch_op.f("idx_edinet_pl_sec_period"))
+        except ValueError:
+            # index not present: safe to continue
+            pass
         batch_op.drop_column("filer_name")
         batch_op.drop_column("operating_profit")
 
