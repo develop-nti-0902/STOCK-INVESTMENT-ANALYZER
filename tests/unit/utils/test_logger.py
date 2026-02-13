@@ -292,7 +292,7 @@ class TestRequestIdManagement:
 
 
 class TestLogRotation:
-    """ログローテーション機能のテスト."""  # pylint: disable=too-few-public-methods
+    """ログローテーション機能のテスト."""
 
     def test_log_rotation(self) -> None:
         """ログローテーションの動作確認."""

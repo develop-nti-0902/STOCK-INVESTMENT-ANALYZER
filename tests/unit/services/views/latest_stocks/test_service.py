@@ -1,7 +1,4 @@
-"""Unit tests for the `LatestStocksService` view service.
-
-Tests ensure repository responses are wrapped and errors are converted to `ServiceError`.
-"""
+"""Unit tests for the `LatestStocksService` view service."""
 
 from unittest.mock import AsyncMock
 

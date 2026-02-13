@@ -1,6 +1,7 @@
-"""Unit tests for batch refresh behavior using LatestStocksRefreshService.
+"""Unit tests for latest_stocks refresh behaviors (mapped to `refresh.py`).
 
-最小限の docstring を追加して linter の docstring ルールに合わせる。
+これらのテストはパッケージ内で `batch` として参照される `refresh` モジュールの
+enqueue/run フローを検証します。
 """
 
 from types import SimpleNamespace
