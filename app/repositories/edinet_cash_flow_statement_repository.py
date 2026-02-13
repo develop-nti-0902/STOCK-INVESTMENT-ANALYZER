@@ -28,9 +28,11 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
     """
 
     def __init__(self, session: AsyncSession):
+        """Initialize repository with an AsyncSession."""
         super().__init__(session, model=EdinetCashFlowStatement)
 
     async def find_latest_by_sec_code(self, sec_code: str) -> Optional[EdinetCashFlowStatement]:
+        """Return the latest record for given security code."""
         stmt = (
             select(self.model)
             .where(self.model.sec_code == sec_code)
@@ -43,6 +45,7 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
     async def find_by_period(
         self, sec_code: str, period_end_date: date
     ) -> Optional[EdinetCashFlowStatement]:
+        """Find a record by security code and period end date."""
         result = await self.session.execute(
             select(self.model).where(
                 self.model.sec_code == sec_code,
@@ -52,10 +55,12 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
         return result.scalar_one_or_none()
 
     async def find_by_doc_id(self, doc_id: str) -> List[EdinetCashFlowStatement]:
+        """Return all records matching the given EDINET document id."""
         result = await self.session.execute(select(self.model).where(self.model.doc_id == doc_id))
         return list(result.scalars().all())
 
     async def upsert(self, data: dict) -> EdinetCashFlowStatement:
+        """Insert or update a record, returning the persisted model."""
         if not data:
             raise ValueError("data is required for upsert")
 
@@ -86,6 +91,7 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
             raise
 
     async def get_latest_by_sec_codes(self, sec_codes: List[str]) -> List[EdinetCashFlowStatement]:
+        """Get latest records for multiple security codes."""
         if not sec_codes:
             return []
 
@@ -105,6 +111,7 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
     async def find_by_fiscal_year(
         self, sec_code: str, fiscal_year: int
     ) -> List[EdinetCashFlowStatement]:
+        """Find records for a given fiscal year and security code."""
         result = await self.session.execute(
             select(self.model)
             .where(self.model.sec_code == sec_code, self.model.fiscal_year == fiscal_year)
@@ -115,6 +122,7 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
     async def find_by_date_range(
         self, sec_code: str, start_date: date, end_date: date
     ) -> List[EdinetCashFlowStatement]:
+        """Find records within a date range for a security code."""
         result = await self.session.execute(
             select(self.model)
             .where(
@@ -127,6 +135,7 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
         return list(result.scalars().all())
 
     async def count_by_sec_code(self, sec_code: str) -> int:
+        """Count records for a given security code."""
         stmt = select(sql_count()).select_from(self.model).where(self.model.sec_code == sec_code)
         result = await self.session.execute(stmt)
         return result.scalar_one()

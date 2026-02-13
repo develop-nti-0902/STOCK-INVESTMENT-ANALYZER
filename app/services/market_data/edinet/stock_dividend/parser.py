@@ -62,6 +62,7 @@ class EdinetStockDividendParser(BaseParser, XMLParserMixin):
     }
 
     def parse_root(self, root: etree._Element, parsed_xbrl: Any) -> Dict[str, Any]:
+        """Parse the root XML element and extract dividend data for configured years."""
         all_contexts = self._get_all_available_contexts(root)
         result: Dict[str, Any] = {}
         for year_key in self.YEARS:
@@ -73,6 +74,7 @@ class EdinetStockDividendParser(BaseParser, XMLParserMixin):
         return result
 
     def validate_data(self, data: Any) -> bool:
+        """Validate input is a file path or an XML element usable by the parser."""
         if data is None:
             return False
         if isinstance(data, (str, Path)):
@@ -107,6 +109,7 @@ class EdinetStockDividendParser(BaseParser, XMLParserMixin):
     def parse_single_year(
         self, parsed_xbrl: Any, root: etree._Element, contexts: List[str], year_key: str
     ) -> Dict[str, Any]:
+        """Parse a single year's dividend data from provided XBRL contexts."""
         dividend = self.extract_dividend(parsed_xbrl, root, contexts)
         consolidation = self.determine_consolidation(root, contexts)
         period_end = self.get_period_end_date(root, contexts)
@@ -138,6 +141,7 @@ class EdinetStockDividendParser(BaseParser, XMLParserMixin):
     def extract_dividend(
         self, parsed_xbrl: Any, root: etree._Element, contexts: List[str]
     ) -> Optional[float]:
+        """Extract dividend numeric value from XBRL for provided contexts."""
         return self.extract_numeric_from_xbrl(
             parsed_xbrl, self.XBRL_TAGS.get("dividend_actual", []), contexts
         )

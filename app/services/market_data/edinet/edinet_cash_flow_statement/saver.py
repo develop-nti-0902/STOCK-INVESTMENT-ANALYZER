@@ -20,17 +20,24 @@ class EdinetCashFlowStatementSaver(BaseSaver[Dict[str, Any]]):
     """EDINET キャッシュフロー計算書データ Saver."""
 
     def __init__(self, session: AsyncSession) -> None:
+        """Initialize saver with DB session and repository."""
         super().__init__()
         self.session = session
         self.repository = EdinetCashFlowStatementRepository(session)
 
     async def save_single(self, data: Dict[str, Any]) -> Any:
+        """Save a single record using the repository upsert."""
         return await self.repository.upsert(data)
 
     async def save(self, data: Dict[str, Any], **kwargs: Any) -> Any:
+        """Save a single record (alias for save_single)."""
         return await self.save_single(data)
 
     async def save_batch(self, data_list: List[Dict[str, Any]], **kwargs: Any) -> int:
+        """Save multiple records, returning number saved.
+
+        Raises on unexpected errors after logging.
+        """
         saved_count = 0
         for data in data_list:
             try:
@@ -42,6 +49,7 @@ class EdinetCashFlowStatementSaver(BaseSaver[Dict[str, Any]]):
         return saved_count
 
     async def validate_data(self, data: Dict[str, Any]) -> bool:
+        """Validate minimum required fields exist in the record dict."""
         required_fields = [
             "doc_id",
             "sec_code",

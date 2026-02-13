@@ -20,11 +20,13 @@ class EdinetStockDividendSaver(BaseSaver[Dict[str, Any]]):
     """EDINET 配当データの Saver."""
 
     def __init__(self, session: AsyncSession) -> None:
+        """Initialize saver with DB session and repository."""
         super().__init__()
         self.session = session
         self.repository = EdinetStockDividendRepository(session)
 
     async def save_single(self, data: Dict[str, Any]) -> Any:
+        """Validate and upsert a single stock dividend record."""
         if not data:
             raise ValueError("data is required")
 
@@ -39,6 +41,7 @@ class EdinetStockDividendSaver(BaseSaver[Dict[str, Any]]):
         return result
 
     async def save_batch(self, data_list: List[Dict[str, Any]], **kwargs: Any) -> Any:
+        """Save multiple records, returning list of results for successful saves."""
         results = []
         for data in data_list:
             try:
@@ -51,16 +54,23 @@ class EdinetStockDividendSaver(BaseSaver[Dict[str, Any]]):
         return results
 
     async def save(self, data: Dict[str, Any], **kwargs: Any) -> Any:
+        """Save a single record (alias of save_single)."""
         return await self.save_single(data)
 
     async def exists(self, sec_code: str, period_end_date: Any) -> bool:
+        """Return True if a record exists for given security code and period."""
         result = await self.repository.find_by_period(sec_code, period_end_date)
         return result is not None
 
     async def get_latest_by_sec_code(self, sec_code: str) -> Any:
+        """Return latest stock dividend record for the security code."""
         return await self.repository.find_latest_by_sec_code(sec_code)
 
     def validate_data_sync(self, data: Dict[str, Any]) -> bool:
+        """Synchronous validation used in non-async contexts.
+
+        Checks that required keys are present and not None.
+        """
         if not isinstance(data, dict):
             return False
         required_fields = ["sec_code", "period_end_date"]

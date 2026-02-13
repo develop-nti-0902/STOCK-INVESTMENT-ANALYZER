@@ -28,6 +28,7 @@ class EdinetStockDividendService:
         file_manager: EdinetFileManager,
         download_service: EdinetDownloadService,
     ) -> None:
+        """Initialize orchestration service with parser/converter/saver and helpers."""
         self.parser = parser
         self.converter = converter
         self.saver = saver
@@ -45,18 +46,23 @@ class EdinetStockDividendService:
         )
 
     async def get_latest_data(self, sec_code: str) -> Any:
+        """Return the latest stock dividend data for the given security code."""
         return await self.saver.get_latest_by_sec_code(sec_code)
 
     async def get_by_period(self, sec_code: str, period_end_date: date) -> Any:
+        """Return stock dividend data for a specific period."""
         return await self.saver.repository.find_by_period(sec_code, period_end_date)
 
     async def get_annual_data(self, sec_code: str, fiscal_year: int) -> Any:
+        """Return stock dividend data for a fiscal year."""
         return await self.saver.repository.find_by_fiscal_year(sec_code, fiscal_year)
 
     async def get_multiple_latest(self, sec_codes: list[str]) -> List[EdinetStockDividend]:
+        """Return latest stock dividend records for multiple security codes."""
         return await self.saver.repository.get_latest_by_sec_codes(sec_codes)
 
     async def cleanup_old_files(self, max_age_hours: int = 24) -> int:
+        """Remove old downloaded files via the file manager and return removed count."""
         work_dir = getattr(self.download_service, "work_dir", None)
         if work_dir is None:
             return 0

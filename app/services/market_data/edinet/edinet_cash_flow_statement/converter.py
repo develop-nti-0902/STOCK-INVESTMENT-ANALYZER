@@ -16,6 +16,7 @@ class EdinetCashFlowStatementConverter(BaseConverter[EdinetCashFlowStatementCrea
     """パーサー出力を Pydantic モデルおよび DB 保存用辞書に変換するクラス."""
 
     def to_pydantic(self, data: Dict[str, Any]) -> EdinetCashFlowStatementCreate:
+        """Convert raw parser dictionary into a Pydantic create model."""
         doc_id = data.get("doc_id", "")
         sec_code = data.get("sec_code", "")
         submission_date = data.get("submission_date")
@@ -51,6 +52,7 @@ class EdinetCashFlowStatementConverter(BaseConverter[EdinetCashFlowStatementCrea
         )
 
     def to_saver_records(self, models: List[EdinetCashFlowStatementCreate]) -> List[Dict[str, Any]]:
+        """Convert a list of Pydantic models into DB saver records."""
         return [self._to_saver_record(m) for m in models]
 
     def _to_saver_record(self, model: EdinetCashFlowStatementCreate) -> Dict[str, Any]:
@@ -68,9 +70,14 @@ class EdinetCashFlowStatementConverter(BaseConverter[EdinetCashFlowStatementCrea
         }
 
     def from_pydantic(self, model: EdinetCashFlowStatementCreate) -> Dict[str, Any]:
+        """Create a saver dict from a Pydantic model."""
         return self._to_saver_record(model)
 
     def from_dataframe(self, df: Any, *args, **kwargs) -> List[EdinetCashFlowStatementCreate]:
+        """Convert a dataframe into a list of Pydantic create models.
+
+        Not implemented for this converter.
+        """
         raise NotImplementedError(
             "from_dataframe is not implemented for EdinetCashFlowStatementConverter."
         )

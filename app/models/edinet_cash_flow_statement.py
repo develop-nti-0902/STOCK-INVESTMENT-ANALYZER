@@ -1,9 +1,9 @@
-"""EDINET キャッシュフローデータモデル（edinet_cash_flow_statement）。
+"""EDINET cash flow data model (edinet_cash_flow_statement).
 
 EDINET の XBRL 解析結果から抽出したキャッシュフロー計算書データを保持する
 SQLAlchemy のモデル定義を提供します。
 
-設計は docs/architecture/edinet_balance_sheet_design.md に準拠します。
+設計は docs/architecture/edinet_balance_sheet_design.md に準拠します.
 """
 
 from __future__ import annotations

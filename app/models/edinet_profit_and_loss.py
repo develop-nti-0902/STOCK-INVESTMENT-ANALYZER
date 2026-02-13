@@ -53,6 +53,7 @@ class EdinetProfitAndLoss(SerialPKMixin, TimestampMixin, Base):
     )
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """Return short representation for debugging."""
         return (
             "<EdinetProfitAndLoss(doc_id="
             f"{self.doc_id!r}, sec_code={self.sec_code!r}, "

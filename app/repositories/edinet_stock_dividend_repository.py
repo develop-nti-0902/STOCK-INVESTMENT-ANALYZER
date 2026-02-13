@@ -32,6 +32,7 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
         super().__init__(session, model=EdinetStockDividend)
 
     async def find_latest_by_sec_code(self, sec_code: str) -> Optional[EdinetStockDividend]:
+        """Return the latest stock dividend record for the given security code."""
         stmt = (
             select(self.model)
             .where(self.model.sec_code == sec_code)
@@ -47,6 +48,7 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
     async def find_by_period(
         self, sec_code: str, period_end_date: date
     ) -> Optional[EdinetStockDividend]:
+        """Find a stock dividend record by security code and period end date."""
         result = await self.session.execute(
             select(self.model).where(
                 self.model.sec_code == sec_code,
@@ -56,6 +58,7 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
         return result.scalar_one_or_none()
 
     async def find_by_doc_id(self, doc_id: str) -> list[EdinetStockDividend]:
+        """Return all stock dividend records matching the EDINET document id."""
         result = await self.session.execute(select(self.model).where(self.model.doc_id == doc_id))
         return list(result.scalars().all())
 
@@ -91,6 +94,7 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
             raise
 
     async def get_latest_by_sec_codes(self, sec_codes: List[str]) -> List[EdinetStockDividend]:
+        """Get latest stock dividend records for multiple security codes."""
         if not sec_codes:
             return []
 
@@ -110,6 +114,7 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
     async def find_by_fiscal_year(
         self, sec_code: str, fiscal_year: int
     ) -> List[EdinetStockDividend]:
+        """Find stock dividend records for a fiscal year and security code."""
         result = await self.session.execute(
             select(self.model)
             .where(self.model.sec_code == sec_code, self.model.fiscal_year == fiscal_year)
@@ -120,6 +125,7 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
     async def find_by_date_range(
         self, sec_code: str, start_date: date, end_date: date
     ) -> List[EdinetStockDividend]:
+        """Find stock dividend records within a date range for a security code."""
         result = await self.session.execute(
             select(self.model)
             .where(
@@ -132,6 +138,7 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
         return list(result.scalars().all())
 
     async def count_by_sec_code(self, sec_code: str) -> int:
+        """Count stock dividend records for a given security code."""
         stmt = select(sql_count()).select_from(self.model).where(self.model.sec_code == sec_code)
         result = await self.session.execute(stmt)
         return result.scalar_one()

@@ -59,15 +59,15 @@ class EdinetCashFlowStatementBase(BaseModel):
 
 
 class EdinetCashFlowStatementCreate(BaseRequestSchema, EdinetCashFlowStatementBase):
-    """作成用スキーマ（入力バリデーション）。"""
+    """Create schema for input validation."""
 
 
 class EdinetCashFlowStatementRead(BaseResponseSchema, EdinetCashFlowStatementBase):
-    """レスポンス用スキーマ（id/created_at/updated_at を含む）。"""
+    """Response schema including id/created_at/updated_at."""
 
 
 class EdinetCashFlowStatementLatest(BaseModel):
-    """最新データ検索用の軽量スキーマ。"""
+    """Lightweight schema for latest-data queries."""
 
     model_config = ConfigDict(validate_assignment=True, extra="forbid", from_attributes=True)
 

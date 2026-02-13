@@ -1,4 +1,4 @@
-"""add edinet stock_dividend and cash_flow_statement tables
+"""add edinet stock_dividend and cash_flow_statement tables.
 
 Revision ID: add_edinet_sd_cfs_20260213
 Revises: db11330dca45
@@ -20,6 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    """Create EDINET stock_dividend and cash_flow_statement tables."""
     op.create_table(
         "edinet_stock_dividend",
         sa.Column("doc_id", sa.VARCHAR(length=50), nullable=False),
@@ -100,6 +101,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop EDINET stock_dividend and cash_flow_statement tables."""
     with op.batch_alter_table("edinet_cash_flow_statement", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("idx_edinet_cfs_doc_id"))
         batch_op.drop_index(batch_op.f("idx_edinet_cfs_period_end"))

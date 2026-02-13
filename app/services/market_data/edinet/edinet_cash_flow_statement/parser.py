@@ -54,6 +54,7 @@ class EdinetCashFlowStatementParser(BaseParser, XMLParserMixin):
     }
 
     def parse_root(self, root: etree._Element, parsed_xbrl: Any) -> Dict[str, Any]:
+        """Parse the root XML element and extract data for configured years."""
         all_contexts = self._get_all_available_contexts(root)
 
         result: Dict[str, Any] = {}
@@ -85,6 +86,8 @@ class EdinetCashFlowStatementParser(BaseParser, XMLParserMixin):
     def parse_single_year(
         self, parsed_xbrl: Any, root: etree._Element, contexts: List[str], year_key: str
     ) -> Dict[str, Any]:
+        """Parse a single year's data from XBRL for given contexts."""
+
         operating_cf = self.extract_numeric_from_xbrl(
             parsed_xbrl, self.XBRL_TAGS["operating_cf"], contexts
         )
@@ -116,6 +119,10 @@ class EdinetCashFlowStatementParser(BaseParser, XMLParserMixin):
         }
 
     def validate_data(self, data: Any) -> bool:
+        """Validate that provided data is parseable XBRL content.
+
+        Returns True when the XML contains expected context elements.
+        """
         try:
             root = data if isinstance(data, etree._Element) else self.parse_xml(data)
         except Exception:

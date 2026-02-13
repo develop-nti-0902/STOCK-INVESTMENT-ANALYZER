@@ -36,6 +36,7 @@ class EdinetCashFlowStatementService:
         file_manager: EdinetFileManager,
         download_service: EdinetDownloadService,
     ) -> None:
+        """Initialize orchestration service with parser/converter/saver and helpers."""
         self.parser = parser
         self.converter = converter
         self.saver = saver
@@ -54,15 +55,19 @@ class EdinetCashFlowStatementService:
         )
 
     async def get_latest_by_sec_code(self, sec_code: str):
+        """Return the latest saved CFS record for the given security code."""
         return await self.saver.repository.find_latest_by_sec_code(sec_code)
 
     async def get_by_period(self, sec_code: str, period_end_date: date):
+        """Return saved CFS record for a specific period."""
         return await self.saver.repository.find_by_period(sec_code, period_end_date)
 
     async def get_annual_data(self, sec_code: str, fiscal_year: int):
+        """Return saved annual CFS data for a security code and fiscal year."""
         return await self.saver.repository.find_by_fiscal_year(sec_code, fiscal_year)
 
     async def get_multiple_latest(self, sec_codes: list[str]):
+        """Return latest CFS records for multiple security codes."""
         return await self.saver.repository.get_latest_by_sec_codes(sec_codes)
 
 

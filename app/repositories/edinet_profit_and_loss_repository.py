@@ -29,9 +29,11 @@ class EdinetProfitAndLossRepository(BaseRepository[EdinetProfitAndLoss]):
     """
 
     def __init__(self, session: AsyncSession):
+        """Initialize repository with an AsyncSession."""
         super().__init__(session, model=EdinetProfitAndLoss)
 
     async def find_latest_by_sec_code(self, sec_code: str) -> Optional[EdinetProfitAndLoss]:
+        """Return the latest profit-and-loss record for a security code."""
         stmt = (
             select(self.model)
             .where(self.model.sec_code == sec_code)
@@ -44,6 +46,7 @@ class EdinetProfitAndLossRepository(BaseRepository[EdinetProfitAndLoss]):
     async def find_by_period(
         self, sec_code: str, period_end_date: date
     ) -> Optional[EdinetProfitAndLoss]:
+        """Find a profit-and-loss record by security code and period end date."""
         result = await self.session.execute(
             select(self.model).where(
                 self.model.sec_code == sec_code, self.model.period_end_date == period_end_date
@@ -52,6 +55,7 @@ class EdinetProfitAndLossRepository(BaseRepository[EdinetProfitAndLoss]):
         return result.scalar_one_or_none()
 
     async def find_by_doc_id(self, doc_id: str) -> List[EdinetProfitAndLoss]:
+        """Return records matching the EDINET document id."""
         result = await self.session.execute(select(self.model).where(self.model.doc_id == doc_id))
         return list(result.scalars().all())
 
@@ -93,6 +97,7 @@ class EdinetProfitAndLossRepository(BaseRepository[EdinetProfitAndLoss]):
             raise
 
     async def get_latest_by_sec_codes(self, sec_codes: List[str]) -> List[EdinetProfitAndLoss]:
+        """Get latest profit-and-loss records for multiple security codes."""
         if not sec_codes:
             return []
 
@@ -112,6 +117,7 @@ class EdinetProfitAndLossRepository(BaseRepository[EdinetProfitAndLoss]):
     async def find_by_fiscal_year(
         self, sec_code: str, fiscal_year: int
     ) -> List[EdinetProfitAndLoss]:
+        """Find profit-and-loss records for a given fiscal year and security code."""
         result = await self.session.execute(
             select(self.model)
             .where(self.model.sec_code == sec_code, self.model.fiscal_year == fiscal_year)
@@ -122,6 +128,7 @@ class EdinetProfitAndLossRepository(BaseRepository[EdinetProfitAndLoss]):
     async def find_by_date_range(
         self, sec_code: str, start_date: date, end_date: date
     ) -> List[EdinetProfitAndLoss]:
+        """Find profit-and-loss records within a date range for a security code."""
         result = await self.session.execute(
             select(self.model)
             .where(
@@ -134,6 +141,7 @@ class EdinetProfitAndLossRepository(BaseRepository[EdinetProfitAndLoss]):
         return list(result.scalars().all())
 
     async def count_by_sec_code(self, sec_code: str) -> int:
+        """Count profit-and-loss records for a given security code."""
         stmt = select(sql_count()).select_from(self.model).where(self.model.sec_code == sec_code)
         result = await self.session.execute(stmt)
         return result.scalar_one()

@@ -55,6 +55,7 @@ class EdinetStockDividendConverter(BaseConverter[EdinetStockDividendCreate]):
         )
 
     def to_saver_records(self, models: List[EdinetStockDividendCreate]) -> List[Dict[str, Any]]:
+        """Convert a list of Pydantic models into DB saver records."""
         return [self._to_saver_record(m) for m in models]
 
     def _to_saver_record(self, model: EdinetStockDividendCreate) -> Dict[str, Any]:
@@ -72,9 +73,14 @@ class EdinetStockDividendConverter(BaseConverter[EdinetStockDividendCreate]):
         }
 
     def from_pydantic(self, model: EdinetStockDividendCreate) -> Dict[str, Any]:
+        """Create a saver dict from a Pydantic model."""
         return self._to_saver_record(model)
 
     def from_dataframe(self, df: Any, *args, **kwargs) -> List[EdinetStockDividendCreate]:
+        """Convert a dataframe into a list of Pydantic create models.
+
+        Not implemented for this converter.
+        """
         raise NotImplementedError(
             "from_dataframe is not implemented for EdinetStockDividendConverter."
         )
