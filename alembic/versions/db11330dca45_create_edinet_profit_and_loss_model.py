@@ -67,12 +67,14 @@ def upgrade() -> None:
         batch_op.add_column(
             sa.Column("operating_income", sa.Numeric(precision=20, scale=2), nullable=True)
         )
-        # SQLite / batch operations may not have the index present; ignore if missing
-        try:
-            batch_op.drop_index(batch_op.f("idx_edinet_pl_sec_period"))
-        except ValueError:
-            # index not present: safe to continue
-            pass
+        # Drop index only if it exists to avoid batch flush error on SQLite.
+        # Using SQLAlchemy inspector to check existing indexes before registering drop.
+        conn = op.get_bind()
+        inspector = sa.inspect(conn)
+        existing_indexes = {idx["name"] for idx in inspector.get_indexes("edinet_profit_and_loss")}
+        idx_name = batch_op.f("idx_edinet_pl_sec_period")
+        if idx_name in existing_indexes or "idx_edinet_pl_sec_period" in existing_indexes:
+            batch_op.drop_index(idx_name)
         batch_op.drop_column("filer_name")
         batch_op.drop_column("operating_profit")
 

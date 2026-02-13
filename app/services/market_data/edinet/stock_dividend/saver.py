@@ -67,9 +67,9 @@ class EdinetStockDividendSaver(BaseSaver[Dict[str, Any]]):
         return await self.repository.find_latest_by_sec_code(sec_code)
 
     def validate_data_sync(self, data: Dict[str, Any]) -> bool:
-        """Synchronous validation used in non-async contexts.
+        """Validate data synchronously in non-async contexts.
 
-        Checks that required keys are present and not None.
+        Check that required keys are present and not None.
         """
         if not isinstance(data, dict):
             return False
