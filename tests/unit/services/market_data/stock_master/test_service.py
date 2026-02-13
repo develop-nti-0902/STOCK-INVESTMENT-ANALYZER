@@ -1,6 +1,6 @@
-"""`StockMasterService` の単体テストを新しく作り直しました。
+"""`StockMasterService` の単体テストを新しく作り直しました.
 
-テスト規約に沿い、日本語コメントと非同期テスト用の `pytest.mark.asyncio` を利用しています。
+テスト規約に沿い、日本語コメントと非同期テスト用の `pytest.mark.asyncio` を利用しています.
 """
 
 from unittest.mock import AsyncMock, MagicMock, Mock
@@ -11,18 +11,28 @@ from app.services.market_data.stock_master.service import StockMasterService
 
 
 class FakeModel:
-    """簡易な Pydantic v2 互換オブジェクト（model_dump を持つ）。"""
+    """簡易な Pydantic v2 互換オブジェクト（model_dump を持つ）."""
 
     def __init__(self, code: str):
+        """初期化: テスト用の辞書を内部に保持する.
+
+        Args:
+            code: 銘柄コード文字列
+        """
         self._d = {"stock_code": code}
 
     def model_dump(self, *args, **kwargs) -> dict:
+        """Pydantic v2 の `model_dump` 互換の振る舞いを模す簡易実装.
+
+        Returns:
+            内部辞書のコピー.
+        """
         return self._d
 
 
 @pytest.mark.asyncio
 async def test_get_all_active_symbols_success_and_error():
-    """全件取得が成功するケースと例外が透過されるケースを確認する"""
+    """全件取得が成功するケースと例外が透過されるケースを確認する."""
     mock_repo = MagicMock()
     mock_repo.get_all_active_symbols = AsyncMock(return_value=["7203"])
 
@@ -38,7 +48,7 @@ async def test_get_all_active_symbols_success_and_error():
 
 @pytest.mark.asyncio
 async def test_get_symbols_by_market_and_sector_success_and_error():
-    """市場・業種別取得の正常系と例外伝搬を確認する"""
+    """市場・業種別取得の正常系と例外伝搬を確認する."""
     mock_repo = MagicMock()
     mock_repo.get_symbols_by_market = AsyncMock(return_value=["1111"])
     mock_repo.get_symbols_by_sector = AsyncMock(return_value=["2222"])
@@ -59,7 +69,7 @@ async def test_get_symbols_by_market_and_sector_success_and_error():
 
 @pytest.mark.asyncio
 async def test_fetch_and_save_uses_converter_and_saver_and_returns_count():
-    """fetcher -> converter -> saver の流れで処理件数を返すことを確認する"""
+    """fetcher -> converter -> saver の流れで処理件数を返すことを確認する."""
     # Arrange
     mock_fetcher = AsyncMock()
     mock_fetcher.fetch_all = AsyncMock(return_value=[FakeModel("A"), FakeModel("B")])
@@ -88,7 +98,7 @@ async def test_fetch_and_save_uses_converter_and_saver_and_returns_count():
 
 @pytest.mark.asyncio
 async def test_fetch_and_save_with_updates_repo_marks_success():
-    """updates_repo が与えられた場合、サマリが作成され success に更新されることを確認する"""
+    """updates_repo が与えられた場合、サマリが作成され success に更新されることを確認する."""
     mock_fetcher = AsyncMock()
     mock_fetcher.fetch_all = AsyncMock(return_value=[FakeModel("X")])
 
@@ -124,7 +134,7 @@ async def test_fetch_and_save_with_updates_repo_marks_success():
 
 @pytest.mark.asyncio
 async def test_fetch_and_save_invalid_limit_raises_value_error():
-    """limit に負の値を与えるとエラーになることを確認する"""
+    """limit に負の値を与えるとエラーになることを確認する."""
     mock_fetcher = AsyncMock()
     mock_fetcher.fetch_all = AsyncMock(return_value=[FakeModel("Z")])
     svc = StockMasterService(repo=MagicMock(), fetcher=mock_fetcher)
@@ -135,7 +145,7 @@ async def test_fetch_and_save_invalid_limit_raises_value_error():
 
 @pytest.mark.asyncio
 async def test_fetch_and_save_invalid_item_type_raises_type_error():
-    """フェッチャーが dict を返した場合 TypeError が発生することを確認する"""
+    """フェッチャーが dict を返した場合 TypeError が発生することを確認する."""
     mock_fetcher = AsyncMock()
     mock_fetcher.fetch_all = AsyncMock(return_value=[{"code": "1301"}])
     svc = StockMasterService(repo=MagicMock(), fetcher=mock_fetcher)
@@ -146,7 +156,7 @@ async def test_fetch_and_save_invalid_item_type_raises_type_error():
 
 @pytest.mark.asyncio
 async def test_reset_stock_master_deletes_and_calls_updates_repo():
-    """reset_stock_master がリポジトリ削除を行い、updates_repo の削除も呼ぶことを確認する"""
+    """reset_stock_master がリポジトリ削除を行い、updates_repo の削除も呼ぶことを確認する."""
     mock_repo = MagicMock()
     mock_repo.delete_all = AsyncMock(return_value=7)
 

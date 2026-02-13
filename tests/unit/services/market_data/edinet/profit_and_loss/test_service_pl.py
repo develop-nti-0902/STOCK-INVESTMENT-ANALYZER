@@ -1,7 +1,4 @@
-"""EdinetProfitAndLossService の単体テスト（profit_and_loss 固有）。
-
-このファイルは service のテストを一元化するため、service に対する全ての単体テストを含みます。
-"""
+"""Unit tests for EdinetProfitAndLossService behaviors."""
 
 from __future__ import annotations
 
@@ -36,9 +33,6 @@ class _DummyParser:
         self._parsed = parsed
 
     def parse(self, path: str):
-        return self._parsed
-
-    def parse_root(self, root):
         return self._parsed
 
     def parse_root(self, root, parsed_xbrl=None):
@@ -109,6 +103,7 @@ class _DummyDownloadService2:
 
 @pytest.mark.asyncio
 async def test_process_document_success(tmp_path):
+    """aggregate.process_document が正常に処理することを検証する."""
     extract_dir = tmp_path / "extracted" / "XBRL" / "PublicDoc"
     extract_dir.mkdir(parents=True)
     xbrl_file = extract_dir / "doc.xbrl"
@@ -159,6 +154,7 @@ async def test_process_document_success(tmp_path):
 
 @pytest.mark.asyncio
 async def test_get_by_period_and_annual_and_multiple_latest():
+    """get_by_period, get_annual_data, get_multiple_latest の基本挙動を検証する."""
     parser = _Noop()
     converter = _Noop()
     saver = _DummySaver()
@@ -196,6 +192,7 @@ async def test_get_by_period_and_annual_and_multiple_latest():
 
 @pytest.mark.asyncio
 async def test__search_documents_filters(monkeypatch):
+    """ダウンロードサービスの返す文書群をフィルタして処理することを検証する."""
     docs = [
         {"docTypeCode": "120", "secCode": "1001", "docDescription": "正常", "docID": "D1"},
         {"docTypeCode": "999", "secCode": "1002", "docDescription": "正常", "docID": "D2"},
@@ -258,6 +255,7 @@ async def test__search_documents_filters(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_fetch_multiple_profit_and_losses_counts(monkeypatch):
+    """複数文書の集計で成功・失敗数が正しく集計されることを検証する."""
     # setup service and monkeypatch _search_documents and process_document
     parser = _Noop()
     converter = _Noop()

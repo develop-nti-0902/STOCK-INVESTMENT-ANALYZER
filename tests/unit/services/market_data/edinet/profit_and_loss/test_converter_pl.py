@@ -1,4 +1,4 @@
-"""EdinetProfitAndLoss の Converter の単体テスト（profit_and_loss 固有）。"""
+"""Unit tests for EdinetProfitAndLossConverter."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from app.services.market_data.edinet.profit_and_loss.converter import EdinetProf
 
 
 def test_to_pydantic_success():
+    """Convert raw dict to `EdinetProfitAndLossCreate` with normalized fields."""
     data = {
         "doc_id": "DUMMY_DOC",
         "sec_code": "7203",
@@ -31,6 +32,7 @@ def test_to_pydantic_success():
 
 
 def test_to_pydantic_missing_period_end_date_raises():
+    """Raise ValueError when period_end_date is missing from input data."""
     data = {"doc_id": "D1", "sec_code": "X", "submission_date": "2025-01-01"}
     conv = EdinetProfitAndLossConverter()
     with pytest.raises(ValueError):
@@ -38,6 +40,7 @@ def test_to_pydantic_missing_period_end_date_raises():
 
 
 def test_decimal_conversion_invalid_values_produce_none():
+    """Invalid numeric strings convert to None for Decimal fields."""
     data = {
         "doc_id": "D2",
         "sec_code": "0001",
@@ -54,6 +57,7 @@ def test_decimal_conversion_invalid_values_produce_none():
 
 
 def test_from_dataframe_not_implemented():
+    """`from_dataframe` is not implemented and raises NotImplementedError."""
     conv = EdinetProfitAndLossConverter()
     with pytest.raises(NotImplementedError):
         conv.from_dataframe(None)

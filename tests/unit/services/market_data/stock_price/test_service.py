@@ -1,7 +1,7 @@
-"""`StockPriceService` の単体テスト（更新版）
+"""`StockPriceService` の単体テスト（更新版）.
 
 このファイルは既存テストを全面的に置き換え、最新の `converter` 実装に合わせて
-主要パスとエラーハンドリングを検証します。
+主要パスとエラーハンドリングを検証します.
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -16,10 +16,10 @@ from app.services.market_data.stock_price.service import StockPriceService
 
 
 class TestStockPriceService:
-    """`StockPriceService` の主要フローとエラー処理を検証する。"""
+    """`StockPriceService` の主要フローとエラー処理を検証する."""
 
     def setup_method(self):
-        # 依存オブジェクトのモック
+        """Prepare mocked dependencies and the `StockPriceService` instance."""
         self.fetcher = MagicMock(spec=StockPriceFetcher)
         self.saver = MagicMock(spec=StockPriceSaver)
         # saver.session.commit/rollback は await されるため AsyncMock を用意
@@ -45,7 +45,7 @@ class TestStockPriceService:
 
     @pytest.mark.asyncio
     async def test_fetch_and_save_single_success(self):
-        """単一銘柄が正常に取得・変換・保存されることを検証する。"""
+        """Single symbol is fetched, converted and saved successfully."""
         symbol = "7203.T"
         timeframe = "1d"
 
@@ -87,7 +87,7 @@ class TestStockPriceService:
 
     @pytest.mark.asyncio
     async def test_fetch_and_save_no_data_returns_warning(self):
-        """フェッチ結果が空の場合は警告を含む成功結果になることを検証する。"""
+        """Empty fetch results produce a successful result with warnings."""
         symbol = "7203.T"
         timeframe = "1d"
 
@@ -103,7 +103,7 @@ class TestStockPriceService:
 
     @pytest.mark.asyncio
     async def test_fetch_and_save_commit_failure_marks_records_failed(self):
-        """saver.session.commit が失敗した場合、成功だったレコードが失敗扱いになること。"""
+        """Commit failures cause previously successful records to be marked failed."""
         symbol = "7203.T"
         timeframe = "1d"
 
@@ -129,7 +129,7 @@ class TestStockPriceService:
 
     @pytest.mark.asyncio
     async def test_fetch_and_save_handles_yahoo_error(self):
-        """YahooFinanceError を受け取った場合に適切なエラーが返ること。"""
+        """Service returns appropriate errors when YahooFinanceError occurs."""
         symbol = "7203.T"
         timeframe = "1d"
 
@@ -147,7 +147,7 @@ class TestStockPriceService:
 
     @pytest.mark.asyncio
     async def test_fetch_and_save_batch_fetch_failure(self):
-        """fetch_batch 全体失敗時は各銘柄に 'Batch fetch failed' が設定されることを検証。"""
+        """When batch fetch fails, each symbol result contains 'Batch fetch failed'."""
         symbols = ["AAA.T", "BBB.T"]
         timeframe = "1d"
 
@@ -162,7 +162,7 @@ class TestStockPriceService:
 
     @pytest.mark.asyncio
     async def test_get_stock_data_returns_dataframe(self):
-        """get_stock_data が DataFrame を含むラッパーを返すことを検証する。"""
+        """`get_stock_data` returns a wrapper containing a pandas DataFrame."""
         symbol = "7203.T"
         timeframe = "1d"
 
@@ -181,7 +181,7 @@ class TestStockPriceService:
 
     @pytest.mark.asyncio
     async def test_get_stock_data_from_db_and_delete_all(self, monkeypatch):
-        """DB読み取りと全削除をサービス経由で行えることを確認する。"""
+        """Service can read stock data from DB and delete all records for a timeframe."""
 
         # Fake row object similar to repository row
         class FakeRow:

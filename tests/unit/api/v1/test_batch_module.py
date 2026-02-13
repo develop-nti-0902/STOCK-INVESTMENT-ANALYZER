@@ -1,6 +1,8 @@
+"""Unit tests for batch module utilities."""
+
 import asyncio
 import types
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pytest
 
@@ -8,13 +10,13 @@ from app.api.v1 import batch as batch_mod
 
 
 def test_log_memory_usage_no_psutil(monkeypatch):
-    # Ensure path where psutil not available just returns without error
+    """Ensure `_log_memory_usage` is a no-op when psutil is unavailable."""
     monkeypatch.setattr(batch_mod, "PSUTIL_AVAILABLE", False)
-    # Should not raise
     batch_mod._log_memory_usage("ctx")
 
 
 def test_log_memory_usage_with_psutil(monkeypatch):
+    """Ensure `_log_memory_usage` runs when psutil is present."""
     # Provide fake psutil with Process() returning memory_info and cpu_percent
     fake_psutil = types.SimpleNamespace()
 
@@ -34,6 +36,8 @@ def test_log_memory_usage_with_psutil(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_commit_with_rollback_calls_rollback_on_commit_failure():
+    """Verify rollback is called when commit raises an error."""
+
     class Session:
         def __init__(self):
             self.committed = False
@@ -51,6 +55,8 @@ async def test_commit_with_rollback_calls_rollback_on_commit_failure():
 
 
 def test_job_to_response_dict_formats_and_clamps():
+    """Verify `_job_to_response_dict` clamps progress and formats fields."""
+
     class Job:
         pass
 
@@ -75,6 +81,8 @@ def test_job_to_response_dict_formats_and_clamps():
 
 @pytest.mark.asyncio
 async def test_await_pending_tasks_clears_and_handles_exceptions():
+    """Ensure `_await_pending_tasks` clears pending tasks and handles exceptions."""
+
     # create a task that raises
     async def bad():
         raise RuntimeError("boom")

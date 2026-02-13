@@ -77,10 +77,10 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.fixture(scope="function", autouse=True)
 def reset_event_loop_for_e2e():
-    """E2E tests用のイベントループ管理（tests/conftest.pyを上書き）.
+    """E2E Tests用のイベントループ管理（tests/conftest.py を上書き）.
 
-    tests/conftest.pyのreset_event_loopをE2E環境用に上書きする。
-    E2Eテストでは独自のTestClientを使うため、close_db()を呼ばない。
+    tests/conftest.py の `reset_event_loop` を E2E 環境用に上書きします。
+    E2E テストでは独自の TestClient を使うため、`close_db()` を呼びません。
     """
     import asyncio
     import gc
@@ -106,7 +106,7 @@ def reset_event_loop_for_e2e():
 
 @pytest.fixture(scope="function")
 def client():
-    """FastAPI `TestClient` を提供する pytest fixture."""
+    """Provide a FastAPI TestClient pytest fixture."""
     # E2Eテスト環境ではlifespanを無効化（DB接続のハングを防ぐ）
     from contextlib import asynccontextmanager
 
@@ -131,17 +131,6 @@ def client():
 
 @pytest.fixture(scope="function")
 def clear_advisory_locks(request):
-    """SQLite環境ではadvisory lockは不要のため何もしない.
-
-    このフィクスチャはPostgreSQL環境でのみ必要でした。
-    SQLite専用環境では単にyieldして何もしません。
-
-    Note:
-        PostgreSQLのadvisory lock機能はSQLiteには存在しないため、
-        このフィクスチャは互換性のために残していますが、実際には何もしません。
-
-    Usage:
-        既存のテストコードとの互換性を維持するために残されています。
-    """
+    """No-op for advisory locks in SQLite environment."""
     # SQLite環境では何もせずにyield
     yield

@@ -1,3 +1,8 @@
+"""Unit tests for the `LatestStocksService` view service.
+
+Tests ensure repository responses are wrapped and errors are converted to `ServiceError`.
+"""
+
 from unittest.mock import AsyncMock
 
 import pytest
@@ -8,7 +13,7 @@ from app.services.views.latest_stocks.service import LatestStocksService
 
 @pytest.mark.asyncio
 async def test_get_latest_stock_success():
-    """正常系: リポジトリがデータを返すと Pydantic レスポンスが返却される。"""
+    """Repository data returns a Pydantic response."""
     # arrange
     payload = {
         "id": 1,
@@ -39,7 +44,7 @@ async def test_get_latest_stock_success():
 
 @pytest.mark.asyncio
 async def test_get_latest_stock_not_found_raises_service_error():
-    """異常系: リポジトリが None を返すと ServiceError を送出する。"""
+    """Repository returning None raises `ServiceError`."""
     repo = AsyncMock()
     repo.get_latest_stock_by_symbol.return_value = None
 
@@ -51,7 +56,7 @@ async def test_get_latest_stock_not_found_raises_service_error():
 
 @pytest.mark.asyncio
 async def test_get_latest_stock_repository_raises_wrapped_as_service_error():
-    """異常系: リポジトリ内の一般例外は ServiceError に変換される。"""
+    """Repository exceptions are wrapped as `ServiceError`."""
     repo = AsyncMock()
     repo.get_latest_stock_by_symbol.side_effect = RuntimeError("boom")
 

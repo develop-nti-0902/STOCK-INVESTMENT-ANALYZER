@@ -1,3 +1,5 @@
+"""Unit tests for the EDINET API v1 helper functions."""
+
 import pytest
 from fastapi import HTTPException
 
@@ -5,11 +7,15 @@ from app.api.v1.edinet import process_date_range
 
 
 class FakeService:
+    """A small fake service used to simulate success/error cases."""
+
     def __init__(self, result=None, exc: Exception | None = None):
+        """Initialize fake service with optional result or exception to raise."""
         self._result = result
         self._exc = exc
 
     async def process_date_range(self, *args, **kwargs):
+        """Proxy to return configured result or raise the configured exception."""
         if self._exc:
             raise self._exc
         return self._result
@@ -17,6 +23,7 @@ class FakeService:
 
 @pytest.mark.asyncio
 async def test_process_date_range_success():
+    """Verify successful processing returns service result."""
     svc = FakeService(result={"ok": True})
     res = await process_date_range(
         start_date="2020-01-01",
@@ -29,6 +36,7 @@ async def test_process_date_range_success():
 
 @pytest.mark.asyncio
 async def test_process_date_range_raises_http_exception_on_error():
+    """Verify processing errors are converted to HTTPException."""
     svc = FakeService(exc=RuntimeError("boom"))
     with pytest.raises(HTTPException):
         await process_date_range(

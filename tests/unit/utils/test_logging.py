@@ -1,4 +1,4 @@
-"""ロガーモジュールの単体テスト
+"""ロガーモジュールの単体テスト.
 
 ロガーモジュールの機能をテストします。
 - ログレベル
@@ -29,7 +29,7 @@ from app.utils.logger import (
 
 @pytest.fixture(autouse=True)
 def cleanup_logging():
-    """各テスト後にロガーのハンドラと request_id をクリーンアップする"""
+    """各テスト後にロガーのハンドラと request_id をクリーンアップする."""
     yield
     # リクエストID をクリア
     try:
@@ -61,10 +61,10 @@ def cleanup_logging():
 
 
 class TestStructuredFormatter:
-    """StructuredFormatterのテスト"""
+    """StructuredFormatterのテスト."""
 
     def test_format_text_without_request_id(self) -> None:
-        """リクエストIDなしのテキスト形式ログフォーマット"""
+        """リクエストIDなしのテキスト形式ログフォーマット."""
         # Arrange
         formatter = StructuredFormatter(use_json=False)
         record = logging.LogRecord(
@@ -86,7 +86,7 @@ class TestStructuredFormatter:
         assert "Test message" in formatted
 
     def test_format_text_with_request_id(self) -> None:
-        """リクエストID付きのテキスト形式ログフォーマット"""
+        """リクエストID付きのテキスト形式ログフォーマット."""
         # Arrange
         set_request_id("req-123456")
         formatter = StructuredFormatter(use_json=False)
@@ -113,7 +113,7 @@ class TestStructuredFormatter:
         clear_request_id()
 
     def test_format_json_without_request_id(self) -> None:
-        """リクエストIDなしのJSON形式ログフォーマット"""
+        """リクエストIDなしのJSON形式ログフォーマット."""
         # Arrange
         formatter = StructuredFormatter(use_json=True)
         record = logging.LogRecord(
@@ -138,7 +138,7 @@ class TestStructuredFormatter:
         assert "request_id" not in log_data
 
     def test_format_json_with_request_id(self) -> None:
-        """リクエストID付きのJSON形式ログフォーマット"""
+        """リクエストID付きのJSON形式ログフォーマット."""
         # Arrange
         set_request_id("req-789012")
         formatter = StructuredFormatter(use_json=True)
@@ -168,10 +168,10 @@ class TestStructuredFormatter:
 
 
 class TestSetupLogger:
-    """setup_logger関数のテスト"""
+    """setup_logger関数のテスト."""
 
     def test_setup_logger_default(self) -> None:
-        """デフォルト設定でロガーをセットアップ"""
+        """デフォルト設定でロガーをセットアップ."""
         # Arrange / Act
         logger = setup_logger(name="test_default")
 
@@ -181,7 +181,7 @@ class TestSetupLogger:
         assert len(logger.handlers) > 0
 
     def test_setup_logger_with_log_level(self) -> None:
-        """ログレベルを指定してロガーをセットアップ"""
+        """ログレベルを指定してロガーをセットアップ."""
         # Arrange / Act
         logger = setup_logger(name="test_level", log_level="DEBUG")
 
@@ -189,7 +189,7 @@ class TestSetupLogger:
         assert logger.level == logging.DEBUG
 
     def test_setup_logger_with_file_output(self) -> None:
-        """ファイル出力を指定してロガーをセットアップ"""
+        """ファイル出力を指定してロガーをセットアップ."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = "test.log"
             # Arrange
@@ -214,7 +214,7 @@ class TestSetupLogger:
             assert "Test log message" in content
 
     def test_setup_logger_with_json_format(self) -> None:
-        """JSON形式でロガーをセットアップ"""
+        """JSON形式でロガーをセットアップ."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = "test_json.log"
             # Arrange
@@ -242,10 +242,10 @@ class TestSetupLogger:
 
 
 class TestGetLogger:  # pylint: disable=too-few-public-methods
-    """get_logger関数のテスト"""
+    """get_logger関数のテスト."""
 
     def test_get_logger(self) -> None:
-        """get_logger関数でロガーを取得"""
+        """get_logger関数でロガーを取得."""
         # Arrange / Act
         logger = get_logger("test_get_logger")
 
@@ -255,10 +255,10 @@ class TestGetLogger:  # pylint: disable=too-few-public-methods
 
 
 class TestRequestIdManagement:
-    """リクエストID管理機能のテスト"""
+    """リクエストID管理機能のテスト."""
 
     def test_set_and_get_request_id(self) -> None:
-        """リクエストIDの設定と取得"""
+        """リクエストIDの設定と取得."""
         # Arrange
         test_id = "req-test-123"
 
@@ -272,7 +272,7 @@ class TestRequestIdManagement:
         clear_request_id()
 
     def test_clear_request_id(self) -> None:
-        """リクエストIDのクリア"""
+        """リクエストIDのクリア."""
         # Arrange
         set_request_id("req-test-456")
 
@@ -283,7 +283,7 @@ class TestRequestIdManagement:
         assert get_request_id() is None
 
     def test_get_request_id_when_not_set(self) -> None:
-        """リクエストID未設定時の取得"""
+        """リクエストID未設定時の取得."""
         # Arrange / Act
         clear_request_id()
 
@@ -292,10 +292,10 @@ class TestRequestIdManagement:
 
 
 class TestLogRotation:
-    """ログローテーション機能のテスト"""  # pylint: disable=too-few-public-methods
+    """ログローテーション機能のテスト."""  # pylint: disable=too-few-public-methods
 
     def test_log_rotation(self) -> None:
-        """ログローテーションの動作確認"""
+        """ログローテーションの動作確認."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = "test_rotation.log"
             # 小さいサイズでログローテーションを設定
@@ -323,10 +323,10 @@ class TestLogRotation:
 
 
 class TestLogLevels:
-    """各ログレベルのテスト"""
+    """各ログレベルのテスト."""
 
     def test_debug_level(self) -> None:
-        """DEBUGレベルのログ"""
+        """DEBUGレベルのログ."""
         # Arrange / Act
         logger = setup_logger(name="test_debug", log_level="DEBUG")
         logger.debug("Debug message")
@@ -335,7 +335,7 @@ class TestLogLevels:
         assert logger.level == logging.DEBUG
 
     def test_info_level(self) -> None:
-        """INFOレベルのログ"""
+        """INFOレベルのログ."""
         # Arrange / Act
         logger = setup_logger(name="test_info", log_level="INFO")
         logger.info("Info message")
@@ -344,7 +344,7 @@ class TestLogLevels:
         assert logger.level == logging.INFO
 
     def test_warning_level(self) -> None:
-        """WARNINGレベルのログ"""
+        """WARNINGレベルのログ."""
         # Arrange / Act
         logger = setup_logger(name="test_warning", log_level="WARNING")
         logger.warning("Warning message")
@@ -353,7 +353,7 @@ class TestLogLevels:
         assert logger.level == logging.WARNING
 
     def test_error_level(self) -> None:
-        """ERRORレベルのログ"""
+        """ERRORレベルのログ."""
         # Arrange / Act
         logger = setup_logger(name="test_error", log_level="ERROR")
         logger.error("Error message")
@@ -362,7 +362,7 @@ class TestLogLevels:
         assert logger.level == logging.ERROR
 
     def test_critical_level(self) -> None:
-        """CRITICALレベルのログ"""
+        """CRITICALレベルのログ."""
         # Arrange / Act
         logger = setup_logger(name="test_critical", log_level="CRITICAL")
         logger.critical("Critical message")

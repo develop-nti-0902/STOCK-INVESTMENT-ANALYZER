@@ -1,3 +1,5 @@
+"""Tests for the `BatchExecution` model and persistence behavior."""
+
 from __future__ import annotations
 
 from sqlalchemy import create_engine
@@ -5,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 
 def test_batch_execution_model_defaults_and_persistence():
-    """BatchExecution モデルがテーブル作成、デフォルト値、永続化をサポートすることを確認する。"""
+    """Verify BatchExecution supports table creation, defaults, and persistence."""
     # in-memory SQLite を使用して軽量にテスト（Postgres 固有型を使っていないため互換）
     engine = create_engine("sqlite:///:memory:", future=True)
 

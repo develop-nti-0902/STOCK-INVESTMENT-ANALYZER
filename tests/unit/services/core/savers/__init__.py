@@ -1,1 +1,1 @@
-# Tests for core savers
+"""Unit tests for core savers package."""

@@ -39,14 +39,14 @@ logger = logging.getLogger(__name__)
 async def _run(
     days: int = 7,
     timeframe: str = "1d",
-    batch_size: int = 100,
+    batch_size: int = 1000,
 ) -> None:
     """メイン処理: 指定した期間で全銘柄の株価データを取得しDBへ保存します.
 
     Args:
         days: 取得する日数（デフォルト: 7日）
         timeframe: タイムフレーム（デフォルト: 1d）
-        batch_size: バッチサイズ（デフォルト: 100）
+        batch_size: バッチサイズ（デフォルト: 1000）
     """
     engine: AsyncEngine = get_engine()
     session_maker = async_sessionmaker(
@@ -136,7 +136,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument(
         "--batch-size",
         type=int,
-        default=100,
+        default=1000,
         help="Batch size for processing (default: 100)",
     )
     return p.parse_args()

@@ -1,4 +1,4 @@
-import asyncio
+"""Tests for batch execution base utilities and context manager."""
 
 import pytest
 
@@ -6,6 +6,7 @@ from app.services.core.batch.base import BaseBatchRunner, BatchExecutionContext
 
 
 def test_chunk_iter_splits_list():
+    """Split iterable into chunks of given size."""
     items = [1, 2, 3, 4, 5]
     chunks = list(BaseBatchRunner.chunk_iter(items, 2))
     assert chunks == [[1, 2], [3, 4], [5]]
@@ -13,6 +14,8 @@ def test_chunk_iter_splits_list():
 
 @pytest.mark.asyncio
 async def test_update_ctx_progress_with_sync_and_async(monkeypatch):
+    """Update context progress works for sync and async contexts."""
+
     class Ctx:
         def __init__(self):
             self.called = False
@@ -39,7 +42,8 @@ async def test_update_ctx_progress_with_sync_and_async(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_batch_execution_context_create_and_finish_sync(monkeypatch):
-    # batch_service provides create_context (sync) which returns ctx with finish sync
+    """Context manager calls sync finish on successful exit."""
+
     class Ctx:
         def __init__(self):
             self.finished = False
@@ -54,12 +58,12 @@ async def test_batch_execution_context_create_and_finish_sync(monkeypatch):
     svc = Service()
     async with BatchExecutionContext(svc, job_type="j", params={}) as ctx:
         assert ctx is not None
-    # after exit, finish should have been called (no exception)
 
 
 @pytest.mark.asyncio
 async def test_batch_execution_context_start_job_async_and_finish_async(monkeypatch):
-    # start_job returns coroutine that resolves to ctx; ctx.finish is async
+    """Context manager supports async start_job and async finish."""
+
     class Ctx:
         def __init__(self):
             self.finished = False

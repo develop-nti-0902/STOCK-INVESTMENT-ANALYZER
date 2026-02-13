@@ -1,4 +1,4 @@
-"""EdinetProfitAndLossFileManager の単体テスト（profit_and_loss 固有）。"""
+"""Unit tests for EdinetProfitAndLossFileManager behaviors."""
 
 from __future__ import annotations
 
@@ -6,14 +6,13 @@ import os
 import time
 from pathlib import Path
 
-import pytest
-
 from app.services.market_data.edinet.file_manager import (
     EdinetFileManager as EdinetProfitAndLossFileManager,
 )
 
 
 def test_find_xbrl_file_priority(tmp_path: Path):
+    """Prefer standard XBRL PublicDoc path when locating XBRL files."""
     fm = EdinetProfitAndLossFileManager()
     base = tmp_path / "base"
     std_dir = base / "XBRL" / "PublicDoc"
@@ -32,6 +31,7 @@ def test_find_xbrl_file_priority(tmp_path: Path):
 
 
 def test_cleanup_old_files_removes_old(tmp_path: Path):
+    """Remove files older than configured max age and return delete count."""
     fm = EdinetProfitAndLossFileManager()
     d = tmp_path / "cleanup"
     d.mkdir()

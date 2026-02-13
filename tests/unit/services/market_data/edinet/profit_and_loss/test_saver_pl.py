@@ -1,4 +1,4 @@
-"""EdinetProfitAndLossSaver の単体テスト（profit_and_loss 固有）。"""
+"""EdinetProfitAndLossSaver の単体テスト（profit_and_loss 固有）."""
 
 from __future__ import annotations
 
@@ -34,12 +34,16 @@ class _DummyRepo:
 
 
 class ConcreteSaver(EdinetProfitAndLossSaver):
+    """テスト用のConcrete実装."""
+
     async def save(self, data, **kwargs):
+        """単一保存を呼ぶテスト用実装."""
         return await self.save_single(data)
 
 
 @pytest.mark.asyncio
 async def test_validate_data_true_and_false():
+    """validate_data の真偽を検証する."""
     saver = ConcreteSaver(session=None)
 
     good = {"sec_code": "7203", "period_end_date": "2024-03-31"}

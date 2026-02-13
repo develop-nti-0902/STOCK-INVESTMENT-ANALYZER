@@ -1,9 +1,4 @@
-"""
-株価データスキーマの単体テスト
-
-StockPriceBase, StockPriceCreate, StockPriceResponse, StockPriceBatch,
-およびタイムフレーム別スキーマのテストを行います。
-"""
+"""Unit tests for stock data schemas and timeframe variants."""
 
 from datetime import datetime
 
@@ -26,10 +21,10 @@ from app.schemas.stock_data import (
 
 
 class TestStockPriceBase:
-    """StockPriceBaseスキーマのテスト"""
+    """Tests for `StockPriceBase` schema."""
 
     def test_valid_data(self):
-        """有効なデータで作成できることを確認"""
+        """Create `StockPriceBase` with valid data."""
         data = {
             "symbol": "AAPL",
             "timestamp": datetime(2023, 1, 1, 12, 0, 0),
@@ -46,7 +41,7 @@ class TestStockPriceBase:
         assert stock.close == 152.0
 
     def test_optional_fields(self):
-        """オプションのフィールドがNoneでも作成できることを確認"""
+        """Allow optional fields to be None."""
         data = {
             "symbol": "AAPL",
             "timestamp": datetime(2023, 1, 1, 12, 0, 0),
@@ -57,10 +52,10 @@ class TestStockPriceBase:
 
 
 class TestStockPriceCreate:
-    """StockPriceCreateスキーマのテスト"""
+    """Tests for `StockPriceCreate` schema."""
 
     def test_valid_data(self):
-        """有効なデータで作成できることを確認"""
+        """Normalize and validate symbol casing on create."""
         data = {
             "symbol": "aapl",  # 小文字で入力
             "timestamp": datetime(2023, 1, 1, 12, 0, 0),
@@ -75,7 +70,7 @@ class TestStockPriceCreate:
         assert stock.symbol == "AAPL"  # 大文字に変換される
 
     def test_invalid_symbol(self):
-        """無効な銘柄コードでエラーが発生することを確認"""
+        """Raise ValidationError for invalid symbol values."""
         data = {
             "symbol": "",  # 空文字
             "trade_date": datetime(2023, 1, 1, 12, 0, 0),
@@ -85,10 +80,10 @@ class TestStockPriceCreate:
 
 
 class TestStockPriceResponse:
-    """StockPriceResponseスキーマのテスト"""
+    """Tests for `StockPriceResponse` schema."""
 
     def test_with_id_and_timestamps(self):
-        """IDとタイムスタンプ付きで作成できることを確認"""
+        """Create response with id and timestamp fields."""
         data = {
             "id": 1,
             "symbol": "AAPL",
@@ -104,10 +99,10 @@ class TestStockPriceResponse:
 
 
 class TestStockPriceBatch:
-    """StockPriceBatchスキーマのテスト"""
+    """Tests for `StockPriceBatch` schema."""
 
     def test_valid_batch(self):
-        """有効なバッチデータで作成できることを確認"""
+        """Create a valid stock price batch."""
         data = {
             "symbol": "AAPL",
             "timeframe": "1d",
@@ -125,7 +120,7 @@ class TestStockPriceBatch:
         assert len(batch.data) == 1
 
     def test_invalid_timeframe(self):
-        """無効な時間軸でエラーが発生することを確認"""
+        """Raise ValidationError for invalid timeframe values."""
         data = {
             "symbol": "AAPL",
             "timeframe": "invalid",  # 無効な時間軸
@@ -136,10 +131,10 @@ class TestStockPriceBatch:
 
 
 class TestTimeframeSchemas:
-    """タイムフレーム別スキーマのテスト"""
+    """Tests for timeframe-specific stock price schemas."""
 
     def test_timeframe_schemas_creation(self):
-        """各タイムフレームスキーマが作成できることを確認"""
+        """Instantiate each timeframe schema with base data."""
         base_data = {
             "symbol": "AAPL",
             "timestamp": datetime(2023, 1, 1, 12, 0, 0),

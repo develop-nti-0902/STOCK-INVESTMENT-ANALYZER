@@ -1,7 +1,4 @@
-"""バッチ実行詳細モデルの単体テスト.
-
-`BatchExecutionDetails` が `BatchExecution` と連携して永続化できることを検証します.
-"""
+"""Unit tests for BatchExecutionDetails and its persistence with BatchExecution."""
 
 from __future__ import annotations
 

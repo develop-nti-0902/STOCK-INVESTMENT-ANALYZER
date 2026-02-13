@@ -1,7 +1,7 @@
-"""`StockPriceValidator` の単体テスト。
+"""`StockPriceValidator` の単体テスト.
 
 本ファイルは既存テストをリセットし、現在の実装（バイパスして常に成功を返す）に合わせて
-シンプルで明確な単体テストを提供します。
+シンプルで明確な単体テストを提供します.
 """
 
 from datetime import datetime, timezone
@@ -13,11 +13,12 @@ from app.services.market_data.stock_price.validator import StockPriceValidator
 
 @pytest.fixture
 def validator() -> StockPriceValidator:
+    """Provide a `StockPriceValidator` instance for tests."""
     return StockPriceValidator()
 
 
 def test_validate_returns_success_and_bypass_warning_for_dict(validator: StockPriceValidator):
-    """辞書データを与えた場合にバイパス警告を含む成功を返す"""
+    """Passing dict data returns success with a bypass warning."""
     data = {
         "symbol": "7203.T",
         "timestamp": datetime(2024, 1, 1, tzinfo=timezone.utc),
@@ -37,7 +38,7 @@ def test_validate_returns_success_and_bypass_warning_for_dict(validator: StockPr
 
 
 def test_validate_accepts_pydantic_model_and_returns_bypass(validator: StockPriceValidator):
-    """Pydanticモデルを与えた場合でもバイパスで成功を返す"""
+    """Pydantic model input is accepted and returns bypass success."""
     from app.schemas.stock_data import StockPriceCreate
 
     model = StockPriceCreate(
@@ -62,7 +63,7 @@ def test_validate_accepts_pydantic_model_and_returns_bypass(validator: StockPric
 def test_validate_handles_unsupported_types_and_still_bypasses(
     validator: StockPriceValidator, input_value
 ):
-    """サポート外の型でもバイパス実装により成功を返す"""
+    """Unsupported types still return a bypassed success response."""
     result = validator.validate(input_value)
 
     assert result.is_valid is True

@@ -1,35 +1,45 @@
-"""EDINET 損益・キャッシュフローパーサのユニットテストモジュール（profit_and_loss 固有）。
+"""EDINET 損益・キャッシュフローパーサのユニットテストモジュール（profit_and_loss 固有）.
 
-主にコンテキスト抽出、期間解析、財務指標の数値抽出等を検証します。
+主にコンテキスト抽出、期間解析、財務指標の数値抽出等を検証します.
 """
 
 from __future__ import annotations
 
-import pytest
 from lxml import etree
 
 from app.services.market_data.edinet.profit_and_loss.parser import EdinetProfitAndLossParser
 
 
 def _make_sample_root() -> etree._Element:
-    xml = """
-    <Document xmlns:xbrli="http://www.xbrl.org/2003/instance"
-              xmlns:jpcrp_cor="http://disclosure.edinet-fsa.go.jp/taxonomy/jpcrp/2024-12-31/jpcrp_cor"
-              xmlns:jppfs_cor="http://disclosure.edinet-fsa.go.jp/taxonomy/jppfs/2024-12-31/jppfs_cor">
-      <xbrli:context id="CurrentYearDuration">
-        <xbrli:period>
-          <xbrli:startDate>2024-04-01</xbrli:startDate>
-          <xbrli:endDate>2025-03-31</xbrli:endDate>
-        </xbrli:period>
-      </xbrli:context>
-      <jpcrp_cor:BasicEarningsLossPerShareSummaryOfBusinessResults contextRef="CurrentYearDuration">120.5</jpcrp_cor:BasicEarningsLossPerShareSummaryOfBusinessResults>
-      <jppfs_cor:NetCashProvidedByUsedInOperatingActivities contextRef="CurrentYearDuration">1500.0</jppfs_cor:NetCashProvidedByUsedInOperatingActivities>
-    </Document>
+    """サンプルのXMLルート要素を返すヘルパー関数.
+
+    テスト用の簡易的なXBRL文書を返します.
     """
+    xml = (
+        '<Document xmlns:xbrli="http://www.xbrl.org/2003/instance"\n'
+        '  xmlns:jpcrp_cor="http://disclosure.edinet-fsa.go.jp/taxonomy/jpcrp/2024-12-31/jpcrp_cor"\n'
+        '  xmlns:jppfs_cor="http://disclosure.edinet-fsa.go.jp/taxonomy/jppfs/2024-12-31/jppfs_cor">\n'
+        '  <xbrli:context id="CurrentYearDuration">\n'
+        "    <xbrli:period>\n"
+        "      <xbrli:startDate>2024-04-01</xbrli:startDate>\n"
+        "      <xbrli:endDate>2025-03-31</xbrli:endDate>\n"
+        "    </xbrli:period>\n"
+        "  </xbrli:context>\n"
+        "  <jpcrp_cor:BasicEarningsLossPerShareSummaryOfBusinessResults "
+        'contextRef="CurrentYearDuration">\n'
+        "    120.5\n"
+        "  </jpcrp_cor:BasicEarningsLossPerShareSummaryOfBusinessResults>\n"
+        "  <jppfs_cor:NetCashProvidedByUsedInOperatingActivities "
+        'contextRef="CurrentYearDuration">\n'
+        "    1500.0\n"
+        "  </jppfs_cor:NetCashProvidedByUsedInOperatingActivities>\n"
+        "</Document>\n"
+    )
     return etree.fromstring(xml.encode("utf-8"))
 
 
 def test_parse_returns_five_years(monkeypatch):
+    """5年分のキーが返ることを検証する."""
     root = _make_sample_root()
 
     class _DummyParsedXbrl:
@@ -53,6 +63,7 @@ def test_parse_returns_five_years(monkeypatch):
 
 
 def test_single_year_parse_basic():
+    """単年度の解析結果の基本キーを検証する."""
     root = _make_sample_root()
     contexts = ["CurrentYearDuration"]
 
@@ -74,14 +85,15 @@ def test_single_year_parse_basic():
 
 
 def test_get_all_available_contexts():
-    xml = """
-    <Document>
-      <Element1 contextRef="CurrentYearDuration"/>
-      <Element2 contextRef="Prior1YearDuration"/>
-      <Element3 contextRef="CurrentYearDuration"/>
-      <Element4/>
-    </Document>
-    """
+    """全てのcontextRefを抽出できることを検証する."""
+    xml = (
+        "<Document>\n"
+        '  <Element1 contextRef="CurrentYearDuration"/>\n'
+        '  <Element2 contextRef="Prior1YearDuration"/>\n'
+        '  <Element3 contextRef="CurrentYearDuration"/>\n'
+        "  <Element4/>\n"
+        "</Document>\n"
+    )
     root = etree.fromstring(xml.encode("utf-8"))
 
     p = EdinetProfitAndLossParser()
@@ -93,6 +105,7 @@ def test_get_all_available_contexts():
 
 
 def test_get_contexts_for_year():
+    """年指定で適切なcontext群を返すことを検証する."""
     all_contexts = [
         "CurrentYearDuration",
         "CurrentYearDuration_ConsolidatedMember",
@@ -112,7 +125,7 @@ def test_get_contexts_for_year():
 
 
 def test_extract_value_with_context_no_match():
-    root = _make_sample_root()
+    """存在しないタグ・コンテキストを与えた場合にNoneが返ることを検証する."""
 
     class _DummyParsedXbrl:
         def get_data_by_context_ref(self, ctx):
@@ -127,16 +140,17 @@ def test_extract_value_with_context_no_match():
 
 
 def test_extract_period_end_date():
-    xml = """
-    <Document xmlns:xbrli="http://www.xbrl.org/2003/instance">
-      <xbrli:context id="CurrentYearDuration">
-        <xbrli:period>
-          <xbrli:startDate>2024-04-01</xbrli:startDate>
-          <xbrli:endDate>2025-03-31</xbrli:endDate>
-        </xbrli:period>
-      </xbrli:context>
-    </Document>
-    """
+    """contextから期末日を抽出できることを検証する."""
+    xml = (
+        '<Document xmlns:xbrli="http://www.xbrl.org/2003/instance">\n'
+        '  <xbrli:context id="CurrentYearDuration">\n'
+        "    <xbrli:period>\n"
+        "      <xbrli:startDate>2024-04-01</xbrli:startDate>\n"
+        "      <xbrli:endDate>2025-03-31</xbrli:endDate>\n"
+        "    </xbrli:period>\n"
+        "  </xbrli:context>\n"
+        "</Document>\n"
+    )
     root = etree.fromstring(xml.encode("utf-8"))
     contexts = ["CurrentYearDuration"]
 
@@ -148,6 +162,7 @@ def test_extract_period_end_date():
 
 
 def test_extract_period_end_date_no_context():
+    """存在しないコンテキストを与えた場合にNoneが返ることを検証する."""
     root = _make_sample_root()
     contexts = ["NonExistentContext"]
 

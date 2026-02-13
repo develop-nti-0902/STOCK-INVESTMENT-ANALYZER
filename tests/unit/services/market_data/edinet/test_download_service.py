@@ -1,5 +1,9 @@
+"""Unit tests for `EdinetDownloadService`.
+
+Tests cover downloading zip payloads and extracting XBRL content.
+"""
+
 import asyncio
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -8,16 +12,21 @@ from app.services.market_data.edinet.download_service import EdinetDownloadServi
 
 
 class DummyAPIClient:
+    """Simple API client stub that returns predefined zip bytes."""
+
     def __init__(self, zip_bytes: bytes):
+        """Initialize with zip payload bytes."""
         self._zip = zip_bytes
 
     async def download_document(self, doc_id: str) -> bytes:
+        """Async stub that returns the stored zip bytes."""
         await asyncio.sleep(0)
         return self._zip
 
 
 @pytest.mark.asyncio
 async def test_download_and_extract_and_root(tmp_path):
+    """download_and_extract と download_and_extract_root が正しく動作することを検証する."""
     # create a simple xml/xbrl file
     xml_content = b"<root><child>value</child></root>"
     file_path = tmp_path / "sample.xbrl"
@@ -45,6 +54,7 @@ async def test_download_and_extract_and_root(tmp_path):
 
 @pytest.mark.asyncio
 async def test_cleanup(tmp_path):
+    """cleanup が指定パスを削除することを検証する."""
     file_path = tmp_path / "to_delete"
     file_path.mkdir()
     nested = file_path / "a.txt"

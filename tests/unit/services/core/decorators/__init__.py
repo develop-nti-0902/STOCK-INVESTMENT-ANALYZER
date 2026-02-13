@@ -1,1 +1,1 @@
-# Tests for core decorators
+"""Unit tests for core decorators package."""

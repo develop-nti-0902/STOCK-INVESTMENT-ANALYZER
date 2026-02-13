@@ -1,7 +1,7 @@
-"""`StockPriceBatchRunner` の単体テスト。
+"""`StockPriceBatchRunner` の単体テスト.
 
 テスト方針: 外部依存（BatchExecutionContext, StockMasterService, StockPriceService）をモック化して
-`execute_jpx_all_for_timeframe` の分岐（例外、成功、失敗、進捗更新）を検証します。
+`execute_jpx_all_for_timeframe` の分岐（例外、成功、失敗、進捗更新）を検証します.
 """
 
 import asyncio
@@ -14,20 +14,27 @@ from app.services.market_data.stock_price.batch import StockPriceBatchRunner
 
 
 class DummyCtx:
+    """Async context stub that records progress updates."""
+
     def __init__(self):
+        """Initialize progress storage."""
         self.progress_updates: List[Dict[str, Any]] = []
 
     async def __aenter__(self):
+        """Enter the async context and return self."""
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
+        """Exit the async context."""
         return False
 
     async def update_progress(self, **kwargs):
+        """Record a progress update dict."""
         self.progress_updates.append(kwargs)
 
 
 def test_run_raises_without_stock_master_service():
+    """stock_master_service 未指定時に例外が発生することを検証する."""
     runner = StockPriceBatchRunner(
         batch_service=object(), stock_price_service=None, stock_master_service=None
     )
@@ -37,6 +44,7 @@ def test_run_raises_without_stock_master_service():
 
 
 def test_run_processes_symbols_and_updates_progress(monkeypatch):
+    """シンボルを処理し進捗更新が行われることを検証する."""
     # サービスのセットアップ
     symbols = ["AAA", "BBB", "CCC", "DDD"]
 

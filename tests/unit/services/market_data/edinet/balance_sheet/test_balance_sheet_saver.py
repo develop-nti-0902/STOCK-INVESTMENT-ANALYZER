@@ -1,3 +1,5 @@
+"""Tests for EdinetBalanceSheetSaver behavior and validation."""
+
 from unittest.mock import AsyncMock
 
 import pytest
@@ -7,6 +9,7 @@ from app.services.market_data.edinet.balance_sheet.saver import EdinetBalanceShe
 
 @pytest.mark.asyncio
 async def test_validate_data_success():
+    """Return True when required fields are present in payload."""
     saver = EdinetBalanceSheetSaver(session=None)
     data = {
         "doc_id": "doc1",
@@ -21,6 +24,7 @@ async def test_validate_data_success():
 
 @pytest.mark.asyncio
 async def test_validate_data_missing_field_returns_false():
+    """Return False when required fields are missing."""
     saver = EdinetBalanceSheetSaver(session=None)
     data = {"sec_code": "7203"}  # missing required fields
 
@@ -29,6 +33,7 @@ async def test_validate_data_missing_field_returns_false():
 
 @pytest.mark.asyncio
 async def test_save_single_calls_repository_upsert_and_returns_result():
+    """Delegate single save to repository upsert and return result."""
     saver = EdinetBalanceSheetSaver(session=None)
 
     mock_repo = AsyncMock()
@@ -44,6 +49,7 @@ async def test_save_single_calls_repository_upsert_and_returns_result():
 
 @pytest.mark.asyncio
 async def test_save_batch_counts_successful_and_raises_on_error():
+    """Count successful upserts and propagate errors from repository."""
     saver = EdinetBalanceSheetSaver(session=None)
 
     # Successful path: upsert always succeeds
