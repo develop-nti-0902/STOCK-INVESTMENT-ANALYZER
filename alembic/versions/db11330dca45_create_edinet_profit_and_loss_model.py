@@ -61,22 +61,28 @@ def upgrade() -> None:
 
     op.drop_table("edinet_stock_dividend")
     with op.batch_alter_table("edinet_profit_and_loss", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column("net_sales", sa.Numeric(precision=20, scale=2), nullable=True)
-        )
-        batch_op.add_column(
-            sa.Column("operating_income", sa.Numeric(precision=20, scale=2), nullable=True)
-        )
-        # Drop index only if it exists to avoid batch flush error on SQLite.
-        # Using SQLAlchemy inspector to check existing indexes before registering drop.
+        # Use inspector to check existing indexes/columns to make operations idempotent
         conn = op.get_bind()
         inspector = sa.inspect(conn)
+        existing_columns = {col["name"] for col in inspector.get_columns("edinet_profit_and_loss")}
         existing_indexes = {idx["name"] for idx in inspector.get_indexes("edinet_profit_and_loss")}
+
+        # Add columns only if they do not already exist
+        if "net_sales" not in existing_columns:
+            batch_op.add_column(
+                sa.Column("net_sales", sa.Numeric(precision=20, scale=2), nullable=True)
+            )
+        if "operating_income" not in existing_columns:
+            batch_op.add_column(
+                sa.Column("operating_income", sa.Numeric(precision=20, scale=2), nullable=True)
+            )
+
+        # Drop index only if it exists to avoid batch flush error on SQLite
         idx_name = batch_op.f("idx_edinet_pl_sec_period")
         if idx_name in existing_indexes or "idx_edinet_pl_sec_period" in existing_indexes:
             batch_op.drop_index(idx_name)
-        # Check existing columns before attempting to drop to avoid KeyError in batch mode
-        existing_columns = {col["name"] for col in inspector.get_columns("edinet_profit_and_loss")}
+
+        # Drop columns only if present
         if "filer_name" in existing_columns:
             batch_op.drop_column("filer_name")
         if "operating_profit" in existing_columns:
