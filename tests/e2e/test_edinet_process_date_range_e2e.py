@@ -102,6 +102,68 @@ async def _fetch_edinet_profit_and_loss_rows():
         await engine.dispose()
 
 
+async def _fetch_edinet_stock_dividend_rows():
+    """edinet_stock_dividend テーブルから全データを取得する.
+
+    Returns:
+        edinet_stock_dividend テーブルの全レコードを辞書のリストで返す
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.edinet_stock_dividend import EdinetStockDividend
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(EdinetStockDividend))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": row.id,
+                    "sec_code": row.sec_code,
+                    "doc_id": row.doc_id,
+                    "period_end_date": (
+                        row.period_end_date.isoformat() if row.period_end_date else None
+                    ),
+                    "submission_date": (
+                        row.submission_date.isoformat() if row.submission_date else None
+                    ),
+                    "fiscal_year": row.fiscal_year,
+                    "report_type": row.report_type,
+                    "dividend_actual": (
+                        float(row.dividend_actual) if row.dividend_actual is not None else None
+                    ),
+                    "candidate_contexts": row.candidate_contexts,
+                    "candidate_keys": row.candidate_keys,
+                    "is_consolidated": row.is_consolidated,
+                    "created_at": row.created_at.isoformat() if row.created_at else None,
+                    "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def _cleanup_edinet_stock_dividend():
+    """edinet_stock_dividend テーブルのデータをクリーンアップする."""
+    from sqlalchemy import delete
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.edinet_stock_dividend import EdinetStockDividend
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            await session.execute(delete(EdinetStockDividend))
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
 async def _cleanup_edinet_balance_sheets():
     """edinet_balance_sheets テーブルのデータをクリーンアップする."""
     from sqlalchemy import delete
@@ -227,9 +289,16 @@ def test_edinet_process_date_range_flow(client):
     except Exception as e:
         print(f"DEBUG: Failed to fetch profit and loss rows: {e}")
 
+    stock_dividend_rows = []
+    try:
+        stock_dividend_rows = run_async_safely(_fetch_edinet_stock_dividend_rows())
+        print(f"DEBUG: Found {len(stock_dividend_rows)} stock dividend records")
+    except Exception as e:
+        print(f"DEBUG: Failed to fetch stock dividend rows: {e}")
+
     # 少なくとも1つのテーブルにデータが格納されていることを確認
     assert (
-        len(balance_sheet_rows) > 0 or len(profit_and_loss_rows) > 0
+        len(balance_sheet_rows) > 0 or len(profit_and_loss_rows) > 0 or len(stock_dividend_rows) > 0
     ), f"DB に保存されたEDINETデータが見つかりませんでした。Result: {batch_result}"
 
     # 5) アーティファクトとして保存
@@ -247,10 +316,18 @@ def test_edinet_process_date_range_flow(client):
         except Exception as e:
             print(f"DEBUG: Failed to write profit and loss artifact: {e}")
 
+    if stock_dividend_rows:
+        try:
+            artifact_name = "test_edinet_process_date_range_stock_dividend_db_data"
+            write_csv_artifact(stock_dividend_rows, name=artifact_name)
+        except Exception as e:
+            print(f"DEBUG: Failed to write stock dividend artifact: {e}")
+
     # 6) クリーンアップ
     try:
         run_async_safely(_cleanup_edinet_balance_sheets())
         run_async_safely(_cleanup_edinet_profit_and_loss())
+        run_async_safely(_cleanup_edinet_stock_dividend())
         print("DEBUG: EDINET tables cleanup completed")
     except Exception as e:
         print(f"DEBUG: EDINET tables cleanup failed: {e}")
