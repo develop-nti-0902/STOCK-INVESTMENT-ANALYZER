@@ -1,8 +1,6 @@
-"""EDINET 損益・キャッシュフロー用 Pydantic スキーマ.
+"""EDINET 損益（edinet_profit_and_loss）用 Pydantic スキーマ.
 
-このモジュールはedinet_profit_and_lossテーブルに対応する
-`app/models/edinet_profit_and_loss.py` のモデルに対応する
-リクエスト／レスポンス用の Pydantic スキーマを提供します。
+新しいモデル定義に合わせて完全に再定義しています。
 """
 
 from __future__ import annotations
@@ -17,45 +15,37 @@ from .base import BaseRequestSchema, BaseResponseSchema
 
 
 class EdinetProfitAndLossBase(BaseModel):
-    """EDINET 損益・キャッシュフローの共通スキーマ定義."""
+    """共通フィールド（リクエスト/レスポンス双方で利用するベース）."""
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        validate_assignment=True,
-        extra="forbid",
-    )
+    model_config = ConfigDict(from_attributes=True, validate_assignment=True, extra="forbid")
 
-    doc_id: str = Field(..., description="EDINET ドキュメントID", max_length=50)
-    sec_code: str = Field(..., description="証券コード／コード系", max_length=10)
-    filer_name: Optional[str] = Field(None, description="提出者名", max_length=255)
+    doc_id: str = Field(..., description="EDINET 文書 ID", max_length=50)
+    sec_code: str = Field(..., description="証券コード", max_length=10)
     submission_date: date = Field(..., description="提出日")
     period_end_date: date = Field(..., description="決算期末日")
     fiscal_year: Optional[int] = Field(None, description="会計年度")
-    report_type: str = Field(..., description="報告種別", max_length=20)
+    report_type: str = Field("annual", description="報告種別", max_length=20)
 
-    # 財務指標（Decimal を使って精度を保つ）
-    operating_profit: Optional[Decimal] = Field(
-        None, description="営業活動によるキャッシュフロー（百万円）"
-    )
+    # 損益主要数値
+    net_sales: Optional[Decimal] = Field(None, description="売上高")
+    operating_income: Optional[Decimal] = Field(None, description="営業利益")
     eps: Optional[Decimal] = Field(None, description="1株当たり当期純利益（円）")
 
-    # メタデータ項目
-    candidate_contexts: Optional[str] = Field(None, description="候補コンテキスト", max_length=50)
-    candidate_keys: Optional[str] = Field(None, description="候補キー", max_length=50)
+    # メタデータ
+    candidate_contexts: Optional[str] = Field(
+        None, description="解析で使用された context", max_length=50
+    )
+    candidate_keys: Optional[str] = Field(None, description="解析で使用された key", max_length=50)
     is_consolidated: Optional[bool] = Field(None, description="連結フラグ")
 
-    @field_validator("doc_id", "sec_code", "filer_name", mode="before")
+    @field_validator("doc_id", "sec_code", "candidate_contexts", "candidate_keys", mode="before")
     @classmethod
-    def _strip_strings(cls, v: str) -> str:
+    def _strip_strings(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
-            return v
+            return None
         return v.strip()
 
-    @field_validator(
-        "operating_profit",
-        "eps",
-        mode="before",
-    )
+    @field_validator("net_sales", "operating_income", "eps", mode="before")
     @classmethod
     def _to_decimal(cls, v):
         if v is None:
@@ -64,28 +54,29 @@ class EdinetProfitAndLossBase(BaseModel):
             return v
         try:
             return Decimal(str(v))
-        except Exception as exc:
-            raise ValueError("数値フィールドは Decimal に変換可能である必要があります") from exc
+        except Exception as exc:  # pragma: no cover - validation error path
+            raise ValueError(
+                "数値フィールドは数値または Decimal に変換可能である必要があります"
+            ) from exc
 
 
 class EdinetProfitAndLossCreate(BaseRequestSchema, EdinetProfitAndLossBase):
-    """作成用スキーマ（入力バリデーション）."""
+    """作成（リクエスト）用スキーマ."""
 
 
 class EdinetProfitAndLossRead(BaseResponseSchema, EdinetProfitAndLossBase):
-    """レスポンス用スキーマ（id/created_at/updated_at を含む）."""
+    """レスポンス用スキーマ（`id`, `created_at`, `updated_at` を含む）."""
 
 
 class EdinetProfitAndLossLatest(BaseModel):
-    """最新データ検索用の軽量スキーマ."""
+    """軽量レスポンス: 最新データ取得時に使用するスキーマ."""
 
-    model_config = ConfigDict(validate_assignment=True, extra="forbid", from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, validate_assignment=True, extra="forbid")
 
     sec_code: str = Field(..., description="証券コード", max_length=10)
     period_end_date: date = Field(..., description="決算期末日")
-    operating_profit: Optional[Decimal] = Field(
-        None, description="営業活動によるキャッシュフロー（百万円）"
-    )
+    net_sales: Optional[Decimal] = Field(None, description="売上高")
+    operating_income: Optional[Decimal] = Field(None, description="営業利益")
     eps: Optional[Decimal] = Field(None, description="1株当たり当期純利益（円）")
 
 

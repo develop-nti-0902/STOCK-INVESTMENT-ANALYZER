@@ -19,6 +19,7 @@ def test_to_pydantic_success():
         "submission_date": "2025-02-01",
         "period_end_date": "2024-03-31",
         "operating_profit": "1234.5",
+        "net_sales": "50000",
         "eps": 120.5,
     }
 
@@ -26,9 +27,10 @@ def test_to_pydantic_success():
     model = conv.to_pydantic(data)
 
     assert isinstance(model, EdinetProfitAndLossCreate)
-    assert model.filer_name == "Test Co."
+    # filer_name removed from schema; ensure fiscal year and mapped fields are correct
     assert model.fiscal_year == 2024
-    assert isinstance(model.operating_profit, Decimal)
+    assert isinstance(model.operating_income, Decimal)
+    assert isinstance(model.net_sales, Decimal)
 
 
 def test_to_pydantic_missing_period_end_date_raises():
@@ -47,12 +49,14 @@ def test_decimal_conversion_invalid_values_produce_none():
         "submission_date": "2025-01-01",
         "period_end_date": "2024-12-31",
         "operating_profit": "not_a_number",
+        "net_sales": "not_a_number",
         "eps": None,
     }
     conv = EdinetProfitAndLossConverter()
     model = conv.to_pydantic(data)
 
-    assert model.operating_profit is None
+    assert model.operating_income is None
+    assert model.net_sales is None
     assert model.eps is None
 
 

@@ -76,7 +76,6 @@ async def _fetch_edinet_profit_and_loss_rows():
                 {
                     "id": row.id,
                     "sec_code": row.sec_code,
-                    "filer_name": row.filer_name,
                     "doc_id": row.doc_id,
                     "period_end_date": (
                         row.period_end_date.isoformat() if row.period_end_date else None
@@ -86,10 +85,11 @@ async def _fetch_edinet_profit_and_loss_rows():
                     ),
                     "fiscal_year": row.fiscal_year,
                     "report_type": row.report_type,
-                    "operating_profit": (
-                        float(row.operating_profit) if row.operating_profit else None
+                    "net_sales": float(row.net_sales) if row.net_sales is not None else None,
+                    "operating_income": (
+                        float(row.operating_income) if row.operating_income is not None else None
                     ),
-                    "eps": float(row.eps) if row.eps else None,
+                    "eps": float(row.eps) if row.eps is not None else None,
                     "candidate_contexts": row.candidate_contexts,
                     "candidate_keys": row.candidate_keys,
                     "is_consolidated": row.is_consolidated,

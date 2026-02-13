@@ -42,7 +42,7 @@ async def test_crud_basic_operations(repository, mock_session):
         "submission_date": date(2025, 12, 31),
         "period_end_date": date(2025, 3, 31),
         "fiscal_year": 2024,
-        "operating_profit": 1500.0,
+        "operating_income": 1500.0,
         "eps": 120.5,
     }
 
@@ -50,7 +50,7 @@ async def test_crud_basic_operations(repository, mock_session):
 
     assert isinstance(created, EdinetProfitAndLoss)
     assert created.sec_code == "7203"
-    assert created.operating_profit == 1500.0
+    assert created.operating_income == 1500.0
     assert created.eps == 120.5
     mock_session.flush.assert_called_once()
 
@@ -63,7 +63,7 @@ async def test_find_latest_by_sec_code(repository, mock_session):
     mock_result.scalar_one_or_none.return_value = make_model(
         sec_code="7203",
         period_end_date=date(2025, 3, 31),
-        operating_profit=1500.0,
+        operating_income=1500.0,
         eps=120.5,
     )
 
@@ -73,7 +73,7 @@ async def test_find_latest_by_sec_code(repository, mock_session):
 
     assert result is not None
     assert result.sec_code == "7203"
-    assert result.operating_profit == 1500.0
+    assert result.operating_income == 1500.0
     mock_session.execute.assert_called_once()
 
 
@@ -105,8 +105,8 @@ async def test_find_by_doc_id(repository, mock_session):
     mock_result = MagicMock()
     mock_scalars = MagicMock()
     mock_scalars.all.return_value = [
-        make_model(doc_id="DOC1", sec_code="7203", operating_profit=1500.0),
-        make_model(doc_id="DOC1", sec_code="7203", operating_profit=1400.0),
+        make_model(doc_id="DOC1", sec_code="7203", operating_income=1500.0),
+        make_model(doc_id="DOC1", sec_code="7203", operating_income=1400.0),
     ]
     mock_result.scalars.return_value = mock_scalars
 
@@ -131,7 +131,7 @@ async def test_upsert_success(repository, mock_session):
         return_value=make_model(
             sec_code="7203",
             period_end_date=date(2025, 3, 31),
-            operating_profit=1500.0,
+            operating_income=1500.0,
             eps=120.5,
         )
     )
@@ -139,7 +139,7 @@ async def test_upsert_success(repository, mock_session):
     data = {
         "sec_code": "7203",
         "period_end_date": date(2025, 3, 31),
-        "operating_profit": 1500.0,
+        "operating_income": 1500.0,
         "eps": 120.5,
     }
 
@@ -147,7 +147,7 @@ async def test_upsert_success(repository, mock_session):
 
     assert result is not None
     assert result.sec_code == "7203"
-    assert result.operating_profit == 1500.0
+    assert result.operating_income == 1500.0
     mock_session.execute.assert_called_once()
     mock_session.flush.assert_called_once()
 

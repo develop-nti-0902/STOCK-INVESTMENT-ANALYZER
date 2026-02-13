@@ -13,13 +13,16 @@ from app.services.market_data.edinet.edinet_cash_flow_statement.parser import (
 
 def _build_sample_root():
     xml = """
-    <xbrl xmlns:jpcrp_cor="http://example.org/xbrl">
-      <context id="CurrentYearInstant">
-        <instant>2024-03-31</instant>
-      </context>
-      <jpcrp_cor:OperatingCashFlows contextRef="CurrentYearInstant">1000</jpcrp_cor:OperatingCashFlows>
-    </xbrl>
-    """
+<xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:jpcrp_cor="http://example.org/xbrl">
+    <xbrli:context id="CurrentYearDuration">
+        <xbrli:period>
+            <xbrli:startDate>2023-04-01</xbrli:startDate>
+            <xbrli:endDate>2024-03-31</xbrli:endDate>
+        </xbrli:period>
+    </xbrli:context>
+    <jpcrp_cor:OperatingCashFlows contextRef="CurrentYearDuration">1000</jpcrp_cor:OperatingCashFlows>
+</xbrl>
+"""
     parser = etree.XMLParser(recover=True)
     root = etree.fromstring(xml.encode("utf-8"), parser=parser)
     return root

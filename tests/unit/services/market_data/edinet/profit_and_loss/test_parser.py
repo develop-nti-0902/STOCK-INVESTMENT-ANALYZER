@@ -33,6 +33,9 @@ def _make_sample_root() -> etree._Element:
         'contextRef="CurrentYearDuration">\n'
         "    1500.0\n"
         "  </jppfs_cor:NetCashProvidedByUsedInOperatingActivities>\n"
+        '  <jppfs_cor:NetSales contextRef="CurrentYearDuration">\n'
+        "    50000\n"
+        "  </jppfs_cor:NetSales>\n"
         "</Document>\n"
     )
     return etree.fromstring(xml.encode("utf-8"))
@@ -77,9 +80,9 @@ def test_single_year_parse_basic():
     result = p.parse_single_year(parsed_xbrl, root, contexts, "current")
 
     assert result is not None
-    # フォーマットは balance_sheet に合わせた年別辞書形式（eps, operating_profit, period_end, consolidation）
+    # フォーマットは年別辞書形式（eps, operating_income, period_end, consolidation）
     assert "eps" in result
-    assert "operating_profit" in result
+    assert "operating_income" in result
     assert "period_end" in result
     assert "consolidation" in result
 

@@ -62,8 +62,14 @@ class EdinetProfitAndLossParser(BaseParser, XMLParserMixin):
         "eps": [
             "jpcrp_cor:BasicEarningsLossPerShareSummaryOfBusinessResults",
         ],
-        "operating_profit": [
-            "jppfs_cor:NetCashProvidedByUsedInOperatingActivities",
+        # map to new semantic name `operating_income` (営業利益)
+        "operating_income": [
+            "jppfs_cor:OperatingIncome",
+        ],
+        # 売上高（Net Sales）
+        "net_sales": [
+            "jppfs_cor:NetSales",
+            "jpcrp_cor:NetSalesSummaryOfBusinessResults",
         ],
     }
 
@@ -136,7 +142,8 @@ class EdinetProfitAndLossParser(BaseParser, XMLParserMixin):
     ) -> Dict[str, Any]:
         """指定年度（contexts）から損益関連の各項目を抽出して辞書で返す."""
         eps = self.extract_eps(parsed_xbrl, root, contexts)
-        operating_profit = self.extract_operating_profit(parsed_xbrl, root, contexts)
+        operating_income = self.extract_operating_income(parsed_xbrl, root, contexts)
+        net_sales = self.extract_net_sales(parsed_xbrl, root, contexts)
         consolidation = self.determine_consolidation(root, contexts)
         period_end = self.get_period_end_date(root, contexts)
 
@@ -160,7 +167,8 @@ class EdinetProfitAndLossParser(BaseParser, XMLParserMixin):
 
         return {
             "eps": eps,
-            "operating_profit": operating_profit,
+            "net_sales": net_sales,
+            "operating_income": operating_income,
             "period_end": period_end,
             "period_end_date": period_end_date,
             "consolidation": consolidation,
@@ -172,12 +180,20 @@ class EdinetProfitAndLossParser(BaseParser, XMLParserMixin):
         """EPS（1株当たり当期純利益）を抽出して返す。見つからなければ None を返す."""
         return self.extract_numeric_from_xbrl(parsed_xbrl, self.XBRL_TAGS.get("eps", []), contexts)
 
-    def extract_operating_profit(
+    def extract_operating_income(
         self, parsed_xbrl: Any, root: etree._Element, contexts: List[str]
     ) -> Optional[float]:
-        """営業活動によるキャッシュフロー等の指標を抽出して返す。見つからなければ None を返す."""
+        """営業利益（または営業活動によるキャッシュフロー等の近い指標）を抽出して返す."""
         return self.extract_numeric_from_xbrl(
-            parsed_xbrl, self.XBRL_TAGS.get("operating_profit", []), contexts
+            parsed_xbrl, self.XBRL_TAGS.get("operating_income", []), contexts
+        )
+
+    def extract_net_sales(
+        self, parsed_xbrl: Any, root: etree._Element, contexts: List[str]
+    ) -> Optional[float]:
+        """売上高（Net Sales）を抽出して返す。見つからなければ None を返す."""
+        return self.extract_numeric_from_xbrl(
+            parsed_xbrl, self.XBRL_TAGS.get("net_sales", []), contexts
         )
 
 
