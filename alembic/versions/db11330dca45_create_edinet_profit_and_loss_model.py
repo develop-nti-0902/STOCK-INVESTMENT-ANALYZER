@@ -75,8 +75,12 @@ def upgrade() -> None:
         idx_name = batch_op.f("idx_edinet_pl_sec_period")
         if idx_name in existing_indexes or "idx_edinet_pl_sec_period" in existing_indexes:
             batch_op.drop_index(idx_name)
-        batch_op.drop_column("filer_name")
-        batch_op.drop_column("operating_profit")
+        # Check existing columns before attempting to drop to avoid KeyError in batch mode
+        existing_columns = {col["name"] for col in inspector.get_columns("edinet_profit_and_loss")}
+        if "filer_name" in existing_columns:
+            batch_op.drop_column("filer_name")
+        if "operating_profit" in existing_columns:
+            batch_op.drop_column("operating_profit")
 
     # ### end Alembic commands ###
 
