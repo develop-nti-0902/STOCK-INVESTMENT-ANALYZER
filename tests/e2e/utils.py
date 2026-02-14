@@ -245,7 +245,7 @@ async def fetch_stock_master_for_artifact() -> List[Dict[str, Any]]:
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-    from app.models.stock_master import StockMaster
+    from app.models.market_data.stock_master import StockMaster
     from app.utils.database import get_database_url
 
     engine = create_async_engine(get_database_url())

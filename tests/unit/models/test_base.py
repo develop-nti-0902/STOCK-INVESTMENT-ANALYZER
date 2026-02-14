@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from app.models import base
+from app.models.core import base
 
 
 def test_camel_to_snake_basic_cases():

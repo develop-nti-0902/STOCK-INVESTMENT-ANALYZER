@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.models import stock_master
+from app.models.market_data import stock_master
 
 
 def test_stock_master_basic_fields_and_tablename():

@@ -278,6 +278,7 @@ def test_edinet_process_date_range_flow(client):
     try:
         run_async_safely(_cleanup_edinet_balance_sheets())
         run_async_safely(_cleanup_edinet_profit_and_loss())
+        run_async_safely(_cleanup_edinet_stock_dividend())
         run_async_safely(_cleanup_edinet_cash_flow_statement())
     except Exception as e:
         print(f"DEBUG: cleanup before test failed (may be acceptable): {e}")
@@ -451,6 +452,8 @@ def test_edinet_process_date_range_validation(client):
     try:
         run_async_safely(_cleanup_edinet_balance_sheets())
         run_async_safely(_cleanup_edinet_profit_and_loss())
+        run_async_safely(_cleanup_edinet_stock_dividend())
+        run_async_safely(_cleanup_edinet_cash_flow_statement())
         print("DEBUG: EDINET tables cleanup completed")
     except Exception as e:
         print(f"DEBUG: EDINET tables cleanup failed: {e}")

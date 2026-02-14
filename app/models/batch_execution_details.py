@@ -8,7 +8,7 @@ from typing import Optional
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, SerialPKMixin
+from app.models.core.base import Base, SerialPKMixin
 
 
 class BatchExecutionDetails(SerialPKMixin, Base):

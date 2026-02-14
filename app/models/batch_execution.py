@@ -10,7 +10,8 @@ from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import Index, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base, SerialPKMixin, TimestampMixin
+from app.models.core.base import Base, SerialPKMixin, TimestampMixin
+
 from .enums import BatchExecutionStatus
 
 

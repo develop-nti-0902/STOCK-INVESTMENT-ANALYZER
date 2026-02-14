@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions.database import MasterDataError
-from app.models.stock_master_updates import StockMasterUpdates
+from app.models.market_data.stock_master import StockMasterUpdates
 from app.repositories.base import BaseRepository
 
 logger = logging.getLogger(__name__)

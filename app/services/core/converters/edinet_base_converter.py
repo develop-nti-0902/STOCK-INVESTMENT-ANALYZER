@@ -105,6 +105,8 @@ class EdinetBaseConverter(BaseConverter[T], Generic[T]):
         """デフォルトの saver レコード生成: Pydantic の `dict()` を使う。"""
         # Pydantic BaseModel を想定
         try:
+            if hasattr(model, "model_dump"):
+                return getattr(model, "model_dump")()
             return getattr(model, "dict")()
         except Exception:
             # フォールバック: __dict__ を使う

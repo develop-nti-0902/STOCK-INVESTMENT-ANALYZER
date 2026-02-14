@@ -8,7 +8,7 @@ from decimal import Decimal
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base, SerialPKMixin, TimestampMixin
+from app.models.core.base import Base, SerialPKMixin, TimestampMixin
 
 
 class _CommonPriceColumns:

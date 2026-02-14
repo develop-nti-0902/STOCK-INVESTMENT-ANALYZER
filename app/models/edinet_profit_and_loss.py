@@ -12,7 +12,7 @@ from typing import Optional
 from sqlalchemy import Boolean, Date, Index, Integer, Numeric, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base, SerialPKMixin, TimestampMixin
+from app.models.core.base import Base, SerialPKMixin, TimestampMixin
 
 
 class EdinetProfitAndLoss(SerialPKMixin, TimestampMixin, Base):

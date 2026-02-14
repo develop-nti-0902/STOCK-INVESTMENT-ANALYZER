@@ -7,8 +7,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.dialects.sqlite import insert
 
 from app.models.edinet_balance_sheet import EdinetBalanceSheet
+from app.models.market_data.stock_master import StockMaster
 from app.models.stock_data import Stocks1d
-from app.models.stock_master import StockMaster
 
 
 def test_stock_data_upsert_sql():

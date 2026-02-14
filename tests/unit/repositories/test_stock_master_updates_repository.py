@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.stock_master_updates import StockMasterUpdates
+from app.models.market_data.stock_master import StockMasterUpdates
 from app.repositories.stock_master_updates_repository import StockMasterUpdatesRepository
 
 
