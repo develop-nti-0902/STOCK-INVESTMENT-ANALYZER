@@ -86,8 +86,9 @@ class EdinetAggregateUpdateService:
             # 各要素は (parser_callable, converter, saver_callable) の3タプルを要求します。
             parser_saver_pairs = self.parser_saver_pairs
 
-            if transaction_atomic and session is None:
-                raise ValueError("session is required when transaction_atomic is True")
+            # NOTE: トランザクションは呼び出し側（例: process_date_range の日付単位トランザクション）で
+            # 管理する想定に変更しました。ここではコミット/ロールバックを行わず、単に各パーサ/セーバを
+            # 実行して結果サマリを返します。
 
             ##########################################################
             # 各パーサの実行とセーバ呼び出し（ここで各シートの更新を依頼）
@@ -112,10 +113,10 @@ class EdinetAggregateUpdateService:
             except Exception:
                 parsed_xbrl = None
 
-            # use top-level datetime/date imports
+            # datetime/date のトップレベル import を利用
 
             def _normalize_date(v: Any) -> Any:
-                """Normalize various submission_date formats to a date object when possible."""
+                """提出日フォーマットを可能な限り日付オブジェクトに正規化する。"""
                 if v is None:
                     return None
                 # datetime -> date
@@ -137,7 +138,7 @@ class EdinetAggregateUpdateService:
                 return v
 
             async def _process_entry(entry):
-                # entry: (parser, converter, saver) required
+                # entry: (parser, converter, saver) を想定
                 try:
                     if not isinstance(entry, (list, tuple)):
                         raise TypeError(
@@ -151,17 +152,17 @@ class EdinetAggregateUpdateService:
 
                     parser_callable, converter, saver_callable = entry
 
-                    # Try calling parser with (root, parsed_xbrl) first, fallback to single-arg call
+                    # まず (root, parsed_xbrl) で parser を呼び、失敗したら root のみで呼ぶ
                     try:
                         parsed = parser_callable(root, parsed_xbrl)
                     except TypeError:
                         parsed = parser_callable(root)
 
-                    # converter path: build saver payloads via converter
+                    # converter 経路: converter で saver に渡すペイロードを構築する
                     saver_payloads: list[Dict[str, Any]] = []
 
                     if isinstance(parsed, dict):
-                        # detect year-map (values are dict or None) vs single record
+                        # 年次マップ (値が dict または None) と単一レコードを判定
                         is_year_map = all(
                             (v is None or isinstance(v, dict)) for v in parsed.values()
                         )
@@ -201,7 +202,7 @@ class EdinetAggregateUpdateService:
                             model = converter.to_pydantic(enriched)
                             saver_payloads.append(converter.from_pydantic(model))
                     else:
-                        # fallback: try single record conversion
+                        # フォールバック: 単一レコードとして変換を試みる
                         enriched = {
                             "doc_id": doc_id,
                             "sec_code": sec_code,
@@ -216,7 +217,7 @@ class EdinetAggregateUpdateService:
                         model = converter.to_pydantic(enriched)
                         saver_payloads.append(converter.from_pydantic(model))
 
-                    # dispatch to saver_callable - prefer batch if multiple payloads
+                    # saver_callable にディスパッチ - 複数ペイロード時はバッチを優先
                     if not saver_payloads:
                         return {
                             "parser": getattr(parser_callable, "__name__", repr(parser_callable)),
@@ -228,7 +229,7 @@ class EdinetAggregateUpdateService:
                         if len(saver_payloads) == 1:
                             saved = await saver_callable(saver_payloads[0])
                         else:
-                            # Prefer owner's `save_batch` if available, else call saver per payload
+                            # 所有者が `save_batch` を持つ場合はそちらを使い、なければ個別に呼ぶ
                             owner = getattr(saver_callable, "__self__", None)
                             if owner is not None and hasattr(owner, "save_batch"):
                                 saved = await owner.save_batch(saver_payloads)
@@ -259,22 +260,13 @@ class EdinetAggregateUpdateService:
                         "error": str(exc),
                     }
 
-            if transaction_atomic:
-                assert session is not None
-                async with session.begin():
-                    for entry in parser_saver_pairs:
-                        res = await _process_entry(entry)
-                        # Exceptions are returned with status 'error' or re-raised
-                        if res is None:
-                            continue
-                        if res.get("status") == "error":
-                            # bubble up to abort transaction
-                            raise RuntimeError(res.get("error"))
-                        summary["results"].append(res)
-            else:
-                for entry in parser_saver_pairs:
-                    res = await _process_entry(entry)
-                    summary["results"].append(res)
+            # ここではトランザクションを開始せず、各エントリを順次処理して結果を集める。
+            # トランザクション制御（コミット／SAVEPOINT／ロールバック）は呼び出し側に委ねる。
+            for entry in parser_saver_pairs:
+                res = await _process_entry(entry)
+                if res is None:
+                    continue
+                summary["results"].append(res)
 
             return summary
         finally:
@@ -356,45 +348,107 @@ class EdinetAggregateUpdateService:
         # - 各ドキュメント処理の成否を集計し、保存件数をカウントします。
         # - 進捗は `progress_interval` ごとにログ出力します。
         ##########################################################
-        for i, doc in enumerate(all_documents, start=1):
-            doc_id = doc.get("docID")
-            if not doc_id:
-                logger.warning("Document missing docID: %s", doc)
-                failed_docs += 1
-                continue
-
-            try:
-                summary = await self.process_document(
-                    doc_id,
-                    session=session,
-                    transaction_atomic=transaction_atomic,
-                    sec_code=doc.get("secCode"),
-                    submission_date=doc.get("submitDateTime"),
-                    filer_name=doc.get("filerName"),
-                )
-
-                # summary["results"] に各パーサの結果が入る。saved の中身に応じて件数集計する。
-                for r in summary.get("results", []):
-                    if "saved" not in r or r["saved"] is None:
+        # ドキュメント処理: 日付単位での原子トランザクションをサポート
+        # - `transaction_atomic=True` の場合、呼び出し元から渡された `session` を
+        #   日付（このバッチ全体）単位で `session.begin()` によるトランザクションでラップします。
+        # - 各ドキュメント処理は `transaction_atomic=False` として呼び出し、
+        #   パーサエラーが発生したら日付単位トランザクションを中止します。
+        # `transaction_atomic=True` の場合は session が必須。
+        # 外側で日付単位のトランザクションを張り、各ドキュメントは SAVEPOINT
+        # （begin_nested）で保護して個別にロールバック可能にする。
+        if transaction_atomic:
+            if session is None:
+                raise ValueError("session is required when transaction_atomic is True")
+            # session is present here
+            async with session.begin():
+                for i, doc in enumerate(all_documents, start=1):
+                    doc_id = doc.get("docID")
+                    if not doc_id:
+                        logger.warning("Document missing docID: %s", doc)
+                        failed_docs += 1
                         continue
-                    saved = r["saved"]
-                    if isinstance(saved, list):
-                        saved_items += len(saved)
-                    else:
-                        saved_items += 1
 
-                processed_docs += 1
-            except Exception as e:
-                logger.exception("Failed to process doc_id=%s: %s", doc_id, e)
-                failed_docs += 1
+                    try:
+                        async with session.begin_nested():
+                            summary = await self.process_document(
+                                doc_id,
+                                session=session,
+                                transaction_atomic=False,
+                                sec_code=doc.get("secCode"),
+                                submission_date=doc.get("submitDateTime"),
+                                filer_name=doc.get("filerName"),
+                            )
 
-            if i % progress_interval == 0:
-                logger.info(
-                    "Progress: %d/%d documents processed, %d failed",
-                    processed_docs,
-                    total_docs,
-                    failed_docs,
-                )
+                            for r in summary.get("results", []):
+                                if r.get("status") == "error":
+                                    raise RuntimeError(
+                                        f"parser error for doc {doc_id}: {r.get('error')}"
+                                    )
+
+                        for r in summary.get("results", []):
+                            if "saved" not in r or r["saved"] is None:
+                                continue
+                            saved = r["saved"]
+                            if isinstance(saved, list):
+                                saved_items += len(saved)
+                            else:
+                                saved_items += 1
+
+                        processed_docs += 1
+                    except Exception as e:
+                        logger.exception(
+                            "Document processing failed and rolled back to savepoint doc_id=%s: %s",
+                            doc_id,
+                            e,
+                        )
+                        failed_docs += 1
+
+                    if i % progress_interval == 0:
+                        logger.info(
+                            "Progress: %d/%d documents processed, %d failed",
+                            processed_docs,
+                            total_docs,
+                            failed_docs,
+                        )
+        else:
+            for i, doc in enumerate(all_documents, start=1):
+                doc_id = doc.get("docID")
+                if not doc_id:
+                    logger.warning("Document missing docID: %s", doc)
+                    failed_docs += 1
+                    continue
+
+                try:
+                    summary = await self.process_document(
+                        doc_id,
+                        session=session,
+                        transaction_atomic=transaction_atomic,
+                        sec_code=doc.get("secCode"),
+                        submission_date=doc.get("submitDateTime"),
+                        filer_name=doc.get("filerName"),
+                    )
+
+                    for r in summary.get("results", []):
+                        if "saved" not in r or r["saved"] is None:
+                            continue
+                        saved = r["saved"]
+                        if isinstance(saved, list):
+                            saved_items += len(saved)
+                        else:
+                            saved_items += 1
+
+                    processed_docs += 1
+                except Exception as e:
+                    logger.exception("Failed to process doc_id=%s: %s", doc_id, e)
+                    failed_docs += 1
+
+                if i % progress_interval == 0:
+                    logger.info(
+                        "Progress: %d/%d documents processed, %d failed",
+                        processed_docs,
+                        total_docs,
+                        failed_docs,
+                    )
 
         ##########################################################
         # バッチ集計の作成と返却

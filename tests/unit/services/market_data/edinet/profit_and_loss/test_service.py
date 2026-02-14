@@ -101,6 +101,23 @@ class _DummyDownloadService2:
         return None
 
 
+class _DummyAsyncSession:
+    """Minimal async session stub providing begin() and begin_nested() context managers."""
+
+    class _Ctx:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    def begin(self):
+        return _DummyAsyncSession._Ctx()
+
+    def begin_nested(self):
+        return _DummyAsyncSession._Ctx()
+
+
 @pytest.mark.asyncio
 async def test_process_document_success(tmp_path):
     """aggregate.process_document が正常に処理することを検証する."""
@@ -248,7 +265,11 @@ async def test__search_documents_filters(monkeypatch):
     )
     monkeypatch.setattr(svc._aggregate, "process_document", fake_process_document, raising=False)
 
-    res = await svc._aggregate.process_date_range(date(2025, 1, 1), date(2025, 1, 1))
+    # provide a dummy async session because transaction_atomic=True requires a session
+    session = _DummyAsyncSession()
+    res = await svc._aggregate.process_date_range(
+        date(2025, 1, 1), date(2025, 1, 1), session=session
+    )
     # Only D1 should be processed successfully
     assert res["processed_documents"] == 1
 
@@ -317,6 +338,9 @@ async def test_fetch_multiple_profit_and_losses_counts(monkeypatch):
 
     monkeypatch.setattr(svc._aggregate, "process_document", fake_agg_process_document)
 
-    res = await svc._aggregate.process_date_range(date(2025, 1, 1), date(2025, 1, 1))
+    session = _DummyAsyncSession()
+    res = await svc._aggregate.process_date_range(
+        date(2025, 1, 1), date(2025, 1, 1), session=session
+    )
     assert res["processed_documents"] == 1
     assert res["failed_documents"] == 1
