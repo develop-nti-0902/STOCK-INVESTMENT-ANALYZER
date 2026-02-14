@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions.database import StockDataError
 from app.exceptions.validation import FieldValidationError
-from app.models.stock_data import (
+from app.models.market_data.stock_price import (
     Stocks1d,
     Stocks1h,
     Stocks1m,

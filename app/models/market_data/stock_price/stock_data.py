@@ -64,7 +64,7 @@ class Stocks1m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
-        """モデルのクラス名を返す（ログやテストで利用）."""
+        """モデルのクラス名を返す（ログやテストで利用）。"""
         return self.__class__.__name__
 
 
@@ -91,7 +91,7 @@ class Stocks5m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
-        """モデルのクラス名を返す（ログやテストで利用）."""
+        """モデルのクラス名を返す（ログやテストで利用）。"""
         return self.__class__.__name__
 
 
@@ -113,7 +113,7 @@ class Stocks15m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
-        """モデルのクラス名を返す（ログやテストで利用）."""
+        """モデルのクラス名を返す（ログやテストで利用）。"""
         return self.__class__.__name__
 
 
@@ -141,7 +141,7 @@ class Stocks30m(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
-        """モデルのクラス名を返す（ログやテストで利用）."""
+        """モデルのクラス名を返す（ログやテストで利用）。"""
         return self.__class__.__name__
 
 
@@ -163,7 +163,7 @@ class Stocks1h(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
-        """モデルのクラス名を返す（ログやテストで利用）."""
+        """モデルのクラス名を返す（ログやテストで利用）。"""
         return self.__class__.__name__
 
 
@@ -185,7 +185,7 @@ class Stocks1d(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
-        """モデルのクラス名を返す（ログやテストで利用）."""
+        """モデルのクラス名を返す（ログやテストで利用）。"""
         return self.__class__.__name__
 
 
@@ -207,7 +207,7 @@ class Stocks1wk(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
-        """モデルのクラス名を返す（ログやテストで利用）."""
+        """モデルのクラス名を返す（ログやテストで利用）。"""
         return self.__class__.__name__
 
 
@@ -229,7 +229,7 @@ class Stocks1mo(SerialPKMixin, TimestampMixin, Base, _CommonPriceColumns):
     )
 
     def model_name(self) -> str:  # pragma: no cover - trivial
-        """モデルのクラス名を返す（ログやテストで利用）."""
+        """モデルのクラス名を返す（ログやテストで利用）。"""
         return self.__class__.__name__
 
 

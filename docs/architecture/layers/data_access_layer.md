@@ -182,7 +182,7 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.dialects.postgresql import insert
 
 from app.repositories.base import BaseRepository
-from app.models.stock_data import Stocks1d
+from app.models.market_data.stock_price import Stocks1d
 
 
 class StockData1dRepository(BaseRepository[Stocks1d]):

@@ -91,7 +91,7 @@ def get_batch_execution_repository(
 #         StockRepository: 株価データRepository
 #     """
 #     from app.repositories.stock import StockRepository
-#     from app.models.stock_data import Stocks1d
+#     from app.models.market_data.stock_price import Stocks1d
 #     return StockRepository(model=Stocks1d, session=db)
 
 

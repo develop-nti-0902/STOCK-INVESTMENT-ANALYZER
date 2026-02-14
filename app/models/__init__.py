@@ -13,7 +13,7 @@ from .edinet_balance_sheet import EdinetBalanceSheet
 from .edinet_profit_and_loss import EdinetProfitAndLoss
 from .market_data import stock_master
 from .market_data.stock_master import IS_ACTIVE, IS_INACTIVE, StockMaster, StockMasterUpdates
-from .stock_data import (
+from .market_data.stock_price import (
     Stocks1d,
     Stocks1h,
     Stocks1m,
