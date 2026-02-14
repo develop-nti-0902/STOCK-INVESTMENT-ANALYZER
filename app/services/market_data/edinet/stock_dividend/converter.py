@@ -9,81 +9,35 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from app.schemas.edinet_stock_dividend import EdinetStockDividendCreate
-from app.services.core.converters.base_converter import BaseConverter
+from app.services.core.converters.edinet_base_converter import EdinetBaseConverter
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-class EdinetStockDividendConverter(BaseConverter[EdinetStockDividendCreate]):
+class EdinetStockDividendConverter(EdinetBaseConverter[EdinetStockDividendCreate]):
     """EDINET 配当データの変換クラス."""
 
     def to_pydantic(self, data: Dict[str, Any]) -> EdinetStockDividendCreate:
-        """パーサー出力を Pydantic モデルに変換する."""
-        doc_id = data.get("doc_id", "")
-        sec_code = data.get("sec_code", "")
-        submission_date = data.get("submission_date")
+        # 共通テンプレートを利用
+        return super().to_pydantic(data)
 
-        period_end_date = data.get("period_end_date")
-        if not period_end_date:
-            raise ValueError("period_end_date is required")
-
-        try:
-            fiscal_year = int(str(period_end_date).split("-")[0])
-        except Exception:
-            fiscal_year = None
-
-        def to_decimal(value: Any) -> Optional[Decimal]:
-            if value is None:
-                return None
-            try:
-                return Decimal(str(value))
-            except Exception:
-                return None
-
-        return EdinetStockDividendCreate(
-            doc_id=doc_id,
-            sec_code=sec_code,
-            submission_date=submission_date,  # type: ignore[arg-type]
-            period_end_date=period_end_date,  # type: ignore[arg-type]
-            fiscal_year=fiscal_year,
-            report_type="annual",
-            dividend_actual=to_decimal(data.get("dividend_actual")),
-            candidate_contexts=data.get("candidate_contexts"),
-            candidate_keys=data.get("candidate_keys"),
-            is_consolidated=data.get("is_consolidated"),
-        )
-
-    def to_saver_records(self, models: List[EdinetStockDividendCreate]) -> List[Dict[str, Any]]:
-        """Convert a list of Pydantic models into DB saver records."""
-        return [self._to_saver_record(m) for m in models]
-
-    def _to_saver_record(self, model: EdinetStockDividendCreate) -> Dict[str, Any]:
+    def _normalize_fields(self, data: Dict[str, Any]) -> Dict[str, Any]:
         return {
-            "doc_id": model.doc_id,
-            "sec_code": model.sec_code,
-            "submission_date": model.submission_date,
-            "period_end_date": model.period_end_date,
-            "fiscal_year": model.fiscal_year,
-            "report_type": model.report_type,
-            "dividend_actual": model.dividend_actual,
-            "candidate_contexts": model.candidate_contexts,
-            "candidate_keys": model.candidate_keys,
-            "is_consolidated": model.is_consolidated,
+            "report_type": "annual",
+            "dividend_actual": self.to_decimal(data.get("dividend_actual")),
+            "candidate_contexts": data.get("candidate_contexts"),
+            "candidate_keys": data.get("candidate_keys"),
+            "is_consolidated": data.get("is_consolidated"),
         }
 
-    def from_pydantic(self, model: EdinetStockDividendCreate) -> Dict[str, Any]:
-        """Create a saver dict from a Pydantic model."""
-        return self._to_saver_record(model)
+    def _build_model(self, model_kwargs: Dict[str, Any]) -> EdinetStockDividendCreate:
+        allowed = set(getattr(EdinetStockDividendCreate, "model_fields", {}).keys())
+        filtered = {k: v for k, v in model_kwargs.items() if k in allowed}
+        return EdinetStockDividendCreate(**filtered)
 
-    def from_dataframe(self, df: Any, *args, **kwargs) -> List[EdinetStockDividendCreate]:
-        """Convert a dataframe into a list of Pydantic create models.
-
-        Not implemented for this converter.
-        """
-        raise NotImplementedError(
-            "from_dataframe is not implemented for EdinetStockDividendConverter."
-        )
+    # to_saver_records / _to_saver_record / from_pydantic / from_dataframe
+    # は EdinetBaseConverter のデフォルト実装を利用する。
 
 
 __all__ = ["EdinetStockDividendConverter"]

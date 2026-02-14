@@ -80,9 +80,50 @@ echo "Using SQLite DB file: $ABS_PATH"
 
 # If DATABASE_URL not set, set it to point to this SQLite file
 : "${DATABASE_URL:=}"
-if [[ -z "${DATABASE_URL:-}" ]]; then
+# If an existing DATABASE_URL points to SQLite, normalize/override it to the
+# absolute file we prepared. This fixes cases where .env contains
+# 'sqlite:///home/...' (which is treated as a relative path) instead of the
+# correct absolute form 'sqlite:////home/...'.
+if [[ "${DATABASE_URL:-}" == sqlite://* ]]; then
+  export DATABASE_URL="sqlite:///$ABS_PATH"
+  echo "Overwrote existing SQLite DATABASE_URL -> $DATABASE_URL"
+elif [[ -z "${DATABASE_URL:-}" ]]; then
   export DATABASE_URL="sqlite:///$ABS_PATH"
   echo "Exported DATABASE_URL=$DATABASE_URL"
+fi
+
+# Diagnostic: ensure the DB file exists and is accessible to the current user
+echo "Checking DB file and permissions..."
+if [[ ! -e "$ABS_PATH" ]]; then
+  echo "DB file does not exist, attempting to create: $ABS_PATH"
+  if mkdir -p "$(dirname "$ABS_PATH")" 2>/dev/null && touch "$ABS_PATH" 2>/dev/null; then
+    echo "Created DB file: $ABS_PATH"
+  else
+    echo "Could not create DB file with touch, trying via Python..."
+    if ! "${PYTHON_CMD}" - <<PY
+import sqlite3, os, sys
+try:
+    os.makedirs(os.path.dirname(r"$ABS_PATH"), exist_ok=True)
+    sqlite3.connect(r"$ABS_PATH").close()
+except Exception as e:
+    print('PYTHON_CREATE_FAILED', e, file=sys.stderr)
+    sys.exit(2)
+PY
+    then
+      echo "[ERROR] Failed to create DB file: $ABS_PATH" >&2
+      ls -ld "$(dirname "$ABS_PATH")" || true
+      exit 1
+    fi
+  fi
+fi
+
+# Show directory and file permissions to help diagnose "unable to open database file"
+echo "Directory listing:"; ls -ld "$(dirname "$ABS_PATH")" || true
+echo "File listing:"; ls -l "$ABS_PATH" || true
+
+# Try a quick sqlite3 access (if sqlite3 binary exists) to validate openability
+if command -v sqlite3 &>/dev/null; then
+  sqlite3 "$ABS_PATH" "PRAGMA user_version;" >/dev/null 2>&1 || echo "Warning: sqlite3 failed to open $ABS_PATH"
 fi
 
 # Check alembic
@@ -92,7 +133,10 @@ fi
 }
 
 echo "Running Alembic migrations (upgrade head)..."
-"${PYTHON_CMD}" -m alembic upgrade head || {
+(
+  cd "$REPO_ROOT" && \
+  "${PYTHON_CMD}" -m alembic -c "${REPO_ROOT}/alembic.ini" upgrade head
+) || {
   echo "[ERROR] Alembic migration failed"
   exit 1
 }
