@@ -116,7 +116,7 @@ class EdinetAggregateUpdateService:
             # datetime/date のトップレベル import を利用
 
             def _normalize_date(v: Any) -> Any:
-                """提出日フォーマットを可能な限り日付オブジェクトに正規化する。"""
+                """提出日フォーマットを可能な限り日付オブジェクトに正規化する."""
                 if v is None:
                     return None
                 # datetime -> date
