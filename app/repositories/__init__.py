@@ -8,10 +8,10 @@ Repository Patternを採用し、データベース操作の抽象化を行う�
 from app.repositories.account_repository import AccountRepository
 from app.repositories.batch_execution_repository import BatchExecutionRepository
 from app.repositories.core.base import BaseRepository
-from app.repositories.edinet_balance_sheet_repository import (  # noqa: F401
+from app.repositories.market_data.edinet.edinet_balance_sheet_repository import (  # noqa: F401
     EdinetBalanceSheetRepository,
 )
-from app.repositories.edinet_profit_and_loss_repository import (  # noqa: F401
+from app.repositories.market_data.edinet.edinet_profit_and_loss_repository import (  # noqa: F401
     EdinetProfitAndLossRepository,
 )
 from app.repositories.stock_data_repository import (

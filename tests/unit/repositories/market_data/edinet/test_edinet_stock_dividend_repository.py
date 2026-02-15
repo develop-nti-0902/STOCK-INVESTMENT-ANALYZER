@@ -8,7 +8,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.models.market_data.edinet import EdinetStockDividend
-from app.repositories.edinet_stock_dividend_repository import EdinetStockDividendRepository
+from app.repositories.market_data.edinet.edinet_stock_dividend_repository import (
+    EdinetStockDividendRepository,
+)
 
 
 @pytest.mark.asyncio

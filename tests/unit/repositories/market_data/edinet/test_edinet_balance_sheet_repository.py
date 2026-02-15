@@ -10,7 +10,9 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.market_data.edinet import EdinetBalanceSheet
-from app.repositories.edinet_balance_sheet_repository import EdinetBalanceSheetRepository
+from app.repositories.market_data.edinet.edinet_balance_sheet_repository import (
+    EdinetBalanceSheetRepository,
+)
 
 
 @pytest.fixture

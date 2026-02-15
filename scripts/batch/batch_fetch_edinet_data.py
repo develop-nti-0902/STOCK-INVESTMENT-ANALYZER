@@ -34,10 +34,18 @@ from datetime import date, datetime
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from app.repositories.edinet_balance_sheet_repository import EdinetBalanceSheetRepository
-from app.repositories.edinet_cash_flow_statement_repository import EdinetCashFlowStatementRepository
-from app.repositories.edinet_profit_and_loss_repository import EdinetProfitAndLossRepository
-from app.repositories.edinet_stock_dividend_repository import EdinetStockDividendRepository
+from app.repositories.market_data.edinet.edinet_balance_sheet_repository import (
+    EdinetBalanceSheetRepository,
+)
+from app.repositories.market_data.edinet.edinet_cash_flow_statement_repository import (
+    EdinetCashFlowStatementRepository,
+)
+from app.repositories.market_data.edinet.edinet_profit_and_loss_repository import (
+    EdinetProfitAndLossRepository,
+)
+from app.repositories.market_data.edinet.edinet_stock_dividend_repository import (
+    EdinetStockDividendRepository,
+)
 from app.services.market_data.edinet.balance_sheet.converter import EdinetBalanceSheetConverter
 from app.services.market_data.edinet.balance_sheet.parser import EdinetBalanceSheetParser
 from app.services.market_data.edinet.download_service import EdinetDownloadService

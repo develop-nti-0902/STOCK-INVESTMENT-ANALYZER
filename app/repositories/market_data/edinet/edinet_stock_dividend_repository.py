@@ -1,7 +1,4 @@
-"""EDINET 貸借対照表用 Repository 実装.
-
-主に UPSERT を含むコアメソッドを提供します。
-"""
+"""EDINET 配当情報用 Repository 実装 (移動先)."""
 
 from __future__ import annotations
 
@@ -15,32 +12,21 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import count as sql_count
 
-from app.models.market_data.edinet import EdinetBalanceSheet
+from app.models.market_data.edinet import EdinetStockDividend
 from app.repositories.core.base import BaseRepository
 
 logger = logging.getLogger(__name__)
 
 
-class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
-    """`edinet_balance_sheets` テーブル向けの Repository 実装.
-
-    提案された設計書に従い、UPSERT（ON CONFLICT DO UPDATE）を用いた
-    更新制御を行います。
-    """
-
+class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
     def __init__(self, session: AsyncSession):
-        """初期化。セッションを受け取り `EdinetBalanceSheet` モデルをセットします."""
-        super().__init__(session, model=EdinetBalanceSheet)
+        super().__init__(session, model=EdinetStockDividend)
 
-    async def find_latest_by_sec_code(self, sec_code: str) -> Optional[EdinetBalanceSheet]:
-        """指定の `sec_code` に対する最新の貸借対照表レコードを返します."""
+    async def find_latest_by_sec_code(self, sec_code: str) -> Optional[EdinetStockDividend]:
         stmt = (
             select(self.model)
             .where(self.model.sec_code == sec_code)
-            .order_by(
-                self.model.period_end_date.desc(),
-                self.model.submission_date.desc(),
-            )
+            .order_by(self.model.period_end_date.desc(), self.model.submission_date.desc())
             .limit(1)
         )
         result = await self.session.execute(stmt)
@@ -48,8 +34,7 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
 
     async def find_by_period(
         self, sec_code: str, period_end_date: date
-    ) -> Optional[EdinetBalanceSheet]:
-        """指定の `sec_code` と期間終了日に一致するレコードを返します."""
+    ) -> Optional[EdinetStockDividend]:
         result = await self.session.execute(
             select(self.model).where(
                 self.model.sec_code == sec_code,
@@ -58,24 +43,17 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
         )
         return result.scalar_one_or_none()
 
-    async def find_by_doc_id(self, doc_id: str) -> list[EdinetBalanceSheet]:
-        """`doc_id` に紐づくレコード一覧を返します."""
+    async def find_by_doc_id(self, doc_id: str) -> list[EdinetStockDividend]:
         result = await self.session.execute(select(self.model).where(self.model.doc_id == doc_id))
         return list(result.scalars().all())
 
-    async def upsert(self, data: dict) -> EdinetBalanceSheet:
-        """単一レコードの UPSERT を実行し、結果のレコードを返す.
-
-        UPSERT は `(sec_code, period_end_date)` を UNIQUE キーとし、
-        `submission_date` の比較で古いデータは上書きしない条件を追加します。
-        """
+    async def upsert(self, data: dict) -> EdinetStockDividend:
         if not data:
             raise ValueError("data is required for upsert")
 
         table = self.model.__table__
         insert_stmt = insert(table).values(data)
 
-        # excluded は on_conflict_do_update 内で参照可能
         update_dict: dict[str, Any] = {
             c.name: getattr(insert_stmt.excluded, c.name)
             for c in table.c
@@ -91,22 +69,18 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
         try:
             await self.session.execute(stmt)
             await self.session.flush()
-            # 更新後のレコードを返す（UPSERT の後は存在する想定）
             res = await self.find_by_period(data["sec_code"], data["period_end_date"])
             if res is None:
                 raise RuntimeError("upsert succeeded but result not found")
             return res
         except SQLAlchemyError as e:
-            logger.exception("edinet upsert failed: %s", e)
+            logger.exception("edinet stock dividend upsert failed: %s", e)
             raise
 
-    async def get_latest_by_sec_codes(self, sec_codes: List[str]) -> List[EdinetBalanceSheet]:
-        """複数の `sec_codes` に対して、各銘柄の最新レコードを返します."""
+    async def get_latest_by_sec_codes(self, sec_codes: List[str]) -> List[EdinetStockDividend]:
         if not sec_codes:
             return []
 
-        # PostgreSQL の DISTINCT ON 相当を利用するため、distinct(self.model.sec_code)
-        # と order_by を組み合わせる。呼び出し側で sec_codes を限定して利用する想定。
         stmt = (
             select(self.model)
             .where(self.model.sec_code.in_(sec_codes))
@@ -122,22 +96,17 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
 
     async def find_by_fiscal_year(
         self, sec_code: str, fiscal_year: int
-    ) -> List[EdinetBalanceSheet]:
-        """指定年度 (`fiscal_year`) のレコード一覧を返します."""
+    ) -> List[EdinetStockDividend]:
         result = await self.session.execute(
             select(self.model)
-            .where(
-                self.model.sec_code == sec_code,
-                self.model.fiscal_year == fiscal_year,
-            )
+            .where(self.model.sec_code == sec_code, self.model.fiscal_year == fiscal_year)
             .order_by(self.model.period_end_date.desc())
         )
         return list(result.scalars().all())
 
     async def find_by_date_range(
         self, sec_code: str, start_date: date, end_date: date
-    ) -> List[EdinetBalanceSheet]:
-        """開始日/終了日の範囲でレコード一覧を返します."""
+    ) -> List[EdinetStockDividend]:
         result = await self.session.execute(
             select(self.model)
             .where(
@@ -150,10 +119,9 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
         return list(result.scalars().all())
 
     async def count_by_sec_code(self, sec_code: str) -> int:
-        """指定の `sec_code` に一致するレコード数を返します."""
         stmt = select(sql_count()).select_from(self.model).where(self.model.sec_code == sec_code)
         result = await self.session.execute(stmt)
         return result.scalar_one()
 
 
-__all__ = ["EdinetBalanceSheetRepository"]
+__all__ = ["EdinetStockDividendRepository"]

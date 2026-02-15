@@ -1,7 +1,4 @@
-"""EDINET 配当情報用 Repository 実装.
-
-`edinet_stock_dividend` テーブル向けの UPSERT 等のコアメソッドを提供します。
-"""
+"""edinet_profit_and_loss repository (moved)."""
 
 from __future__ import annotations
 
@@ -15,31 +12,21 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import count as sql_count
 
-from app.models.market_data.edinet import EdinetStockDividend
+from app.models.market_data.edinet import EdinetProfitAndLoss
 from app.repositories.core.base import BaseRepository
 
 logger = logging.getLogger(__name__)
 
 
-class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
-    """`edinet_stock_dividend` テーブル向けの Repository 実装.
-
-    `EdinetProfitAndLossRepository` と同様の UPSERT ロジックを提供します。
-    """
-
+class EdinetProfitAndLossRepository(BaseRepository[EdinetProfitAndLoss]):
     def __init__(self, session: AsyncSession):
-        """初期化。セッションとモデルを設定します."""
-        super().__init__(session, model=EdinetStockDividend)
+        super().__init__(session, model=EdinetProfitAndLoss)
 
-    async def find_latest_by_sec_code(self, sec_code: str) -> Optional[EdinetStockDividend]:
-        """Return the latest stock dividend record for the given security code."""
+    async def find_latest_by_sec_code(self, sec_code: str) -> Optional[EdinetProfitAndLoss]:
         stmt = (
             select(self.model)
             .where(self.model.sec_code == sec_code)
-            .order_by(
-                self.model.period_end_date.desc(),
-                self.model.submission_date.desc(),
-            )
+            .order_by(self.model.period_end_date.desc(), self.model.submission_date.desc())
             .limit(1)
         )
         result = await self.session.execute(stmt)
@@ -47,23 +34,19 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
 
     async def find_by_period(
         self, sec_code: str, period_end_date: date
-    ) -> Optional[EdinetStockDividend]:
-        """Find a stock dividend record by security code and period end date."""
+    ) -> Optional[EdinetProfitAndLoss]:
         result = await self.session.execute(
             select(self.model).where(
-                self.model.sec_code == sec_code,
-                self.model.period_end_date == period_end_date,
+                self.model.sec_code == sec_code, self.model.period_end_date == period_end_date
             )
         )
         return result.scalar_one_or_none()
 
-    async def find_by_doc_id(self, doc_id: str) -> list[EdinetStockDividend]:
-        """Return all stock dividend records matching the EDINET document id."""
+    async def find_by_doc_id(self, doc_id: str) -> List[EdinetProfitAndLoss]:
         result = await self.session.execute(select(self.model).where(self.model.doc_id == doc_id))
         return list(result.scalars().all())
 
-    async def upsert(self, data: dict) -> EdinetStockDividend:
-        """単一レコードの UPSERT を実行し、結果レコードを返します."""
+    async def upsert(self, data: dict) -> EdinetProfitAndLoss:
         if not data:
             raise ValueError("data is required for upsert")
 
@@ -89,12 +72,11 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
             if res is None:
                 raise RuntimeError("upsert succeeded but result not found")
             return res
-        except SQLAlchemyError as e:
-            logger.exception("edinet stock dividend upsert failed: %s", e)
+        except SQLAlchemyError:
+            logger.exception("upsert failed for edinet_profit_and_loss")
             raise
 
-    async def get_latest_by_sec_codes(self, sec_codes: List[str]) -> List[EdinetStockDividend]:
-        """Get latest stock dividend records for multiple security codes."""
+    async def get_latest_by_sec_codes(self, sec_codes: List[str]) -> List[EdinetProfitAndLoss]:
         if not sec_codes:
             return []
 
@@ -113,8 +95,7 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
 
     async def find_by_fiscal_year(
         self, sec_code: str, fiscal_year: int
-    ) -> List[EdinetStockDividend]:
-        """Find stock dividend records for a fiscal year and security code."""
+    ) -> List[EdinetProfitAndLoss]:
         result = await self.session.execute(
             select(self.model)
             .where(self.model.sec_code == sec_code, self.model.fiscal_year == fiscal_year)
@@ -124,8 +105,7 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
 
     async def find_by_date_range(
         self, sec_code: str, start_date: date, end_date: date
-    ) -> List[EdinetStockDividend]:
-        """Find stock dividend records within a date range for a security code."""
+    ) -> List[EdinetProfitAndLoss]:
         result = await self.session.execute(
             select(self.model)
             .where(
@@ -138,10 +118,9 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
         return list(result.scalars().all())
 
     async def count_by_sec_code(self, sec_code: str) -> int:
-        """Count stock dividend records for a given security code."""
         stmt = select(sql_count()).select_from(self.model).where(self.model.sec_code == sec_code)
         result = await self.session.execute(stmt)
         return result.scalar_one()
 
 
-__all__ = ["EdinetStockDividendRepository"]
+__all__ = ["EdinetProfitAndLossRepository"]

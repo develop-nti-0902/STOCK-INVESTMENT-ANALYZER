@@ -7,7 +7,9 @@ from datetime import date
 import pytest
 
 from app.models.market_data.edinet import EdinetCashFlowStatement
-from app.repositories.edinet_cash_flow_statement_repository import EdinetCashFlowStatementRepository
+from app.repositories.market_data.edinet.edinet_cash_flow_statement_repository import (
+    EdinetCashFlowStatementRepository,
+)
 
 
 def test_model_tablename_and_attrs():

@@ -10,7 +10,9 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.market_data.edinet import EdinetProfitAndLoss
-from app.repositories.edinet_profit_and_loss_repository import EdinetProfitAndLossRepository
+from app.repositories.market_data.edinet.edinet_profit_and_loss_repository import (
+    EdinetProfitAndLossRepository,
+)
 
 
 @pytest.fixture

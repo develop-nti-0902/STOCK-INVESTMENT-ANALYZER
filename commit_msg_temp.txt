@@ -1,8 +1,11 @@
-refactor(repositories): BaseRepository を core 配下へ移動
+refactor(repositories/market_data/edinet): edinet系リポジトリを market_data/edinet 配下へ移動
 
-- `app/repositories/base.py` を `app/repositories/core/base.py` に移動
-- 参照インポートを `app.repositories.core.base` へ更新（repositories とテスト含む）
-- 全体テストを実行し、576 tests passed を確認
+- `app/repositories/edinet_balance_sheet_repository.py` を `app/repositories/market_data/edinet/edinet_balance_sheet_repository.py` に移動
+- `app/repositories/edinet_cash_flow_statement_repository.py` を `app/repositories/market_data/edinet/edinet_cash_flow_statement_repository.py` に移動
+- `app/repositories/edinet_profit_and_loss_repository.py` を `app/repositories/market_data/edinet/edinet_profit_and_loss_repository.py` に移動
+- `app/repositories/edinet_stock_dividend_repository.py` を `app/repositories/market_data/edinet/edinet_stock_dividend_repository.py` に移動
+- 影響箇所の import を新パスへ更新（services、tests、scripts 等）
+- 全テスト実行済み（576 passed）
 
 Notes:
-- 互換性に問題が出ないよう `app.repositories.__init__` は core 経由で再エクスポートを行っています
+- 互換性を保つため `app.repositories.market_data.edinet` パッケージで再エクスポートしています

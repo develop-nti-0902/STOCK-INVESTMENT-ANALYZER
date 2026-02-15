@@ -1,8 +1,0 @@
-test(tests): DATABASE_URL一本化に合わせてテストCI環境設定を更新
-
-- tests/unit/utils/test_database.py: モックにDATABASE_URL追加（新設定に対応）
-- tests/e2e/conftest.py: DATABASE_URLによるSQLite到達性判定を追加、コメントを日本語化
-- .env/.env.example: DATABASE_URL優先の注記とPostgres固有変数の非推奨化
-- .github/workflows/ci.yml: CI説明をSQLite想定に修正
-
-すべてのユニット/統合/E2Eテストがローカル実行でパスしています。
