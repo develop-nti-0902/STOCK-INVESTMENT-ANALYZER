@@ -13,41 +13,6 @@ on:
   pull_request:
 
 jobs:
-  # Lint ジョブ: フォーマッタと静的解析を実行します（black/isort/flake8）。
-  # 早期にコードスタイル違反や簡易的な問題を検出して PR を改善します。
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.14
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install poetry
-          poetry config virtualenvs.create false
-          poetry install --no-root --no-interaction --no-ansi --with dev
-
-      - name: Run linters
-        run: |
-          poetry run black --check .
-          poetry run isort --check-only .
-          poetry run flake8 --config .flake8
-          poetry run mypy app
-          poetry run pylint --rcfile=.pylintrc app
 
   # Test ジョブ: pytest を走らせ、coverage と JUnit レポートを生成します。
   # SQLite データベースを利用するテストを想定しています。

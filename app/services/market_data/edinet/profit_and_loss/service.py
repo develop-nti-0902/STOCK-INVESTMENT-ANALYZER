@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, List
 
-from app.models.edinet_profit_and_loss import EdinetProfitAndLoss
+from app.models.market_data.edinet import EdinetProfitAndLoss
 from app.services.market_data.edinet.download_service import EdinetDownloadService
 from app.services.market_data.edinet.file_manager import (
     EdinetFileManager as EdinetProfitAndLossFileManager,

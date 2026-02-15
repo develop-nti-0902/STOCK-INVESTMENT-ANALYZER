@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.batch_execution import BatchExecution
 from app.models.enums import BatchExecutionStatus
-from app.repositories.base import BaseRepository
+from app.repositories.core.base import BaseRepository
 from app.utils.database import flush_return_with_log
 from app.utils.validation import validate_pagination
 

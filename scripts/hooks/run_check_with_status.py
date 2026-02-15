@@ -251,6 +251,39 @@ def run_pytest(args: List[str], files: List[str], status: Dict[str, Any]) -> int
     return rc
 
 
+def run_unit_test_coverage(args: List[str], files: List[str], status: Dict[str, Any]) -> int:
+    """Run the unit test coverage mapping script and record its exit code.
+
+    The script `scripts/hooks/check_unit_test_coverage.py` returns 0 when
+    mapping is OK, non-zero otherwise. We capture its exit code and update
+    the shared status file so `final_status_summary.py` can include it.
+    """
+    script = REPO_ROOT / "scripts" / "hooks" / "check_unit_test_coverage.py"
+    if not script.exists():
+        print(f"Unit test coverage script not found: {script}")
+        set_check_result(status, "unit-test-coverage", False)
+        status["failed"] = True
+        save_status(status)
+        print_commit_status_after("unit-test-coverage", status)
+        return 127
+
+    cmd = [sys.executable, str(script), *args]
+    proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    # Forward script output
+    if proc.stdout:
+        print(proc.stdout, end="")
+    if proc.stderr:
+        print(proc.stderr, end="", file=sys.stderr)
+
+    rc = proc.returncode
+    set_check_result(status, "unit-test-coverage", rc == 0)
+    if rc != 0:
+        status["failed"] = True
+    save_status(status)
+    print_commit_status_after("unit-test-coverage", status)
+    return rc
+
+
 def main() -> int:
     """選択されたチェックを実行してステータスを更新します.
 
@@ -261,7 +294,15 @@ def main() -> int:
     parser.add_argument(
         "--check",
         required=True,
-        choices=["black", "isort", "flake8", "mypy", "pylint", "pytest"],
+        choices=[
+            "black",
+            "isort",
+            "flake8",
+            "mypy",
+            "pylint",
+            "pytest",
+            "unit-test-coverage",
+        ],
         help="Which check to run",
     )
     # 追加の引数は未知のオプションも許容して取得する
@@ -298,6 +339,8 @@ def main() -> int:
         rc = run_pylint(tool_args, files, status)
     if known_args.check == "pytest":
         rc = run_pytest(tool_args, files, status)
+    if known_args.check == "unit-test-coverage":
+        rc = run_unit_test_coverage(tool_args, files, status)
     if rc == 2:
         print(f"Unsupported check: {known_args.check}")
 

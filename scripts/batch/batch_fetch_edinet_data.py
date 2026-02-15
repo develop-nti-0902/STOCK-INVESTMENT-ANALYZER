@@ -1,4 +1,10 @@
-"""バッチスクリプト: 指定期間のEDINETデータ（貸借対照表・損益計算書）を取得してDB保存します.
+"""バッチスクリプト: 指定期間のEDINETデータを取得してDB保存します.
+
+対象データ:
+- 貸借対照表 (Balance Sheet)
+- 損益計算書 (Profit and Loss)
+- 配当情報 (Stock Dividend)
+- キャッシュフロー計算書 (Cash Flow Statement)
 
 使い方:
     # 指定期間のデータを取得
@@ -28,13 +34,31 @@ from datetime import date, datetime
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from app.repositories.edinet_balance_sheet_repository import EdinetBalanceSheetRepository
-from app.repositories.edinet_profit_and_loss_repository import EdinetProfitAndLossRepository
+from app.repositories.market_data.edinet.edinet_balance_sheet_repository import (
+    EdinetBalanceSheetRepository,
+)
+from app.repositories.market_data.edinet.edinet_cash_flow_statement_repository import (
+    EdinetCashFlowStatementRepository,
+)
+from app.repositories.market_data.edinet.edinet_profit_and_loss_repository import (
+    EdinetProfitAndLossRepository,
+)
+from app.repositories.market_data.edinet.edinet_stock_dividend_repository import (
+    EdinetStockDividendRepository,
+)
 from app.services.market_data.edinet.balance_sheet.converter import EdinetBalanceSheetConverter
 from app.services.market_data.edinet.balance_sheet.parser import EdinetBalanceSheetParser
 from app.services.market_data.edinet.download_service import EdinetDownloadService
+from app.services.market_data.edinet.edinet_cash_flow_statement.converter import (
+    EdinetCashFlowStatementConverter,
+)
+from app.services.market_data.edinet.edinet_cash_flow_statement.parser import (
+    EdinetCashFlowStatementParser,
+)
 from app.services.market_data.edinet.profit_and_loss.converter import EdinetProfitAndLossConverter
 from app.services.market_data.edinet.profit_and_loss.parser import EdinetProfitAndLossParser
+from app.services.market_data.edinet.stock_dividend.converter import EdinetStockDividendConverter
+from app.services.market_data.edinet.stock_dividend.parser import EdinetStockDividendParser
 from app.services.market_data.edinet.update_service import EdinetAggregateUpdateService
 from app.utils.database import close_db, get_engine
 
@@ -71,14 +95,20 @@ async def _run(
         # リポジトリの初期化
         balance_sheet_repo = EdinetBalanceSheetRepository(session=session)
         profit_and_loss_repo = EdinetProfitAndLossRepository(session=session)
+        stock_dividend_repo = EdinetStockDividendRepository(session=session)
+        cash_flow_repo = EdinetCashFlowStatementRepository(session=session)
 
         # コンバータの初期化
         balance_sheet_converter = EdinetBalanceSheetConverter()
         profit_and_loss_converter = EdinetProfitAndLossConverter()
+        stock_dividend_converter = EdinetStockDividendConverter()
+        cash_flow_converter = EdinetCashFlowStatementConverter()
 
         # パーサとセーバーのペアを設定
         bs_parser = EdinetBalanceSheetParser()
         pl_parser = EdinetProfitAndLossParser()
+        sd_parser = EdinetStockDividendParser()
+        cfs_parser = EdinetCashFlowStatementParser()
 
         parser_saver_pairs = [
             (
@@ -90,6 +120,16 @@ async def _run(
                 pl_parser.parse_root,
                 profit_and_loss_converter,
                 profit_and_loss_repo.upsert,
+            ),
+            (
+                sd_parser.parse_root,
+                stock_dividend_converter,
+                stock_dividend_repo.upsert,
+            ),
+            (
+                cfs_parser.parse_root,
+                cash_flow_converter,
+                cash_flow_repo.upsert,
             ),
         ]
 

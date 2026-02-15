@@ -103,3 +103,20 @@ def retry_on_error(
         return async_wrapper if inspect.iscoroutinefunction(func) else sync_wrapper
 
     return decorator
+
+
+def retry(
+    retries: int = 3,
+    delay: float = 1.0,
+    backoff: float = 2.0,
+    exceptions: tuple[type[Exception], ...] = (Exception,),
+) -> Callable[[Callable[P, Any]], Callable[P, Any]]:
+    """互換性ラッパー: 旧APIの `retries` 引数を受け取る。
+
+    内部で `retry_on_error` を呼び出します。
+    """
+
+    return retry_on_error(max_retries=retries, delay=delay, backoff=backoff, exceptions=exceptions)
+
+
+__all__ = ["retry_on_error", "retry"]

@@ -29,7 +29,7 @@ async def _fetch_table_rows_for_1d():
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-    from app.models.stock_data import Stocks1d
+    from app.models.market_data.stock_price import Stocks1d
     from app.utils.database import get_database_url
 
     engine = create_async_engine(get_database_url())

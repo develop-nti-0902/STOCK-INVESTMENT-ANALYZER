@@ -12,7 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.accounts import Account
-from app.repositories.base import BaseRepository
+from app.repositories.core.base import BaseRepository
 from app.utils.database import flush_return_with_log
 
 logger = logging.getLogger(__name__)

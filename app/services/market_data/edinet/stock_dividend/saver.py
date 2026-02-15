@@ -9,7 +9,9 @@ from typing import Any, Dict, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.edinet_stock_dividend_repository import EdinetStockDividendRepository
+from app.repositories.market_data.edinet.edinet_stock_dividend_repository import (
+    EdinetStockDividendRepository,
+)
 from app.services.core.savers.base_saver import BaseSaver
 from app.utils.logger import get_logger
 

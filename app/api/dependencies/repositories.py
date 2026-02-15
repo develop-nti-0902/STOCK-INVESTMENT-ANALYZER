@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.base import BaseRepository
+from app.repositories.core.base import BaseRepository
 from app.utils.database import get_db
 
 
@@ -51,7 +51,7 @@ def get_stock_master_repository(
         BaseRepository[Any]: `StockMasterRepository` のインスタンス
     """
     # pylint: disable=import-outside-toplevel
-    from app.repositories.stock_master_repository import StockMasterRepository
+    from app.repositories.market_data.stock_master import StockMasterRepository
 
     return StockMasterRepository(session=db)
 
@@ -91,7 +91,7 @@ def get_batch_execution_repository(
 #         StockRepository: 株価データRepository
 #     """
 #     from app.repositories.stock import StockRepository
-#     from app.models.stock_data import Stocks1d
+#     from app.models.market_data.stock_price import Stocks1d
 #     return StockRepository(model=Stocks1d, session=db)
 
 

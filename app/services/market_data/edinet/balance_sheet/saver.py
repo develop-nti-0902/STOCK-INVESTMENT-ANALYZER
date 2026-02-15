@@ -9,7 +9,9 @@ from typing import Any, Dict, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.edinet_balance_sheet_repository import EdinetBalanceSheetRepository
+from app.repositories.market_data.edinet.edinet_balance_sheet_repository import (
+    EdinetBalanceSheetRepository,
+)
 from app.services.core.savers.base_saver import BaseSaver
 from app.utils.logger import get_logger
 

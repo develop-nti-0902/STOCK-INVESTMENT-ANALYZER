@@ -20,7 +20,7 @@ from app.exceptions.business import ServiceError
 from app.exceptions.database import RecordNotFoundError
 from app.exceptions.external_api import YahooFinanceError
 from app.exceptions.validation import FieldValidationError
-from app.repositories.stock_data_repository import (
+from app.repositories.market_data.stock_price import (
     StockData1dRepository,
     StockData1hRepository,
     StockData1moRepository,

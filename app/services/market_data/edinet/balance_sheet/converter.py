@@ -9,13 +9,13 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from app.schemas.edinet_balance_sheet import EdinetBalanceSheetCreate
-from app.services.core.converters.base_converter import BaseConverter
+from app.services.core.converters.edinet_base_converter import EdinetBaseConverter
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-class EdinetBalanceSheetConverter(BaseConverter[EdinetBalanceSheetCreate]):
+class EdinetBalanceSheetConverter(EdinetBaseConverter[EdinetBalanceSheetCreate]):
     """EDINET 貸借対照表データ変換クラス.
 
     パーサーの出力（辞書）を Pydantic モデルに変換し、
@@ -36,65 +36,36 @@ class EdinetBalanceSheetConverter(BaseConverter[EdinetBalanceSheetCreate]):
         Returns:
             EdinetBalanceSheetCreate: Pydantic モデル
         """
-        # メタデータを抽出
-        doc_id = data.get("doc_id", "")
-        sec_code = data.get("sec_code", "")
-        submission_date = data.get("submission_date")
-        filer_name = data.get("filer_name")
+        # サブクラスは _normalize_fields と _build_model を実装
+        # ここではそれらを利用してモデルを構築する。
+        # 処理の詳細は EdinetBaseConverter.to_pydantic に委任されるため
+        # サブクラス側で _normalize_fields/_build_model を実装してください。
+        return super().to_pydantic(data)
 
-        # 財務データを抽出
-        period_end = data.get("period_end")
-        if not period_end:
-            raise ValueError("period_end is required")
+    def _normalize_fields(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        # 財務フィールドを Decimal に変換し、Pydantic キー名に合わせて返す
+        return {
+            "report_type": "annual",
+            "filer_name": data.get("filer_name"),
+            "total_assets": self.to_decimal(data.get("assets")),
+            "current_assets": None,
+            "non_current_assets": None,
+            "cash_and_equivalents": None,
+            "total_liabilities": self.to_decimal(data.get("liabilities")),
+            "current_liabilities": None,
+            "non_current_liabilities": None,
+            "total_equity": self.to_decimal(data.get("equity")),
+            "shareholders_equity": None,
+            "retained_earnings": None,
+            "candidate_contexts": None,
+            "candidate_keys": None,
+            "is_consolidated": data.get("consolidation"),
+        }
 
-        # fiscal_year を算出
-        try:
-            fiscal_year = int(str(period_end).split("-")[0])
-        except Exception:
-            fiscal_year = None
-
-        # Decimal 変換用のヘルパー
-        def to_decimal(value: Any) -> Optional[Decimal]:
-            if value is None:
-                return None
-            try:
-                return Decimal(str(value))
-            except Exception:
-                return None
-
-        return EdinetBalanceSheetCreate(
-            doc_id=doc_id,
-            sec_code=sec_code,
-            filer_name=filer_name,
-            submission_date=submission_date,  # type: ignore[arg-type]
-            period_end_date=period_end,  # type: ignore[arg-type]
-            fiscal_year=fiscal_year,
-            report_type="annual",
-            total_assets=to_decimal(data.get("assets")),
-            current_assets=None,
-            non_current_assets=None,
-            cash_and_equivalents=None,
-            total_liabilities=to_decimal(data.get("liabilities")),
-            current_liabilities=None,
-            non_current_liabilities=None,
-            total_equity=to_decimal(data.get("equity")),
-            shareholders_equity=None,
-            retained_earnings=None,
-            candidate_contexts=None,
-            candidate_keys=None,
-            is_consolidated=data.get("consolidation"),
-        )
-
-    def to_saver_records(self, models: List[EdinetBalanceSheetCreate]) -> List[Dict[str, Any]]:
-        """複数の EdinetBalanceSheetCreate を Saver 用の辞書リストに変換する.
-
-        Args:
-            models: Pydantic モデルのリスト
-
-        Returns:
-            Saver が期待する辞書のリスト
-        """
-        return [self._to_saver_record(m) for m in models]
+    def _build_model(self, model_kwargs: Dict[str, Any]) -> EdinetBalanceSheetCreate:
+        allowed = set(getattr(EdinetBalanceSheetCreate, "model_fields", {}).keys())
+        filtered = {k: v for k, v in model_kwargs.items() if k in allowed}
+        return EdinetBalanceSheetCreate(**filtered)
 
     def _to_saver_record(self, model: EdinetBalanceSheetCreate) -> Dict[str, Any]:
         """内部: EdinetBalanceSheetCreate -> Saver入力用辞書に変換する.
@@ -127,30 +98,6 @@ class EdinetBalanceSheetConverter(BaseConverter[EdinetBalanceSheetCreate]):
             "candidate_keys": model.candidate_keys,
             "is_consolidated": model.is_consolidated,
         }
-
-    def from_pydantic(self, model: EdinetBalanceSheetCreate) -> Dict[str, Any]:
-        """Pydantic モデルを辞書に変換する（_to_saver_record のエイリアス）.
-
-        Args:
-            model: Pydantic モデル
-
-        Returns:
-            辞書形式のデータ
-        """
-        return self._to_saver_record(model)
-
-    def from_dataframe(self, df: Any, *args, **kwargs) -> List[EdinetBalanceSheetCreate]:
-        """DataFrame からの変換（現在は未実装）.
-
-        Args:
-            df: データフレーム
-
-        Raises:
-            NotImplementedError: この機能は現在未実装
-        """
-        raise NotImplementedError(
-            "from_dataframe is not implemented for EdinetBalanceSheetConverter."
-        )
 
 
 __all__ = ["EdinetBalanceSheetConverter"]

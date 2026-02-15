@@ -17,8 +17,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.batch_execution_repository import BatchExecutionRepository
 from app.repositories.latest_stocks_repository import LatestStocksRepository
-from app.repositories.stock_master_repository import StockMasterRepository
-from app.repositories.stock_master_updates_repository import StockMasterUpdatesRepository
+from app.repositories.market_data.stock_master import (
+    StockMasterRepository,
+    StockMasterUpdatesRepository,
+)
 from app.services.batch.batch_execution_service import BatchExecutionService
 from app.services.market_data.edinet.balance_sheet.converter import EdinetBalanceSheetConverter
 from app.services.market_data.edinet.balance_sheet.parser import EdinetBalanceSheetParser

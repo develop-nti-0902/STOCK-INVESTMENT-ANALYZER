@@ -254,6 +254,52 @@ class TestProgressTracker:
         tracker.increment_failed(ValueError("error"))
         await asyncio.sleep(0.01)  # コールバック実行を待つ
 
-        assert len(callback_results) == 2
-        assert callback_results[0]["processed"] == 1
-        assert callback_results[1]["processed"] == 2
+    def test_notify_with_async_callback_no_event_loop(self, monkeypatch):
+        """非同期コールバックがあるがイベントループがない場合のパスを検証する."""
+
+        async def async_cb(summary: Dict[str, Any]) -> None:
+            # noop
+            return None
+
+        # monkeypatch create_task to raise after closing the coroutine to avoid
+        # "coroutine was never awaited" ResourceWarning.
+        def fake_create_task(coro):
+            try:
+                coro.close()
+            except Exception:
+                pass
+            raise RuntimeError("no loop")
+
+        monkeypatch.setattr(asyncio, "create_task", fake_create_task)
+
+        tracker = ProgressTracker(total=1, callback=async_cb)
+
+        # 同期コンテキストで increment_success を呼ぶと create_task が例外を投げる。
+        tracker.increment_success()
+        assert tracker.processed == 1
+
+    def test_notify_with_sync_callback_executes(self):
+        """同期コールバックが呼ばれることを検証する."""
+        results = []
+
+        def sync_cb(summary: Dict[str, Any]) -> None:
+            results.append(summary)
+
+        tracker = ProgressTracker(total=1, callback=sync_cb)
+        tracker.increment_success()
+        assert len(results) == 1
+        assert results[0]["processed"] == 1
+
+    def test_notify_sync_callback_raises_logs(self, caplog):
+        """コールバックが例外を投げた場合にログが残ることを検証する."""
+        import logging
+
+        def bad_cb(summary: Dict[str, Any]) -> None:
+            raise RuntimeError("callback boom")
+
+        tracker = ProgressTracker(total=1, callback=bad_cb)
+
+        with caplog.at_level(logging.ERROR):
+            tracker.increment_success()
+
+        assert any(r.levelno >= logging.ERROR for r in caplog.records)

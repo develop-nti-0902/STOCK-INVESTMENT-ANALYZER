@@ -5,7 +5,7 @@
 
 from typing import List, Optional
 
-from app.repositories.stock_master_repository import StockMasterRepository
+from app.repositories.market_data.stock_master import StockMasterRepository
 
 
 class StockMasterSaver:

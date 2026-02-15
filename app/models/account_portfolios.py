@@ -12,7 +12,7 @@ from typing import Optional
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base, SerialPKMixin, TimestampMixin
+from app.models.core.base import Base, SerialPKMixin, TimestampMixin
 
 
 class AccountPortfolios(SerialPKMixin, TimestampMixin, Base):
