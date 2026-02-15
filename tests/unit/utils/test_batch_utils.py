@@ -254,18 +254,27 @@ class TestProgressTracker:
         tracker.increment_failed(ValueError("error"))
         await asyncio.sleep(0.01)  # コールバック実行を待つ
 
-    def test_notify_with_async_callback_no_event_loop(self):
+    def test_notify_with_async_callback_no_event_loop(self, monkeypatch):
         """非同期コールバックがあるがイベントループがない場合のパスを検証する."""
 
         async def async_cb(summary: Dict[str, Any]) -> None:
             # noop
             return None
 
+        # monkeypatch create_task to raise after closing the coroutine to avoid
+        # "coroutine was never awaited" ResourceWarning.
+        def fake_create_task(coro):
+            try:
+                coro.close()
+            except Exception:
+                pass
+            raise RuntimeError("no loop")
+
+        monkeypatch.setattr(asyncio, "create_task", fake_create_task)
+
         tracker = ProgressTracker(total=1, callback=async_cb)
 
-        # 同期コンテキストで increment_success を呼ぶと
-        # asyncio.create_task が RuntimeError を投げうる（イベントループがないため）。
-        # 例外は内部で捕捉されるので外には出ない。
+        # 同期コンテキストで increment_success を呼ぶと create_task が例外を投げる。
         tracker.increment_success()
         assert tracker.processed == 1
 
