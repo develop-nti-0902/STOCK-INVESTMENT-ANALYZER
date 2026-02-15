@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, List
 
-from app.models.edinet_stock_dividend import EdinetStockDividend
+from app.models.market_data.edinet import EdinetStockDividend
 from app.services.market_data.edinet.download_service import EdinetDownloadService
 from app.services.market_data.edinet.file_manager import EdinetFileManager
 from app.services.market_data.edinet.stock_dividend.converter import EdinetStockDividendConverter

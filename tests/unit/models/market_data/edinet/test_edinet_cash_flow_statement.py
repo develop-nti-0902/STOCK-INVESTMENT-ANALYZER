@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 
-from app.models.edinet_cash_flow_statement import EdinetCashFlowStatement
+from app.models.market_data.edinet import EdinetCashFlowStatement
 
 
 def test_tablename_and_columns_exist():

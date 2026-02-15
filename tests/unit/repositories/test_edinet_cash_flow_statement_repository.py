@@ -6,7 +6,7 @@ from datetime import date
 
 import pytest
 
-from app.models.edinet_cash_flow_statement import EdinetCashFlowStatement
+from app.models.market_data.edinet import EdinetCashFlowStatement
 from app.repositories.edinet_cash_flow_statement_repository import EdinetCashFlowStatementRepository
 
 

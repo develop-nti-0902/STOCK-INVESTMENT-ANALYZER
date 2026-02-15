@@ -20,7 +20,7 @@ async def _fetch_edinet_balance_sheet_rows():
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-    from app.models.edinet_balance_sheet import EdinetBalanceSheet
+    from app.models.market_data.edinet import EdinetBalanceSheet
     from app.utils.database import get_database_url
 
     engine = create_async_engine(get_database_url())
@@ -64,7 +64,7 @@ async def _fetch_edinet_profit_and_loss_rows():
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-    from app.models.edinet_profit_and_loss import EdinetProfitAndLoss
+    from app.models.market_data.edinet import EdinetProfitAndLoss
     from app.utils.database import get_database_url
 
     engine = create_async_engine(get_database_url())
@@ -111,7 +111,7 @@ async def _fetch_edinet_stock_dividend_rows():
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-    from app.models.edinet_stock_dividend import EdinetStockDividend
+    from app.models.market_data.edinet import EdinetStockDividend
     from app.utils.database import get_database_url
 
     engine = create_async_engine(get_database_url())
@@ -156,7 +156,7 @@ async def _fetch_edinet_cash_flow_statement_rows():
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-    from app.models.edinet_cash_flow_statement import EdinetCashFlowStatement
+    from app.models.market_data.edinet import EdinetCashFlowStatement
     from app.utils.database import get_database_url
 
     engine = create_async_engine(get_database_url())
@@ -197,7 +197,7 @@ async def _cleanup_edinet_stock_dividend():
     from sqlalchemy import delete
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-    from app.models.edinet_stock_dividend import EdinetStockDividend
+    from app.models.market_data.edinet import EdinetStockDividend
     from app.utils.database import get_database_url
 
     engine = create_async_engine(get_database_url())
@@ -214,7 +214,7 @@ async def _cleanup_edinet_cash_flow_statement():
     from sqlalchemy import delete
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-    from app.models.edinet_cash_flow_statement import EdinetCashFlowStatement
+    from app.models.market_data.edinet import EdinetCashFlowStatement
     from app.utils.database import get_database_url
 
     engine = create_async_engine(get_database_url())
@@ -231,7 +231,7 @@ async def _cleanup_edinet_balance_sheets():
     from sqlalchemy import delete
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-    from app.models.edinet_balance_sheet import EdinetBalanceSheet
+    from app.models.market_data.edinet import EdinetBalanceSheet
     from app.utils.database import get_database_url
 
     engine = create_async_engine(get_database_url())
@@ -248,7 +248,7 @@ async def _cleanup_edinet_profit_and_loss():
     from sqlalchemy import delete
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-    from app.models.edinet_profit_and_loss import EdinetProfitAndLoss
+    from app.models.market_data.edinet import EdinetProfitAndLoss
     from app.utils.database import get_database_url
 
     engine = create_async_engine(get_database_url())

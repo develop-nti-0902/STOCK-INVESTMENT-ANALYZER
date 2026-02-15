@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.edinet_profit_and_loss import EdinetProfitAndLoss
+from app.models.market_data.edinet import EdinetProfitAndLoss
 from app.repositories.edinet_profit_and_loss_repository import EdinetProfitAndLossRepository
 
 

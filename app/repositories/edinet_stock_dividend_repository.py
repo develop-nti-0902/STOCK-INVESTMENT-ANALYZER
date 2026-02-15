@@ -15,7 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import count as sql_count
 
-from app.models.edinet_stock_dividend import EdinetStockDividend
+from app.models.market_data.edinet import EdinetStockDividend
 from app.repositories.base import BaseRepository
 
 logger = logging.getLogger(__name__)

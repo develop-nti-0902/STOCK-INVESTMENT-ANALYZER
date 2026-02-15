@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.models.edinet_stock_dividend import EdinetStockDividend
+from app.models.market_data.edinet import EdinetStockDividend
 from app.repositories.edinet_stock_dividend_repository import EdinetStockDividendRepository
 
 

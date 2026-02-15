@@ -9,9 +9,13 @@ from .account_transactions import AccountTransactions
 from .accounts import Account
 from .batch_execution import BatchExecution
 from .batch_execution_details import BatchExecutionDetails
-from .edinet_balance_sheet import EdinetBalanceSheet
-from .edinet_profit_and_loss import EdinetProfitAndLoss
 from .market_data import stock_master
+from .market_data.edinet import (
+    EdinetBalanceSheet,
+    EdinetCashFlowStatement,
+    EdinetProfitAndLoss,
+    EdinetStockDividend,
+)
 from .market_data.stock_master import IS_ACTIVE, IS_INACTIVE, StockMaster, StockMasterUpdates
 from .market_data.stock_price import (
     Stocks1d,
@@ -33,6 +37,8 @@ __all__ = [
     "AccountTransactions",
     "EdinetBalanceSheet",
     "EdinetProfitAndLoss",
+    "EdinetCashFlowStatement",
+    "EdinetStockDividend",
     "Stocks1m",
     "Stocks5m",
     "Stocks15m",

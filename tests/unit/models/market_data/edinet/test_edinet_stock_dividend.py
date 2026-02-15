@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from app.models.edinet_stock_dividend import EdinetStockDividend
+from app.models.market_data.edinet import EdinetStockDividend
 
 
 def test_model_repr_contains_key_fields():
