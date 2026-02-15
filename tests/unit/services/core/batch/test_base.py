@@ -6,7 +6,7 @@ from app.services.core.batch.base import BaseBatchRunner, BatchExecutionContext
 
 
 def test_chunk_iter_splits_list():
-    """Split iterable into chunks of given size."""
+    """`chunk_iter` がリストを指定サイズで分割することを検証する."""
     items = [1, 2, 3, 4, 5]
     chunks = list(BaseBatchRunner.chunk_iter(items, 2))
     assert chunks == [[1, 2], [3, 4], [5]]
@@ -14,7 +14,7 @@ def test_chunk_iter_splits_list():
 
 @pytest.mark.asyncio
 async def test_update_ctx_progress_with_sync_and_async(monkeypatch):
-    """Update context progress works for sync and async contexts."""
+    """同期/非同期コンテキスト双方で `_update_ctx_progress` が動作することを確認する."""
 
     class Ctx:
         def __init__(self):
@@ -42,7 +42,7 @@ async def test_update_ctx_progress_with_sync_and_async(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_batch_execution_context_create_and_finish_sync(monkeypatch):
-    """Context manager calls sync finish on successful exit."""
+    """BatchExecutionContext が同期サービスで作成・終了できることを確認する."""
 
     class Ctx:
         def __init__(self):
@@ -62,7 +62,7 @@ async def test_batch_execution_context_create_and_finish_sync(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_batch_execution_context_start_job_async_and_finish_async(monkeypatch):
-    """Context manager supports async start_job and async finish."""
+    """非同期サービスで BatchExecutionContext が作成・完了することを確認する."""
 
     class Ctx:
         def __init__(self):

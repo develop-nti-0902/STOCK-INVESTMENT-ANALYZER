@@ -6,7 +6,7 @@ from app.schemas.market_data.stock_price import StockData
 
 
 def test_stock_data_basic_fields():
-    """Verify StockData basic fields and types."""
+    """StockData スキーマの基本フィールドを検証する."""
     dt = datetime.now(timezone.utc)
     s = StockData(symbol="AAPL", timestamp=dt, open_price=100.0, close=101.0)
     assert s.symbol == "AAPL"

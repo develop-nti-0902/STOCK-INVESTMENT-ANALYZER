@@ -1,7 +1,5 @@
 """Tests for EdinetCashFlowStatementService."""
 
-from __future__ import annotations
-
 import pytest
 
 from app.services.market_data.edinet.edinet_cash_flow_statement.service import (
@@ -11,7 +9,7 @@ from app.services.market_data.edinet.edinet_cash_flow_statement.service import (
 
 @pytest.mark.asyncio
 async def test_get_latest_by_sec_code_delegation():
-    """get_latest_by_sec_code がリポジトリのメソッドを正しく呼び出すことを検証する."""
+    """Service がリポジトリ経由で最新データ取得を委譲することを検証する."""
 
     class FakeRepo:
         async def find_latest_by_sec_code(self, sec_code: str):

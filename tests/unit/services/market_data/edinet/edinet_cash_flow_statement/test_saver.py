@@ -12,23 +12,22 @@ from app.services.market_data.edinet.edinet_cash_flow_statement.saver import (
 
 
 class FakeRepo:
-    """テスト用の簡易リポジトリモック."""
+    """シンプルなフェイクリポジトリ（テスト用)."""
 
     def __init__(self):
-        """初期化."""
+        """内部ストアを初期化する."""
         self.upserts = []
 
     async def upsert(self, data):
-        """渡されたデータを記録して模擬保存結果を返す."""
+        """データを記録して模擬的に保存結果を返す."""
         self.upserts.append(data)
         return {"saved": data}
 
 
 @pytest.mark.asyncio
 async def test_validate_data_and_save_batch():
-    """validate_data と save_batch の基本動作を検証する."""
+    """Saver のバリデーションとバッチ保存フローを確認する."""
     saver = EdinetCashFlowStatementSaver(session=object())
-    # inject fake repository to avoid DB
     saver.repository = FakeRepo()
 
     good = {
@@ -41,7 +40,6 @@ async def test_validate_data_and_save_batch():
 
     assert await saver.validate_data(good)
 
-    # batch save
     data_list = [good, good]
     saved_count = await saver.save_batch(data_list)
     assert saved_count == 2

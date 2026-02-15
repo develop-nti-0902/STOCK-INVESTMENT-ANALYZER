@@ -29,7 +29,7 @@ def _build_sample_root():
 
 
 def test_validate_data_and_parse_root():
-    """XML ルートの検証と parse_root の基本動作を確認する."""
+    """XML ルートの検証とパースの動作を確認する."""
     root = _build_sample_root()
     parser = EdinetCashFlowStatementParser()
 
@@ -49,6 +49,5 @@ def test_validate_data_and_parse_root():
     assert isinstance(res, dict)
     cur = res.get("current")
     assert cur is not None
-    # parsed get_value should be exposed as numeric
     assert cur["operating_cf"] == 500 or float(cur["operating_cf"]) == 500.0
     assert cur["period_end_date"] == date(2024, 3, 31)

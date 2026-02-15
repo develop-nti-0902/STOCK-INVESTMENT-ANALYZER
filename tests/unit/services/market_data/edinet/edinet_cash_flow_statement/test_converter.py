@@ -13,7 +13,7 @@ from app.services.market_data.edinet.edinet_cash_flow_statement.converter import
 
 
 def test_to_pydantic_and_from_pydantic():
-    """Pydantic 変換と逆変換が期待どおりに動作することを検証する."""
+    """Converter の to_pydantic/from_pydantic が期待通りに動作することを検証する."""
     conv = EdinetCashFlowStatementConverter()
 
     data = {
@@ -37,7 +37,7 @@ def test_to_pydantic_and_from_pydantic():
 
 
 def test_to_pydantic_missing_period_end_raises():
-    """period_end が欠けた場合に例外が発生することを検証する."""
+    """必須フィールドがない場合に `to_pydantic` が例外を投げることを確認する."""
     conv = EdinetCashFlowStatementConverter()
     bad = {"doc_id": "S1", "sec_code": "7203"}
     with pytest.raises(ValueError):

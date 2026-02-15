@@ -7,14 +7,11 @@ from sqlalchemy.orm import sessionmaker
 
 
 def test_stock_master_updates_fields_and_defaults():
-    """Verify StockMasterUpdates basic fields and defaults work."""
-    # Arrange: in-memory SQLite を利用
+    """StockMasterUpdates のフィールドとデフォルト値が期待通りか検証する."""
     engine = create_engine("sqlite:///:memory:", future=True)
 
-    # 遅延 import（テスト実行環境で app.models が読み込まれることを期待）
     from app.models import Base, StockMasterUpdates  # noqa: E402
 
-    # Act: テーブル作成、インスタンス作成・永続化
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)
     session = Session()
@@ -28,7 +25,6 @@ def test_stock_master_updates_fields_and_defaults():
     session.commit()
     session.refresh(smu)
 
-    # Assert: PK が付与され、フィールドが期待通り
     assert smu.id is not None
     assert smu.update_type == "FULL"
     assert smu.total_stocks == 100

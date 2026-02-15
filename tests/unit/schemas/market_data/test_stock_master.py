@@ -10,7 +10,7 @@ from app.schemas.market_data.stock_master import (
 
 
 def test_stock_master_raw_aliases_and_values():
-    """Raw スキーマのエイリアスと値のマッピングを検証する."""
+    """Rawスキーマのエイリアスと値のマッピングを検証する."""
     raw = StockMasterRaw(**{"日付": "20250101", "コード": 1234, "銘柄名": "TestCo"})
     assert raw.date == "20250101"
     assert raw.code == 1234
@@ -18,8 +18,7 @@ def test_stock_master_raw_aliases_and_values():
 
 
 def test_stock_master_normalized_requires_mandatory_fields():
-    """Normalized スキーマが必須フィールドを要求することを検証する."""
-    # missing required fields should raise
+    """Normalized スキーマが必須フィールドを要求することを確認する."""
     try:
         StockMasterNormalized()
         assert False, "Expected ValidationError"
