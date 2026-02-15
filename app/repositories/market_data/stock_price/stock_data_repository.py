@@ -554,3 +554,16 @@ class StockData1moRepository(StockDataRepository):
 
     def _get_time_column(self) -> str:
         return "timestamp"
+
+
+__all__ = [
+    "StockDataRepository",
+    "StockData1mRepository",
+    "StockData5mRepository",
+    "StockData15mRepository",
+    "StockData30mRepository",
+    "StockData1hRepository",
+    "StockData1dRepository",
+    "StockData1wkRepository",
+    "StockData1moRepository",
+]

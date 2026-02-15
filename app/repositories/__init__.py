@@ -15,7 +15,7 @@ from app.repositories.market_data.edinet.edinet_profit_and_loss_repository impor
     EdinetProfitAndLossRepository,
 )
 from app.repositories.market_data.stock_master import StockMasterRepository
-from app.repositories.stock_data_repository import (
+from app.repositories.market_data.stock_price import (
     StockData1dRepository,
     StockData1hRepository,
     StockData1moRepository,

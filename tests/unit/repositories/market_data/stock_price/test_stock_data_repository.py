@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.exceptions.validation import FieldValidationError
-from app.repositories.stock_data_repository import (
+from app.repositories.market_data.stock_price import (
     StockData1dRepository,
     StockData1hRepository,
     StockData1moRepository,
