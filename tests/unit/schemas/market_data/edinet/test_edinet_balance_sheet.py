@@ -6,7 +6,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.edinet_balance_sheet import EdinetBalanceSheetCreate, EdinetBalanceSheetLatest
+from app.schemas.market_data.edinet import EdinetBalanceSheetCreate, EdinetBalanceSheetLatest
 
 
 def sample_payload():

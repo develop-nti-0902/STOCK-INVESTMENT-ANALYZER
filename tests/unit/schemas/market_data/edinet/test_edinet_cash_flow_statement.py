@@ -7,7 +7,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.schemas.edinet_cash_flow_statement import EdinetCashFlowStatementCreate
+from app.schemas.market_data.edinet import EdinetCashFlowStatementCreate
 
 
 def test_create_schema_decimal_and_strip():

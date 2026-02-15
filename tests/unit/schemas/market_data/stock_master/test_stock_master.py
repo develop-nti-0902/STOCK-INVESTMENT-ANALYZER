@@ -1,4 +1,7 @@
-"""market_data の銘柄マスタスキーマの単体テスト (互換コピー)."""
+"""market_data の銘柄マスタスキーマの単体テスト.
+
+実装は以前 `test_stock_master_schema.py` にあった内容をこのファイルに移動しました。
+"""
 
 from pydantic import ValidationError
 

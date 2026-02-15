@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from app.schemas.edinet_cash_flow_statement import EdinetCashFlowStatementCreate
+from app.schemas.market_data.edinet import EdinetCashFlowStatementCreate
 from app.services.core.converters.edinet_base_converter import EdinetBaseConverter
 from app.utils.logger import get_logger
 

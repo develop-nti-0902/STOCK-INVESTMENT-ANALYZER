@@ -6,7 +6,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.schemas.edinet_profit_and_loss import EdinetProfitAndLossCreate
+from app.schemas.market_data.edinet import EdinetProfitAndLossCreate
 from app.services.market_data.edinet.profit_and_loss.converter import EdinetProfitAndLossConverter
 
 

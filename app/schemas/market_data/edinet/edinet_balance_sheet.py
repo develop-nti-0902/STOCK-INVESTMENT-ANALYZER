@@ -1,8 +1,6 @@
 """EDINET 貸借対照表用 Pydantic スキーマ.
 
-このモジュールは GitHub Issue #283 の実装対象で、
-`app/models/edinet_balance_sheet.py` のモデルに対応する
-リクエスト／レスポンス用の Pydantic スキーマを提供します。
+移動元: app/schemas/edinet_balance_sheet.py
 """
 
 from __future__ import annotations
@@ -33,7 +31,6 @@ class EdinetBalanceSheetBase(BaseModel):
     fiscal_year: Optional[int] = Field(None, description="会計年度")
     report_type: str = Field(..., description="報告種別", max_length=20)
 
-    # 主要数値（Decimal を使って精度を保つ）
     total_assets: Optional[Decimal] = Field(None, description="総資産")
     current_assets: Optional[Decimal] = Field(None, description="流動資産")
     non_current_assets: Optional[Decimal] = Field(None, description="固定資産")

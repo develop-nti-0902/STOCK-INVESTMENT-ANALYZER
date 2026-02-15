@@ -1,6 +1,6 @@
-"""EDINET キャッシュフロー用 Pydantic スキーマ.
+"""EDINET 配当情報用 Pydantic スキーマ.
 
-`app/models/edinet_cash_flow_statement.py` に対応するリクエスト/レスポンス用スキーマを提供します。
+移動元: app/schemas/edinet_stock_dividend.py
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.schemas.core.base import BaseRequestSchema, BaseResponseSchema
 
 
-class EdinetCashFlowStatementBase(BaseModel):
-    """EDINET キャッシュフローの共通スキーマ定義."""
+class EdinetStockDividendBase(BaseModel):
+    """EDINET 配当情報の共通スキーマ定義."""
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -30,10 +30,8 @@ class EdinetCashFlowStatementBase(BaseModel):
     fiscal_year: Optional[int] = Field(None, description="会計年度")
     report_type: str = Field(..., description="報告種別", max_length=20)
 
-    # 財務指標
-    operating_cf: Optional[Decimal] = Field(None, description="営業キャッシュフロー（百万円）")
+    dividend_actual: Optional[Decimal] = Field(None, description="年間配当金")
 
-    # メタデータ項目
     candidate_contexts: Optional[str] = Field(None, description="候補コンテキスト", max_length=50)
     candidate_keys: Optional[str] = Field(None, description="候補キー", max_length=50)
     is_consolidated: Optional[bool] = Field(None, description="連結フラグ")
@@ -45,7 +43,7 @@ class EdinetCashFlowStatementBase(BaseModel):
             return v
         return v.strip()
 
-    @field_validator("operating_cf", mode="before")
+    @field_validator("dividend_actual", mode="before")
     @classmethod
     def _to_decimal(cls, v):
         if v is None:
@@ -58,27 +56,27 @@ class EdinetCashFlowStatementBase(BaseModel):
             raise ValueError("数値フィールドは Decimal に変換可能である必要があります") from exc
 
 
-class EdinetCashFlowStatementCreate(BaseRequestSchema, EdinetCashFlowStatementBase):
-    """Create schema for input validation."""
+class EdinetStockDividendCreate(BaseRequestSchema, EdinetStockDividendBase):
+    """作成用スキーマ（入力バリデーション）."""
 
 
-class EdinetCashFlowStatementRead(BaseResponseSchema, EdinetCashFlowStatementBase):
-    """Response schema including id/created_at/updated_at."""
+class EdinetStockDividendRead(BaseResponseSchema, EdinetStockDividendBase):
+    """レスポンス用スキーマ（id/created_at/updated_at を含む）."""
 
 
-class EdinetCashFlowStatementLatest(BaseModel):
-    """Lightweight schema for latest-data queries."""
+class EdinetStockDividendLatest(BaseModel):
+    """最新データ検索用の軽量スキーマ."""
 
     model_config = ConfigDict(validate_assignment=True, extra="forbid", from_attributes=True)
 
     sec_code: str = Field(..., description="証券コード", max_length=10)
     period_end_date: date = Field(..., description="決算期末日")
-    operating_cf: Optional[Decimal] = Field(None, description="営業キャッシュフロー（百万円）")
+    dividend_actual: Optional[Decimal] = Field(None, description="年間配当金")
 
 
 __all__ = [
-    "EdinetCashFlowStatementBase",
-    "EdinetCashFlowStatementCreate",
-    "EdinetCashFlowStatementRead",
-    "EdinetCashFlowStatementLatest",
+    "EdinetStockDividendBase",
+    "EdinetStockDividendCreate",
+    "EdinetStockDividendRead",
+    "EdinetStockDividendLatest",
 ]

@@ -1,6 +1,6 @@
-"""EDINET 損益（edinet_profit_and_loss）用 Pydantic スキーマ.
+"""EDINET 損益用 Pydantic スキーマ.
 
-新しいモデル定義に合わせて完全に再定義しています。
+移動元: app/schemas/edinet_profit_and_loss.py
 """
 
 from __future__ import annotations
@@ -26,12 +26,10 @@ class EdinetProfitAndLossBase(BaseModel):
     fiscal_year: Optional[int] = Field(None, description="会計年度")
     report_type: str = Field("annual", description="報告種別", max_length=20)
 
-    # 損益主要数値
     net_sales: Optional[Decimal] = Field(None, description="売上高")
     operating_income: Optional[Decimal] = Field(None, description="営業利益")
     eps: Optional[Decimal] = Field(None, description="1株当たり当期純利益（円）")
 
-    # メタデータ
     candidate_contexts: Optional[str] = Field(
         None, description="解析で使用された context", max_length=50
     )

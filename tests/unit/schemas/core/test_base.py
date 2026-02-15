@@ -1,4 +1,7 @@
-"""スキーマ基底ページネーションの単体テスト (互換コピー)."""
+"""スキーマ基底ページネーションの単体テスト.
+
+実装は以前 `test_base_schema.py` にあった内容をこのファイルに移動しました。
+"""
 
 from datetime import datetime, timezone
 

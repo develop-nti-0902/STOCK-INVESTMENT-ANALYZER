@@ -7,7 +7,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.schemas.edinet_stock_dividend import EdinetStockDividendCreate, EdinetStockDividendLatest
+from app.schemas.market_data.edinet import EdinetStockDividendCreate, EdinetStockDividendLatest
 
 
 def test_schema_converts_and_strips():
