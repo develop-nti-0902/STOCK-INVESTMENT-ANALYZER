@@ -1,4 +1,4 @@
-﻿"""スキーマ基底ページネーションの単体テスト."""
+"""スキーマ基底ページネーションの単体テスト."""
 
 from datetime import datetime, timezone
 
