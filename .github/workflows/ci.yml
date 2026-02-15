@@ -41,13 +41,13 @@ jobs:
           poetry config virtualenvs.create false
           poetry install --no-root --no-interaction --no-ansi --with dev
 
-      - name: Run linters
+      - name: Run linters (align with pre-commit)
         run: |
-          poetry run black --check .
-          poetry run isort --check-only .
-          poetry run flake8 --config .flake8 --exclude=tests
-          poetry run mypy app
-          poetry run pylint --rcfile=.pylintrc app
+          poetry run python scripts/hooks/run_check_with_status.py --check black
+          poetry run python scripts/hooks/run_check_with_status.py --check isort
+          poetry run python scripts/hooks/run_check_with_status.py --check flake8 -- --config=.flake8 --exclude=tests
+          poetry run python scripts/hooks/run_check_with_status.py --check mypy -- app
+          poetry run python scripts/hooks/run_check_with_status.py --check pylint -- --rcfile=.pylintrc app
 
   # Test ジョブ: pytest を走らせ、coverage と JUnit レポートを生成します。
   # SQLite データベースを利用するテストを想定しています。
