@@ -1,4 +1,4 @@
-"""スキーマ基底ページネーションの単体テスト."""
+"""スキーマ基底ページネーションの単体テスト (互換コピー)."""
 
 from datetime import datetime, timezone
 
@@ -9,7 +9,7 @@ from app.schemas.core.base import BaseSchema, PaginationRequestSchema, Paginatio
 
 
 def test_base_schema_serializes_datetimes_to_iso():
-    """日時がISO形式にシリアライズされることを検証します."""
+    """BaseSchema の日時シリアライズが ISO 形式であることを検証する."""
     now = datetime.now(timezone.utc)
     s = BaseSchema(id=1, created_at=now, updated_at=now)
     json_dump = s.model_dump_json()
@@ -17,12 +17,11 @@ def test_base_schema_serializes_datetimes_to_iso():
 
 
 def test_pagination_request_defaults_and_validators():
-    """PaginationRequestSchema のデフォルトとバリデータを検証します."""
+    """PaginationRequestSchema のデフォルト値とバリデーションを確認する."""
     p = PaginationRequestSchema()
     assert p.limit == 100
     assert p.offset == 0
 
-    # invalid limit (too large)
     with pytest.raises(ValidationError):
         PaginationRequestSchema(limit=1001)
 
@@ -31,7 +30,7 @@ def test_pagination_request_defaults_and_validators():
 
 
 def test_pagination_response_requires_non_negative_total():
-    """PaginationResponseSchema が非負の total を要求することを検証します."""
+    """PaginationResponseSchema が非負の total を要求することを検証する."""
     r = PaginationResponseSchema(total=0, limit=10, offset=0)
     assert r.total == 0
 

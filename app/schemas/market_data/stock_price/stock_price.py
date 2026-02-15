@@ -1,4 +1,4 @@
-﻿"""株価データスキーマ.
+"""株価データスキーマ.
 
 Yahoo Finance API などから取得する株価データを正規化するための Pydantic スキーマを定義します。
 仕様書: docs/architecture/layers/service_layer.md 3.2.1章

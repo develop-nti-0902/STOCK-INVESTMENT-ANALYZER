@@ -1,4 +1,4 @@
-"""market_data の銘柄マスタスキーマの単体テスト."""
+"""market_data の銘柄マスタスキーマの単体テスト (互換コピー)."""
 
 from pydantic import ValidationError
 
@@ -10,7 +10,7 @@ from app.schemas.market_data.stock_master import (
 
 
 def test_stock_master_raw_aliases_and_values():
-    """Rawスキーマのエイリアスと値のマッピングを検証する."""
+    """Raw スキーマのエイリアスと値のマッピングを検証する."""
     raw = StockMasterRaw(**{"日付": "20250101", "コード": 1234, "銘柄名": "TestCo"})
     assert raw.date == "20250101"
     assert raw.code == 1234
