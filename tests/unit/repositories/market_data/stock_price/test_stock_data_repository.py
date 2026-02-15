@@ -22,6 +22,28 @@ from app.repositories.market_data.stock_price import (
 )
 
 
+@pytest.fixture
+def mock_session():
+    """モジュール共通のモックDBセッション."""
+    session = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    session.execute = AsyncMock()
+    return session
+
+
+@pytest.fixture
+def repo_1m(mock_session):
+    """1分足Repositoryインスタンス（モジュール共通)."""
+    return StockData1mRepository(mock_session)
+
+
+@pytest.fixture
+def repo_1d(mock_session):
+    """日足Repositoryインスタンス（モジュール共通)."""
+    return StockData1dRepository(mock_session)
+
+
 class TestStockDataRepository:
     """StockDataRepository基底クラスのテスト."""
 
