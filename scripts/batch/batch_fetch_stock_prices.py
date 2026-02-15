@@ -22,8 +22,10 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.repositories.batch_execution_repository import BatchExecutionRepository
-from app.repositories.stock_master_repository import StockMasterRepository
-from app.repositories.stock_master_updates_repository import StockMasterUpdatesRepository
+from app.repositories.market_data.stock_master import (
+    StockMasterRepository,
+    StockMasterUpdatesRepository,
+)
 from app.services.batch.batch_execution_service import BatchExecutionService
 from app.services.market_data.stock_master.service import StockMasterService
 from app.services.market_data.stock_price.converter import StockPriceConverter

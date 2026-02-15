@@ -6,8 +6,10 @@
 from datetime import datetime, timezone
 from typing import List, Optional, Set
 
-from app.repositories.stock_master_repository import StockMasterRepository
-from app.repositories.stock_master_updates_repository import StockMasterUpdatesRepository
+from app.repositories.market_data.stock_master import (
+    StockMasterRepository,
+    StockMasterUpdatesRepository,
+)
 from app.services.market_data.stock_master.converter import StockMasterConverter
 from app.services.market_data.stock_master.fetcher import StockMasterFetcher
 from app.services.market_data.stock_master.saver import StockMasterSaver

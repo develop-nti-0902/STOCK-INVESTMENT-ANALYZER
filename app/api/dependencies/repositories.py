@@ -51,7 +51,7 @@ def get_stock_master_repository(
         BaseRepository[Any]: `StockMasterRepository` のインスタンス
     """
     # pylint: disable=import-outside-toplevel
-    from app.repositories.stock_master_repository import StockMasterRepository
+    from app.repositories.market_data.stock_master import StockMasterRepository
 
     return StockMasterRepository(session=db)
 

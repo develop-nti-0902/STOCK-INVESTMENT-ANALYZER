@@ -14,6 +14,7 @@ from app.repositories.market_data.edinet.edinet_balance_sheet_repository import 
 from app.repositories.market_data.edinet.edinet_profit_and_loss_repository import (  # noqa: F401
     EdinetProfitAndLossRepository,
 )
+from app.repositories.market_data.stock_master import StockMasterRepository
 from app.repositories.stock_data_repository import (
     StockData1dRepository,
     StockData1hRepository,
@@ -25,7 +26,6 @@ from app.repositories.stock_data_repository import (
     StockData30mRepository,
     StockDataRepository,
 )
-from app.repositories.stock_master_repository import StockMasterRepository
 
 __all__ = [
     "BaseRepository",
