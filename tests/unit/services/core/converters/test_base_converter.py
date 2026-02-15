@@ -1,4 +1,4 @@
-"""BaseConverterの単体テスト."""
+"""BaseConverter の単体テストモジュール."""
 
 from typing import Any
 
