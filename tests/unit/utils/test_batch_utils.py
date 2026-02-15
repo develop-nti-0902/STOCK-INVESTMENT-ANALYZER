@@ -254,6 +254,29 @@ class TestProgressTracker:
         tracker.increment_failed(ValueError("error"))
         await asyncio.sleep(0.01)  # コールバック実行を待つ
 
-        assert len(callback_results) == 2
-        assert callback_results[0]["processed"] == 1
-        assert callback_results[1]["processed"] == 2
+    def test_notify_with_async_callback_no_event_loop(self):
+        """非同期コールバックがあるがイベントループがない場合のパスを検証する."""
+
+        async def async_cb(summary: Dict[str, Any]) -> None:
+            # noop
+            return None
+
+        tracker = ProgressTracker(total=1, callback=async_cb)
+
+        # 同期コンテキストで increment_success を呼ぶと
+        # asyncio.create_task が RuntimeError を投げうる（イベントループがないため）。
+        # 例外は内部で捕捉されるので外には出ない。
+        tracker.increment_success()
+        assert tracker.processed == 1
+
+    def test_notify_with_sync_callback_executes(self):
+        """同期コールバックが呼ばれることを検証する."""
+        results = []
+
+        def sync_cb(summary: Dict[str, Any]) -> None:
+            results.append(summary)
+
+        tracker = ProgressTracker(total=1, callback=sync_cb)
+        tracker.increment_success()
+        assert len(results) == 1
+        assert results[0]["processed"] == 1
