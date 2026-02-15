@@ -12,7 +12,7 @@ from sqlalchemy.engine import Result
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.base import BaseRepository
+from app.repositories.core.base import BaseRepository
 
 
 class MockModel:
@@ -67,7 +67,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_create(self, repository, mock_session):
-        """新規レコード作成のテスト（Repository層はflushのみ）."""
+        """新規レコード作成のテスト（Repository層はflushのみ）。."""
         # Arrange
         test_data = {"id": 1, "name": "Test"}
         mock_session.flush = AsyncMock()
@@ -296,7 +296,7 @@ class TestBaseRepository:
         # BaseRepository.exists はモジュールレベルの select() を使用し、
         # SQLAlchemy のマップ済みクラスを期待します。
         # 型変換（coercion）エラーを回避するため select を差し替えます。
-        import app.repositories.base as base_module
+        import app.repositories.core.base as base_module
 
         original_select = base_module.select
 
@@ -320,7 +320,7 @@ class TestBaseRepository:
 
 
 class RealRepository(BaseRepository[MockModel]):
-    """Baseクラス実装そのままを使うリポジトリ（テスト用）."""
+    """Baseクラス実装そのままを使うリポジトリ（テスト用）。."""
 
     def __init__(self, session: AsyncSession):
         """RealRepository を初期化する."""
@@ -337,7 +337,7 @@ class TestBaseRepositoryImplementation:
 
         # モデルが SQLAlchemy にマップされていないため、module-level の
         # select をテスト用ダミーに差し替える。テスト終了後に復元する。
-        import app.repositories.base as base_module
+        import app.repositories.core.base as base_module
 
         original_select = base_module.select
 

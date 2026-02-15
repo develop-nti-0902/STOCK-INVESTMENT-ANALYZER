@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.base import BaseRepository
+from app.repositories.core.base import BaseRepository
 from app.utils.database import get_db
 
 

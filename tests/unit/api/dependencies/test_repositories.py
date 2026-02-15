@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.repositories import get_base_repository
-from app.repositories.base import BaseRepository
+from app.repositories.core.base import BaseRepository
 
 
 class TestGetBaseRepository:

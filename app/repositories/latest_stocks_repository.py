@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.base import BaseRepository
+from app.repositories.core.base import BaseRepository
 
 logger = logging.getLogger(__name__)
 

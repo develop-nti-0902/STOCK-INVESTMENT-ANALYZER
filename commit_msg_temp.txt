@@ -1,0 +1,8 @@
+refactor(repositories): BaseRepository を core 配下へ移動
+
+- `app/repositories/base.py` を `app/repositories/core/base.py` に移動
+- 参照インポートを `app.repositories.core.base` へ更新（repositories とテスト含む）
+- 全体テストを実行し、576 tests passed を確認
+
+Notes:
+- 互換性に問題が出ないよう `app.repositories.__init__` は core 経由で再エクスポートを行っています

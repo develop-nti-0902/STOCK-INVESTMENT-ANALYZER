@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import count as sql_count
 
 from app.models.market_data.edinet import EdinetCashFlowStatement
-from app.repositories.base import BaseRepository
+from app.repositories.core.base import BaseRepository
 
 logger = logging.getLogger(__name__)
 

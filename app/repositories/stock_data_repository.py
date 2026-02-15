@@ -29,7 +29,7 @@ from app.models.market_data.stock_price import (
     Stocks15m,
     Stocks30m,
 )
-from app.repositories.base import BaseRepository
+from app.repositories.core.base import BaseRepository
 
 # すべての株価データモデルの型
 StockDataModel = Union[

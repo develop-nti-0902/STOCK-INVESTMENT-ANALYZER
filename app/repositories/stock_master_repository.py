@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.market_data.stock_master import IS_ACTIVE, StockMaster
-from app.repositories.base import BaseRepository
+from app.repositories.core.base import BaseRepository
 
 logger = logging.getLogger(__name__)
 
