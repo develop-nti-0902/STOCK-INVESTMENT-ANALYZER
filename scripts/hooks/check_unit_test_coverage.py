@@ -220,7 +220,7 @@ def print_report(
     coverage_rate = (tested_files / total_files * 100) if total_files > 0 else 0
 
     print("=" * 80)
-    print("📊 統計情報")
+    print("統計情報")
     print("=" * 80)
     print(f"  チェック対象ファイル数: {total_files}")
     print(f"  テスト済みファイル数: {tested_files}")
@@ -246,7 +246,7 @@ def print_report(
         # レイヤー別に表示
         for layer in sorted(grouped_by_layer.keys()):
             layer_files = grouped_by_layer[layer]
-            print(f"\n📁 {layer.upper()} レイヤー ({len(layer_files)}ファイル)")
+            print(f"\n{layer.upper()} レイヤー ({len(layer_files)}ファイル)")
             print("-" * 80)
 
             for source_file in sorted(layer_files):
@@ -259,7 +259,7 @@ def print_report(
     if orphaned_tests:
         has_issues = True
         print("=" * 80)
-        print("🚨 規約に則っていない場所に作成されたテストファイル")
+        print("規約に則っていない場所に作成されたテストファイル")
         print("=" * 80)
         print("以下のテストファイルに対応するソースファイルが存在しません。")
         print()
@@ -288,7 +288,7 @@ def print_report(
     if misnamed_tests:
         has_issues = True
         print("=" * 80)
-        print("⚠️  命名規約に従っていない可能性のあるテストファイル")
+        print("命名規約に従っていない可能性のあるテストファイル")
         print("=" * 80)
         for source_file, misnamed in misnamed_tests:
             relative_source = source_file.relative_to(APP_DIR)
@@ -299,7 +299,7 @@ def print_report(
 
     if not has_issues:
         print("=" * 80)
-        print("✅ すべてのソースファイルに対応するユニットテストが存在し、命名規約に従っています。")
+        print("すべてのソースファイルに対応するユニットテストが存在し、命名規約に従っています。")
         print("=" * 80)
         print()
     else:
@@ -316,7 +316,7 @@ def main() -> int:
     Returns:
         終了コード（0: 成功, 1: 問題あり）
     """
-    print("🔍 ユニットテストカバレッジチェックを開始します...")
+    print("ユニットテストカバレッジチェックを開始します...")
     print()
 
     # チェック実行

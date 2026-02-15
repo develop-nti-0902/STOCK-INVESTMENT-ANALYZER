@@ -76,6 +76,13 @@ repos:
         # Run tests across the tests/ directory on push
         args: ["tests"]
 
+      - id: unit-test-coverage-check
+        name: unit test coverage mapping check (project)
+        entry: poetry run python scripts/hooks/run_check_with_status.py --check unit-test-coverage
+        language: system
+        pass_filenames: false
+        stages: [commit]
+
       - id: final-status
         name: final commit status summary
         entry: poetry run python scripts/hooks/final_status_summary.py
