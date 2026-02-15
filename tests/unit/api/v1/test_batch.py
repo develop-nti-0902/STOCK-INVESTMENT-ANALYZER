@@ -1,11 +1,70 @@
-"""Unit tests for app.api.v1.batch."""
+"""Unit tests for app.api.v1.batch helpers."""
 
+import asyncio
+from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
 
 from app.api.v1 import batch as batch_module
 from app.exceptions.database import RecordNotFoundError
+
+
+def make_job(**kwargs):
+    """Create a simple namespace object and set attributes from kwargs."""
+    obj = SimpleNamespace()
+    for k, v in kwargs.items():
+        setattr(obj, k, v)
+    return obj
+
+
+def test_job_to_response_dict_basic():
+    """基本的なジョブ変換が正しく行われることを検証する."""
+    start = datetime(2024, 1, 1, 0, 0, 0)
+    job = make_job(
+        id=1,
+        batch_type="refresh",
+        status="running",
+        total_stocks=10,
+        processed_stocks=5,
+        successful_stocks=4,
+        failed_stocks=1,
+        start_time=start,
+        end_time=None,
+        params={"k": "v"},
+        error_message=None,
+    )
+
+    d = batch_module._job_to_response_dict(job)
+
+    assert d["job_id"] == "1"
+    assert d["job_type"] == "refresh"
+    assert d["status"] == "RUNNING"
+    assert d["progress"] == pytest.approx(50.0)
+    assert d["started_at"] == start.isoformat()
+    assert d["finished_at"] is None
+
+
+def test_job_to_response_dict_clamps_progress():
+    """進捗率が100%を超えた場合にクランプされることを確認する."""
+    job = make_job(id=2, batch_type="a", status="ok", total_stocks=1, processed_stocks=5)
+    d = batch_module._job_to_response_dict(job)
+    assert d["progress"] == 100.0
+
+
+@pytest.mark.asyncio
+async def test_await_pending_tasks_handles_exception(caplog):
+    """例外を投げるタスクがあっても待機処理が例外を透過しないことを確認する."""
+
+    async def _bad():
+        raise RuntimeError("fail")
+
+    task = asyncio.create_task(_bad())
+    pending = {task}
+
+    # should not raise, and pending cleared
+    await batch_module._await_pending_tasks(pending, context="test")
+    assert len(pending) == 0
 
 
 class DummyJob:

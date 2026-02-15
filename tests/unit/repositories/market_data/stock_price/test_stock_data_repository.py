@@ -284,3 +284,56 @@ class TestTimeframeSpecificRepositories:
         for repo, expected_timeframe, expected_column in repos:
             assert repo.timeframe == expected_timeframe
             assert repo.time_column == expected_column
+
+    @pytest.mark.asyncio
+    async def test_get_by_symbol_and_timestamp_returns_none_when_no_result(self, repo_1m):
+        """存在しないタイムスタンプ指定は None を返すことを確認する."""
+        # arrange
+        fake_result = MagicMock()
+        fake_result.scalar_one_or_none.return_value = None
+        repo_1m.session.execute.return_value = fake_result
+
+        # act
+        res = await repo_1m.get_by_symbol_and_timestamp("7203.T", datetime(2024, 1, 1, 9, 0, 0))
+
+        # assert
+        assert res is None
+
+    @pytest.mark.asyncio
+    async def test_get_by_symbol_and_date_raises_for_timestamp_based_repo(self, repo_1m):
+        """日付ベース取得は timestamp ベースのリポジトリではエラーになることを確認する."""
+        with pytest.raises(FieldValidationError):
+            await repo_1m.get_by_symbol_and_date("7203.T", date(2024, 1, 1))
+
+    @pytest.mark.asyncio
+    async def test_delete_all_returns_rowcount(self, repo_1m):
+        """delete_all が execute の rowcount を返すことを確認する."""
+        fake_result = MagicMock()
+        fake_result.rowcount = 5
+        repo_1m.session.execute.return_value = fake_result
+
+        res = await repo_1m.delete_all()
+        assert res == 5
+
+    @pytest.mark.asyncio
+    async def test_upsert_single_raises_stockdataerror_on_execute_exception(self, repo_1m):
+        """execute が例外を投げると StockDataError が送出されることを確認する."""
+
+        async def _raise(*args, **kwargs):
+            raise Exception("boom")
+
+        repo_1m.session.execute = AsyncMock(side_effect=_raise)
+
+        data = {
+            "symbol": "7203.T",
+            "timestamp": datetime(2024, 1, 1, 9, 0, 0),
+            "open": 1500.0,
+            "high": 1510.0,
+            "low": 1495.0,
+            "close": 1505.0,
+        }
+
+        from app.exceptions.database import StockDataError
+
+        with pytest.raises(StockDataError):
+            await repo_1m.upsert_single(data)
