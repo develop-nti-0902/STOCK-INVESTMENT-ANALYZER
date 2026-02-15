@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.base import BaseSchema, PaginationRequestSchema, PaginationResponseSchema
+from app.schemas.core.base import BaseSchema, PaginationRequestSchema, PaginationResponseSchema
 
 
 def test_base_schema_serializes_datetimes_to_iso():

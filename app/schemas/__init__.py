@@ -14,7 +14,7 @@ from app.schemas.accounts import (  # noqa: F401
     PasswordChangeRequest,
     TokenResponse,
 )
-from app.schemas.base import (
+from app.schemas.core.base import (
     BaseRequestSchema,
     BaseResponseSchema,
     BaseSchema,
