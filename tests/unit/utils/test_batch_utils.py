@@ -289,3 +289,17 @@ class TestProgressTracker:
         tracker.increment_success()
         assert len(results) == 1
         assert results[0]["processed"] == 1
+
+    def test_notify_sync_callback_raises_logs(self, caplog):
+        """コールバックが例外を投げた場合にログが残ることを検証する."""
+        import logging
+
+        def bad_cb(summary: Dict[str, Any]) -> None:
+            raise RuntimeError("callback boom")
+
+        tracker = ProgressTracker(total=1, callback=bad_cb)
+
+        with caplog.at_level(logging.ERROR):
+            tracker.increment_success()
+
+        assert any(r.levelno >= logging.ERROR for r in caplog.records)
