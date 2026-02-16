@@ -1,0 +1,92 @@
+# pre-commit 設定（プロジェクト内ツールを使用）
+# - 本設定では `poetry run ...` を使ってフックを実行します。
+#   これにより、プロジェクトの dev-deps に記載されたツールを一元管理できます。
+# - 軽量なチェック（末尾空白削除、EOF 修正、YAML 構文チェック等）は公式フックを使用し、
+#   重いチェック（mypy や pylint）はコミット時の遅延を避けるため push ステージで実行します。
+# フックのうちいずれかが失敗した時点でそれ以降のチェックを中止する
+fail_fast: true
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+        stages: [commit]
+      - id: end-of-file-fixer
+        stages: [commit]
+      - id: check-yaml
+        stages: [commit]
+
+  # プロジェクト内にインストールされた Black 等を使用します（`poetry run` 経由）。
+  # これによりツールのバージョンは pyproject.toml の dev-deps と一致します。
+  - repo: local
+    hooks:
+      - id: black
+        name: black (project)
+        entry: poetry run python scripts/hooks/run_check_with_status.py --check black
+        language: system
+        files: \.py$
+        stages: [commit]
+
+      - id: isort
+        name: isort (project)
+        entry: poetry run python scripts/hooks/run_check_with_status.py --check isort
+        language: system
+        files: \.py$
+        stages: [commit]
+
+      - id: flake8
+        name: flake8 (project)
+        entry: poetry run python scripts/hooks/run_check_with_status.py --check flake8
+        language: system
+        pass_filenames: false
+        stages: [commit]
+        args: ["--config=.flake8", "--exclude=tests"]
+
+      - id: flake8-tests
+        name: flake8 (tests)
+        entry: poetry run python scripts/hooks/run_check_with_status.py --check flake8
+        language: system
+        pass_filenames: false
+        stages: [commit]
+        args: ["--config=.flake8-tests", "tests"]
+
+      - id: mypy
+        name: mypy (project)
+        entry: poetry run python scripts/hooks/run_check_with_status.py --check mypy
+        language: system
+        files: \.py$
+        pass_filenames: false
+        args: ["app"]
+        stages: [commit]
+
+      - id: pylint
+        name: pylint (project)
+        entry: poetry run python scripts/hooks/run_check_with_status.py --check pylint
+        language: system
+        files: \.py$
+        pass_filenames: false
+        args: ["--rcfile=.pylintrc", "app"]
+        stages: [commit]
+
+      - id: unit-test-coverage-check
+        name: unit test coverage mapping check (project)
+        entry: poetry run python scripts/hooks/run_check_with_status.py --check unit-test-coverage
+        language: system
+        pass_filenames: false
+        stages: [commit]
+
+      - id: pytest
+        name: pytest (project)
+        entry: poetry run python scripts/hooks/run_check_with_status.py --check pytest
+        language: system
+        pass_filenames: false
+        stages: [commit]
+        args: ["tests"]
+
+      - id: final-status
+        name: final commit status summary
+        entry: poetry run python scripts/hooks/final_status_summary.py
+        language: system
+        pass_filenames: false
+        stages: [commit, push]
