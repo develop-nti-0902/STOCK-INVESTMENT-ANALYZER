@@ -13,5 +13,5 @@ applyTo: '**'
 特定のタスクを実行する際は、必ず以下の対応するドキュメントを参照し、その指針に従ってください。
 
 - **Commit Regulation Skill**
-  - コミットメッセージの作成、コミット規約の遵守
+  - コミット実施時に参照する
   - 📄 `.github/skills/commit_regulation/SKILL.md`
