@@ -14,10 +14,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
+
+# Ensure pre-commit hook output uses UTF-8 to avoid mojibake on Windows
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    # Some environments may not allow reconfigure; ignore and rely on PYTHONIOENCODING
+    pass
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 # リポジトリルートを特定（このスクリプトは scripts/hooks/ 配下に置かれる想定）
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -226,7 +236,9 @@ def run_pytest(args: List[str], files: List[str], status: Dict[str, Any]) -> int
     ]
 
     # 出力をキャプチャして "collected 0 items" を検出できるようにする
-    proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    proc = subprocess.run(
+        cmd, check=False, capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
     # pytest の出力をそのまま表示
     if proc.stdout:
         print(proc.stdout, end="")
@@ -268,7 +280,9 @@ def run_unit_test_coverage(args: List[str], files: List[str], status: Dict[str, 
         return 127
 
     cmd = [sys.executable, str(script), *args]
-    proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    proc = subprocess.run(
+        cmd, check=False, capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
     # Forward script output
     if proc.stdout:
         print(proc.stdout, end="")

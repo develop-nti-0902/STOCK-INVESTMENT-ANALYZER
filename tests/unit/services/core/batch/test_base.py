@@ -1,80 +1,48 @@
-"""Tests for batch execution base utilities and context manager."""
+"""Unit tests for `BaseBatchRunner` utilities."""
+
+from types import SimpleNamespace
 
 import pytest
 
-from app.services.core.batch.base import BaseBatchRunner, BatchExecutionContext
+from app.services.core.batch.base import BaseBatchRunner
 
 
-def test_chunk_iter_splits_list():
-    """`chunk_iter` がリストを指定サイズで分割することを検証する."""
-    items = [1, 2, 3, 4, 5]
-    chunks = list(BaseBatchRunner.chunk_iter(items, 2))
-    assert chunks == [[1, 2], [3, 4], [5]]
-
-
-@pytest.mark.asyncio
-async def test_update_ctx_progress_with_sync_and_async(monkeypatch):
-    """同期/非同期コンテキスト双方で `_update_ctx_progress` が動作することを確認する."""
-
-    class Ctx:
-        def __init__(self):
-            self.called = False
-
-        def update_progress(self, **kwargs):
-            self.called = True
-
-    runner = BaseBatchRunner(batch_service=object())
-    ctx = Ctx()
-    await runner._update_ctx_progress(ctx, a=1)
-    assert ctx.called
-
-    class AsyncCtx:
-        def __init__(self):
-            self.called = False
-
-        async def update_progress(self, **kwargs):
-            self.called = True
-
-    actx = AsyncCtx()
-    await runner._update_ctx_progress(actx, b=2)
-    assert actx.called
+def test_chunk_iter_splits_correctly():
+    """chunk_iter が指定サイズでリストを分割することを検証する."""
+    items = list(range(7))
+    chunks = list(BaseBatchRunner.chunk_iter(items, 3))
+    assert chunks == [[0, 1, 2], [3, 4, 5], [6]]
 
 
 @pytest.mark.asyncio
-async def test_batch_execution_context_create_and_finish_sync(monkeypatch):
-    """BatchExecutionContext が同期サービスで作成・終了できることを確認する."""
+async def test_update_ctx_progress_handles_various_updaters():
+    """_update_ctx_progress が同期/非同期の updater を正しく扱うことを検証する."""
+    runner = BaseBatchRunner()
 
-    class Ctx:
-        def __init__(self):
-            self.finished = False
+    # no ctx -> should be no-op
+    await runner._update_ctx_progress(None, processed=1)
 
-        def finish(self, success: bool, error: str | None = None):
-            self.finished = True
+    # sync updater
+    called = {}
 
-    class Service:
-        def create_context(self, job_type, params):
-            return Ctx()
+    def sync_updater(**kwargs):
+        called["sync"] = kwargs
 
-    svc = Service()
-    async with BatchExecutionContext(svc, job_type="j", params={}) as ctx:
-        assert ctx is not None
+    ctx_sync = SimpleNamespace(update_progress=sync_updater)
+    await runner._update_ctx_progress(ctx_sync, processed=2)
+    assert called["sync"]["processed"] == 2
 
+    # async updater
+    async def async_updater(**kwargs):
+        called["async"] = kwargs
 
-@pytest.mark.asyncio
-async def test_batch_execution_context_start_job_async_and_finish_async(monkeypatch):
-    """非同期サービスで BatchExecutionContext が作成・完了することを確認する."""
+    ctx_async = SimpleNamespace(update_progress=async_updater)
+    await runner._update_ctx_progress(ctx_async, processed=3)
+    assert called["async"]["processed"] == 3
 
-    class Ctx:
-        def __init__(self):
-            self.finished = False
+    # updater that raises should be swallowed
+    def bad_updater(**kwargs):
+        raise RuntimeError("boom")
 
-        async def finish(self, success: bool, error: str | None = None):
-            self.finished = True
-
-    class Service:
-        async def start_job(self, job_type, params):
-            return Ctx()
-
-    svc = Service()
-    async with BatchExecutionContext(svc, job_type="j2", params={}) as ctx:
-        assert ctx is not None
+    ctx_bad = SimpleNamespace(update_progress=bad_updater)
+    await runner._update_ctx_progress(ctx_bad, processed=4)

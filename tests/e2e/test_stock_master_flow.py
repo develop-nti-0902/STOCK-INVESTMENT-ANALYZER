@@ -1,26 +1,23 @@
 """Stock master flow E2E tests."""
 
 # flake8: noqa
-
 import asyncio
 import time
 
+import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.utils.database import get_database_url
 from tests.e2e.utils import fetch_stock_master_for_artifact, run_async_safely, write_csv_artifact
 
+# Ensure all e2e tests run on the same xdist worker (loadgroup)
+pytestmark = pytest.mark.xdist_group("e2e")
+
 
 async def _cleanup_batch_executions() -> None:
-    """バッチ実行レコードをすべて削除する。"""
-    engine = create_async_engine(get_database_url())
-    try:
-        async with engine.begin() as conn:
-            # batch_execution_details は CASCADE で削除される
-            await conn.execute(text("DELETE FROM batch_executions"))
-    finally:
-        await engine.dispose()
+    """BatchExecution table removed — nothing to cleanup."""
+    await asyncio.sleep(0)
 
 
 def test_stock_master_flow(client):

@@ -1,30 +1,24 @@
 """Stock price fetch E2E tests."""
 
 # flake8: noqa
-
 import asyncio
 import time
 from typing import List
 
+import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.utils.database import get_database_url
 from tests.e2e.utils import run_async_safely, write_csv_artifact
 
+# Ensure all e2e tests run on the same xdist worker (loadgroup)
+pytestmark = pytest.mark.xdist_group("e2e")
+
 
 async def _cleanup_batch_executions():
-    """
-    batch_executions テーブルの全レコードを削除する。
-    CASCADE により batch_execution_details も削除される。
-    """
-    engine = create_async_engine(get_database_url())
-    try:
-        async with engine.begin() as conn:
-            await conn.execute(text("DELETE FROM batch_executions"))
-            print("DEBUG: Cleanup - Batch execution records deleted")
-    finally:
-        await engine.dispose()
+    # BatchExecution table removed — nothing to cleanup.
+    await asyncio.sleep(0)
 
 
 async def _fetch_table_rows_for_1d():

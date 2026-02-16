@@ -7,8 +7,6 @@ from app.models.core.base import Base, TimestampMixin
 from .account_portfolios import AccountPortfolios
 from .account_transactions import AccountTransactions
 from .accounts import Account
-from .batch_execution import BatchExecution
-from .batch_execution_details import BatchExecutionDetails
 from .market_data import stock_master
 from .market_data.edinet import (
     EdinetBalanceSheet,
@@ -47,7 +45,5 @@ __all__ = [
     "Stocks1d",
     "Stocks1wk",
     "Stocks1mo",
-    "BatchExecution",
     "StockMasterUpdates",
-    "BatchExecutionDetails",
 ]

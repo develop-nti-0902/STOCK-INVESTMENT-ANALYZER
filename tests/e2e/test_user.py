@@ -5,22 +5,20 @@
 import asyncio
 import uuid
 
+import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.utils.database import get_database_url
 from tests.e2e.utils import run_async_safely, write_csv_artifact
 
+# Ensure all e2e tests run on the same xdist worker (loadgroup)
+pytestmark = pytest.mark.xdist_group("e2e")
+
 
 async def _cleanup_batch_executions() -> None:
-    """batch_executionsテーブルのクリーンアップ（CASCADE でbatch_execution_detailsも削除）"""
-    engine = create_async_engine(get_database_url())
-    try:
-        async with engine.connect() as conn:
-            async with conn.begin():
-                await conn.execute(text("DELETE FROM batch_executions"))
-    finally:
-        await engine.dispose()
+    """No-op cleanup: batch_executions table removed in finalization."""
+    await asyncio.sleep(0)
 
 
 def test_get_me_and_change_password(client):

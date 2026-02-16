@@ -10,6 +10,9 @@ import pytest
 
 from tests.e2e.utils import run_async_safely, write_csv_artifact, write_json_artifact
 
+# Ensure all e2e tests run on the same xdist worker (loadgroup)
+pytestmark = pytest.mark.xdist_group("e2e")
+
 
 async def _fetch_edinet_balance_sheet_rows():
     """edinet_balance_sheets テーブルから全データを取得する.

@@ -8,11 +8,7 @@ FastAPIのDependsパターンを使用したRepositoryとService提供を定義�
 """
 
 from .auth import get_current_active_user, get_current_superuser, get_current_user
-from .repositories import (
-    get_base_repository,
-    get_batch_execution_repository,
-    get_stock_master_repository,
-)
+from .repositories import get_base_repository, get_stock_master_repository
 from .services import (
     get_stock_price_converter,
     get_stock_price_fetcher,
@@ -24,7 +20,6 @@ from .services import (
 __all__ = [
     "get_base_repository",
     "get_stock_master_repository",
-    "get_batch_execution_repository",
     "get_stock_price_fetcher",
     "get_stock_price_converter",
     "get_stock_price_validator",

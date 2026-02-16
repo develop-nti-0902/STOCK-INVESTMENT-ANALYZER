@@ -15,13 +15,11 @@ from typing import Any, cast
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.batch_execution_repository import BatchExecutionRepository
 from app.repositories.latest_stocks_repository import LatestStocksRepository
 from app.repositories.market_data.stock_master import (
     StockMasterRepository,
     StockMasterUpdatesRepository,
 )
-from app.services.batch.batch_execution_service import BatchExecutionService
 from app.services.market_data.edinet.balance_sheet.converter import EdinetBalanceSheetConverter
 from app.services.market_data.edinet.balance_sheet.parser import EdinetBalanceSheetParser
 from app.services.market_data.edinet.balance_sheet.saver import EdinetBalanceSheetSaver
@@ -60,34 +58,6 @@ from app.utils.database import get_db
 
 # Alias for profit-and-loss file manager (kept for backward compatibility)
 EdinetProfitAndLossFileManager = EdinetFileManager
-
-
-def get_batch_execution_repository(
-    db: AsyncSession = Depends(get_db),
-) -> BatchExecutionRepository:
-    """BatchExecutionRepository を提供する依存性プロバイダ.
-
-    Args:
-        db (AsyncSession): 非同期DBセッション
-
-    Returns:
-        BatchExecutionRepository: バッチ実行データアクセスリポジトリ
-    """
-    return BatchExecutionRepository(session=db)
-
-
-def get_batch_execution_service(
-    repo: BatchExecutionRepository = Depends(get_batch_execution_repository),
-) -> BatchExecutionService:
-    """BatchExecutionService を提供する依存性プロバイダ.
-
-    Args:
-        repo (BatchExecutionRepository): バッチ実行リポジトリ
-
-    Returns:
-        BatchExecutionService: バッチ実行のビジネスロジックサービス
-    """
-    return BatchExecutionService(repository=repo)
 
 
 def get_stock_price_fetcher() -> StockPriceFetcher:
@@ -181,7 +151,6 @@ def get_stock_price_service(
     converter: StockPriceConverter = Depends(get_stock_price_converter),
     validator: StockPriceValidator = Depends(get_stock_price_validator),
     stock_master: StockMasterService = Depends(get_stock_master_service),
-    batch_service: BatchExecutionService = Depends(get_batch_execution_service),
 ) -> StockPriceService:
     """StockPriceService を提供する依存性プロバイダ（オーケストレーション層）.
 
@@ -196,14 +165,13 @@ def get_stock_price_service(
     Returns:
         StockPriceService: 株価データ収集・保存をオーケストレートするサービス
     """
-    # StockMasterService と BatchExecutionService を注入して StockPriceService を生成
+    # StockMasterService を注入して StockPriceService を生成
     return StockPriceService(
         fetcher=fetcher,
         saver=saver,
         converter=converter,
         validator=validator,
         stock_master_service=stock_master,
-        batch_service=batch_service,
     )
 
 

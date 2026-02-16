@@ -56,25 +56,6 @@ def get_stock_master_repository(
     return StockMasterRepository(session=db)
 
 
-def get_batch_execution_repository(
-    db: AsyncSession = Depends(get_db),
-) -> BaseRepository[Any]:
-    """BatchExecutionRepository を提供する依存性プロバイダ.
-
-    遅延インポートで循環依存を回避して `BatchExecutionRepository` を生成します。
-
-    Args:
-        db (AsyncSession): 非同期DBセッション
-
-    Returns:
-        BaseRepository[Any]: `BatchExecutionRepository` のインスタンス
-    """
-    # pylint: disable=import-outside-toplevel
-    from app.repositories.batch_execution_repository import BatchExecutionRepository
-
-    return BatchExecutionRepository(session=db)
-
-
 # 以下は、各エンティティ専用のRepositoryプロバイダの例
 # 実際のモデルとRepositoryクラスが実装された後に追加する
 
