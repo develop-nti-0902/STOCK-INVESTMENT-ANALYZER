@@ -3,6 +3,8 @@
 #   これにより、プロジェクトの dev-deps に記載されたツールを一元管理できます。
 # - 軽量なチェック（末尾空白削除、EOF 修正、YAML 構文チェック等）は公式フックを使用し、
 #   重いチェック（mypy や pylint）はコミット時の遅延を避けるため push ステージで実行します。
+# フックのうちいずれかが失敗した時点でそれ以降のチェックを中止する
+fail_fast: true
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -67,21 +69,20 @@ repos:
         args: ["--rcfile=.pylintrc", "app"]
         stages: [commit]
 
-      - id: pytest
-        name: pytest (project)
-        entry: poetry run python scripts/hooks/run_check_with_status.py --check pytest
-        language: system
-        pass_filenames: false
-        stages: [push]
-        # Run tests across the tests/ directory on push
-        args: ["tests"]
-
       - id: unit-test-coverage-check
         name: unit test coverage mapping check (project)
         entry: poetry run python scripts/hooks/run_check_with_status.py --check unit-test-coverage
         language: system
         pass_filenames: false
         stages: [commit]
+
+      - id: pytest
+        name: pytest (project)
+        entry: poetry run python scripts/hooks/run_check_with_status.py --check pytest
+        language: system
+        pass_filenames: false
+        stages: [commit]
+        args: ["tests"]
 
       - id: final-status
         name: final commit status summary
