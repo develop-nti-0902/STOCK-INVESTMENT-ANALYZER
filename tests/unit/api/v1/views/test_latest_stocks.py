@@ -15,21 +15,21 @@ class FakeService:
         self._job_id = job_id
         self._raise_on = raise_on
 
-    async def enqueue_refresh(self):
-        """Enqueue refresh or raise ServiceError when configured."""
+    async def run_refresh(self):
+        """Run refresh or raise ServiceError when configured."""
         if self._raise_on:
-            raise ServiceError(message="enqueue failed")
-        return self._job_id
+            raise ServiceError(message="refresh failed")
+        return None
 
 
 @pytest.mark.asyncio
 async def test_refresh_latest_stocks_success():
     """Verify refresh_latest_stocks returns job id on success."""
-    service = FakeService(job_id=999)
+    service = FakeService()
 
     resp = await refresh_latest_stocks(service=service)
 
-    assert resp["job_id"] == 999
+    assert resp["status"] == "completed"
 
 
 @pytest.mark.asyncio

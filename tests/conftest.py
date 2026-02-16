@@ -7,6 +7,7 @@
 
 import asyncio
 import gc
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
@@ -15,6 +16,23 @@ from fastapi.testclient import TestClient
 from app.main import app as fastapi_app
 from app.utils.database import close_db
 from app.utils.database import get_db as real_get_db
+
+
+def _is_e2e_test_item(item: pytest.Item) -> bool:
+    path = getattr(item, "path", None)
+    if path is None:
+        path = Path(str(item.fspath))
+    path_str = str(path).replace("\\", "/")
+    return "/tests/e2e/" in path_str
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    for item in items:
+        if not _is_e2e_test_item(item):
+            continue
+
+        item.add_marker(pytest.mark.e2e)
+        item.add_marker(pytest.mark.xdist_group("e2e"))
 
 
 @pytest.fixture(scope="function", autouse=True)

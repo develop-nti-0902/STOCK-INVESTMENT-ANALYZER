@@ -207,11 +207,12 @@ def get_stock_price_service(
     )
 
 
-def get_latest_stocks_refresh_service(
-    batch_service: BatchExecutionService = Depends(get_batch_execution_service),
-) -> LatestStocksRefreshService:
-    """LatestStocksRefreshService を提供する依存性プロバイダ."""
-    return LatestStocksRefreshService(batch_service=batch_service)
+def get_latest_stocks_refresh_service() -> LatestStocksRefreshService:
+    """LatestStocksRefreshService を提供する依存性プロバイダ.
+
+    バッチ管理を廃止したため、`BatchExecutionService` への依存を取り除きます。
+    """
+    return LatestStocksRefreshService()
 
 
 def get_latest_stocks_repository(

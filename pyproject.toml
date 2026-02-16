@@ -48,6 +48,7 @@ pytest-cov = "^4.0"
 coverage = "^7.0"
 alembic = "^1.17.0"
 flake8-docstrings = "^1.7.0"
+pytest-xdist = "^3.8.0"
 
 [tool.poetry.scripts]
 # 例: `poetry run sia` で main を起動したい場合
@@ -86,13 +87,14 @@ warn_unused_configs = false
 # ------------------------------------------------------------
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --cov=app --cov-report=term-missing"
+addopts = "-ra -q --cov=app --cov-report=term-missing -n auto --dist=loadgroup"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 markers = [
     "integration: mark a test as integration",
     "e2e: mark a test as end-to-end",
     "slow: mark a test as slow (e.g., performance tests)",
+    "xdist_group(name): run tests in the same group on the same worker",
 ]
 filterwarnings = [
     # Ignore deprecation warnings originating from third-party XBRL parser internals
