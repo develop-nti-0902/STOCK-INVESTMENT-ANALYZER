@@ -67,7 +67,8 @@ jobs:
       - name: Run Alembic migrations
         run: |
           # Alembic は alembic.ini 内で env.py によって環境変数から DB 接続情報を取得します
-          poetry run alembic upgrade head
+          # 複数の head が存在する場合にすべて適用するため 'heads' を使用します
+          poetry run alembic upgrade heads
 
       - name: Run tests
         run: |
