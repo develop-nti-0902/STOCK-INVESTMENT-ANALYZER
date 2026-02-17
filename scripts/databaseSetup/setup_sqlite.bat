@@ -79,9 +79,9 @@ if not defined DATABASE_URL (
   exit /b 1
 )
 
-echo Running Alembic migrations (upgrade head)...
+echo Running Alembic migrations (upgrade heads)...
 pushd "%REPO_ROOT%" >nul 2>&1
-%PYTHON_CMD% -m alembic -c "%REPO_ROOT%alembic.ini" upgrade head || (
+%PYTHON_CMD% -m alembic -c "%REPO_ROOT%alembic.ini" upgrade heads || (
   popd >nul 2>&1
   echo [ERROR] Alembic migration failed
   exit /b 1

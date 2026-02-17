@@ -1,6 +1,6 @@
 ---
 name: commit-regulation-skill
-description: コミットを行うスキル。「コミット」「コミットして」のリクエストで使用。
+description: コミットを行うスキル。「コミット」で発火。
 ---
 
 # Commit Regulation Skill

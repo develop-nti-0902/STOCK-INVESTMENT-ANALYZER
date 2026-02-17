@@ -1,577 +1,259 @@
-# 高配当株スクリーニングシステム 設計書
+﻿# 高配当株スクリーニングシステム 設計書
 
 ## 1. システム概要
 
 ### 1.1 目的
 
-高配当株投資ルールに基づいて、銘柄のスクリーニング、監視、購入判断、売却判断を自動化するシステムを構築する。
+高配当株投資ルールに基づいて、銘柄のスクリーニングスコアリングを行い、監視リスト候補を特定する。
 
-### 1.2 4つのフェーズ
+### 1.2 処理フロー
 
 ```mermaid
 graph LR
-    A[全銘柄] --> B[スクリーニング<br/>必須条件判定]
-    B --> C[スクリーニング<br/>ポイント評価]
-    C --> D[監視リスト<br/>70点以上]
-    D --> E[購入候補<br/>配当利回り判定]
- 5. 処理（同期実行）作成
+    A[既存DBデータ<br/>edinet_*] --> B[FinancialQueryService<br/>財務データ集約取得]
+    B --> C[SimpleScreeningService<br/>必須条件判定 / スコア計算]
+    C --> D[ターミナル出力<br/>通過銘柄コード一覧]
 ```
 
-1. **スクリーニング**: 財務指標で企業の質を判定（年1回更新）
-2. **監視**: 株価・配当利回りで買い時を判定（日次更新）
----
-## 2. データモデル設計
-
-## ファイル構成
-
-この設計に基づいて新たに作成する（もしくは配置を想定する）主要ファイル・ディレクトリ構成を示します。実装時は既存のプロジェクト構成に合わせてファイルを追加してください。
-
-### 実装スコープ（本ドキュメントで優先する範囲）
-
-- 本フェーズの優先実装範囲: バックエンドの処理（ルール評価 → スコア計算 → `screening_results`/`watch_list` への永続化）までを対象とします。
-- フロントエンド（画面/UI）は後工程とし、本ドキュメントでは詳細設計・ファイル作成は行いません。
-- 優先で作成するファイル群: `app/models/screening/*`, `app/repositories/screening/*`, `app/services/screening/*`, `scripts/batch/*`, `alembic/versions/*`。
-- フロントエンド関連ファイルや画面仕様はPhase 4（実装完了後）で別途追加します。
-
- - app/
-        - models/
-            - screening/
-                - screening_result.py       # `ScreeningResult` ORMモデル
-                - watch_list.py             # `WatchList` ORMモデル
-        - repositories/
-            - screening/
-                - screening_result_repository.py  # `ScreeningResultRepository` (CRUD, upsert)
-                - watch_list_repository.py        # `WatchListRepository`
-            - rule_repository.py              # ルール定義の読み書き（ファイル or DB）
-        - services/
-            - screening/
-                - rule_engine.py           # ルール読み込み・条件評価・スコア合成
-                - screening_service.py     # スクリーニング実行・結果永続化
-                - watch_list_service.py    # 監視リスト更新・購入候補抽出
-                - financial_analysis_service.py  # 配当/EPS/CF取得・トレンド計算
-        - api/
-            - v1/
-                - screening.py             # POST /api/v1/screening/execute 等
-                - watch_list.py            # 監視リスト関連API
-
-- scripts/
-    - batch/
-        - batch_screening.py                 # 年次スクリーニング実行バッチ
-        - batch_update_watch_list_prices.py  # 日次価格更新バッチ
-
-- app/rules/
-    - core_v1.yaml                # 運用ルールセット（YAML）
-
-- alembic/versions/
-    - <timestamp>_create_screening_and_watchlist_tables.py  # マイグレーション
-
-注意:
-- 既存の `edinet_*` モデルやリポジトリは流用します。新規モデルは既存DB設計（`alembic`）と整合させてください。
-- ルールと演算子（operator）は `rule_engine.py` 側でプラグイン的に追加できる設計を推奨します。
+1. **財務データ集約** (`financial_query_service.py`): 既存EDINETリポジトリから配当・EPS・CF・売上データを取得し整形する。
+2. **スクリーニング実行** (`simple_screening_service.py`): 必須条件チェックと4軸スコア計算を行い、**結果をターミナルに出力する（DB保存なし）**。
 
 ---
 
-## 2. データモデル設計
+## 2. ファイル構成
 
-### 2.1 既存テーブル（財務データ）
+### 2.1 サービス層ディレクトリ構成
 
-以下のテーブルは既に実装済み：
+**今回追加するファイルは2ファイルのみ。** その他の既存コードは変更しない。
 
-- `edinet_profit_and_loss`: 損益計算書（売上高、営業利益、EPS）
-- `edinet_cash_flow_statement`: キャッシュフロー計算書（営業CF）
-- `edinet_stock_dividend`: 配当データ（年間配当金実績）
+```
+app/services/
+    integration/           # 外部APIDB保存（既存）
+        stock_master/
+        stock_price/
+        edinet/
+    query/                 # DB取得整形（新規ファイル追加）
+        financial_query_service.py     新規作成
+    screening/             # ルール判定スコア計算（新規ファイル追加）
+        simple_screening_service.py    新規作成
+```
 
-### 2.2 新規テーブル（スクリーニング結果）
+### 2.2 既存コードの活用（新規作成不要）
 
-#### screening_results（スクリーニング結果）
+| カテゴリ         | 既存ファイル / クラス               |
+| ---------------- | ----------------------------------- |
+| 損益計算書データ | `EdinetProfitAndLossRepository`     |
+| CF計算書データ   | `EdinetCashFlowStatementRepository` |
+| 配当データ       | `EdinetStockDividendRepository`     |
 
-銘柄ごとのスクリーニング結果を保存する。
+> `ScreeningResult` はPhase 2では `simple_screening_service.py` 内の `dataclass` として定義する。ORMモデル / リポジトリはPhase 3で別途作成する。
 
-| カラム名                 | 型          | NULL | 説明                                 |
-| ------------------------ | ----------- | ---- | ------------------------------------ |
-| id                       | INTEGER     | NO   | 主キー                               |
-| sec_code                 | VARCHAR(10) | NO   | 証券コード                           |
-| evaluation_date          | DATE        | NO   | 評価実施日                           |
-| fiscal_year_end          | DATE        | NO   | 評価対象の最新決算期末日             |
-| pass_required_conditions | BOOLEAN     | NO   | 必須条件クリアフラグ                 |
-| total_score              | INTEGER     | NULL | 総合スコア（0-100点）                |
-| score_dividend           | INTEGER     | NULL | 配当実績スコア（0-30点）             |
-| score_eps                | INTEGER     | NULL | EPS成長スコア（0-30点）              |
-| score_stability          | INTEGER     | NULL | 事業安定性スコア（0-20点）           |
-| score_profitability      | INTEGER     | NULL | 収益性維持スコア（0-20点）           |
-| status                   | VARCHAR(20) | NO   | ステータス（候補外/監視/積極/優先）  |
-| failed_conditions        | JSONB       | NULL | 不合格となった条件リスト             |
-| screening_details        | JSONB       | NULL | スクリーニング詳細データ（JSON形式） |
-| created_at               | TIMESTAMP   | NO   | レコード作成日時                     |
-| updated_at               | TIMESTAMP   | NO   | レコード更新日時                     |
+### 2.3 後工程（本ドキュメントのスコープ外）
+
+- `WatchList` モデル / リポジトリ / サービス
+- APIエンドポイント (`app/api/v1/screening.py`)
+- バッチスクリプト (`scripts/batch/batch_screening.py`)
+- フロントエンド画面
+
+---
+
+## 3. データモデル設計
+
+### 3.1 既存テーブル（財務データ）- 変更なし
+
+| テーブル名                   | 内容                 |
+| ---------------------------- | -------------------- |
+| `edinet_profit_and_loss`     | 売上高営業利益EPS    |
+| `edinet_cash_flow_statement` | 営業キャッシュフロー |
+| `edinet_stock_dividend`      | 年間配当金実績       |
+
+### 3.2 新規テーブル: `screening_results`（今後追加予定）
+
+> **現時点では作成不要。** Phase 3以降でAPIエンドポイント・バッチ処理を追加する際に合わせて作成する。
+
+| カラム名                 | 型          | NULL | 説明                                             |
+| ------------------------ | ----------- | ---- | ------------------------------------------------ |
+| id                       | INTEGER     | NO   | 主キー                                           |
+| sec_code                 | VARCHAR(10) | NO   | 証券コード                                       |
+| evaluation_date          | DATE        | NO   | 評価実施日                                       |
+| fiscal_year_end          | DATE        | NULL | 評価対象の最新決算期末日                         |
+| pass_required_conditions | BOOLEAN     | NO   | 必須条件クリアフラグ                             |
+| total_score              | INTEGER     | NULL | 総合スコア（0〜100点）                           |
+| score_dividend           | INTEGER     | NULL | 配当実績スコア（0〜30点）                        |
+| score_eps                | INTEGER     | NULL | EPS成長スコア（0〜30点）                         |
+| score_stability          | INTEGER     | NULL | 事業安定性スコア（0〜20点）                      |
+| score_profitability      | INTEGER     | NULL | 収益性維持スコア（0〜20点）                      |
+| status                   | VARCHAR(20) | NO   | `not_eligible` / `watch` / `active` / `priority` |
+| failed_conditions        | JSON        | NULL | 不合格条件リスト                                 |
+| screening_details        | JSON        | NULL | 計算詳細データ                                   |
+| created_at               | TIMESTAMP   | NO   | 作成日時                                         |
+| updated_at               | TIMESTAMP   | NO   | 更新日時                                         |
 
 **ユニーク制約**: `(sec_code, evaluation_date)`
 
-#### watch_list（監視リスト）
+---
 
-監視対象銘柄（70点以上）の最新状態を管理する。
+## 4. サービス層設計
 
-| カラム名            | 型             | NULL | 説明                             |
-| ------------------- | -------------- | ---- | -------------------------------- |
-| id                  | INTEGER        | NO   | 主キー                           |
-| sec_code            | VARCHAR(10)    | NO   | 証券コード                       |
-| screening_result_id | INTEGER        | NO   | スクリーニング結果ID（FK）       |
-| current_price       | NUMERIC(10, 2) | NULL | 最新株価                         |
-| dividend_yield      | NUMERIC(5, 2)  | NULL | 配当利回り（%）                  |
-| watch_level         | VARCHAR(20)    | NO   | 監視レベル（監視強化/検討/優先） |
-| status              | VARCHAR(20)    | NO   | ステータス（監視中/購入済/除外） |
-| added_date          | DATE           | NO   | 監視リスト追加日                 |
-| last_updated        | TIMESTAMP      | NO   | 最終更新日時                     |
-| notes               | TEXT           | NULL | メモ                             |
+### 4.1 `FinancialQueryService`（`query/financial_query_service.py`）
 
-**ユニーク制約**: `sec_code`（1銘柄1レコード）
+**責務**: 既存のEDINETリポジトリを束ねて、スクリーニングに必要な財務系時系列データを銘柄単位で取得整形する。
 
+**依存リポジトリ**:
+- `EdinetStockDividendRepository`
+- `EdinetProfitAndLossRepository`
+- `EdinetCashFlowStatementRepository`
+
+**内部データクラス**:
+
+| クラス名          | フィールド                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------- |
+| `DividendRecord`  | `fiscal_year_end: date`, `dividend_per_share: float`                                              |
+| `EpsRecord`       | `fiscal_year_end: date`, `eps: float`                                                             |
+| `CfRecord`        | `fiscal_year_end: date`, `operating_cf: float`                                                    |
+| `StabilityRecord` | `fiscal_year_end: date`, `net_sales: float`, `operating_income: float`, `operating_margin: float` |
+
+**公開メソッド**:
+
+| メソッド                   | 引数                  | 戻り値                  | 説明                                      |
+| -------------------------- | --------------------- | ----------------------- | ----------------------------------------- |
+| `get_dividend_history`     | `sec_code`, `years=5` | `list[DividendRecord]`  | 過去N年の配当履歴（古い順）               |
+| `get_eps_history`          | `sec_code`, `years=5` | `list[EpsRecord]`       | 過去N年のEPS履歴（古い順）                |
+| `get_operating_cf_history` | `sec_code`, `years=5` | `list[CfRecord]`        | 過去N年の営業CF履歴（古い順）             |
+| `get_stability_history`    | `sec_code`, `years=5` | `list[StabilityRecord]` | 過去N年の売上営業利益営業利益率（古い順） |
 
 ---
 
-## 3. サービス層設計
+### 4.2 `SimpleScreeningService`（`screening/simple_screening_service.py`）
 
-### 3.1 ScreeningService（スクリーニングサービス）
-**責務**: スクリーニングルールを外部定義（YAML/JSON）で管理し、ルールエンジンで柔軟に評価・スコアリングする。
+**責務**: `FinancialQueryService` から財務データを受け取り、必須条件チェック・スコア計算を実行する。**DB保存は行わず、結果をターミナルに出力する。** ルール評価はprivateメソッドとして直接実装する（YAML/外部ファイル不要）。
 
-設計方針:
-- ルールはコードにハードコーディングせず、`app/rules/` または `config/rules.yaml` で定義する。運用中にルールセットを切り替えられるようにする。
-- ルールは小さい単位（条件）を組み合わせて1つの評価ルール（スコア配分）を構成する。各条件は比較演算子・閾値・重みを持ち、評価時に合算して総合スコアを算出する。
-- ルールはバージョン管理・有効/無効フラグ・優先度を持つ。
+**依存サービス**:
+- `FinancialQueryService`（`ScreeningResultRepository` への依存なし）
 
-主要コンポーネント:
-- `RuleEngine` (`app/services/screening/rule_engine.py`): ルールの読み込み、検証、個別条件の評価、スコア合成を行う。
-- `RuleRepository` (`app/repositories/screening/rule_repository.py`): ルール定義のCRUD（DB またはファイルストア）。
-- `ScreeningService` (`app/services/screening/screening_service.py`): ルールエンジンを呼び出し、`ScreeningResult` を生成する責務。実行は同期処理（CLI / API 呼び出し）を想定する。
-
-主要メソッド例:
-
-```python
-class ScreeningService:
-        def __init__(self, rule_engine: RuleEngine, rule_repo: RuleRepository):
-                self.rule_engine = rule_engine
-                self.rule_repo = rule_repo
-
-        def execute_screening(self, sec_codes: list[str], evaluation_date: date, rule_set_id: str | None = None) -> list[ScreeningResult]:
-                """全銘柄のスクリーニングを同期的に実行。rule_set_id で使用するルールセットを切替可能。"""
-
-        def evaluate_for_security(self, sec_code: str, rule_set: RuleSet) -> ScreeningResult:
-                """単一銘柄に対してルールセットを評価し、詳細スコアを返す。"""
-
-        def load_rule_set(self, rule_set_id: str) -> RuleSet:
-                """RuleRepository からルールセットを取得して `RuleEngine` 用に整形する。"""
+**出力イメージ（ターミナル）**:
+```
+[2026-02-18] スクリーニング結果
+通過銘柄: 7203, 6758, 4502
+---
+7203: スコア85 (priority) - 配当30/EPS25/安定20/収益10
+6758: スコア72 (active)   - 配当20/EPS22/安定20/収益10
+4502: スコア55 (watch)    - 配当20/EPS15/安定10/収益10
+不合格: 9999 (eps_health, operating_cf)
 ```
 
-ルール定義の例（YAML）:
+**公開メソッド**:
 
-```yaml
-id: core_v1
-version: 2026-02-14
-description: 基本スクリーニングルールセット
-enabled: true
-rules:
-    - id: dividend_continuity
-        weight: 30
-        conditions:
-            - metric: dividends
-                operator: reduce_trend_increase_years
-                params: {years: 5, min_years: 3}
-            - metric: dividends
-                operator: consecutive_increase
-                params: {years: 2}
-    - id: eps_growth
-        weight: 30
-        conditions:
-            - metric: eps
-                operator: positive_all_years
-                params: {years: 5}
-            - metric: eps
-                operator: kendall_tau
-                params: {threshold: 0.4}
-```
+| メソッド   | 引数                                            | 戻り値            | 説明                                             |
+| ---------- | ----------------------------------------------- | ----------------- | ------------------------------------------------ |
+| `run`      | `sec_codes: list[str]`, `evaluation_date: date` | `None`            | 複数銘柄をスクリーニングしてターミナルに結果出力 |
+| `evaluate` | `sec_code: str`, `evaluation_date: date`        | `ScreeningResult` | 単一銘柄を評価してdataclassで結果を返す          |
 
-この形式により、新しい条件（operator）を `RuleEngine` に追加するだけで運用ルールを拡張可能です。
+> **`ScreeningResult`** はPhase 2ではORMモデルではなく、同ファイル内に定義するシンプルな `dataclass` として実装する。
 
-評価時の流れ:
-1. `ScreeningService` が `RuleRepository` から有効な `RuleSet` を取得
-2. `RuleEngine` が各銘柄の指標（配当/EPS/CF/営業利益率 等）を `FinancialAnalysisService` から取得
-3. 個々の条件を評価し、条件ごとの点数・重みづけで合算して総合スコアを算出
-4. `ScreeningResult` を作成・永続化し、`WatchListService` で監視リストを更新
+**必須条件チェック（privateメソッド）**:
 
-利点:
-- ルールの変更・追加がコード変更不要で行える（運用設定で対応）
-- ルールのABテスト、バージョン比較が容易
-- 条件の複雑化（複合条件、閾値テーブル、セクター別補正等）へ柔軟に対応可能
+| メソッド                     | チェック内容                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------------- |
+| `_check_dividend_continuity` | 過去5年の配当：減配回数 ≤ 2回 かつ 直近2年で連続減配なし                              |
+| `_check_eps_health`          | 過去5年のEPS：赤字（EPS ≤ 0）なし かつ 直近2年連続減少なし かつ 直近1年の減少率 < 30% |
+| `_check_operating_cf`        | 過去5年の営業CF：4年以上プラス                                                        |
 
+**スコア計算（privateメソッド）**:
 
-### 3.2 WatchListService（監視リストサービス）
+| メソッド               | 配点    | 加点条件（各+10点）                                                       |
+| ---------------------- | ------- | ------------------------------------------------------------------------- |
+| `_score_dividend`      | 0〜30点 | 増配年 ≥ 3年 / 過去5年で2年以上連続増配の期間あり / Kendall τ > 0.4       |
+| `_score_eps`           | 0〜30点 | EPS増加年 ≥ 3年 / 過去5年で2年以上連続EPS増加の期間あり / Kendall τ > 0.4 |
+| `_score_stability`     | 0〜20点 | 売上増加年 ≥ 3年 / 営業利益増加年 ≥ 3年                                   |
+| `_score_profitability` | 0〜20点 | 前年差マイナスが ≤ 2回 / 2.0pt以上の低下が2年連続なし                     |
 
-**責務**: 監視リストの管理と株価監視
+**ユーティリティ（staticmethod）**:
 
-**主要メソッド**:
-
-```python
-class WatchListService:
-    async def update_watch_list(
-        self,
-        screening_results: list[ScreeningResult]
-    ) -> None:
-        """スクリーニング結果から監視リストを更新（70点以上）"""
-        pass
-
-    async def update_stock_prices(self) -> None:
-        """監視銘柄の最新株価と配当利回りを更新"""
-        pass
-
-    async def get_purchase_candidates(
-        self,
-        min_yield: float = 3.5
-    ) -> list[WatchListItem]:
-        """購入候補銘柄を取得（配当利回り条件付き）"""
-        pass
-```
-
-
-### 3.5 FinancialAnalysisService（財務分析サービス）
-
-**責務**: 財務データの取得と計算
-
-**主要メソッド**:
-
-```python
-class FinancialAnalysisService:
-    async def get_dividend_history(
-        self,
-        sec_code: str,
-        years: int = 5
-    ) -> list[DividendRecord]:
-        """過去N年の配当履歴を取得"""
-        pass
-
-    async def calculate_dividend_trend(
-        self,
-        dividends: list[float]
-    ) -> float:
-        """配当トレンドを計算（Kendallのτ）"""
-        pass
-
-    async def get_eps_history(
-        self,
-        sec_code: str,
-        years: int = 5
-    ) -> list[EPSRecord]:
-        """過去N年のEPS履歴を取得"""
-        pass
-
-    async def calculate_eps_trend(
-        self,
-        eps_list: list[float]
-    ) -> float:
-        """EPSトレンドを計算（Kendallのτ）"""
-        pass
-
-    async def get_operating_cf_history(
-        self,
-        sec_code: str,
-        years: int = 5
-    ) -> list[CFRecord]:
-        """過去N年の営業CF履歴を取得"""
-        pass
-
-    async def calculate_operating_margin_trend(
-        self,
-        sec_code: str,
-        years: int = 5
-    ) -> OperatingMarginTrend:
-        """営業利益率のトレンドを計算"""
-        pass
-```
+| メソッド                                      | 説明                                                           |
+| --------------------------------------------- | -------------------------------------------------------------- |
+| `_kendall_tau(values)`                        | Kendallの順位相関係数を返す（`scipy.stats.kendalltau` を使用） |
+| `_resolve_status(pass_required, total_score)` | スコアからステータス文字列を決定                               |
 
 ---
 
-## 4. リポジトリ層設計
+## 5. 計算ロジック詳細
 
-### 4.1 既存リポジトリの活用
+### 5.1 必須条件チェック（3条件すべて通過でOK）
 
-- `EdinetProfitAndLossRepository`: PL取得
-- `EdinetCashFlowStatementRepository`: CF取得
-- `EdinetStockDividendRepository`: 配当取得
+| 条件         | 評価内容                                                                      |
+| ------------ | ----------------------------------------------------------------------------- |
+| 配当の継続性 | 過去5年で減配 ≤ 2回 かつ 直近2年で連続減配なし                                |
+| EPSの健全性  | 過去5年で赤字EPS（≤ 0）なし かつ 直近2年連続減少なし かつ 直近1年減少率 < 30% |
+| 営業CF       | 過去5年で4年以上プラス                                                        |
 
-### 4.2 新規リポジトリ
+### 5.2 スコア計算（合計100点満点）
 
-- `ScreeningResultRepository`: スクリーニング結果のCRUD
-- `WatchListRepository`: 監視リストのCRUD
+| 軸                | 配点 | 加点条件（各+10点）                                                       |
+| ----------------- | ---- | ------------------------------------------------------------------------- |
+| **A. 配当実績**   | 30点 | 増配年 ≥ 3年 / 過去5年で2年以上連続増配の期間あり / Kendall τ > 0.4       |
+| **B. EPS成長**    | 30点 | EPS増加年 ≥ 3年 / 過去5年で2年以上連続EPS増加の期間あり / Kendall τ > 0.4 |
+| **C. 事業安定性** | 20点 | 売上増加年 ≥ 3年 / 営業利益増加年 ≥ 3年                                   |
+| **D. 収益性維持** | 20点 | 前年差マイナス ≤ 2回 / 2pt連続低下なし                                    |
 
+### 5.3 ステータス判定
 
----
+| 条件                              | ステータス                   |
+| --------------------------------- | ---------------------------- |
+| 必須条件NG                        | `not_eligible`（監視対象外） |
+| 必須条件OK かつ 総合スコア ≥ 90点 | `priority`（優先購入候補）   |
+| 必須条件OK かつ 総合スコア ≥ 80点 | `active`（積極的に検討）     |
+| 必須条件OK かつ 総合スコア ≥ 70点 | `watch`（監視対象）          |
+| 必須条件OK かつ 総合スコア < 70点 | `not_eligible`（監視対象外） |
 
-## 5. API設計
+### 5.4 Kendallのτ（トレンド評価）
 
-### 5.1 スクリーニングAPI
-
-#### POST /api/v1/screening/execute
-スクリーニングを実行する。
-
-**リクエスト**:
-```json
-{
-  "sec_codes": ["7203", "6758"],  // オプション、未指定時は全銘柄
-  "evaluation_date": "2026-02-14"  // オプション、未指定時は本日
-}
-```
-
-**レスポンス**:
-```json
-{
-  "evaluation_date": "2026-02-14",
-  "total_evaluated": 100,
-  "passed_required": 45,
-  "watch_list_count": 30,
-  "results": [
-    {
-      "sec_code": "7203",
-      "company_name": "トヨタ自動車",
-      "passed_required": true,
-      "total_score": 85,
-      "status": "積極的に検討"
-    }
-  ]
-}
-```
-
-#### GET /api/v1/screening/results
-スクリーニング結果を取得する。
-
-**クエリパラメータ**:
-- `evaluation_date`: 評価日（デフォルト: 最新）
-- `min_score`: 最小スコア（デフォルト: 70）
-- `status`: ステータスフィルター
-
-
-#### POST /api/v1/watch-list/update-prices
-監視銘柄の株価を更新する。
+時系列データのトレンドを評価するために `scipy.stats.kendalltau` を使用する。年インデックス（0, 1, 2, ...）を基準軸として値との順位相関係数を算出し、τ > 0.4 を「上昇トレンドあり」と判定する。
 
 ---
 
-## 6. 処理設計（同期処理）
+## 6. 依存ライブラリ
 
-### 6.1 年次処理（決算更新時、同期実行）
-
-#### batch_screening.py
-- **実行タイミング**: 年1回、各企業の決算発表後
-- **処理内容**:
-  1. EDINET APIから最新財務データを取得
-  2. 全銘柄のスクリーニングを実行
-    3. 監視リストを更新
-    4. 結果をメール通知
-
-### 6.2 日次処理（営業日毎、同期実行）
-
-#### batch_update_watch_list_prices.py
-- **実行タイミング**: 平日毎日、取引終了後
-- **処理内容**:
-  1. 監視銘柄の最新株価を取得（Yahoo Finance API）
-  2. 配当利回りを再計算
-  3. 購入候補銘柄を抽出
-  4. 配当利回り条件を満たす銘柄を通知
+| ライブラリ         | 用途           | 追加が必要か                     |
+| ------------------ | -------------- | -------------------------------- |
+| `scipy`            | Kendallのτ計算 | **要追加**（`poetry add scipy`） |
+| `pandas` / `numpy` | データ処理     | 既存                             |
 
 ---
 
-## 7. 計算ロジック概要
+## 7. 実装順序
 
-### 7.1 必須条件チェック
+### Phase 1（完了）- データ基盤
 
-#### 配当の継続性
-```python
-def check_dividend_continuity(dividends: list[float]) -> bool:
-    """
-    過去5年間の配当データをチェック
-    - 減配回数が2回以下
-    - 直近2年間で連続減配がない
-    """
-    pass
-```
+- [x] `EdinetProfitAndLoss` モデル / リポジトリ
+- [x] `EdinetCashFlowStatement` モデル / リポジトリ
+- [x] `EdinetStockDividend` モデル / リポジトリ
 
-#### EPSの健全性
-```python
-def check_eps_health(eps_list: list[float]) -> bool:
-    """
-    過去5年間のEPSをチェック
-    - 赤字（EPS ≤ 0）がない
-    - 直近2年間で連続減少がない
-    - 直近1年間の減少率が30%未満
-    """
-    pass
-```
+### Phase 2（今回リリース）- スクリーニング最小実装
 
-#### 営業キャッシュフロー
-```python
-def check_operating_cf(cf_list: list[float]) -> bool:
-    """
-    過去5年間の営業CFをチェック
-    - 4年以上プラス
-    """
-    pass
-```
+**目標**: ターミナルで対象銘柄の株式コードとスコアを確認できること。DB保存・APIは不要。
 
-### 7.2 スコア計算
+- [ ] `poetry add scipy`
+- [ ] `app/services/query/financial_query_service.py` 実装
+- [ ] `app/services/screening/simple_screening_service.py` 実装（`ScreeningResult` dataclass を同ファイル内に定義）
+- [ ] ユニットテスト（`FinancialQueryService`, `SimpleScreeningService`）
 
-#### A. 配当実績（30点）
-```python
-def calculate_dividend_score(dividends: list[float]) -> int:
-    """
-    - 増配年が3年以上: +10
-    - 2年以上連続増配: +10
-    - トレンド上向き（τ > 0.4）: +10
-    """
-    pass
-```
+### Phase 3（後工程）- API / バッチ
 
-#### B. EPS成長（30点）
-```python
-def calculate_eps_score(eps_list: list[float]) -> int:
-    """
-    - EPS増加年が3年以上: +10
-    - 2年以上連続増加: +10
-    - トレンド上向き（τ > 0.4）: +10
-    """
-    pass
-```
+- [ ] `ScreeningResult` モデル / `ScreeningResultRepository` 新規作成
+- [ ] Alembicマイグレーション（`screening_results` テーブル）
+- [ ] APIエンドポイント (`app/api/v1/screening.py`)
+- [ ] 年次バッチスクリプト (`scripts/batch/batch_screening.py`)
+- [ ] `WatchList` モデル / リポジトリ / サービス
 
-#### C. 事業の安定性（20点）
-```python
-def calculate_stability_score(
-    sales: list[float],
-    operating_income: list[float]
-) -> int:
-    """
-    - 売上増加年が3年以上: +10
-    - 営業利益増加年が3年以上: +10
-    """
-    pass
-```
+### Phase 4（後工程）- 監視リスト / フロントエンド
 
-#### D. 収益性の維持（20点）
-```python
-def calculate_profitability_score(
-    operating_margins: list[float]
-) -> int:
-    """
-    - 前年差マイナスが2回以下: +10
-    - −2.0pt以上の低下が2年連続でない: +10
-    """
-    pass
-```
-
-### 7.3 トレンド計算（Kendallのτ）
-
-```python
-def calculate_kendall_tau(values: list[float]) -> float:
-    """
-    Kendallの順位相関係数を計算
-    scipy.stats.kendalltau を使用
-    """
-    from scipy.stats import kendalltau
-    years = list(range(len(values)))
-    tau, p_value = kendalltau(years, values)
-    return tau
-```
+- [ ] `WatchListService` 実装
+- [ ] フロントエンド画面
 
 ---
 
-## 8. 実装順序（推奨）
+## 8. 注意事項
 
-### Phase 1: データ基盤（完了）
-- [x] EdinetProfitAndLoss モデル/リポジトリ
-- [x] EdinetCashFlowStatement モデル/リポジトリ
-- [x] EdinetStockDividend モデル/リポジトリ
-- [x] 財務データ取得処理（同期実行）
-
-### Phase 2: 財務分析サービス
-1. FinancialAnalysisService 実装
-   - 配当履歴取得
-   - EPS履歴取得
-   - 営業CF履歴取得
-   - トレンド計算（Kendallのτ）
-   - 営業利益率計算
-2. ユニットテスト作成
-
-### Phase 3: スクリーニング機能
-1. ScreeningResult モデル/リポジトリ作成
-2. ScreeningService 実装
-   - 必須条件チェック
-   - スコア計算
-3. スクリーニングAPI作成
-4. 統合テスト作成
-5. 処理（同期実行）作成
-
-### Phase 4: 監視リスト機能
-1. WatchList モデル/リポジトリ作成
-2. WatchListService 実装
-3. 株価更新処理（同期実行）作成
-4. 監視リストAPI作成
-5. フロントエンド画面作成
-
-
-
----
-
-## 9. 外部ライブラリ
-
-### 既存
-- `yfinance`: Yahoo Finance APIから株価取得
-- `pandas`: データ処理
-- `numpy`: 数値計算
-
-### 追加候補
-- `scipy`: 統計計算（Kendallのτ計算）
-
-```bash
-poetry add scipy
-```
-
----
-
-## 10. フロントエンド画面イメージ
-
-### 10.1 スクリーニング結果画面
-- スクリーニング実行日
-- 評価銘柄数、通過銘柄数
-- スコア順のテーブル表示
-- フィルター機能（スコア範囲、ステータス）
-
-### 10.2 監視リスト画面
-- 監視銘柄一覧
-- 現在株価、配当利回り
-- 監視レベルのバッジ表示
-- 購入候補のハイライト
-
-### 10.3 判断履歴画面
-- 実行済み/未実行のフィルター
-
----
-
-## 11. 注意事項
-
-### 11.1 データ整合性
-- 財務データは年度単位で完全性を担保する
-- 欠損データがある場合は、その銘柄をスクリーニング対象外とする
-
-### 11.2 パフォーマンス
-- スクリーニングは全銘柄（4000+）を対象とするため、非同期処理を活用
-- 処理でキャッシュを活用（計算結果のメモ化）
-
-### 11.3 拡張性
-- セクター別補正ルールは、後から追加できる設計とする
-- 評価指標の追加（ネットキャッシュ、ROIC等）に対応可能な構造
-
----
-
-説明: 設計書の「ファイル構成」セクションを、実際のリポジトリ内ディレクトリ (`app/api/v1`, `app/services/core`, `app/services/market_data`, `app/repositories`, `scripts/batch` など) に合わせて更新しました。
-
-変更点のポイント:
-- `app/api/v1` にある既存のルーター（`edinet.py`, `stock_price.py`, `stock_master.py`, `accounts.py`, `auth.py` 等）を反映
-- `app/services` の再編（`core` と `market_data` サブパッケージ）に合わせてサービスの配置例を整理
-- バッチスクリプトは `scripts/batch` 配下にある実ファイル名を参照する形に更新
-
-（必要なら続けて、実際のファイルで未作成のモデル・リポジトリ雛形を追加します。）
+- 財務データが5年分そろわない銘柄は、利用可能な年数でチェックスコア計算を行う（欠損年はスキップ、対象外とはしない）。
+- ルールは `simple_screening_service.py` の private メソッドとして直接実装する。Phase 3以降でYAML外部化を検討する。
