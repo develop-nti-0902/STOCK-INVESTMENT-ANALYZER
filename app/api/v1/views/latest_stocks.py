@@ -18,23 +18,20 @@ router = APIRouter(tags=["views"])  # OpenAPI tag: views
 
 @router.post(
     "/refresh-latest-stocks",
-    status_code=status.HTTP_202_ACCEPTED,
-    summary="Refresh latest_stocks view",
+    status_code=status.HTTP_200_OK,
+    summary="Refresh latest_stocks view (synchronous)",
 )
 async def refresh_latest_stocks(
     service: LatestStocksRefreshService = Depends(get_latest_stocks_refresh_service),
 ):
-    """Enqueue a background refresh job for the `latest_stocks_1d` materialized view.
+    """Synchronously refresh the `latest_stocks_1d` view.
 
-    呼び出すと更新処理を非同期ジョブとして登録します。
-    登録したジョブのIDをレスポンスとして返却します。
-    実際のリフレッシュはバックグラウンドで行われます。
-    処理状況の取得は別途ジョブステータス確認用の仕組みを利用してください
-    （HTTP 202 Accepted）。
+    バックグラウンドのジョブ管理を廃止し、呼び出し元で同期的にリフレッシュ処理を実行します。
+    成功時は HTTP 200 を返します。
     """
     try:
-        job_id = await service.enqueue_refresh()
-        return {"job_id": job_id}
+        await service.run_refresh()
+        return {"status": "completed"}
     except ServiceError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

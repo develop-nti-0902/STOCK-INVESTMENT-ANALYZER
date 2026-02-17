@@ -1,15 +1,13 @@
 """Unit tests for latest_stocks refresh behaviors (mapped to `refresh.py`).
 
-これらのテストはパッケージ内で `batch` として参照される `refresh` モジュールの
-enqueue/run フローを検証します。
+これらのテストは `latest_stocks` の refresh 実装の振る舞いを検証します。
+バッチ管理は廃止され、`run_refresh()` を直接呼び出す仕様になっています。
 """
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
 
 import pytest
 
-from app.exceptions.business import ServiceError
 from app.services.views.latest_stocks import batch as mod
 
 
@@ -79,21 +77,11 @@ async def test_refresh_runs_when_lock_acquired(monkeypatch):
     fake_engine = _FakeEngine([True])
     monkeypatch.setattr(mod, "get_engine", lambda: fake_engine, raising=False)
 
-    # fake batch service (BatchExecutionService-like)
-    batch = AsyncMock()
-    batch.create_job.return_value = SimpleNamespace(id=1)
-    batch.start_job.return_value = None
-    batch.get_job_status.return_value = SimpleNamespace(
-        processed_stocks=0, successful_stocks=0, failed_stocks=0
-    )
-    batch.complete_job.return_value = None
-
     called = {}
 
     class FakeSvc:
-        def __init__(self, batch_service, engine=None):
-            called["init_args"] = (batch_service, engine)
-            self.batch_service = batch_service
+        def __init__(self, engine=None):
+            called["init_args"] = (engine,)
             self._engine = engine
             self.logger = SimpleNamespace(
                 info=lambda *a, **k: None,
@@ -110,28 +98,22 @@ async def test_refresh_runs_when_lock_acquired(monkeypatch):
     monkeypatch.setattr(mod.LatestStocksRefreshService, "run_refresh", FakeSvc.run_refresh)
 
     # act
-    svc = mod.LatestStocksRefreshService(batch, engine=fake_engine)
-    await svc.enqueue_refresh()
+    svc = mod.LatestStocksRefreshService(engine=fake_engine)
+    await svc.run_refresh()
 
     # assert
     assert called.get("run") is True
-    batch.create_job.assert_awaited()
 
 
 @pytest.mark.asyncio
 async def test_no_run_when_lock_not_acquired(monkeypatch):
-    """ロック未取得時は処理が実行されず ServiceError になることを検証する."""
+    """ロック未取得時は処理が実行されずエラーが伝播することを検証する."""
     fake_engine = _FakeEngine([False])
     monkeypatch.setattr(mod, "get_engine", lambda: fake_engine, raising=False)
 
-    batch = AsyncMock()
-    batch.create_job.return_value = SimpleNamespace(id=2)
-    batch.start_job.return_value = None
-
     class FakeSvc:
         def __init__(self, *a, **k):
-            # ensure attributes used by enqueue_refresh exist
-            self.batch_service = a[0] if a else k.get("batch_service")
+            # ensure attributes used by run_refresh exist
             self._engine = k.get("engine")
             self.logger = SimpleNamespace(
                 info=lambda *a, **k: None,
@@ -147,12 +129,10 @@ async def test_no_run_when_lock_not_acquired(monkeypatch):
     monkeypatch.setattr(mod.LatestStocksRefreshService, "__init__", FakeSvc.__init__)
     monkeypatch.setattr(mod.LatestStocksRefreshService, "run_refresh", FakeSvc.run_refresh)
 
-    # act / assert: SQLite 移行ではロックを使わないため、ジョブが作成され、
-    # run_refresh が呼ばれて ServiceError になる（FakeSvc.run_refresh が例外を出す）
-    svc = mod.LatestStocksRefreshService(batch, engine=fake_engine)
-    with pytest.raises(ServiceError):
-        await svc.enqueue_refresh()
-    batch.create_job.assert_awaited()
+    # act / assert: run_refresh should propagate the underlying error
+    svc = mod.LatestStocksRefreshService(engine=fake_engine)
+    with pytest.raises(RuntimeError):
+        await svc.run_refresh()
 
 
 @pytest.mark.asyncio
@@ -163,16 +143,8 @@ async def test_release_failure_logs_but_run_called(monkeypatch):
     # monkeypatch connect to return conn that will return True for acquire
     monkeypatch.setattr(mod, "get_engine", lambda: fake_engine, raising=False)
 
-    batch = AsyncMock()
-    batch.create_job.return_value = SimpleNamespace(id=3)
-    batch.start_job.return_value = None
-    batch.get_job_status.return_value = SimpleNamespace(
-        processed_stocks=0, successful_stocks=0, failed_stocks=0
-    )
-
     class FakeSvc:
         def __init__(self, *a, **k):
-            self.batch_service = a[0] if a else k.get("batch_service")
             self._engine = k.get("engine")
             self.logger = SimpleNamespace(
                 info=lambda *a, **k: None,
@@ -188,10 +160,8 @@ async def test_release_failure_logs_but_run_called(monkeypatch):
     monkeypatch.setattr(mod.LatestStocksRefreshService, "run_refresh", FakeSvc.run_refresh)
 
     # run
-    svc = mod.LatestStocksRefreshService(batch, engine=fake_engine)
-    await svc.enqueue_refresh()
-
-    batch.create_job.assert_awaited()
+    svc = mod.LatestStocksRefreshService(engine=fake_engine)
+    await svc.run_refresh()
 
 
 @pytest.mark.asyncio
@@ -202,14 +172,8 @@ async def test_exception_in_run_refresh_propagates_and_marks_failed(
     fake_engine = _FakeEngine([True])
     monkeypatch.setattr(mod, "get_engine", lambda: fake_engine, raising=False)
 
-    batch = AsyncMock()
-    batch.create_job.return_value = SimpleNamespace(id=4)
-    batch.start_job.return_value = None
-    batch.fail_job.return_value = None
-
     class FakeSvc:
         def __init__(self, *a, **k):
-            self.batch_service = a[0] if a else k.get("batch_service")
             self._engine = k.get("engine")
             self.logger = SimpleNamespace(
                 info=lambda *a, **k: None,
@@ -224,14 +188,10 @@ async def test_exception_in_run_refresh_propagates_and_marks_failed(
     monkeypatch.setattr(mod.LatestStocksRefreshService, "__init__", FakeSvc.__init__)
     monkeypatch.setattr(mod.LatestStocksRefreshService, "run_refresh", FakeSvc.run_refresh)
 
-    svc = mod.LatestStocksRefreshService(batch, engine=fake_engine)
-    # 新しい実装では、run_refresh での例外は ServiceError にラップされる
-    with pytest.raises(ServiceError) as exc_info:
-        await svc.enqueue_refresh()
+    svc = mod.LatestStocksRefreshService(engine=fake_engine)
+    # 新しい実装では、run_refresh の例外はそのまま伝播する
+    with pytest.raises(RuntimeError) as exc_info:
+        await svc.run_refresh()
 
     # エラーメッセージに元の例外情報が含まれていることを確認
     assert "boom" in str(exc_info.value)
-
-    # ensure fail_job was called by enqueue_refresh
-    batch.create_job.assert_awaited()
-    batch.fail_job.assert_awaited()

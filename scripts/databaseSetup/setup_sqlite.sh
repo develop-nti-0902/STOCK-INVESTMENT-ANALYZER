@@ -132,10 +132,10 @@ fi
   exit 1
 }
 
-echo "Running Alembic migrations (upgrade head)..."
+echo "Running Alembic migrations (upgrade heads)..."
 (
   cd "$REPO_ROOT" && \
-  "${PYTHON_CMD}" -m alembic -c "${REPO_ROOT}/alembic.ini" upgrade head
+  "${PYTHON_CMD}" -m alembic -c "${REPO_ROOT}/alembic.ini" upgrade heads
 ) || {
   echo "[ERROR] Alembic migration failed"
   exit 1

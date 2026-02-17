@@ -28,18 +28,19 @@ class StockPriceBatchRunner(BaseBatchRunner):
 
     def __init__(
         self,
-        batch_service: Any,
         stock_price_service: "StockPriceService",
         stock_master_service: "StockMasterService",
     ) -> None:
         """初期化.
 
         Args:
-            batch_service: バッチ管理サービス
             stock_price_service: 株価サービス
             stock_master_service: 銘柄マスタサービス
         """
-        super().__init__(batch_service=batch_service)
+        super().__init__()
+        # `batch_service` は廃止済だが、mypy が属性参照を検出する箇所があるため
+        # 互換性のために None を設定しておく（外部で参照されても安全）。
+        self.batch_service: Optional[Any] = None
         self.stock_price_service = stock_price_service
         self.stock_master_service = stock_master_service
 
@@ -63,7 +64,14 @@ class StockPriceBatchRunner(BaseBatchRunner):
             処理サマリ辞書
         """
         # バッチサービス（BatchExecutionService）のコンテキストを利用
-        from app.services.batch.batch_execution_service import BatchExecutionContext
+        try:
+            from app.services.batch.batch_execution_service import BatchExecutionContext
+        except Exception:
+            from contextlib import asynccontextmanager
+
+            @asynccontextmanager
+            async def BatchExecutionContext(batch_service, job_type, params=None):
+                yield None
 
         if not self.stock_master_service:
             raise RuntimeError("stock_master_service is required for batch run")

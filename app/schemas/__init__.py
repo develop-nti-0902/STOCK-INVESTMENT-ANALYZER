@@ -14,24 +14,28 @@ from app.schemas.accounts import (  # noqa: F401
     PasswordChangeRequest,
     TokenResponse,
 )
-from app.schemas.base import (
+from app.schemas.core.base import (
     BaseRequestSchema,
     BaseResponseSchema,
     BaseSchema,
     PaginationRequestSchema,
     PaginationResponseSchema,
 )
-from app.schemas.edinet_balance_sheet import (  # noqa: F401
+
+# backward-compat: expose module names that tests (and older imports) may reference
+from app.schemas.market_data.edinet import (  # noqa: F401
     EdinetBalanceSheetBase,
     EdinetBalanceSheetCreate,
     EdinetBalanceSheetLatest,
     EdinetBalanceSheetRead,
-)
-from app.schemas.edinet_profit_and_loss import (  # noqa: F401
     EdinetProfitAndLossBase,
     EdinetProfitAndLossCreate,
     EdinetProfitAndLossLatest,
     EdinetProfitAndLossRead,
+    edinet_balance_sheet,
+    edinet_cash_flow_statement,
+    edinet_profit_and_loss,
+    edinet_stock_dividend,
 )
 from app.schemas.stock_data import (
     StockPrice1D,
@@ -101,5 +105,9 @@ __all__.extend(
         "EdinetProfitAndLossCreate",
         "EdinetProfitAndLossRead",
         "EdinetProfitAndLossLatest",
+        "edinet_balance_sheet",
+        "edinet_cash_flow_statement",
+        "edinet_profit_and_loss",
+        "edinet_stock_dividend",
     ]
 )

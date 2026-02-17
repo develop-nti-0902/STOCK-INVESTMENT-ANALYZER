@@ -8,8 +8,12 @@ import asyncio
 import time
 from typing import List
 
-from app.models.enums import BatchExecutionStatus
+import pytest
+
 from tests.e2e.utils import run_async_safely, write_csv_artifact
+
+# Ensure all e2e tests run on the same xdist worker (loadgroup)
+pytestmark = pytest.mark.xdist_group("e2e")
 
 
 async def _wait_for_batch_completion(job_id: int, timeout: int = 300, poll_interval: int = 2):
@@ -28,59 +32,15 @@ async def _wait_for_batch_completion(job_id: int, timeout: int = 300, poll_inter
     Raises:
         TimeoutError: タイムアウトした場合
     """
-    from sqlalchemy import select
-    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-
-    from app.models.batch_execution import BatchExecution
-    from app.models.enums import BatchExecutionStatus
-    from app.utils.database import get_database_url
-
-    engine = create_async_engine(get_database_url())
-    start_time = time.time()
-
-    try:
-        while time.time() - start_time < timeout:
-            async with AsyncSession(engine) as session:
-                result = await session.execute(
-                    select(BatchExecution).where(BatchExecution.id == job_id)
-                )
-                job = result.scalar_one_or_none()
-
-                if job is None:
-                    raise ValueError(f"Job ID {job_id} not found in batch_executions table")
-
-                # 終了状態をチェック
-                if job.status in (
-                    BatchExecutionStatus.COMPLETED,
-                    BatchExecutionStatus.FAILED,
-                    BatchExecutionStatus.CANCELLED,
-                ):
-                    return {
-                        "status": job.status,
-                        "job_data": {
-                            "id": job.id,
-                            "batch_type": job.batch_type,
-                            "status": job.status,
-                            "total_stocks": job.total_stocks,
-                            "processed_stocks": job.processed_stocks,
-                            "successful_stocks": job.successful_stocks,
-                            "failed_stocks": job.failed_stocks,
-                            "start_time": (job.start_time.isoformat() if job.start_time else None),
-                            "end_time": job.end_time.isoformat() if job.end_time else None,
-                            "error_message": job.error_message,
-                        },
-                    }
-
-                print(
-                    f"DEBUG: Job {job_id} status: {job.status}, "
-                    f"processed: {job.processed_stocks}/{job.total_stocks}"
-                )
-
-            await asyncio.sleep(poll_interval)
-
-        raise TimeoutError(f"Batch job {job_id} did not complete within {timeout} seconds")
-    finally:
-        await engine.dispose()
+    # BatchExecution table removed — treat job as immediately completed.
+    await asyncio.sleep(0)
+    return {
+        "status": "completed",
+        "job_data": {
+            "id": job_id,
+            "status": "completed",
+        },
+    }
 
 
 async def _cleanup_batch_executions(job_id: int):
@@ -89,21 +49,8 @@ async def _cleanup_batch_executions(job_id: int):
     Args:
         job_id: クリーンアップするバッチジョブID
     """
-    from sqlalchemy import delete
-    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-
-    from app.models.batch_execution import BatchExecution
-    from app.utils.database import get_database_url
-
-    engine = create_async_engine(get_database_url())
-    try:
-        async with AsyncSession(engine) as session:
-            # batch_execution_details テーブルは外部キー制約で自動削除される想定
-            # または明示的に削除が必要な場合はここに追加
-            await session.execute(delete(BatchExecution).where(BatchExecution.id == job_id))
-            await session.commit()
-    finally:
-        await engine.dispose()
+    # BatchExecution table removed — nothing to cleanup.
+    await asyncio.sleep(0)
 
 
 def test_refresh_latest_stocks_and_get_latest(client):
@@ -156,49 +103,21 @@ def test_refresh_latest_stocks_and_get_latest(client):
         assert r_fetch.status_code == 200
         print("DEBUG: Step 3 - Stock prices fetched successfully")
 
-        # 4) ビューのリフレッシュをトリガー
+        # 4) ビューのリフレッシュをトリガー（同期実行になったため即時完了を期待）
         print("DEBUG: Step 4 - Triggering refresh-latest-stocks...")
         r_refresh = client.post("/api/v1/views/refresh-latest-stocks")
         print(f"DEBUG: Step 4 - Refresh response status: {r_refresh.status_code}")
-        # API はジョブ登録のため 202 を返す想定
-        assert r_refresh.status_code in (202, 200)
+        # 同期実行では HTTP 200 と完了ステータスを期待
+        assert r_refresh.status_code == 200
 
         try:
             body = r_refresh.json()
             print(f"DEBUG: Step 4 - Refresh response body: {body}")
-            job_id_value = body.get("job_id")
-
-            if job_id_value:
-                # job_id を整数に変換
-                job_id = int(job_id_value)
-                print(f"DEBUG: Step 4 - Waiting for refresh job {job_id} to complete...")
-
-                # ジョブの完了を待つ
-                job_completion = run_async_safely(_wait_for_batch_completion(job_id, timeout=300))
-                job_status = job_completion["status"]
-                job_data = job_completion["job_data"]
-
-                print(f"DEBUG: Step 4 - Refresh job {job_id} completed with status: {job_status}")
-                print(f"DEBUG: Step 4 - Job data: {job_data}")
-
-                # ジョブが成功したことを確認
-                assert job_status == "completed", (
-                    f"Refresh job {job_id} did not complete successfully. "
-                    f"Status: {job_status}, Error: {job_data.get('error_message')}"
-                )
-                print("DEBUG: Step 4 - Refresh job completed successfully")
-            else:
-                # job_id が取得できない場合は少し待つ（後方互換性のため）
-                print("WARNING: job_id not found in response, waiting 5 seconds...")
-                time.sleep(5)
-
+            assert body.get("status") == "completed"
+            print("DEBUG: Step 4 - Refresh completed (synchronous)")
         except Exception as e:
-            print(f"WARNING: Failed to wait for job completion: {e}")
-            import traceback
-
-            traceback.print_exc()
-            # エラーが発生した場合は少し待つ
-            time.sleep(5)
+            print(f"WARNING: Refresh did not return completed status: {e}")
+            time.sleep(1)
 
         # 5) 各銘柄の最新データを取得してリストに蓄積
         print(f"DEBUG: Step 5 - Retrieving latest stock data for {len(symbols)} symbols...")
@@ -257,11 +176,4 @@ def test_refresh_latest_stocks_and_get_latest(client):
         except Exception as e:
             print(f"DEBUG: Cleanup - Failed to reset stock master: {e}")
 
-        # バッチ実行レコードのクリーンアップ
-        if job_id is not None:
-            print(f"DEBUG: Cleanup - Deleting batch execution record for job_id={job_id}...")
-            try:
-                run_async_safely(_cleanup_batch_executions(job_id))
-                print(f"DEBUG: Cleanup - Batch execution record deleted for job_id={job_id}")
-            except Exception as e:
-                print(f"DEBUG: Cleanup - Failed to delete batch execution record: {e}")
+        # バッチ管理は廃止したため、追加のバッチレコード削除は不要

@@ -6,7 +6,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.schemas.edinet_stock_dividend import EdinetStockDividendCreate
+from app.schemas.market_data.edinet import EdinetStockDividendCreate
 from app.services.market_data.edinet.stock_dividend.converter import EdinetStockDividendConverter
 
 

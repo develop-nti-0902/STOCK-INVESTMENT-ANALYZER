@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 
+import os
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -232,7 +233,7 @@ def print_report(
     if missing_tests:
         has_issues = True
         print("=" * 80)
-        print("❌ ユニットテストが不足しているファイル")
+        print("[FAIL] ユニットテストが不足しているファイル")
         print("=" * 80)
 
         # レイヤー別にグループ化
@@ -252,8 +253,8 @@ def print_report(
             for source_file in sorted(layer_files):
                 relative_source = source_file.relative_to(APP_DIR)
                 expected_test = get_expected_test_path(source_file).relative_to(REPO_ROOT)
-                print(f"  ✗ {relative_source}")
-                print(f"    → 期待されるテスト: {expected_test}")
+                print(f"  [X] {relative_source}")
+                print(f"    -> 期待されるテスト: {expected_test}")
                 print()
 
     if orphaned_tests:
@@ -275,14 +276,14 @@ def print_report(
         # レイヤー別に表示
         for layer in sorted(grouped_by_layer.keys()):
             layer_files = grouped_by_layer[layer]
-            print(f"📁 {layer.upper()} レイヤー ({len(layer_files)}ファイル)")
+            print(f"[DIR] {layer.upper()} レイヤー ({len(layer_files)}ファイル)")
             print("-" * 80)
 
             for test_file in sorted(layer_files):
                 relative_test = test_file.relative_to(TESTS_UNIT_DIR)
                 expected_source = get_expected_source_path(test_file).relative_to(REPO_ROOT)
-                print(f"  ✗ tests/unit/{relative_test}")
-                print(f"    → 期待されるソース: {expected_source} (存在しません)")
+                print(f"  [X] tests/unit/{relative_test}")
+                print(f"    -> 期待されるソース: {expected_source} (存在しません)")
                 print()
 
     if misnamed_tests:
@@ -304,7 +305,7 @@ def print_report(
         print()
     else:
         print("=" * 80)
-        print("📝 命名規約: test_<ソース名>.py")
+        print("[NOTE] 命名規約: test_<ソース名>.py")
         print("   例: app/services/stock_service.py -> tests/unit/services/test_stock_service.py")
         print("   ※ テストファイルはapp配下と同じディレクトリ構造である必要があります")
         print("=" * 80)
@@ -316,6 +317,18 @@ def main() -> int:
     Returns:
         終了コード（0: 成功, 1: 問題あり）
     """
+    # Windows 環境などで stdout のエンコーディングが cp932 等の場合、
+    # Unicode を含む文字列の出力でエンコード例外が発生することがある。
+    # ここで標準出力/標準エラー出力を UTF-8 に切り替え、また内部で起動する
+    # サブプロセス向けに PYTHONIOENCODING を設定しておく。
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        # 古い環境や読み取り専用の場合は無視して続行
+        pass
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+
     print("ユニットテストカバレッジチェックを開始します...")
     print()
 
@@ -331,7 +344,7 @@ def main() -> int:
     # 問題がある場合は非ゼロで終了
     if missing_tests or misnamed_tests or orphaned_tests:
         print()
-        print(f"⚠️  問題が見つかりました:")
+        print("[WARNING] 問題が見つかりました:")
         print(f"   - テスト不足: {len(missing_tests)}ファイル")
         print(f"   - 孤立したテスト: {len(orphaned_tests)}ファイル")
         print(f"   - 命名違反の可能性: {len(misnamed_tests)}箇所")

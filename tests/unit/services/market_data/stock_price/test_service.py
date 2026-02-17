@@ -32,15 +32,11 @@ class TestStockPriceService:
         self.converter = MagicMock()
         self.validator = MagicMock()
 
-        # バッチサービスは必須の引数（最小限の AsyncMock）
-        self.batch_service = AsyncMock()
-
         self.service = StockPriceService(
             fetcher=self.fetcher,
             saver=self.saver,
             converter=self.converter,
             validator=self.validator,
-            batch_service=self.batch_service,
         )
 
     @pytest.mark.asyncio

@@ -12,12 +12,10 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from app.repositories.batch_execution_repository import BatchExecutionRepository
 from app.repositories.market_data.stock_master import (
     StockMasterRepository,
     StockMasterUpdatesRepository,
 )
-from app.services.batch.batch_execution_service import BatchExecutionService
 from app.services.market_data.stock_master.service import StockMasterService
 from app.services.market_data.stock_price.converter import StockPriceConverter
 from app.services.market_data.stock_price.fetcher import StockPriceFetcher
@@ -57,8 +55,6 @@ async def _run(timeframe: str = "1d", batch_size: int = 500) -> None:
             raise
 
         # Stock price 処理を有効化（全銘柄を処理）
-        batch_repo = BatchExecutionRepository(session=session)
-        batch_service = BatchExecutionService(repository=batch_repo)
 
         fetcher = StockPriceFetcher()
         converter = StockPriceConverter()
@@ -70,7 +66,6 @@ async def _run(timeframe: str = "1d", batch_size: int = 500) -> None:
             saver=saver,
             converter=converter,
             validator=validator,
-            batch_service=batch_service,
             stock_master_service=stock_master_service,
         )
 

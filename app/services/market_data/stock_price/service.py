@@ -52,7 +52,6 @@ TIMEFRAME_REPOSITORY_MAP = {
 logger = get_logger(__name__)
 
 if TYPE_CHECKING:
-    from app.services.batch.batch_execution_service import BatchExecutionService
     from app.services.market_data.stock_master.service import StockMasterService
 
 
@@ -135,7 +134,6 @@ class StockPriceService:
         saver: StockPriceSaver,
         converter: StockPriceConverter,
         validator: StockPriceValidator,
-        batch_service: "BatchExecutionService",
         stock_master_service: Optional["StockMasterService"] = None,
     ):
         """
@@ -147,16 +145,11 @@ class StockPriceService:
             converter: StockPriceConverterインスタンス
             validator: StockPriceValidatorインスタンス
         """
-        # バッチ実行管理サービスは必須（Noneは許容しない）
-        if batch_service is None:
-            raise FieldValidationError(message="batch_service is required and cannot be None")
-
         self.fetcher = fetcher
         self.saver = saver
         self.converter = converter
         self.validator = validator
         self.stock_master_service = stock_master_service
-        self.batch_service = batch_service
 
     async def fetch_and_save(
         self,
@@ -385,63 +378,38 @@ class StockPriceService:
         failed = 0
         errors: List[Dict[str, Any]] = []
 
-        # ローカル import: `batch_execution_service` 側が `StockPriceService` を
-        # 参照している可能性があり、トップレベルで import すると循環参照が
-        # 発生するため関数内で遅延 import しています。
-        from app.services.batch.batch_execution_service import BatchExecutionContext
+        # Run synchronously without job management; update progress via callback only
+        for i in range(0, total, batch_size):
+            batch = symbols[i : i + batch_size]
 
-        async with BatchExecutionContext(
-            self.batch_service,
-            job_type="jpx_all",
-            params={"timeframe": timeframe, "market": market},
-        ) as ctx:
-            # バッチ分割して一括処理
-            for i in range(0, total, batch_size):
-                batch = symbols[i : i + batch_size]
+            try:
+                results = await self.fetch_and_save(batch, timeframe=timeframe, period=period)
+            except Exception as exc:
+                logger.exception("Batch processing failed for symbols %s", batch)
+                for s in batch:
+                    failed += 1
+                    errors.append({"symbol": s, "errors": [str(exc)]})
+                continue
 
-                # バッチ全体を一度に処理
+            for res in results:
+                if res.success:
+                    success += 1
+                else:
+                    failed += 1
+                    errors.append({"symbol": res.symbol, "errors": res.errors})
+
+            if progress_callback:
                 try:
-                    results = await self.fetch_and_save(batch, timeframe=timeframe, period=period)
-                except Exception as exc:
-                    # バッチ全体が失敗した場合、各銘柄を失敗として記録
-                    logger.exception("Batch processing failed for symbols %s", batch)
-                    for s in batch:
-                        failed += 1
-                        errors.append({"symbol": s, "errors": [str(exc)]})
-                    continue
-
-                # 各結果を集計
-                for res in results:
-                    if res.success:
-                        success += 1
-                    else:
-                        failed += 1
-                        errors.append({"symbol": res.symbol, "errors": res.errors})
-
-                # バッチごとに進捗通知
-                if progress_callback:
-                    try:
-                        progress_callback(
-                            {
-                                "total": total,
-                                "processed": success + failed,
-                                "success": success,
-                                "failed": failed,
-                            }
-                        )
-                    except Exception:
-                        logger.exception("Progress callback failed")
-
-                # バッチサービスへ進捗を保存
-                try:
-                    await ctx.update_progress(
-                        processed=success + failed,
-                        total=total,
-                        success=success,
-                        failed=failed,
+                    progress_callback(
+                        {
+                            "total": total,
+                            "processed": success + failed,
+                            "success": success,
+                            "failed": failed,
+                        }
                     )
                 except Exception:
-                    logger.exception("Failed to update batch progress")
+                    logger.exception("Progress callback failed")
 
         elapsed = perf_counter() - start_time
 

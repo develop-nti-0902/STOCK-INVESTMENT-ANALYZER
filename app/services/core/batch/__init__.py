@@ -3,6 +3,6 @@
 各サービス配下の `batch.py` が継承して使う基底を提供します。
 """
 
-from .base import BaseBatchRunner, BatchExecutionContext
+from .base import BaseBatchRunner
 
-__all__ = ["BaseBatchRunner", "BatchExecutionContext"]
+__all__ = ["BaseBatchRunner"]

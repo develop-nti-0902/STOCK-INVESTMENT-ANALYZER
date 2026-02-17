@@ -5,7 +5,7 @@
 仕様書: docs/architecture/layers/service_layer.md 6.1章
 """
 
-from app.services.core.batch.base import BaseBatchRunner, BatchExecutionContext
+from app.services.core.batch.base import BaseBatchRunner
 from app.services.core.converters import BaseConverter
 from app.services.core.decorators import handle_service_error, retry_on_error
 from app.services.core.fetchers import BaseFetcher
@@ -20,5 +20,4 @@ __all__ = [
     "handle_service_error",
     "retry_on_error",
     "BaseBatchRunner",
-    "BatchExecutionContext",
 ]

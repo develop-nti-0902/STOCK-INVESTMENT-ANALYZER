@@ -7,11 +7,15 @@
 
 import time
 
+import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.utils.database import get_database_url
 from tests.e2e.utils import run_async_safely, write_csv_artifact
+
+# Ensure all e2e tests run on the same xdist worker (loadgroup)
+pytestmark = pytest.mark.xdist_group("e2e")
 
 
 async def _cleanup_batch_executions() -> None:

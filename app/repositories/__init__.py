@@ -6,7 +6,6 @@ Repository Patternを採用し、データベース操作の抽象化を行う�
 """
 
 from app.repositories.account_repository import AccountRepository
-from app.repositories.batch_execution_repository import BatchExecutionRepository
 from app.repositories.core.base import BaseRepository
 from app.repositories.market_data.edinet.edinet_balance_sheet_repository import (  # noqa: F401
     EdinetBalanceSheetRepository,
@@ -31,7 +30,6 @@ __all__ = [
     "BaseRepository",
     "StockMasterRepository",
     "AccountRepository",
-    "BatchExecutionRepository",
     "StockDataRepository",
     "StockData1mRepository",
     "StockData5mRepository",

@@ -12,7 +12,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .base import BaseRequestSchema, BaseResponseSchema, PaginationResponseSchema
+from app.schemas.core.base import BaseRequestSchema, BaseResponseSchema, PaginationResponseSchema
 
 
 class SingleStockDataRequest(BaseRequestSchema):
