@@ -23,8 +23,16 @@ async def _cleanup_batch_executions() -> None:
     engine = create_async_engine(get_database_url())
     try:
         async with engine.begin() as conn:
-            # batch_execution_details は CASCADE で削除される
-            await conn.execute(text("DELETE FROM batch_executions"))
+            # テーブルが存在しない場合はスキップする（migrationで削除されている可能性あり）
+            res = await conn.execute(
+                text(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='batch_executions'"
+                )
+            )
+            table_name = res.scalar()
+            if table_name:
+                # batch_execution_details は CASCADE で削除される
+                await conn.execute(text("DELETE FROM batch_executions"))
     finally:
         await engine.dispose()
 

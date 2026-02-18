@@ -26,36 +26,45 @@ class EdinetProfitAndLossParser(BaseParser, XMLParserMixin):
     実運用では XBRL の名前空間・要素名に合わせて XPath を調整してください。
     """
 
-    YEARS = ["current", "prior1", "prior2", "prior3", "prior4"]
+    # 年度キーを profit_and_loss と揃える（将来の拡張性のため）
+    YEARS = ["current"]
+    # YEARS = ["current", "prior1", "prior2", "prior3", "prior4"]
 
-    # 年度ごとのコンテキストパターン（優先順）- Duration ベース
+    # コンテキスト候補パターン（balance_sheet / profit_and_loss と互換性を持たせる）
     CONTEXT_PATTERNS = {
         "current": [
             "CurrentYearDuration",
             "CurrentYearDuration_ConsolidatedMember",
             "CurrentYearDuration_NonConsolidatedMember",
         ],
-        "prior1": [
-            "Prior1YearDuration",
-            "Prior1YearDuration_ConsolidatedMember",
-            "Prior1YearDuration_NonConsolidatedMember",
-        ],
-        "prior2": [
-            "Prior2YearDuration",
-            "Prior2YearDuration_ConsolidatedMember",
-            "Prior2YearDuration_NonConsolidatedMember",
-        ],
-        "prior3": [
-            "Prior3YearDuration",
-            "Prior3YearDuration_ConsolidatedMember",
-            "Prior3YearDuration_NonConsolidatedMember",
-        ],
-        "prior4": [
-            "Prior4YearDuration",
-            "Prior4YearDuration_ConsolidatedMember",
-            "Prior4YearDuration_NonConsolidatedMember",
-        ],
     }
+    # CONTEXT_PATTERNS = {
+    #     "current": [
+    #         "CurrentYearDuration",
+    #         "CurrentYearDuration_ConsolidatedMember",
+    #         "CurrentYearDuration_NonConsolidatedMember",
+    #     ],
+    #     "prior1": [
+    #         "Prior1YearDuration",
+    #         "Prior1YearDuration_ConsolidatedMember",
+    #         "Prior1YearDuration_NonConsolidatedMember",
+    #     ],
+    #     "prior2": [
+    #         "Prior2YearDuration",
+    #         "Prior2YearDuration_ConsolidatedMember",
+    #         "Prior2YearDuration_NonConsolidatedMember",
+    #     ],
+    #     "prior3": [
+    #         "Prior3YearDuration",
+    #         "Prior3YearDuration_ConsolidatedMember",
+    #         "Prior3YearDuration_NonConsolidatedMember",
+    #     ],
+    #     "prior4": [
+    #         "Prior4YearDuration",
+    #         "Prior4YearDuration_ConsolidatedMember",
+    #         "Prior4YearDuration_NonConsolidatedMember",
+    #     ],
+    # }
 
     # XBRLタグの候補マッピング
     XBRL_TAGS = {

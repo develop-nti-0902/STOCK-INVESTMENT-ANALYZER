@@ -25,7 +25,9 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
     実運用では XBRL の名前空間・要素名に合わせて XPath を調整してください。
     """
 
-    YEARS = ["current", "prior1", "prior2", "prior3", "prior4"]
+    # 年度キーを profit_and_loss と揃える（将来の拡張性のため）
+    YEARS = ["current"]
+    # YEARS = ["current", "prior1", "prior2", "prior3", "prior4"]
 
     # 年度ごとのコンテキストパターン（優先順）
     CONTEXT_PATTERNS = {
@@ -34,27 +36,34 @@ class EdinetBalanceSheetParser(BaseParser, XMLParserMixin):
             "CurrentYearInstant_ConsolidatedMember",
             "CurrentYearInstant_NonConsolidatedMember",
         ],
-        "prior1": [
-            "Prior1YearInstant",
-            "Prior1YearInstant_ConsolidatedMember",
-            "Prior1YearInstant_NonConsolidatedMember",
-        ],
-        "prior2": [
-            "Prior2YearInstant",
-            "Prior2YearInstant_ConsolidatedMember",
-            "Prior2YearInstant_NonConsolidatedMember",
-        ],
-        "prior3": [
-            "Prior3YearInstant",
-            "Prior3YearInstant_ConsolidatedMember",
-            "Prior3YearInstant_NonConsolidatedMember",
-        ],
-        "prior4": [
-            "Prior4YearInstant",
-            "Prior4YearInstant_ConsolidatedMember",
-            "Prior4YearInstant_NonConsolidatedMember",
-        ],
     }
+    # CONTEXT_PATTERNS = {
+    #     "current": [
+    #         "CurrentYearInstant",
+    #         "CurrentYearInstant_ConsolidatedMember",
+    #         "CurrentYearInstant_NonConsolidatedMember",
+    #     ],
+    #     "prior1": [
+    #         "Prior1YearInstant",
+    #         "Prior1YearInstant_ConsolidatedMember",
+    #         "Prior1YearInstant_NonConsolidatedMember",
+    #     ],
+    #     "prior2": [
+    #         "Prior2YearInstant",
+    #         "Prior2YearInstant_ConsolidatedMember",
+    #         "Prior2YearInstant_NonConsolidatedMember",
+    #     ],
+    #     "prior3": [
+    #         "Prior3YearInstant",
+    #         "Prior3YearInstant_ConsolidatedMember",
+    #         "Prior3YearInstant_NonConsolidatedMember",
+    #     ],
+    #     "prior4": [
+    #         "Prior4YearInstant",
+    #         "Prior4YearInstant_ConsolidatedMember",
+    #         "Prior4YearInstant_NonConsolidatedMember",
+    #     ],
+    # }
 
     # XBRLタグの候補マッピング
     XBRL_TAGS = {
