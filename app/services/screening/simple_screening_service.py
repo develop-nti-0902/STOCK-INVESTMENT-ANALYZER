@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, List
+from typing import Any, List, Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from app.repositories.market_data.stock_master.stock_master_repository import StockMasterRepository
+from app.services.market_data.stock_master.service import StockMasterService
+from app.utils.database import get_engine
+from app.utils.stock_code_converter import to_edinet_code
 
 
 @dataclass
@@ -35,7 +43,48 @@ class SimpleScreeningService:
     def __init__(self, financial_query_service: Any):
         self._fq = financial_query_service
 
-    def run(self, sec_codes: List[str], evaluation_date: date) -> None:
+    # 銘柄マスターから全銘柄を取得して EDINET 形式へ変換するユーティリティ
+    async def _async_fetch_all_stock_master_codes(self) -> List[str]:
+        engine = get_engine()
+        maker = async_sessionmaker(
+            bind=engine,
+            class_=AsyncSession,
+            autocommit=False,
+            autoflush=False,
+            expire_on_commit=False,
+        )
+        try:
+            async with maker() as session:
+                repo = StockMasterRepository(session=session)
+                sm_service = StockMasterService(repo=repo)
+                symbols = await sm_service.get_all_active_symbols()
+                out: List[str] = []
+                for c in symbols:
+                    try:
+                        out.append(to_edinet_code(c))
+                    except Exception as e:
+                        print(f"[DEBUG] failed convert code {c}: {e}")
+                return out
+        finally:
+            try:
+                await engine.dispose()
+            except Exception:
+                pass
+
+    def _fetch_all_stock_master_codes(self) -> List[str]:
+        try:
+            return asyncio.run(
+                asyncio.wait_for(self._async_fetch_all_stock_master_codes(), timeout=30)
+            )
+        except Exception as e:
+            print(f"[DEBUG] fetch stock master failed: {e}")
+            return []
+
+    def run(self, sec_codes: Optional[List[str]], evaluation_date: date) -> None:
+        # sec_codes が None の場合は銘柄マスターから全銘柄を取得してスクリーニングを行う
+        if sec_codes is None:
+            sec_codes = self._fetch_all_stock_master_codes()
+
         passed: List[ScreeningResult] = []
         failed: List[ScreeningResult] = []
         for code in sec_codes:
