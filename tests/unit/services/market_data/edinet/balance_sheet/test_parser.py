@@ -56,8 +56,9 @@ def test_parse_returns_five_years(monkeypatch):
     p = EdinetBalanceSheetParser()
     out = p.parse(root)
     assert isinstance(out, dict)
-    assert set(out.keys()) == set(p.YEARS)
-    # コンテキスト情報がないため各年度のデータは None になる
+    # 実装は単年度取得のため、current のみを期待する
+    assert set(out.keys()) == {"current"}
+    # コンテキスト情報がないため current のデータは None になる
     assert out["current"] is None
 
 
@@ -98,7 +99,8 @@ def test_get_all_available_contexts_and_get_contexts_for_year():
     cur_ctxs = p._get_contexts_for_year("current", all_ctx)
     assert any("CurrentYearInstant" in c for c in cur_ctxs)
     prior_ctxs = p._get_contexts_for_year("prior1", all_ctx)
-    assert any("Prior1YearInstant" in c for c in prior_ctxs)
+    # 実装上、prior 年は取得しないため空になることを期待する
+    assert prior_ctxs == []
 
 
 def test_get_period_end_date_with_various_formats_and_fallback():

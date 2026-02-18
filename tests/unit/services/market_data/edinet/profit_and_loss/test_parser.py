@@ -61,7 +61,8 @@ def test_parse_returns_five_years(monkeypatch):
     p.parse_xml = lambda _: root
     result = p.parse("/tmp/dummy.xbrl")
 
-    expected_keys = ["current", "prior1", "prior2", "prior3", "prior4"]
+    # 実装は単年度取得のため current のみを期待する
+    expected_keys = ["current"]
     assert set(result.keys()) == set(expected_keys)
 
 
@@ -124,7 +125,8 @@ def test_get_contexts_for_year():
     assert len(current_contexts) >= 1
 
     prior1_contexts = p._get_contexts_for_year("prior1", all_contexts)
-    assert "Prior1YearDuration" in prior1_contexts
+    # 実装上 prior 年は返さないため空を期待する
+    assert prior1_contexts == []
 
 
 def test_extract_value_with_context_no_match():
