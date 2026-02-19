@@ -97,7 +97,6 @@ class EdinetCashFlowStatementParser(BaseParser, XMLParserMixin):
         self, parsed_xbrl: Any, root: etree._Element, contexts: List[str], year_key: str
     ) -> Dict[str, Any]:
         """Parse a single year's data from XBRL for given contexts."""
-
         operating_cf = self.extract_numeric_from_xbrl(
             parsed_xbrl, self.XBRL_TAGS["operating_cf"], contexts
         )

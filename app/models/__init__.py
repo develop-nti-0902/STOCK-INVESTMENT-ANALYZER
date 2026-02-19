@@ -7,14 +7,13 @@ from app.models.core.base import Base, TimestampMixin
 from .account_portfolios import AccountPortfolios
 from .account_transactions import AccountTransactions
 from .accounts import Account
-from .market_data import stock_master
 from .market_data.edinet import (
     EdinetBalanceSheet,
     EdinetCashFlowStatement,
     EdinetProfitAndLoss,
     EdinetStockDividend,
 )
-from .market_data.stock_master import IS_ACTIVE, IS_INACTIVE, StockMaster, StockMasterUpdates
+from .market_data.stock_master import StockMaster, StockMasterUpdates
 from .market_data.stock_price import (
     Stocks1d,
     Stocks1h,

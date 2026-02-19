@@ -122,5 +122,4 @@ exclude_lines = [
 fail_under = 75
 
 [tool.pydocstyle]
-convention = "numpy"
-add-ignore = ["D403"]
+convention = "google"

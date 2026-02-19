@@ -17,6 +17,7 @@ class LatestStocksRefreshService(BaseViewService):
     """
 
     def __init__(self, engine: object | None = None):
+        """オプションの DB エンジンを受け取りサービスを初期化します."""
         super().__init__()
         self._engine = engine
 

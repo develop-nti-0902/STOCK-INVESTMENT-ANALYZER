@@ -5,8 +5,7 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from app.schemas.market_data.edinet import EdinetStockDividendCreate
 from app.services.core.converters.edinet_base_converter import EdinetBaseConverter
@@ -19,6 +18,7 @@ class EdinetStockDividendConverter(EdinetBaseConverter[EdinetStockDividendCreate
     """EDINET 配当データの変換クラス."""
 
     def to_pydantic(self, data: Dict[str, Any]) -> EdinetStockDividendCreate:
+        """生データを Pydantic モデル `EdinetStockDividendCreate` に変換して返します。"""
         # 共通テンプレートを利用
         return super().to_pydantic(data)
 

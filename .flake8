@@ -1,8 +1,11 @@
 [flake8]
 max-line-length = 100
-extend-ignore = E203,W503,D403,D202
+extend-ignore = E203,W503,D403,D401,D400
 exclude = .git,.venv,__pycache__,work,tests
 count = true
 show-source = true
 statistics = true
 select = E,F,W,C,D
+
+[pydocstyle]
+convention = google

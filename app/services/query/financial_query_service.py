@@ -1,3 +1,5 @@
+"""EDINET リポジトリを束ね、スクリーニング用の時系列財務データを返すサービス群を提供するモジュール."""
+
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, Iterable, List
@@ -5,24 +7,32 @@ from typing import Any, Iterable, List
 
 @dataclass
 class DividendRecord:
+    """配当記録を表す dataclass。"""
+
     fiscal_year_end: date
     dividend_per_share: float
 
 
 @dataclass
 class EpsRecord:
+    """EPS 記録を表す dataclass。"""
+
     fiscal_year_end: date
     eps: float
 
 
 @dataclass
 class CfRecord:
+    """営業キャッシュフロー記録を表す dataclass。"""
+
     fiscal_year_end: date
     operating_cf: float
 
 
 @dataclass
 class StabilityRecord:
+    """年度ごとの安定性指標を表す dataclass。"""
+
     fiscal_year_end: date
     net_sales: float
     operating_income: float
@@ -48,6 +58,7 @@ class FinancialQueryService:
     """
 
     def __init__(self, dividend_repo: Any, profit_and_loss_repo: Any, cash_flow_repo: Any):
+        """依存する EDINET リポジトリを受け取りサービスを初期化します."""
         # リポジトリを保持
         self._dividend_repo = dividend_repo
         self._pl_repo = profit_and_loss_repo

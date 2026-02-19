@@ -1,3 +1,5 @@
+"""`stock_master` 関連のリポジトリを公開するパッケージ."""
+
 from .stock_master_repository import StockMasterRepository
 from .stock_master_updates_repository import StockMasterUpdatesRepository
 

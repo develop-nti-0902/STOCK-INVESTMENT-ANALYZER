@@ -18,7 +18,8 @@ from app.utils.database import get_db
 def get_base_repository(
     db: AsyncSession = Depends(get_db),
 ) -> BaseRepository[Any]:
-    """BaseRepository を提供する依存性プロバイダ.
+    """
+    BaseRepository を提供する依存性プロバイダ.
 
     汎用的な CRUD 操作用の `BaseRepository` インスタンスを返します。
 

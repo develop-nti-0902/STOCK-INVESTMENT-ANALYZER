@@ -115,7 +115,6 @@ def retry(
 
     内部で `retry_on_error` を呼び出します。
     """
-
     return retry_on_error(max_retries=retries, delay=delay, backoff=backoff, exceptions=exceptions)
 
 

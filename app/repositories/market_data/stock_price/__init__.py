@@ -1,3 +1,5 @@
+"""株価データ用リポジトリを公開するパッケージ."""
+
 from .stock_data_repository import (
     StockData1dRepository,
     StockData1hRepository,

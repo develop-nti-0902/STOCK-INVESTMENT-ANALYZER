@@ -1,3 +1,5 @@
+"""シンプルなスクリーニングサービスを実装するモジュール。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -16,6 +18,8 @@ from app.utils.stock_code_converter import to_edinet_code
 @dataclass
 # pylint: disable=too-many-instance-attributes
 class ScreeningResult:
+    """単一銘柄のスクリーニング結果を表す dataclass。"""
+
     sec_code: str
     pass_required: bool
     total_score: int
@@ -41,6 +45,7 @@ class SimpleScreeningService:
     """
 
     def __init__(self, financial_query_service: Any):
+        """`FinancialQueryService` を受け取りスクリーニングサービスを初期化します."""
         self._fq = financial_query_service
 
     # 銘柄マスターから全銘柄を取得して EDINET 形式へ変換するユーティリティ
@@ -81,6 +86,12 @@ class SimpleScreeningService:
             return []
 
     def run(self, sec_codes: Optional[List[str]], evaluation_date: date) -> None:
+        """与えられた銘柄リスト（または None）でスクリーニングを実行し結果を標準出力します.
+
+        Args:
+            sec_codes: 対象銘柄コードのリスト。None の場合は銘柄マスターから全銘柄を取得します。
+            evaluation_date: 評価実行日
+        """
         # sec_codes が None の場合は銘柄マスターから全銘柄を取得してスクリーニングを行う
         if sec_codes is None:
             sec_codes = self._fetch_all_stock_master_codes()
@@ -113,6 +124,7 @@ class SimpleScreeningService:
             print(f"不合格: {bad}")
 
     def evaluate(self, sec_code: str, _evaluation_date: date) -> ScreeningResult:
+        """単一銘柄についてスクリーニングを行い `ScreeningResult` を返します."""
         # 履歴データを取得（古い順 -> 新しい順）
         divs = list(self._fq.get_dividend_history(sec_code, years=5) or [])
         eps = list(self._fq.get_eps_history(sec_code, years=5) or [])

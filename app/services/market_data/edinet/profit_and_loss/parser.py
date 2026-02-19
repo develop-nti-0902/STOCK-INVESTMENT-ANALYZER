@@ -87,7 +87,6 @@ class EdinetProfitAndLossParser(BaseParser, XMLParserMixin):
 
         注意: `parsed_xbrl` は外部で一度だけ構築して渡すことを想定します。
         """
-
         # ファイルから実際に使用可能なコンテキストを抽出
         all_contexts = self._get_all_available_contexts(root)
 
