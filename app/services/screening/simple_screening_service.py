@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio
+import inspect
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, List, Optional
@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.repositories.market_data.stock_master.stock_master_repository import StockMasterRepository
 from app.services.market_data.stock_master.service import StockMasterService
-from app.utils.database import get_engine
 from app.utils.stock_code_converter import to_edinet_code
 
 
@@ -34,30 +33,23 @@ class ScreeningResult:
 class SimpleScreeningService:
     """Issue 2 のロジックを実装したシンプルなスクリーニングサービス。
 
-    コンストラクタで `FinancialQueryService` に相当するオブジェクトを受け取り、
-    以下のメソッドを利用します:
-      - get_dividend_history(sec_code, years=5)
-      - get_eps_history(sec_code, years=5)
-      - get_operating_cf_history(sec_code, years=5)
-      - get_stability_history(sec_code, years=5)
-
-    返却されるレコードは古い順（old->new）で、設計書に示した数値属性を持つことが前提です。
+    コンストラクタで `FinancialQueryService` 相当のオブジェクトと非同期セッションメーカーを受け取ります。
+    設計書通りに `get_*_history` メソッドを利用し、結果を逐次的に出力します。
     """
 
-    def __init__(self, financial_query_service: Any):
-        """`FinancialQueryService` を受け取りスクリーニングサービスを初期化します."""
+    def __init__(
+        self,
+        financial_query_service: Any,
+        stock_master_maker: Optional[async_sessionmaker[AsyncSession]] = None,
+    ):
+        """`FinancialQueryService` とセッションメーカーを受け取り初期化します."""
         self._fq = financial_query_service
+        self._stock_master_maker = stock_master_maker
 
-    # 銘柄マスターから全銘柄を取得して EDINET 形式へ変換するユーティリティ
     async def _async_fetch_all_stock_master_codes(self) -> List[str]:
-        engine = get_engine()
-        maker = async_sessionmaker(
-            bind=engine,
-            class_=AsyncSession,
-            autocommit=False,
-            autoflush=False,
-            expire_on_commit=False,
-        )
+        maker = self._stock_master_maker
+        if maker is None:
+            raise RuntimeError("stock_master_maker is required to fetch all codes")
         try:
             async with maker() as session:
                 repo = StockMasterRepository(session=session)
@@ -70,66 +62,56 @@ class SimpleScreeningService:
                     except Exception as e:
                         print(f"[DEBUG] failed convert code {c}: {e}")
                 return out
-        finally:
-            try:
-                await engine.dispose()
-            except Exception:
-                pass
-
-    def _fetch_all_stock_master_codes(self) -> List[str]:
-        try:
-            return asyncio.run(
-                asyncio.wait_for(self._async_fetch_all_stock_master_codes(), timeout=30)
-            )
-        except Exception as e:
-            print(f"[DEBUG] fetch stock master failed: {e}")
+        except Exception as exc:
+            print(f"[DEBUG] fetch stock master failed: {exc}")
             return []
 
-    def run(self, sec_codes: Optional[List[str]], evaluation_date: date) -> None:
+    async def run(self, sec_codes: Optional[List[str]], evaluation_date: date) -> None:
         """与えられた銘柄リスト（または None）でスクリーニングを実行し結果を標準出力します.
 
         Args:
             sec_codes: 対象銘柄コードのリスト。None の場合は銘柄マスターから全銘柄を取得します。
             evaluation_date: 評価実行日
         """
-        # sec_codes が None の場合は銘柄マスターから全銘柄を取得してスクリーニングを行う
         if sec_codes is None:
-            sec_codes = self._fetch_all_stock_master_codes()
+            sec_codes = await self._async_fetch_all_stock_master_codes()
 
-        passed: List[ScreeningResult] = []
-        failed: List[ScreeningResult] = []
+        print(f"[{evaluation_date}] スクリーニング結果（逐次出力）")
+        passed_count = 0
+        failed_count = 0
+        total = len(sec_codes)
+        passed_summaries: List[str] = []
         for code in sec_codes:
-            res = self.evaluate(code, evaluation_date)
+            res = await self.evaluate(code, evaluation_date)
+            score_part = f"{res.sec_code}: スコア{res.total_score} ({res.status})"
+            details = (
+                f"配当{res.score_dividend}/EPS{res.score_eps} "
+                f"安定{res.score_stability}/収益{res.score_profitability}"
+            )
+            summary = f"{score_part} - {details}"
             if res.status in ("priority", "active", "watch"):
-                passed.append(res)
+                passed_count += 1
+                print(f"通過: {summary}")
+                passed_summaries.append(summary)
             else:
-                failed.append(res)
-
-        print(f"[{evaluation_date}] スクリーニング結果")
-        if passed:
-            codes = ", ".join(r.sec_code for r in passed)
-            print(f"通過銘柄: {codes}")
+                failed_count += 1
+                failed_info = ",".join(res.failed_conditions) or "なし"
+                print(f"不合格: {summary} failed_conditions=[{failed_info}]")
+        print(f"--- 合格 {passed_count}件 / 不合格 {failed_count}件 / 全体 {total}件 ---")
+        if passed_summaries:
+            print("--- 合格対象一覧 ---")
+            for line in passed_summaries:
+                print(f"  {line}")
         else:
-            print("通過銘柄: なし")
-        print("---")
-        for r in passed:
-            part1 = f"{r.sec_code}: スコア{r.total_score} ({r.status}) -"
-            part2 = f"配当{r.score_dividend}/EPS{r.score_eps}"
-            part3 = f"安定{r.score_stability}/収益{r.score_profitability}"
-            details = " ".join([part1, part2, part3])
-            print(details)
-        if failed:
-            bad_list = [f"{r.sec_code} ({','.join(r.failed_conditions)})" for r in failed]
-            bad = ", ".join(bad_list)
-            print(f"不合格: {bad}")
+            print("--- 合格対象はありませんでした ---")
 
-    def evaluate(self, sec_code: str, _evaluation_date: date) -> ScreeningResult:
+    async def evaluate(self, sec_code: str, _evaluation_date: date) -> ScreeningResult:
         """単一銘柄についてスクリーニングを行い `ScreeningResult` を返します."""
         # 履歴データを取得（古い順 -> 新しい順）
-        divs = list(self._fq.get_dividend_history(sec_code, years=5) or [])
-        eps = list(self._fq.get_eps_history(sec_code, years=5) or [])
-        cfs = list(self._fq.get_operating_cf_history(sec_code, years=5) or [])
-        stabs = list(self._fq.get_stability_history(sec_code, years=5) or [])
+        divs = list(await self._call_history("get_dividend_history", sec_code) or [])
+        eps = list(await self._call_history("get_eps_history", sec_code) or [])
+        cfs = list(await self._call_history("get_operating_cf_history", sec_code) or [])
+        stabs = list(await self._call_history("get_stability_history", sec_code) or [])
 
         failed: List[str] = []
 
@@ -162,6 +144,13 @@ class SimpleScreeningService:
             status=status,
             failed_conditions=failed,
         )
+
+    async def _call_history(self, method_name: str, sec_code: str) -> Any:
+        method = getattr(self._fq, method_name)
+        result = method(sec_code, years=5)
+        if inspect.isawaitable(result):
+            return await result
+        return result
 
     # ----------------- 必須条件チェック -----------------
     def _check_dividend_continuity(self, divs: List[Any]) -> bool:

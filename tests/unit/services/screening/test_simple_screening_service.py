@@ -6,6 +6,8 @@
 from datetime import date
 from types import SimpleNamespace
 
+import pytest
+
 from app.services.screening.simple_screening_service import SimpleScreeningService
 
 
@@ -38,7 +40,8 @@ def make_records(values, attr_name):
     return [SimpleNamespace(**{attr_name: v}) for v in values]
 
 
-def test_evaluate_required_checks_failures():
+@pytest.mark.asyncio
+async def test_evaluate_required_checks_failures():
     """必須条件チェックに失敗するケースを検証する."""
     mapping = {
         "BAD": {
@@ -51,7 +54,7 @@ def test_evaluate_required_checks_failures():
     fq = MockFQ(mapping)
     svc = SimpleScreeningService(fq)
 
-    res = svc.evaluate("BAD", date(2026, 2, 18))
+    res = await svc.evaluate("BAD", date(2026, 2, 18))
 
     assert res.pass_required is False
     assert "eps_health" in res.failed_conditions
@@ -59,7 +62,8 @@ def test_evaluate_required_checks_failures():
     assert res.status == "not_eligible"
 
 
-def test_evaluate_full_score_priority():
+@pytest.mark.asyncio
+async def test_evaluate_full_score_priority():
     """全ての加点条件を満たしてフルスコア（priority）となるケースを検証する."""
     mapping = {
         "GOOD": {
@@ -75,14 +79,15 @@ def test_evaluate_full_score_priority():
     fq = MockFQ(mapping)
     svc = SimpleScreeningService(fq)
 
-    res = svc.evaluate("GOOD", date(2026, 2, 18))
+    res = await svc.evaluate("GOOD", date(2026, 2, 18))
 
     assert res.pass_required is True
     assert res.total_score == 100
     assert res.status == "priority"
 
 
-def test_run_outputs(capsys):
+@pytest.mark.asyncio
+async def test_run_outputs(capsys):
     """`run()` の標準出力フォーマットを検証する."""
     mapping = {
         "GOOD": {
@@ -104,10 +109,9 @@ def test_run_outputs(capsys):
     fq = MockFQ(mapping)
     svc = SimpleScreeningService(fq)
 
-    svc.run(["GOOD", "BAD"], date(2026, 2, 18))
+    await svc.run(["GOOD", "BAD"], date(2026, 2, 18))
 
     out, err = capsys.readouterr()
-    assert "通過銘柄" in out
-    assert "GOOD" in out
-    assert "不合格" in out
-    assert "BAD" in out
+    assert "通過: GOOD" in out
+    assert "不合格: BAD" in out
+    assert "合格 1件" in out
