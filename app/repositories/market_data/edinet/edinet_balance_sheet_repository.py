@@ -19,10 +19,14 @@ logger = logging.getLogger(__name__)
 
 
 class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
+    """EdinetBalanceSheet モデル用のリポジトリ。"""
+
     def __init__(self, session: AsyncSession):
+        """セッションを受け取りリポジトリを初期化します."""
         super().__init__(session, model=EdinetBalanceSheet)
 
     async def find_latest_by_sec_code(self, sec_code: str) -> Optional[EdinetBalanceSheet]:
+        """指定証券コードの最新の貸借対照表レコードを返します（存在しなければ None）。"""
         stmt = (
             select(self.model)
             .where(self.model.sec_code == sec_code)
@@ -35,6 +39,7 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
     async def find_by_period(
         self, sec_code: str, period_end_date: date
     ) -> Optional[EdinetBalanceSheet]:
+        """指定証券コードと期日で貸借対照表を検索し、見つかれば返します。"""
         result = await self.session.execute(
             select(self.model).where(
                 self.model.sec_code == sec_code,
@@ -44,10 +49,12 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
         return result.scalar_one_or_none()
 
     async def find_by_doc_id(self, doc_id: str) -> list[EdinetBalanceSheet]:
+        """指定のドキュメント ID に紐づく貸借対照表レコードのリストを返します."""
         result = await self.session.execute(select(self.model).where(self.model.doc_id == doc_id))
         return list(result.scalars().all())
 
     async def upsert(self, data: dict) -> EdinetBalanceSheet:
+        """与えられた辞書でレコードを upsert し、保存後のモデルを返します."""
         if not data:
             raise ValueError("data is required for upsert")
 
@@ -78,6 +85,7 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
             raise
 
     async def get_latest_by_sec_codes(self, sec_codes: List[str]) -> List[EdinetBalanceSheet]:
+        """複数の証券コードについてそれぞれの最新レコードを返します。（入力が空なら空リスト）"""
         if not sec_codes:
             return []
 
@@ -97,6 +105,7 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
     async def find_by_fiscal_year(
         self, sec_code: str, fiscal_year: int
     ) -> List[EdinetBalanceSheet]:
+        """指定会計年度の貸借対照表レコードを返します。"""
         result = await self.session.execute(
             select(self.model)
             .where(
@@ -110,6 +119,7 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
     async def find_by_date_range(
         self, sec_code: str, start_date: date, end_date: date
     ) -> List[EdinetBalanceSheet]:
+        """指定期間内の貸借対照表レコードを返します（start_date から end_date）。"""
         result = await self.session.execute(
             select(self.model)
             .where(
@@ -122,6 +132,7 @@ class EdinetBalanceSheetRepository(BaseRepository[EdinetBalanceSheet]):
         return list(result.scalars().all())
 
     async def count_by_sec_code(self, sec_code: str) -> int:
+        """指定証券コードに紐づく貸借対照表レコード件数を返します。"""
         stmt = select(sql_count()).select_from(self.model).where(self.model.sec_code == sec_code)
         result = await self.session.execute(stmt)
         return result.scalar_one()

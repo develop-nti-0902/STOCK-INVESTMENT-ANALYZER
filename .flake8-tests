@@ -1,6 +1,6 @@
 [flake8]
 max-line-length = 100
-extend-ignore = E203,W503,D403,D202,E501
+extend-ignore = E203,W503,D403,D202,E501,D400
 # Tests-specific: enable/require docstring checks and other rules listed for tests
 # Note: some codes (S101, PLR2004, C901) require corresponding flake8 plugins to be installed
 exclude = .git,.venv,__pycache__,work

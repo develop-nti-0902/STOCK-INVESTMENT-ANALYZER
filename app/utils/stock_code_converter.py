@@ -1,3 +1,5 @@
+"""`stock_master` のコードと EDINET の5桁コードを相互変換するユーティリティモジュール."""
+
 from __future__ import annotations
 
 
@@ -50,10 +52,28 @@ _converter = StockCodeConverter()
 
 
 def to_edinet_code(sec_code: str) -> str:
+    """`stock_master` 形式の証券コードを EDINET 5 桁コードへ変換して返します.
+
+    引数:
+        sec_code: 変換対象の証券コード文字列
+
+    返却値:
+        EDINET の5桁コード文字列
+    """
     return _converter.to_edinet(sec_code)
 
 
 def from_edinet_code(edinet_code: str) -> str:
+    """EDINET の5桁コードを `stock_master` 形式に戻して返します.
+
+    末尾のゼロを削除して短い形式に戻します。例: '13010' -> '1301'.
+
+    引数:
+        edinet_code: EDINET の5桁コード文字列
+
+    返却値:
+        元の `stock_master` 形式の証券コード文字列
+    """
     return _converter.from_edinet(edinet_code)
 
 

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from app.schemas.market_data.edinet import EdinetCashFlowStatementCreate
 from app.services.core.converters.edinet_base_converter import EdinetBaseConverter
@@ -16,6 +15,7 @@ class EdinetCashFlowStatementConverter(EdinetBaseConverter[EdinetCashFlowStateme
     """パーサー出力を Pydantic モデルおよび DB 保存用辞書に変換するクラス."""
 
     def to_pydantic(self, data: Dict[str, Any]) -> EdinetCashFlowStatementCreate:
+        """パーサー出力辞書を Pydantic モデル `EdinetCashFlowStatementCreate` に変換して返します."""
         return super().to_pydantic(data)
 
     def _normalize_fields(self, data: Dict[str, Any]) -> Dict[str, Any]:

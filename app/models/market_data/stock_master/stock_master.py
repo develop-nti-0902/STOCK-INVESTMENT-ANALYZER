@@ -44,6 +44,7 @@ class StockMaster(SerialPKMixin, TimestampMixin, Base):
 
     @property
     def symbol(self) -> str:
+        """証券コード（`stock_code`）を返します."""
         return self.stock_code
 
     @symbol.setter
@@ -52,6 +53,7 @@ class StockMaster(SerialPKMixin, TimestampMixin, Base):
 
     @property
     def name(self) -> str:
+        """銘柄名（`stock_name`）を返します."""
         return self.stock_name
 
     @name.setter
@@ -59,6 +61,10 @@ class StockMaster(SerialPKMixin, TimestampMixin, Base):
         self.stock_name = value
 
     def __repr__(self) -> str:
+        """インスタンスの簡易文字列表現を返します.
+
+        デバッグやログ出力で識別しやすい短い文字列を返します。
+        """
         return "<StockMaster(stock_code=" f"{self.stock_code!r}, stock_name={self.stock_name!r})>"
 
 

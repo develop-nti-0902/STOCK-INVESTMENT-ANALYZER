@@ -18,18 +18,29 @@ def _camel_to_snake(name: str) -> str:
 
 
 class Base(DeclarativeBase):
+    """__tablename__ を自動生成する宣言的ベースクラス。"""
+
     def __init_subclass__(cls, **kwargs: Any) -> None:
+        """サブクラス定義時に `__tablename__` を自動生成します.
+
+        指定がない場合、クラス名を snake_case に変換して設定します。
+        """
         if "__tablename__" not in cls.__dict__:
             cls.__tablename__ = _camel_to_snake(cls.__name__)
         super().__init_subclass__(**kwargs)
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """インスタンスの簡易文字列表現を返します.
+
+        テストやログでの識別に使える短い表現を返します。
+        """
         ident = getattr(self, "id", None)
         if ident is not None:
             return f"<{self.__class__.__name__} id={ident!r}>"
         return f"<{self.__class__.__name__}>"
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """このモデルのクラス名を返します（ログやテストで利用）。"""
         return self.__class__.__name__
 
 
@@ -61,28 +72,44 @@ class GUID(TypeDecorator):  # pylint: disable=too-many-ancestors
 
 
 class SerialPKMixin:
+    """整数のシリアル主キーを提供する mixin。"""
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """インスタンスの簡易文字列表現を返します.
+
+        テストやログでの識別に使える短い表現を返します。
+        """
         ident = getattr(self, "id", None)
         return f"<{self.__class__.__name__} id={ident!r}>"
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """この mixin が適用されたモデルのクラス名を返します。"""
         return self.__class__.__name__
 
 
 class UUIDPKMixin:
+    """UUID 主キーを提供する mixin。"""
+
     id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """インスタンスの簡易文字列表現を返します.
+
+        テストやログでの識別に使える短い表現を返します。
+        """
         ident = getattr(self, "id", None)
         return f"<{self.__class__.__name__} id={ident!r}>"
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """この mixin が適用されたモデルのクラス名を返します。"""
         return self.__class__.__name__
 
 
 class TimestampMixin:
+    """作成日時と更新日時のカラムを追加する mixin。"""
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -98,6 +125,10 @@ class TimestampMixin:
     )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """作成/更新日時の初期値を設定します.
+
+        明示的な値が与えられていない場合、現在時刻で `created_at`/`updated_at` を初期化します。
+        """
         now = datetime.now(timezone.utc)
         if "created_at" not in kwargs or kwargs.get("created_at") is None:
             kwargs["created_at"] = now
@@ -106,10 +137,15 @@ class TimestampMixin:
         super().__init__(*args, **kwargs)
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """インスタンスの簡易文字列表現を返します.
+
+        テストやログでの識別に使える短い表現を返します。
+        """
         ident = getattr(self, "id", None)
         return f"<{self.__class__.__name__} id={ident!r}>"
 
     def model_name(self) -> str:  # pragma: no cover - trivial
+        """この mixin が適用されたモデルのクラス名を返します。"""
         return self.__class__.__name__
 
 

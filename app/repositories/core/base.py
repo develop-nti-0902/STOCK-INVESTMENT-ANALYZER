@@ -92,6 +92,14 @@ class BaseRepository(ABC, Generic[T]):
         return value
 
     async def create(self, data: Dict) -> T:
+        """新しいレコードを作成して永続化し、作成済インスタンスを返します.
+
+        Args:
+            data: モデル初期化に使用するフィールド辞書
+
+        Returns:
+            作成されたモデルインスタンス
+        """
         if self.model is None:
             raise ValidationError(message="Repository model is not set")
 
@@ -99,9 +107,14 @@ class BaseRepository(ABC, Generic[T]):
         return await self._add_and_flush(instance)
 
     async def upsert(self, data: Dict) -> T:
+        """（必要に応じて）レコードを挿入または更新します.
+
+        サブクラスで実装してください。デフォルトは未実装です。
+        """
         raise NotImplementedError("upsert is not implemented for this repository")
 
     async def get(self, record_id: int) -> Optional[T]:
+        """ID による単一レコード検索を行い、見つからなければ None を返します."""
         if self.model is None:
             raise ValidationError(message="Repository model is not set")
 
@@ -109,6 +122,7 @@ class BaseRepository(ABC, Generic[T]):
         return result.scalar_one_or_none()
 
     async def get_multi(self, skip: int = 0, limit: int = 100) -> List[T]:
+        """複数レコードをページネーションありで取得してリストで返します."""
         if self.model is None:
             raise ValidationError(message="Repository model is not set")
 
@@ -118,6 +132,7 @@ class BaseRepository(ABC, Generic[T]):
         return list(result.scalars().all())
 
     async def update(self, record_id: int, data: Dict) -> Optional[T]:
+        """既存レコードを更新して更新後のインスタンスを返します。存在しなければ None を返します."""
         instance = await self.get(record_id)
         if instance is None:
             return None
@@ -134,6 +149,7 @@ class BaseRepository(ABC, Generic[T]):
         )
 
     async def delete(self, record_id: int) -> bool:
+        """指定 ID のレコードを削除し、削除成功なら True を返します."""
         instance = await self.get(record_id)
         if instance is None:
             return False
@@ -153,6 +169,7 @@ class BaseRepository(ABC, Generic[T]):
         )
 
     async def bulk_create(self, records: List[dict]) -> List[T]:
+        """複数レコードを一括作成して作成済インスタンスのリストを返します."""
         if self.model is None:
             raise ValidationError(message="Repository model is not set")
 
@@ -160,6 +177,7 @@ class BaseRepository(ABC, Generic[T]):
         return await self._add_all_and_flush(instances)
 
     async def count(self) -> int:
+        """対象モデルの総レコード数を返します."""
         if self.model is None:
             raise ValidationError(message="Repository model is not set")
 
@@ -168,6 +186,7 @@ class BaseRepository(ABC, Generic[T]):
         return result.scalar_one()
 
     async def exists(self, record_id: int) -> bool:
+        """指定 ID のレコードが存在するかどうかを返します."""
         if self.model is None:
             raise ValidationError(message="Repository model is not set")
 
