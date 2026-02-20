@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import inspect
+import logging
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.repositories.market_data.stock_master.stock_master_repository import StockMasterRepository
+from app.repositories.screening.screening_result_repository import ScreeningResultRepository
 from app.services.market_data.stock_master.service import StockMasterService
 from app.utils.stock_code_converter import to_edinet_code
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -28,6 +32,7 @@ class ScreeningResult:
     score_profitability: int
     status: str
     failed_conditions: List[str]
+    fiscal_year_end: Optional[date]
 
 
 class SimpleScreeningService:
@@ -41,10 +46,16 @@ class SimpleScreeningService:
         self,
         financial_query_service: Any,
         stock_master_maker: Optional[async_sessionmaker[AsyncSession]] = None,
+        screening_result_maker: Optional[async_sessionmaker[AsyncSession]] = None,
+        screening_result_factory: Callable[
+            [AsyncSession], ScreeningResultRepository
+        ] = ScreeningResultRepository,
     ):
-        """`FinancialQueryService` とセッションメーカーを受け取り初期化します."""
+        """`FinancialQueryService` と必要なセッションメーカー／リポジトリを受け取り初期化します."""
         self._fq = financial_query_service
         self._stock_master_maker = stock_master_maker
+        self._screening_result_maker = screening_result_maker
+        self._screening_result_factory = screening_result_factory
 
     async def _async_fetch_all_stock_master_codes(self) -> List[str]:
         maker = self._stock_master_maker
@@ -83,6 +94,7 @@ class SimpleScreeningService:
         passed_summaries: List[str] = []
         for code in sec_codes:
             res = await self.evaluate(code, evaluation_date)
+            await self._persist_result(res, evaluation_date)
             score_part = f"{res.sec_code}: スコア{res.total_score} ({res.status})"
             details = (
                 f"配当{res.score_dividend}/EPS{res.score_eps} "
@@ -133,6 +145,8 @@ class SimpleScreeningService:
 
         status = self._resolve_status(pass_required, sd + se + ss + sp)
 
+        fiscal_year = self._extract_latest_fiscal_year_end(divs, eps, stabs)
+
         return ScreeningResult(
             sec_code=sec_code,
             pass_required=pass_required,
@@ -143,6 +157,7 @@ class SimpleScreeningService:
             score_profitability=sp,
             status=status,
             failed_conditions=failed,
+            fiscal_year_end=fiscal_year,
         )
 
     async def _call_history(self, method_name: str, sec_code: str) -> Any:
@@ -341,3 +356,64 @@ class SimpleScreeningService:
         if total_score >= 70:
             return "watch"
         return "not_eligible"
+
+    async def _persist_result(self, result: ScreeningResult, evaluation_date: date) -> None:
+        maker = self._screening_result_maker
+        if maker is None:
+            return
+        payload = self._build_upsert_payload(result, evaluation_date)
+        try:
+            async with maker.begin() as session:
+                repo = self._screening_result_factory(session)
+                await repo.upsert(payload)
+        except Exception:  # pragma: no cover - best effort persistence
+            logger.exception("Failed to persist screening result for %s", result.sec_code)
+
+    def _build_upsert_payload(
+        self, result: ScreeningResult, evaluation_date: date
+    ) -> Dict[str, Any]:
+        return {
+            "sec_code": result.sec_code,
+            "evaluation_date": evaluation_date,
+            "fiscal_year_end": result.fiscal_year_end,
+            "pass_required_conditions": result.pass_required,
+            "total_score": result.total_score,
+            "score_dividend": result.score_dividend,
+            "score_eps": result.score_eps,
+            "score_stability": result.score_stability,
+            "score_profitability": result.score_profitability,
+            "status": result.status,
+            "failed_conditions": result.failed_conditions or [],
+            "screening_details": self._build_screening_details(result),
+        }
+
+    @staticmethod
+    def _build_screening_details(result: ScreeningResult) -> Dict[str, Any]:
+        return {
+            "score_breakdown": {
+                "dividend": result.score_dividend,
+                "eps": result.score_eps,
+                "stability": result.score_stability,
+                "profitability": result.score_profitability,
+            },
+            "status": result.status,
+            "pass_required": result.pass_required,
+            "failed_conditions": result.failed_conditions or [],
+            "fiscal_year_end": (
+                result.fiscal_year_end.isoformat() if result.fiscal_year_end is not None else None
+            ),
+        }
+
+    @staticmethod
+    def _extract_latest_fiscal_year_end(
+        divs: List[Any],
+        eps: List[Any],
+        stabs: List[Any],
+    ) -> Optional[date]:
+        for source in (stabs, divs, eps):
+            if source:
+                last = source[-1]
+                fy = getattr(last, "fiscal_year_end", None)
+                if fy is not None:
+                    return fy
+        return None

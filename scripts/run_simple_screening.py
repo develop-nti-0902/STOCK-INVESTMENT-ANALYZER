@@ -9,6 +9,7 @@ from sqlalchemy.pool import NullPool
 from app.models.market_data.edinet.edinet_cash_flow_statement import EdinetCashFlowStatement
 from app.models.market_data.edinet.edinet_profit_and_loss import EdinetProfitAndLoss
 from app.models.market_data.edinet.edinet_stock_dividend import EdinetStockDividend
+from app.repositories.screening.screening_result_repository import ScreeningResultRepository
 from app.services.screening.simple_screening_service import SimpleScreeningService
 from app.utils.database import get_database_url
 
@@ -144,7 +145,12 @@ async def main():
         expire_on_commit=False,
     )
     fq_adapter = DbFinancialQueryAdapter(engine=engine, maker=maker)
-    svc = SimpleScreeningService(fq_adapter, stock_master_maker=maker)
+    svc = SimpleScreeningService(
+        fq_adapter,
+        stock_master_maker=maker,
+        screening_result_maker=maker,
+        screening_result_factory=lambda session: ScreeningResultRepository(session),
+    )
     try:
         # サービス内部で銘柄マスターを取得してスクリーニングを実行
         await svc.run(None, date.today())
