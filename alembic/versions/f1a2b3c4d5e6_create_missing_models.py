@@ -15,6 +15,8 @@ revision: str = "f1a2b3c4d5e6"
 down_revision: Union[str, Sequence[str], None] = "d5a1c2b3e4f6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
+# Tables handled by dedicated migrations and therefore skipped here.
+SKIPPED_TABLES: frozenset[str] = frozenset({"screening_results"})
 
 
 def upgrade() -> None:
@@ -28,7 +30,11 @@ def upgrade() -> None:
     from app.models import Base
 
     bind = op.get_bind()
-    Base.metadata.create_all(bind=bind)
+    for table in Base.metadata.sorted_tables:
+        if table.name in SKIPPED_TABLES:
+            # avoid re-running explicit migrations that already create this table
+            continue
+        table.create(bind=bind, checkfirst=True)
 
 
 def downgrade() -> None:
