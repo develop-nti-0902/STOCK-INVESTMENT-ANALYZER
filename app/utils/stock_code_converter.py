@@ -77,4 +77,21 @@ def from_edinet_code(edinet_code: str) -> str:
     return _converter.from_edinet(edinet_code)
 
 
-__all__ = ["StockCodeConverter", "to_edinet_code", "from_edinet_code"]
+def to_yahoo_code(sec_code: str) -> str:
+    """Yahoo Finance 形式の銘柄コードを生成し `.T` を付与します."""
+    if sec_code is None:
+        raise ValueError("sec_code is required")
+    s = str(sec_code).strip()
+    if not s:
+        raise ValueError("sec_code is empty")
+    if s.endswith(".T"):
+        return s
+    return f"{s}.T"
+
+
+__all__ = [
+    "StockCodeConverter",
+    "to_edinet_code",
+    "from_edinet_code",
+    "to_yahoo_code",
+]

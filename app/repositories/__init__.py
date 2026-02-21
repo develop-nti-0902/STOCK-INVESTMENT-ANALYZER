@@ -25,6 +25,7 @@ from app.repositories.market_data.stock_price import (
     StockData30mRepository,
     StockDataRepository,
 )
+from app.repositories.screening.screening_result_repository import ScreeningResultRepository
 
 __all__ = [
     "BaseRepository",
@@ -42,3 +43,4 @@ __all__ = [
 ]
 __all__.append("EdinetBalanceSheetRepository")
 __all__.append("EdinetProfitAndLossRepository")
+__all__.append("ScreeningResultRepository")
