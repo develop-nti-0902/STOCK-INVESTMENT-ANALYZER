@@ -178,9 +178,11 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
 
     @staticmethod
     def _extract_dividend_amount(entry) -> Optional[Decimal]:
-        if entry is None or entry.dividend_actual is None:
+        if entry is None:
             return None
-        value = entry.dividend_actual
+        value = getattr(entry, "dividend_adj", None)
+        if value is None:
+            return None
         return Decimal(str(value)) if not isinstance(value, Decimal) else value
 
     @staticmethod

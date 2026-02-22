@@ -36,7 +36,7 @@ class DbFinancialQueryAdapter:
                 SimpleNamespace(
                     fiscal_year_end=r.period_end_date,
                     dividend_per_share=(
-                        float(r.dividend_actual) if r.dividend_actual is not None else 0.0
+                        float(r.dividend_adj) if r.dividend_adj is not None else 0.0
                     ),
                 )
                 for r in rows

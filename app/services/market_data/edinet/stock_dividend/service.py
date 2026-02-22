@@ -75,12 +75,11 @@ class EdinetStockDividendService:
         """`stock_split` を参照して `dividend_adj` を計算・保存します。
 
         処理概要:
-            - `stock_split` に登録されている各銘柄コードを取得します。
-            - その銘柄について分割履歴を取得し、各 `EdinetStockDividend` レコードに対して
-                レコードの `period_end_date` より後に発生した分割を適用して補正係数を算出します。
-            - 補正係数を掛けた結果を `dividend_adj` に設定し、変更があれば保存します。
+            1. 初めに、すべての配当レコードに対して `dividend_adj` が未設定の場合は `dividend_actual` で初期化します。
+            2. その後、`stock_split` に登録されている各銘柄について、分割履歴を参照して補正係数を算出し、
+               `dividend_adj` を更新します。
 
-        戻り値: 更新したレコード数を返します。
+        戻り値: 更新・初期化したレコード数を返します。
         """
 
         from decimal import Decimal
@@ -94,11 +93,28 @@ class EdinetStockDividendService:
         if session is None:
             raise RuntimeError("No DB session available on saver")
 
-        # `stock_split` から銘柄コードの一覧を取得（stock_master 形式）
+        # ステップ 1: すべての配当レコードに dividend_adj を初期化
+        all_divs_res = await session.execute(select(EdinetStockDividend))
+        all_divs = all_divs_res.scalars().all()
+
+        initialized = 0
+        for div in all_divs:
+            if div.dividend_actual is None:
+                continue
+            if div.dividend_adj is None:
+                div.dividend_adj = Decimal(str(div.dividend_actual)).quantize(Decimal("0.01"))
+                initialized += 1
+
+        # 初期化した変更をコミット
+        if initialized:
+            await session.commit()
+            logger.info("Initialized %s dividend_adj records with dividend_actual", initialized)
+
+        # ステップ 2: `stock_split` から銘柄コードの一覧を取得（stock_master 形式）
         codes_res = await session.execute(select(StockSplit.code).distinct())
         codes_raw = [row[0] for row in codes_res.fetchall()]
 
-        updated = 0
+        adjusted = 0
         for orig_code in codes_raw:
             # stock_master 形式のコードを EDINET 形式に変換
             try:
@@ -140,20 +156,22 @@ class EdinetStockDividendService:
                 if multiplier != Decimal(1):
                     try:
                         # 必要に応じて Decimal に変換
-                        actual = Decimal(div.dividend_actual)
+                        actual = Decimal(str(div.dividend_actual))
                     except Exception:
                         continue
 
                     adj = (actual * multiplier).quantize(Decimal("0.01"))
                     div.dividend_adj = adj
-                    updated += 1
+                    adjusted += 1
 
-        # persist changes
-        if updated:
+        # 補正後の変更をコミット
+        if adjusted:
             await session.commit()
+            logger.info("Adjusted %s dividend records by stock splits", adjusted)
 
-        logger.info("Adjusted %s dividend records by stock splits", updated)
-        return updated
+        total_updated = initialized + adjusted
+        logger.info("Total %s dividend records updated/initialized", total_updated)
+        return total_updated
 
 
 __all__ = ["EdinetStockDividendService"]

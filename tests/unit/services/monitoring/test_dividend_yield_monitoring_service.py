@@ -67,7 +67,7 @@ async def test_calculate_for_stock_prioritizes_high_yield():
     builder = DummyMaker(session)
     dividend_record = SimpleNamespace(
         sec_code="7203",
-        dividend_actual=Decimal("63"),
+        dividend_adj=Decimal("63"),
         period_end_date=date(2025, 3, 31),
     )
     stock_record = SimpleNamespace(
@@ -178,3 +178,15 @@ async def test_run_groups_results_and_prints_summary(capsys):
     saved_date, saved_results = persisted_calls[0]
     assert saved_date == date(2026, 2, 21)
     assert {entry.sec_code for entry in saved_results} == {"7203", "6758", "9998"}
+
+
+def test_extract_dividend_amount_prefers_adjusted_value():
+    """調整済み配当金額を優先して返すことを確認する。"""
+    entry = SimpleNamespace(dividend_adj=Decimal("12.3"))
+    assert DividendYieldMonitoringService._extract_dividend_amount(entry) == Decimal("12.3")
+
+
+def test_extract_dividend_amount_returns_none_without_adjusted():
+    """調整済み配当がない場合はNoneを返すことを確認する。"""
+    entry = SimpleNamespace(dividend_adj=None)
+    assert DividendYieldMonitoringService._extract_dividend_amount(entry) is None
