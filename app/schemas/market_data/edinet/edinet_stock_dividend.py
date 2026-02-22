@@ -31,6 +31,7 @@ class EdinetStockDividendBase(BaseModel):
     report_type: str = Field(..., description="報告種別", max_length=20)
 
     dividend_actual: Optional[Decimal] = Field(None, description="年間配当金")
+    dividend_adj: Optional[Decimal] = Field(None, description="調整後年間配当金")
 
     candidate_contexts: Optional[str] = Field(None, description="候補コンテキスト", max_length=50)
     candidate_keys: Optional[str] = Field(None, description="候補キー", max_length=50)
@@ -43,7 +44,7 @@ class EdinetStockDividendBase(BaseModel):
             return v
         return v.strip()
 
-    @field_validator("dividend_actual", mode="before")
+    @field_validator("dividend_actual", "dividend_adj", mode="before")
     @classmethod
     def _to_decimal(cls, v):
         if v is None:
@@ -72,6 +73,7 @@ class EdinetStockDividendLatest(BaseModel):
     sec_code: str = Field(..., description="証券コード", max_length=10)
     period_end_date: date = Field(..., description="決算期末日")
     dividend_actual: Optional[Decimal] = Field(None, description="年間配当金")
+    dividend_adj: Optional[Decimal] = Field(None, description="調整後年間配当金")
 
 
 __all__ = [

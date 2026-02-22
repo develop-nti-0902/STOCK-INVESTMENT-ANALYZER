@@ -36,6 +36,12 @@ class EdinetStockDividend(SerialPKMixin, TimestampMixin, Base):
         Numeric(20, 2), nullable=True, comment="年間配当金（百万円または円など、ソースに依存）"
     )
 
+    dividend_adj: Mapped[Optional[float]] = mapped_column(
+        Numeric(20, 2),
+        nullable=True,
+        comment="調整後年間配当金（百万円または円など、ソースに依存）",
+    )
+
     candidate_contexts: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     candidate_keys: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     is_consolidated: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
