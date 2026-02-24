@@ -171,24 +171,29 @@ class SimpleScreeningService:
     def _check_dividend_continuity(self, divs: List[Any]) -> bool:
         if not divs:
             return False
-        # 連年での配当減少を数える
-        dec_count = 0
-        dec_flags = []
         raw_vals = [getattr(d, "dividend_per_share", None) for d in divs]
         vals: List[float] = [float(v) for v in raw_vals if v is not None]
+        if len(vals) < 2:
+            return False
+
+        # 過去5年間において減配していないことを確認
         for i in range(1, len(vals)):
             if vals[i] < vals[i - 1]:
-                dec_count += 1
-                dec_flags.append(True)
+                return False
+
+        # 過去5年間において3年以上連続増配（または現状維持）の期間が存在
+        max_consecutive_increase = 1
+        current_consecutive_increase = 1
+        for i in range(1, len(vals)):
+            if vals[i] >= vals[i - 1]:
+                current_consecutive_increase += 1
+                max_consecutive_increase = max(
+                    max_consecutive_increase, current_consecutive_increase
+                )
             else:
-                dec_flags.append(False)
-        # 全体で減配は最大2回まで許容
-        if dec_count > 2:
-            return False
-        # 直近2年で連続減配が発生していないかチェック
-        if len(dec_flags) >= 2 and dec_flags[-1] and dec_flags[-2]:
-            return False
-        return True
+                current_consecutive_increase = 1
+
+        return max_consecutive_increase >= 3
 
     def _check_eps_health(self, eps: List[Any]) -> bool:
         if not eps:
@@ -204,11 +209,12 @@ class SimpleScreeningService:
             dec_flags.append(vals[i] < vals[i - 1])
         if len(dec_flags) >= 2 and dec_flags[-1] and dec_flags[-2]:
             return False
-        # 直近1年の減少率が30%未満であること
-        if len(vals) >= 2:
-            prev, last = vals[-2], vals[-1]
-            if prev > 0 and (prev - last) / prev >= 0.3:
-                return False
+        # 過去5年間において、減少している年度がある場合、減少率が30%未満であること
+        for i in range(1, len(vals)):
+            if vals[i] < vals[i - 1]:
+                decrease_rate = (vals[i - 1] - vals[i]) / vals[i - 1]
+                if decrease_rate >= 0.3:
+                    return False
         return True
 
     def _check_operating_cf(self, cfs: List[Any]) -> bool:
@@ -227,23 +233,18 @@ class SimpleScreeningService:
         vals: List[float] = [float(v) for v in raw_vals if v is not None]
         if len(vals) < 2:
             return 0
-        # 増配している年数
-        inc_years = sum(1 for i in range(1, len(vals)) if vals[i] > vals[i - 1])
-        if inc_years >= 3:
+
+        # 過去5年間連続増配（またはそれ以上、現状維持を含む）
+        all_increasing = all(vals[i] >= vals[i - 1] for i in range(1, len(vals)))
+        if all_increasing:
             score += 10
-        # 連続増配が2年以上あるか
-        run = 1
-        found_run = False
-        for i in range(1, len(vals)):
-            if vals[i] > vals[i - 1]:
-                run += 1
-                if run >= 2:
-                    found_run = True
-            else:
-                run = 1
-        if found_run:
+
+        # 過去5年間平均増配率が5%以上
+        avg_growth_rate = self._calculate_average_growth_rate(vals)
+        if avg_growth_rate >= 0.05:
             score += 10
-        # Kendall τ による上昇トレンド判定
+
+        # 5年配当トレンドが上向き（Kendallのτ > 0.4）
         try:
             tau = self._kendall_tau(vals)
             if tau > 0.4:
@@ -261,13 +262,13 @@ class SimpleScreeningService:
         inc_years = sum(1 for i in range(1, len(vals)) if vals[i] > vals[i - 1])
         if inc_years >= 3:
             score += 10
-        # 連続増加の判定
+        # 3年以上連続でEPS増加
         run = 1
         found_run = False
         for i in range(1, len(vals)):
             if vals[i] > vals[i - 1]:
                 run += 1
-                if run >= 2:
+                if run >= 3:
                     found_run = True
             else:
                 run = 1
@@ -325,6 +326,26 @@ class SimpleScreeningService:
         return min(score, 20)
 
     # ----------------- Utilities -----------------
+    def _calculate_average_growth_rate(self, values: List[float]) -> float:
+        """過去5年間の平均増配率を計算する。
+
+        Args:
+            values: 古い順から新しい順の配当値のリスト
+
+        Returns:
+            平均増配率（例: 0.05 = 5%）
+        """
+        if len(values) < 2:
+            return 0.0
+        growth_rates = []
+        for i in range(1, len(values)):
+            if values[i - 1] > 0:
+                rate = (values[i] - values[i - 1]) / values[i - 1]
+                growth_rates.append(rate)
+        if not growth_rates:
+            return 0.0
+        return sum(growth_rates) / len(growth_rates)
+
     def _kendall_tau(self, values: List[float]) -> float:
         # 単純な Kendall τ-a の実装（タイの扱い等の詳細処理は簡略化）
         n = len(values)

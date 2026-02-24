@@ -70,6 +70,7 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
         self._screening_index: Dict[str, ScreeningResult] = {}
 
     async def run(self, monitoring_date: date) -> None:
+        await self._delete_existing_monitoring_results(monitoring_date)
         screening_results = await self._fetch_screening_results()
         self._screening_index = {result.sec_code: result for result in screening_results}
         monitoring_results: List[DividendYieldMonitoringResult] = []
@@ -346,6 +347,23 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
             }
             for result in results
         ]
+
+    async def _delete_existing_monitoring_results(self, monitoring_date: date) -> None:
+        try:
+            async with self._session_maker() as session:
+                repository = self._monitoring_repo_factory(session)
+                async with session.begin():
+                    deleted_rows = await repository.delete_by_date(monitoring_date)
+                logger.info(
+                    "Deleted %s existing dividend yield monitoring rows for %s",
+                    deleted_rows,
+                    monitoring_date,
+                )
+        except Exception:
+            logger.exception(
+                "Failed to clear previous dividend yield monitoring data for %s",
+                monitoring_date,
+            )
 
 
 __all__ = ["DividendYieldMonitoringResult", "DividendYieldMonitoringService"]
