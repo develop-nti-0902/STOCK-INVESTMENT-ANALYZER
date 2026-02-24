@@ -33,7 +33,7 @@ def test_jwt_create_and_decode(monkeypatch):
         ACCESS_TOKEN_EXPIRE_MINUTES = 15
 
     # Arrange: 設定をモック
-    monkeypatch.setattr("app.services.auth_service.get_settings", lambda: MockSettings())
+    monkeypatch.setattr("app.services.auth.auth_service.get_settings", lambda: MockSettings())
 
     # Act: トークン生成・復号
     token = create_access_token("user-id-1")
@@ -52,7 +52,7 @@ async def test_authenticate_and_register(monkeypatch):
         ALGORITHM = "HS256"
         ACCESS_TOKEN_EXPIRE_MINUTES = 15
 
-    monkeypatch.setattr("app.services.auth_service.get_settings", lambda: MockSettings())
+    monkeypatch.setattr("app.services.auth.auth_service.get_settings", lambda: MockSettings())
 
     # Arrange: ダミーリポジトリとユーザを用意
     class DummyUser:

@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.accounts import Account
 from app.repositories.account_repository import AccountRepository
-from app.services import auth_service
+from app.services.auth import auth_service
 from app.utils.database import get_db
 
 security = HTTPBearer()

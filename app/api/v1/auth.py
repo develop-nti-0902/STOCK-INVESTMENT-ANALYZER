@@ -14,7 +14,7 @@ from app.schemas.accounts import (
     AccountResponse,
     TokenResponse,
 )
-from app.services import auth_service
+from app.services.auth import auth_service
 from app.utils.database import get_db
 
 router = APIRouter(tags=["user"])  # OpenAPI tag: user

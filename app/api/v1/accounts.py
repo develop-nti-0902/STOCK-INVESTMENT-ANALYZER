@@ -8,7 +8,7 @@ from app.api.dependencies.auth import get_current_active_user
 from app.exceptions.business import DuplicateEmailError, InvalidCredentialsError
 from app.repositories.account_repository import AccountRepository
 from app.schemas.accounts import AccountResponse, AccountUpdateRequest, PasswordChangeRequest
-from app.services import auth_service
+from app.services.auth import auth_service
 from app.utils.database import get_db
 
 router = APIRouter(tags=["user"])  # OpenAPI tag: user
