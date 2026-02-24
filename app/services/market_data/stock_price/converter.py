@@ -9,7 +9,7 @@ import logging
 from typing import Any, Dict, List
 
 from app.schemas.stock_data import StockPriceCreate
-from app.services.core.converters.base_converter import BaseConverter
+from app.services.data_synchronization._core.converters.base_converter import BaseConverter
 
 logger = logging.getLogger(__name__)
 

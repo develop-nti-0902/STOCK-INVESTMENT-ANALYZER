@@ -22,7 +22,7 @@ from app.exceptions.business import ServiceError
 from app.exceptions.external_api import JPXAPIError
 from app.exceptions.validation import FieldValidationError
 from app.schemas.market_data.stock_master import StockMasterNormalized, StockMasterRaw
-from app.services.core.fetchers.base_fetcher import BaseFetcher
+from app.services.data_synchronization._core.fetchers.base_fetcher import BaseFetcher
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)

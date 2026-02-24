@@ -1,7 +1,7 @@
 """Stock price batch runner.
 
 このモジュールは `StockPriceService` の全銘柄バッチ処理を担当します。
-`app.services.core.batch.base.BaseBatchRunner` を継承し、ジョブ管理には
+`BaseBatchRunner` を継承し、ジョブ管理には
 `app.services.batch.batch_execution_service.BatchExecutionContext` を利用して
 `BatchExecution` テーブルへ記録します。
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from app.services.core.batch.base import BaseBatchRunner
+from app.services.data_synchronization._core.batch import BaseBatchRunner
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories.market_data.edinet.edinet_cash_flow_statement_repository import (
     EdinetCashFlowStatementRepository,
 )
-from app.services.core.savers.base_saver import BaseSaver
+from app.services.data_synchronization._core.savers.base_saver import BaseSaver
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)

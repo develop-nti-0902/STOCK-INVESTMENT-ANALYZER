@@ -20,7 +20,7 @@ from pydantic import ValidationError
 from app.exceptions.external_api import YahooFinanceError
 from app.exceptions.validation import FieldValidationError
 from app.schemas.market_data.stock_price import StockData
-from app.services.core.fetchers.retry_mixin import RetryMixin
+from app.services.data_synchronization._core.fetchers.retry_mixin import RetryMixin
 from app.utils.config import get_settings
 from app.utils.logger import get_logger
 

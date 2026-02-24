@@ -7,8 +7,8 @@ from typing import Any, Dict, List, Optional
 
 from lxml import etree
 
-from app.services.core.parsers.base_parser import BaseParser
-from app.services.core.parsers.xml_parser_mixin import XMLParserMixin
+from app.services.data_synchronization._core.parsers.base_parser import BaseParser
+from app.services.data_synchronization._core.parsers.xml_parser_mixin import XMLParserMixin
 
 # Module-level placeholder for external XBRL parser class; tests may monkeypatch this.
 XbrlParser = None

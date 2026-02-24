@@ -8,7 +8,10 @@
 import logging
 from typing import Any
 
-from app.services.core.validators.base_validator import BaseValidator, ValidationResult
+from app.services.data_synchronization._core.validators.base_validator import (
+    BaseValidator,
+    ValidationResult,
+)
 
 logger = logging.getLogger(__name__)
 

@@ -25,7 +25,7 @@ from app.repositories.market_data.stock_price import (
     StockData30mRepository,
     StockDataRepository,
 )
-from app.services.core.savers.bulk_saver_mixin import BulkSaverMixin
+from app.services.data_synchronization._core.savers.bulk_saver_mixin import BulkSaverMixin
 
 # セッションは外部から注入される想定（FastAPIの依存注入 `get_db`）
 

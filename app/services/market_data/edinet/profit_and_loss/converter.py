@@ -8,7 +8,9 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from app.schemas.market_data.edinet import EdinetProfitAndLossCreate
-from app.services.core.converters.edinet_base_converter import EdinetBaseConverter
+from app.services.data_synchronization._core.converters.edinet_base_converter import (
+    EdinetBaseConverter,
+)
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
