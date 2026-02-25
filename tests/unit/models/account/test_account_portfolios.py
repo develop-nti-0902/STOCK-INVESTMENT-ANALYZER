@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.models import account_portfolios
+from app.models.account import account_portfolios
 
 
 def test_account_portfolios_defaults_and_repr():

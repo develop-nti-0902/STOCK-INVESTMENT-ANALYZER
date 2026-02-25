@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.accounts import Account
+from app.models.account import Account
 from app.repositories.core.base import BaseRepository
 from app.utils.database import flush_return_with_log
 

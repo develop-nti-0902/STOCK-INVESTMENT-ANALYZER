@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.models import accounts
+from app.models.account import accounts
 
 
 def test_account_fields_and_repr():

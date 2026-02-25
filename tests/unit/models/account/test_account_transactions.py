@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from app.models import account_transactions
+from app.models.account import account_transactions
 
 
 def test_account_transactions_required_fields_and_repr():

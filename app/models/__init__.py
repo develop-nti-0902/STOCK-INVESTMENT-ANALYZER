@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from app.models.core.base import Base, TimestampMixin
 
-from .account_portfolios import AccountPortfolios
-from .account_transactions import AccountTransactions
-from .accounts import Account
+from .account import Account, AccountPortfolios, AccountTransactions
 from .market_data.edinet import (
     EdinetBalanceSheet,
     EdinetCashFlowStatement,

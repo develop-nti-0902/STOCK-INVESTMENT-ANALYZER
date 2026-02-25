@@ -1,6 +1,6 @@
 """Unit tests for enums module."""
 
-from app.models.enums import BatchExecutionStatus
+from app.models.core.enums import BatchExecutionStatus
 
 
 def test_batch_execution_status_values():
