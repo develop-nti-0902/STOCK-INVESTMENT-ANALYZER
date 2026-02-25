@@ -1,6 +1,6 @@
 """Service: CSV から `stock_split` を読み込みリポジトリへ格納する処理.
 
-配置: app/services/market_data/edinet/stock_split/service.py
+配置: app/services/data_synchronization/market_data/edinet/stock_split/service.py
 """
 
 from __future__ import annotations

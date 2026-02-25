@@ -11,7 +11,9 @@ from app.services.data_synchronization.market_data.edinet.stock_dividend.saver i
 from app.services.data_synchronization.market_data.edinet.stock_dividend.service import (
     EdinetStockDividendService,
 )
-from app.services.market_data.edinet.stock_split.service import import_stock_splits_from_csv
+from app.services.data_synchronization.market_data.edinet.stock_split.service import (
+    import_stock_splits_from_csv,
+)
 from app.utils.database import get_database_url
 
 

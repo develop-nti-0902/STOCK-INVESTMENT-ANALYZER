@@ -7,7 +7,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.models.core.base import Base
-from app.services.market_data.edinet.stock_split.service import import_stock_splits_from_csv
+from app.services.data_synchronization.market_data.edinet.stock_split.service import (
+    import_stock_splits_from_csv,
+)
 
 
 @pytest.mark.asyncio
