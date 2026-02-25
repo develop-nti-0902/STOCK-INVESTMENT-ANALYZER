@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
-from app.services.market_data.stock_master.service import StockMasterService
+from app.services.data_synchronization.market_data.stock_master.service import StockMasterService
 
 
 class FakeModel:

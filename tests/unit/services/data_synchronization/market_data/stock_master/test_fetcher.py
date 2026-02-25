@@ -17,7 +17,7 @@ from app.exceptions.external_api import JPXAPIError
 from app.exceptions.validation import FieldValidationError
 
 # StockMasterRaw is not needed in these tests
-from app.services.market_data.stock_master.fetcher import StockMasterFetcher
+from app.services.data_synchronization.market_data.stock_master.fetcher import StockMasterFetcher
 
 
 def test_initialization_default_and_custom_url():
@@ -119,7 +119,9 @@ def test_parse_excel_raises_service_error_on_bad_excel():
     f = StockMasterFetcher()
 
     # pandas の read_excel を例外にする
-    with patch("app.services.market_data.stock_master.fetcher.pd.read_excel") as pr:
+    with patch(
+        "app.services.data_synchronization.market_data.stock_master.fetcher.pd.read_excel"
+    ) as pr:
         pr.side_effect = ValueError("bad excel")
 
         with pytest.raises(ServiceError):
@@ -162,9 +164,12 @@ def test_normalize_data_handles_validation_error_rows():
     # model_validate がその例外を投げるケースを検証する
     FakeVal = type("FakeVal", (Exception,), {})
 
-    with patch("app.services.market_data.stock_master.fetcher.ValidationError", new=FakeVal):
+    with patch(
+        "app.services.data_synchronization.market_data.stock_master.fetcher.ValidationError",
+        new=FakeVal,
+    ):
         with patch(
-            "app.services.market_data.stock_master.fetcher.StockMasterRaw.model_validate"
+            "app.services.data_synchronization.market_data.stock_master.fetcher.StockMasterRaw.model_validate"
         ) as mv:
             mv.side_effect = FakeVal("validation failed")
 

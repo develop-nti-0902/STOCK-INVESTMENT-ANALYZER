@@ -16,7 +16,9 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 if TYPE_CHECKING:
-    from app.services.market_data.stock_master.service import StockMasterService
+    from app.services.data_synchronization.market_data.stock_master.service import (
+        StockMasterService,
+    )
     from app.services.market_data.stock_price.service import StockPriceService
 
 

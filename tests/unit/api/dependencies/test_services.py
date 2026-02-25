@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.services import get_stock_master_repository, get_stock_master_service
 from app.repositories.market_data.stock_master import StockMasterRepository
-from app.services.market_data.stock_master import StockMasterService
+from app.services.data_synchronization.market_data.stock_master import StockMasterService
 
 
 class TestGetStockMasterRepository:

@@ -25,7 +25,7 @@ from app.repositories.market_data.stock_master import (
     StockMasterRepository,
     StockMasterUpdatesRepository,
 )
-from app.services.market_data.stock_master.service import StockMasterService
+from app.services.data_synchronization.market_data.stock_master.service import StockMasterService
 from app.services.market_data.stock_price.converter import StockPriceConverter
 from app.services.market_data.stock_price.fetcher import StockPriceFetcher
 from app.services.market_data.stock_price.saver import StockPriceSaver

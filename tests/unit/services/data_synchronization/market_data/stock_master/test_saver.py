@@ -10,7 +10,7 @@
 import asyncio
 from typing import Callable, Optional
 
-from app.services.market_data.stock_master.saver import StockMasterSaver
+from app.services.data_synchronization.market_data.stock_master.saver import StockMasterSaver
 
 
 class DummyRepo:

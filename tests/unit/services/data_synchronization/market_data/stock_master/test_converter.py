@@ -8,7 +8,9 @@
 from typing import List
 
 from app.schemas.market_data.stock_master import StockMasterNormalized
-from app.services.market_data.stock_master.converter import StockMasterConverter
+from app.services.data_synchronization.market_data.stock_master.converter import (
+    StockMasterConverter,
+)
 
 
 def test_to_records_converts_models_to_dicts():

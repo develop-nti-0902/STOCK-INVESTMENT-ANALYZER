@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.api.dependencies.services import get_stock_master_service
 from app.exceptions.business import ServiceError
 from app.exceptions.database import RecordNotFoundError
-from app.services.market_data.stock_master import StockMasterService
+from app.services.data_synchronization.market_data.stock_master import StockMasterService
 
 router = APIRouter(tags=["stock-master"])
 

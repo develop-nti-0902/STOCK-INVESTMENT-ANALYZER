@@ -52,7 +52,9 @@ TIMEFRAME_REPOSITORY_MAP = {
 logger = get_logger(__name__)
 
 if TYPE_CHECKING:
-    from app.services.market_data.stock_master.service import StockMasterService
+    from app.services.data_synchronization.market_data.stock_master.service import (
+        StockMasterService,
+    )
 
 
 class StockDataWrapper(NamedTuple):

@@ -10,9 +10,11 @@ from app.repositories.market_data.stock_master import (
     StockMasterRepository,
     StockMasterUpdatesRepository,
 )
-from app.services.market_data.stock_master.converter import StockMasterConverter
-from app.services.market_data.stock_master.fetcher import StockMasterFetcher
-from app.services.market_data.stock_master.saver import StockMasterSaver
+from app.services.data_synchronization.market_data.stock_master.converter import (
+    StockMasterConverter,
+)
+from app.services.data_synchronization.market_data.stock_master.fetcher import StockMasterFetcher
+from app.services.data_synchronization.market_data.stock_master.saver import StockMasterSaver
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
