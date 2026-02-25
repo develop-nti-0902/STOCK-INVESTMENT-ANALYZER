@@ -78,8 +78,8 @@ from app.services.data_synchronization.market_data.stock_price import (
     StockPriceService,
     StockPriceValidator,
 )
-from app.services.views.latest_stocks.refresh import LatestStocksRefreshService
-from app.services.views.latest_stocks.service import LatestStocksService
+from app.services.data_synchronization.views.latest_stocks.refresh import LatestStocksRefreshService
+from app.services.data_synchronization.views.latest_stocks.service import LatestStocksService
 from app.utils.database import get_db
 
 # Alias for profit-and-loss file manager (kept for backward compatibility)

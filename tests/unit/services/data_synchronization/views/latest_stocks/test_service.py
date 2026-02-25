@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.exceptions.business import ServiceError
-from app.services.views.latest_stocks.service import LatestStocksService
+from app.services.data_synchronization.views.latest_stocks.service import LatestStocksService
 
 
 @pytest.mark.asyncio

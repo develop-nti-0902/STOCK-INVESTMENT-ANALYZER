@@ -8,7 +8,7 @@ from __future__ import annotations
 from app.exceptions.business import ServiceError
 from app.repositories.latest_stocks_repository import LatestStocksRepository
 from app.schemas.views import LatestStockResponse
-from app.services.views.base import BaseViewService
+from app.services.data_synchronization.views.base import BaseViewService
 
 
 class LatestStocksService(BaseViewService):

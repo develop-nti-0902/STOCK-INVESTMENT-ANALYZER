@@ -1,6 +1,6 @@
 """Unit tests for BaseViewService utilities."""
 
-from app.services.views.base import BaseViewService
+from app.services.data_synchronization.views.base import BaseViewService
 
 
 def test_base_view_service_logger():

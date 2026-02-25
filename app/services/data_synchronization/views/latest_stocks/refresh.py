@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from app.exceptions.business import ServiceError
-from app.services.views.base import BaseViewService
+from app.services.data_synchronization.views.base import BaseViewService
 
 
 class LatestStocksRefreshService(BaseViewService):

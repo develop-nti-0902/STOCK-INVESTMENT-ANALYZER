@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.services.views.latest_stocks import batch as mod
+from app.services.data_synchronization.views.latest_stocks import batch as mod
 
 
 class _FakeResult:
