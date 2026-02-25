@@ -64,9 +64,13 @@ from app.services.data_synchronization.market_data.edinet.profit_and_loss.conver
 from app.services.data_synchronization.market_data.edinet.profit_and_loss.parser import (
     EdinetProfitAndLossParser,
 )
+from app.services.data_synchronization.market_data.edinet.stock_dividend.converter import (
+    EdinetStockDividendConverter,
+)
+from app.services.data_synchronization.market_data.edinet.stock_dividend.parser import (
+    EdinetStockDividendParser,
+)
 from app.services.market_data.edinet.download_service import EdinetDownloadService
-from app.services.market_data.edinet.stock_dividend.converter import EdinetStockDividendConverter
-from app.services.market_data.edinet.stock_dividend.parser import EdinetStockDividendParser
 from app.services.market_data.edinet.update_service import EdinetAggregateUpdateService
 from app.utils.database import close_db, get_engine
 

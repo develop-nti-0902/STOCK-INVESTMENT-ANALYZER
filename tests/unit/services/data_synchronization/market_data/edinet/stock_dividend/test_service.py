@@ -7,7 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.services.market_data.edinet.stock_dividend.service import EdinetStockDividendService
+from app.services.data_synchronization.market_data.edinet.stock_dividend.service import (
+    EdinetStockDividendService,
+)
 
 
 @pytest.mark.asyncio
@@ -97,6 +99,8 @@ async def test_cleanup_old_files_with_work_dir_calls_file_manager():
     file_manager = SimpleNamespace(cleanup_old_files=fake_cleanup)
     download_service = SimpleNamespace(work_dir="./tmp")
 
-    service = EdinetStockDividendService(parser, converter, saver, file_manager, download_service)
-    result = await service.cleanup_old_files(max_age_hours=12)
+    concrete_service = EdinetStockDividendService(
+        parser, converter, saver, file_manager, download_service
+    )
+    result = await concrete_service.cleanup_old_files(max_age_hours=12)
     assert result == 7

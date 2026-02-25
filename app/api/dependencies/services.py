@@ -55,6 +55,15 @@ from app.services.data_synchronization.market_data.edinet.profit_and_loss.saver 
 from app.services.data_synchronization.market_data.edinet.profit_and_loss.service import (
     EdinetProfitAndLossService,
 )
+from app.services.data_synchronization.market_data.edinet.stock_dividend.converter import (
+    EdinetStockDividendConverter,
+)
+from app.services.data_synchronization.market_data.edinet.stock_dividend.parser import (
+    EdinetStockDividendParser,
+)
+from app.services.data_synchronization.market_data.edinet.stock_dividend.saver import (
+    EdinetStockDividendSaver,
+)
 from app.services.data_synchronization.market_data.stock_master import StockMasterService
 from app.services.data_synchronization.market_data.stock_price import (
     StockPriceConverter,
@@ -64,9 +73,6 @@ from app.services.data_synchronization.market_data.stock_price import (
     StockPriceValidator,
 )
 from app.services.market_data.edinet.download_service import EdinetDownloadService
-from app.services.market_data.edinet.stock_dividend.converter import EdinetStockDividendConverter
-from app.services.market_data.edinet.stock_dividend.parser import EdinetStockDividendParser
-from app.services.market_data.edinet.stock_dividend.saver import EdinetStockDividendSaver
 from app.services.market_data.edinet.update_service import EdinetAggregateUpdateService
 from app.services.views.latest_stocks.refresh import LatestStocksRefreshService
 from app.services.views.latest_stocks.service import LatestStocksService

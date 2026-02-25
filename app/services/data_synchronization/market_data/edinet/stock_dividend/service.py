@@ -10,10 +10,16 @@ from typing import Any, List
 
 from app.models.market_data.edinet import EdinetStockDividend
 from app.services.data_synchronization.market_data.edinet.file_manager import EdinetFileManager
+from app.services.data_synchronization.market_data.edinet.stock_dividend.converter import (
+    EdinetStockDividendConverter,
+)
+from app.services.data_synchronization.market_data.edinet.stock_dividend.parser import (
+    EdinetStockDividendParser,
+)
+from app.services.data_synchronization.market_data.edinet.stock_dividend.saver import (
+    EdinetStockDividendSaver,
+)
 from app.services.market_data.edinet.download_service import EdinetDownloadService
-from app.services.market_data.edinet.stock_dividend.converter import EdinetStockDividendConverter
-from app.services.market_data.edinet.stock_dividend.parser import EdinetStockDividendParser
-from app.services.market_data.edinet.stock_dividend.saver import EdinetStockDividendSaver
 from app.services.market_data.edinet.update_service import EdinetAggregateUpdateService
 from app.utils.logger import get_logger
 

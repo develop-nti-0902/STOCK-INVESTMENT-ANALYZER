@@ -98,61 +98,74 @@ class EdinetStockDividendParser(BaseParser, XMLParserMixin):
         return False
 
     def _get_all_available_contexts(self, root: etree._Element) -> List[str]:
-        context_refs = set()
-        for elem in root.xpath(".//*[@contextRef]"):
-            ref = elem.get("contextRef")
-            if ref:
-                context_refs.add(ref)
-        return list(context_refs)
+        """Return all context IDs from the root element."""
+        namespaces = {
+            "xbrl": "http://www.xbrl.org/2003/instance",
+        }
+        context_elements = root.findall(".//xbrl:context", namespaces=namespaces)
+        return [elem.get("id") for elem in context_elements if elem.get("id")]
 
     def _get_contexts_for_year(self, year_key: str, all_contexts: List[str]) -> List[str]:
-        patterns = self.CONTEXT_PATTERNS.get(year_key, [])
-        matched = []
-        for p in patterns:
-            for c in all_contexts:
-                if p in c:
-                    matched.append(c)
-        return matched
+        """Return matching context IDs for a given year key."""
+        if year_key not in self.CONTEXT_PATTERNS:
+            return []
+        patterns = self.CONTEXT_PATTERNS[year_key]
+        matching = []
+        for ctx_id in all_contexts:
+            for pattern in patterns:
+                if pattern in ctx_id:
+                    matching.append(ctx_id)
+                    break
+        return matching
 
     def parse_single_year(
         self, parsed_xbrl: Any, root: etree._Element, contexts: List[str], year_key: str
     ) -> Dict[str, Any]:
-        """Parse a single year's dividend data from provided XBRL contexts."""
-        dividend = self.extract_dividend(parsed_xbrl, root, contexts)
-        consolidation = self.determine_consolidation(root, contexts)
-        period_end = self.get_period_end_date(root, contexts)
+        """Parse data for a single year."""
+        result = {}
+        for tag_key, tag_list in self.XBRL_TAGS.items():
+            for tag_name in tag_list:
+                value = self._extract_value(root, tag_name, contexts)
+                if value is not None:
+                    result[tag_key] = value
+                    break
+        return result
 
-        period_end_date = None
-        try:
-            if isinstance(period_end, datetime):
-                period_end_date = period_end.date()
-            elif isinstance(period_end, date):
-                period_end_date = period_end
-            elif isinstance(period_end, str):
-                try:
-                    period_end_date = datetime.fromisoformat(period_end).date()
-                except Exception:
-                    try:
-                        period_end_date = datetime.strptime(period_end, "%Y-%m-%d").date()
-                    except Exception:
-                        period_end_date = None
-        except Exception:
-            period_end_date = None
-
-        return {
-            "dividend_actual": dividend,
-            "period_end": period_end,
-            "period_end_date": period_end_date,
-            "consolidation": consolidation,
+    def _extract_value(self, root: etree._Element, tag_name: str, contexts: List[str]) -> Any:
+        """Extract a numeric value for a given tag and contexts."""
+        namespaces = {
+            "xbrl": "http://www.xbrl.org/2003/instance",
+            "jpcrp": "http://disclosure.edinet-fsa.go.jp/jpcrp/2018-08-31",
+            "jpcrp_cor": "http://disclosure.edinet-fsa.go.jp/jpcrp/2020-11-30",
         }
 
-    def extract_dividend(
-        self, parsed_xbrl: Any, root: etree._Element, contexts: List[str]
-    ) -> Optional[float]:
-        """Extract dividend numeric value from XBRL for provided contexts."""
-        return self.extract_numeric_from_xbrl(
-            parsed_xbrl, self.XBRL_TAGS.get("dividend_actual", []), contexts
-        )
+        # Try to find the element
+        for ns, ns_uri in namespaces.items():
+            full_tag = f"{{{ns_uri}}}{tag_name}" if ns != "xbrl" else tag_name
+            elements = root.findall(f".//{full_tag}")
+            for elem in elements:
+                ctx_ref = elem.get("contextRef")
+                if ctx_ref in contexts:
+                    text = elem.text
+                    if text:
+                        try:
+                            return float(text)
+                        except ValueError:
+                            pass
+
+        # Fallback without namespace
+        elements = root.findall(f".//{tag_name}")
+        for elem in elements:
+            ctx_ref = elem.get("contextRef")
+            if ctx_ref in contexts:
+                text = elem.text
+                if text:
+                    try:
+                        return float(text)
+                    except ValueError:
+                        pass
+
+        return None
 
 
 __all__ = ["EdinetStockDividendParser"]
