@@ -20,6 +20,7 @@ from app.repositories.market_data.stock_master import (
     StockMasterRepository,
     StockMasterUpdatesRepository,
 )
+from app.services.data_synchronization.market_data.edinet.common.api_client import EdinetAPIClient
 from app.services.data_synchronization.market_data.stock_master import StockMasterService
 from app.services.data_synchronization.market_data.stock_price import (
     StockPriceConverter,
@@ -32,7 +33,6 @@ from app.services.market_data.edinet.balance_sheet.converter import EdinetBalanc
 from app.services.market_data.edinet.balance_sheet.parser import EdinetBalanceSheetParser
 from app.services.market_data.edinet.balance_sheet.saver import EdinetBalanceSheetSaver
 from app.services.market_data.edinet.balance_sheet.service import EdinetBalanceSheetService
-from app.services.market_data.edinet.common.api_client import EdinetAPIClient
 from app.services.market_data.edinet.download_service import EdinetDownloadService
 from app.services.market_data.edinet.edinet_cash_flow_statement.converter import (
     EdinetCashFlowStatementConverter,

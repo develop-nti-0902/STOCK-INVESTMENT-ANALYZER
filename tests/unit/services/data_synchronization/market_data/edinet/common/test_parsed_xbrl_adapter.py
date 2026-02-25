@@ -2,7 +2,9 @@
 
 import pytest
 
-from app.services.market_data.edinet.common import parsed_xbrl_adapter as adapter
+from app.services.data_synchronization.market_data.edinet.common import (
+    parsed_xbrl_adapter as adapter,
+)
 
 
 class PXTwoArg:

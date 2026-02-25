@@ -5,7 +5,7 @@ from datetime import date
 
 import pytest
 
-from app.services.market_data.edinet.common.api_client import EdinetAPIClient
+from app.services.data_synchronization.market_data.edinet.common.api_client import EdinetAPIClient
 
 # テスト実行時に Settings が EDINET_SUBSCRIPTION_KEY を要求するため、ダミー値を設定
 os.environ.setdefault("EDINET_SUBSCRIPTION_KEY", "dummy_key")

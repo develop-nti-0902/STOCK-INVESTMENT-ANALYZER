@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from app.services.market_data.edinet.common import xbrl_utils
+from app.services.data_synchronization.market_data.edinet.common import xbrl_utils
 
 
 def test_find_xbrl_files(tmp_path: Path):

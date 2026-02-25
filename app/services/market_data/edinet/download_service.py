@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 from lxml import etree
 
-from app.services.market_data.edinet.common.api_client import EdinetAPIClient
+from app.services.data_synchronization.market_data.edinet.common.api_client import EdinetAPIClient
 
 logger = logging.getLogger(__name__)
 
