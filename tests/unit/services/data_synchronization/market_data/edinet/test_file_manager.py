@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from app.services.market_data.edinet.file_manager import EdinetFileManager
+from app.services.data_synchronization.market_data.edinet.file_manager import EdinetFileManager
 
 
 def test_create_and_cleanup_tempdir(tmp_path):

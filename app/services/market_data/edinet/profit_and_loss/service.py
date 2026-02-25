@@ -10,10 +10,10 @@ from datetime import date
 from typing import Any, List
 
 from app.models.market_data.edinet import EdinetProfitAndLoss
-from app.services.market_data.edinet.download_service import EdinetDownloadService
-from app.services.market_data.edinet.file_manager import (
+from app.services.data_synchronization.market_data.edinet.file_manager import (
     EdinetFileManager as EdinetProfitAndLossFileManager,
 )
+from app.services.market_data.edinet.download_service import EdinetDownloadService
 from app.services.market_data.edinet.profit_and_loss.converter import EdinetProfitAndLossConverter
 from app.services.market_data.edinet.profit_and_loss.parser import EdinetProfitAndLossParser
 from app.services.market_data.edinet.profit_and_loss.saver import EdinetProfitAndLossSaver

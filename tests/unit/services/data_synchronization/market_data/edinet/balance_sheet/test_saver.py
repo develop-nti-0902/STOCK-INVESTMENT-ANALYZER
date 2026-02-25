@@ -4,7 +4,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from app.services.market_data.edinet.balance_sheet.saver import EdinetBalanceSheetSaver
+from app.services.data_synchronization.market_data.edinet.balance_sheet.saver import (
+    EdinetBalanceSheetSaver,
+)
 
 
 @pytest.mark.asyncio

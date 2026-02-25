@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from app.services.market_data.edinet.balance_sheet.service import EdinetBalanceSheetService
+from app.services.data_synchronization.market_data.edinet.balance_sheet.service import (
+    EdinetBalanceSheetService,
+)
 
 
 class DummyFetcher:

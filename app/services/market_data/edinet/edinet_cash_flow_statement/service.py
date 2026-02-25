@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from app.services.data_synchronization.market_data.edinet.file_manager import EdinetFileManager
 from app.services.market_data.edinet.download_service import EdinetDownloadService
 from app.services.market_data.edinet.edinet_cash_flow_statement.converter import (
     EdinetCashFlowStatementConverter,
@@ -18,7 +19,6 @@ from app.services.market_data.edinet.edinet_cash_flow_statement.parser import (
 from app.services.market_data.edinet.edinet_cash_flow_statement.saver import (
     EdinetCashFlowStatementSaver,
 )
-from app.services.market_data.edinet.file_manager import EdinetFileManager
 from app.services.market_data.edinet.update_service import EdinetAggregateUpdateService
 from app.utils.logger import get_logger
 

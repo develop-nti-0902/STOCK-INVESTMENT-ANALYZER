@@ -7,7 +7,9 @@ from decimal import Decimal
 
 import pytest
 
-from app.services.market_data.edinet.balance_sheet.converter import EdinetBalanceSheetConverter
+from app.services.data_synchronization.market_data.edinet.balance_sheet.converter import (
+    EdinetBalanceSheetConverter,
+)
 
 
 def test_to_pydantic_success():

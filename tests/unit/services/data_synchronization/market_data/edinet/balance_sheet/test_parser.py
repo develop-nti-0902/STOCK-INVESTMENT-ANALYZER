@@ -8,7 +8,9 @@ from __future__ import annotations
 import pytest
 from lxml import etree
 
-from app.services.market_data.edinet.balance_sheet.parser import EdinetBalanceSheetParser
+from app.services.data_synchronization.market_data.edinet.balance_sheet.parser import (
+    EdinetBalanceSheetParser,
+)
 
 
 def _make_sample_root() -> etree._Element:
@@ -49,7 +51,7 @@ def test_parse_returns_five_years(monkeypatch):
         def parse_file(self, _path):
             return _DummyParsedXbrl()
 
-    import app.services.market_data.edinet.balance_sheet.parser as bs_parser
+    import app.services.data_synchronization.market_data.edinet.balance_sheet.parser as bs_parser
 
     monkeypatch.setattr(bs_parser, "XbrlParser", _DummyXbrlParser)
 

@@ -3,7 +3,10 @@
 EDINET API を使用した損益計算書・キャッシュフロー計算書データの取得・管理を担当します。
 """
 
-from ..file_manager import EdinetFileManager as EdinetProfitAndLossFileManager
+from app.services.data_synchronization.market_data.edinet.file_manager import (
+    EdinetFileManager as EdinetProfitAndLossFileManager,
+)
+
 from .converter import EdinetProfitAndLossConverter
 from .parser import EdinetProfitAndLossParser
 from .saver import EdinetProfitAndLossSaver
