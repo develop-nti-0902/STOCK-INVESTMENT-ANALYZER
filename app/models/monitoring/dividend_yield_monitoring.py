@@ -17,7 +17,7 @@ class DividendYieldMonitoring(
 ):  # pylint: disable=too-few-public-methods
     """配当利回り監視結果を保存するテーブル定義."""
 
-    sec_code: Mapped[str] = mapped_column(String(10), nullable=False)
+    symbol: Mapped[str] = mapped_column(String(10), nullable=False)
     monitoring_date: Mapped[date] = mapped_column(Date, nullable=False)
     latest_dividend_amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4), nullable=True)
     latest_stock_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4), nullable=True)
@@ -29,7 +29,7 @@ class DividendYieldMonitoring(
     dividend_source_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("sec_code", "monitoring_date", name="uq_dividend_yield_monitoring"),
+        UniqueConstraint("symbol", "monitoring_date", name="uq_dividend_yield_monitoring"),
         Index("idx_dividend_yield_monitoring_date", "monitoring_date"),
         Index("idx_dividend_yield_monitoring_purchase_level", "purchase_level"),
         Index("idx_dividend_yield_monitoring_yield", "dividend_yield"),

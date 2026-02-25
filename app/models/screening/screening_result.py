@@ -16,6 +16,7 @@ class ScreeningResult(SerialPKMixin, TimestampMixin, Base):
 
     __tablename__ = "screening_results"
 
+    symbol: Mapped[str] = mapped_column(String(10), nullable=False)
     sec_code: Mapped[str] = mapped_column(String(10), nullable=False)
     evaluation_date: Mapped[date] = mapped_column(Date, nullable=False)
     fiscal_year_end: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
@@ -34,8 +35,8 @@ class ScreeningResult(SerialPKMixin, TimestampMixin, Base):
     screening_details: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("sec_code", "evaluation_date", name="uq_screening_results_sec_eval"),
-        Index("idx_screening_results_sec_code", "sec_code"),
+        UniqueConstraint("symbol", "evaluation_date", name="uq_screening_results_symbol_eval"),
+        Index("idx_screening_results_symbol", "symbol"),
         Index("idx_screening_results_evaluation_date", "evaluation_date"),
         Index("idx_screening_results_status", "status"),
         Index("idx_screening_results_total_score", "total_score"),
@@ -44,8 +45,8 @@ class ScreeningResult(SerialPKMixin, TimestampMixin, Base):
     def __repr__(self) -> str:  # pragma: no cover - trivial
         """短いデバッグ用表示を返します."""
         return (
-            "<ScreeningResult(sec_code="
-            f"{self.sec_code!r}, evaluation_date={self.evaluation_date!r}, status={self.status!r})>"
+            "<ScreeningResult(symbol="
+            f"{self.symbol!r}, evaluation_date={self.evaluation_date!r}, status={self.status!r})>"
         )
 
     @property
