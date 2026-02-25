@@ -6,7 +6,7 @@ from datetime import date
 
 from lxml import etree
 
-from app.services.market_data.edinet.edinet_cash_flow_statement.parser import (
+from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_statement.parser import (
     EdinetCashFlowStatementParser,
 )
 

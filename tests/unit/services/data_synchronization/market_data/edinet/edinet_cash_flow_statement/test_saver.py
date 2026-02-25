@@ -6,7 +6,7 @@ from datetime import date
 
 import pytest
 
-from app.services.market_data.edinet.edinet_cash_flow_statement.saver import (
+from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_statement.saver import (
     EdinetCashFlowStatementSaver,
 )
 

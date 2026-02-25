@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.services.market_data.edinet.edinet_cash_flow_statement.service import (
+from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_statement.service import (
     EdinetCashFlowStatementService,
 )
 

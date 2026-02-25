@@ -7,7 +7,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.services.market_data.edinet.edinet_cash_flow_statement.converter import (
+from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_statement.converter import (
     EdinetCashFlowStatementConverter,
 )
 

@@ -52,13 +52,13 @@ from app.services.data_synchronization.market_data.edinet.balance_sheet.converte
 from app.services.data_synchronization.market_data.edinet.balance_sheet.parser import (
     EdinetBalanceSheetParser,
 )
-from app.services.market_data.edinet.download_service import EdinetDownloadService
-from app.services.market_data.edinet.edinet_cash_flow_statement.converter import (
+from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_statement.converter import (
     EdinetCashFlowStatementConverter,
 )
-from app.services.market_data.edinet.edinet_cash_flow_statement.parser import (
+from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_statement.parser import (
     EdinetCashFlowStatementParser,
 )
+from app.services.market_data.edinet.download_service import EdinetDownloadService
 from app.services.market_data.edinet.profit_and_loss.converter import EdinetProfitAndLossConverter
 from app.services.market_data.edinet.profit_and_loss.parser import EdinetProfitAndLossParser
 from app.services.market_data.edinet.stock_dividend.converter import EdinetStockDividendConverter
