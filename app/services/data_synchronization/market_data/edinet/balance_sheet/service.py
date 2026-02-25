@@ -17,9 +17,13 @@ from app.services.data_synchronization.market_data.edinet.balance_sheet.parser i
 from app.services.data_synchronization.market_data.edinet.balance_sheet.saver import (
     EdinetBalanceSheetSaver,
 )
+from app.services.data_synchronization.market_data.edinet.download_service import (
+    EdinetDownloadService,
+)
 from app.services.data_synchronization.market_data.edinet.file_manager import EdinetFileManager
-from app.services.market_data.edinet.download_service import EdinetDownloadService
-from app.services.market_data.edinet.update_service import EdinetAggregateUpdateService
+from app.services.data_synchronization.market_data.edinet.update_service import (
+    EdinetAggregateUpdateService,
+)
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)

@@ -8,7 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from app.services.market_data.edinet.download_service import EdinetDownloadService
+from app.services.data_synchronization.market_data.edinet.download_service import (
+    EdinetDownloadService,
+)
 
 
 class DummyAPIClient:

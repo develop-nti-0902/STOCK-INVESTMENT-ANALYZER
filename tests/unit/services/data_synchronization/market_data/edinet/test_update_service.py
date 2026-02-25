@@ -9,7 +9,9 @@ from datetime import date
 import pytest
 from lxml import etree
 
-from app.services.market_data.edinet.update_service import EdinetAggregateUpdateService
+from app.services.data_synchronization.market_data.edinet.update_service import (
+    EdinetAggregateUpdateService,
+)
 
 
 class DummyDownloadService:

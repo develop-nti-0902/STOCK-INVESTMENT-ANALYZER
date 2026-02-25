@@ -52,6 +52,9 @@ from app.services.data_synchronization.market_data.edinet.balance_sheet.converte
 from app.services.data_synchronization.market_data.edinet.balance_sheet.parser import (
     EdinetBalanceSheetParser,
 )
+from app.services.data_synchronization.market_data.edinet.download_service import (
+    EdinetDownloadService,
+)
 from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_statement.converter import (
     EdinetCashFlowStatementConverter,
 )
@@ -70,8 +73,9 @@ from app.services.data_synchronization.market_data.edinet.stock_dividend.convert
 from app.services.data_synchronization.market_data.edinet.stock_dividend.parser import (
     EdinetStockDividendParser,
 )
-from app.services.market_data.edinet.download_service import EdinetDownloadService
-from app.services.market_data.edinet.update_service import EdinetAggregateUpdateService
+from app.services.data_synchronization.market_data.edinet.update_service import (
+    EdinetAggregateUpdateService,
+)
 from app.utils.database import close_db, get_engine
 
 logger = logging.getLogger(__name__)

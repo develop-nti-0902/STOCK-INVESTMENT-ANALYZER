@@ -33,6 +33,9 @@ from app.services.data_synchronization.market_data.edinet.balance_sheet.service 
     EdinetBalanceSheetService,
 )
 from app.services.data_synchronization.market_data.edinet.common.api_client import EdinetAPIClient
+from app.services.data_synchronization.market_data.edinet.download_service import (
+    EdinetDownloadService,
+)
 from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_statement.converter import (
     EdinetCashFlowStatementConverter,
 )
@@ -64,6 +67,9 @@ from app.services.data_synchronization.market_data.edinet.stock_dividend.parser 
 from app.services.data_synchronization.market_data.edinet.stock_dividend.saver import (
     EdinetStockDividendSaver,
 )
+from app.services.data_synchronization.market_data.edinet.update_service import (
+    EdinetAggregateUpdateService,
+)
 from app.services.data_synchronization.market_data.stock_master import StockMasterService
 from app.services.data_synchronization.market_data.stock_price import (
     StockPriceConverter,
@@ -72,8 +78,6 @@ from app.services.data_synchronization.market_data.stock_price import (
     StockPriceService,
     StockPriceValidator,
 )
-from app.services.market_data.edinet.download_service import EdinetDownloadService
-from app.services.market_data.edinet.update_service import EdinetAggregateUpdateService
 from app.services.views.latest_stocks.refresh import LatestStocksRefreshService
 from app.services.views.latest_stocks.service import LatestStocksService
 from app.utils.database import get_db

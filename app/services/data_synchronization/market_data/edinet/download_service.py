@@ -104,3 +104,6 @@ class EdinetDownloadService:
     async def search_documents(self, target_date: "date") -> list[dict[str, Any]]:
         """指定日付の書類を検索してメタ情報リストを返す."""
         return await self.api_client.search_documents(target_date)
+
+
+__all__ = ["EdinetDownloadService"]

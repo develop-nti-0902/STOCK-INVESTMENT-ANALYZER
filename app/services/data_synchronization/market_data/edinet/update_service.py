@@ -14,7 +14,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from lxml import etree
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.market_data.edinet.download_service import EdinetDownloadService
+from app.services.data_synchronization.market_data.edinet.download_service import (
+    EdinetDownloadService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -463,3 +465,6 @@ class EdinetAggregateUpdateService:
         }
         logger.info("Batch completed: %s", result)
         return result
+
+
+__all__ = ["EdinetAggregateUpdateService"]

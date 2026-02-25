@@ -13,7 +13,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.services import get_edinet_aggregate_update_service
-from app.services.market_data.edinet.update_service import EdinetAggregateUpdateService
+from app.services.data_synchronization.market_data.edinet.update_service import (
+    EdinetAggregateUpdateService,
+)
 from app.utils.database import get_db
 
 # The batch endpoints that used to call per-service orchestration methods
