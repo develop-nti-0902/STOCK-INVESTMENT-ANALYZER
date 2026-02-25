@@ -13,7 +13,10 @@ import pytest
 
 from app.exceptions.validation import FieldValidationError
 from app.schemas.market_data.stock_price import StockData
-from app.services.market_data.stock_price.fetcher import StockPriceFetcher, TimeframeMapping
+from app.services.data_synchronization.market_data.stock_price.fetcher import (
+    StockPriceFetcher,
+    TimeframeMapping,
+)
 
 
 class TestTimeframeMapping:
@@ -54,7 +57,7 @@ class TestStockPriceFetcherUnit:
     def test_init_reads_settings_concurrency(self):
         """Constructor reads concurrency limit from settings and creates a semaphore."""
         with patch(
-            "app.services.market_data.stock_price.fetcher.get_settings"
+            "app.services.data_synchronization.market_data.stock_price.fetcher.get_settings"
         ) as mock_get_settings:
             mock_cfg = type("Cfg", (), {"YAHOO_FINANCE_CONCURRENCY_LIMIT": 3})()
             mock_get_settings.return_value = mock_cfg
@@ -134,13 +137,17 @@ class TestStockPriceFetcherUnit:
         """handle_fetch_error logs appropriately for YahooFinanceError and general errors."""
         from app.exceptions.external_api import YahooFinanceError
 
-        with patch("app.services.market_data.stock_price.fetcher.logger") as mock_logger:
+        with patch(
+            "app.services.data_synchronization.market_data.stock_price.fetcher.logger"
+        ) as mock_logger:
             err = YahooFinanceError(message="err")
             await fetcher.handle_fetch_error("T", err)
             mock_logger.error.assert_called()
             mock_logger.warning.assert_called()
 
-        with patch("app.services.market_data.stock_price.fetcher.logger") as mock_logger:
+        with patch(
+            "app.services.data_synchronization.market_data.stock_price.fetcher.logger"
+        ) as mock_logger:
             err = ValueError("boom")
             await fetcher.handle_fetch_error("T", err)
             mock_logger.error.assert_called()
@@ -148,7 +155,9 @@ class TestStockPriceFetcherUnit:
     @pytest.mark.asyncio
     async def test_fetch_batch_with_yfinance_multiindex(self, fetcher):
         """Parse yfinance MultiIndex history output for multiple tickers."""
-        with patch("app.services.market_data.stock_price.fetcher.yf.Tickers") as mock_tickers:
+        with patch(
+            "app.services.data_synchronization.market_data.stock_price.fetcher.yf.Tickers"
+        ) as mock_tickers:
             inst = mock_tickers.return_value
 
             cols = pd.MultiIndex.from_tuples(

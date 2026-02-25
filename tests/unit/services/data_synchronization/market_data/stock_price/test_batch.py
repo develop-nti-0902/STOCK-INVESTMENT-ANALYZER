@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.services.market_data.stock_price.batch import StockPriceBatchRunner
+from app.services.data_synchronization.market_data.stock_price.batch import StockPriceBatchRunner
 
 
 class DummyStockPriceService:

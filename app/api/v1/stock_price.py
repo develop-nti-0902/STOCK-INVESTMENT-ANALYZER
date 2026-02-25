@@ -15,7 +15,7 @@ from app.api.dependencies.services import get_stock_price_service
 from app.exceptions.business import ServiceError
 from app.exceptions.database import RecordNotFoundError
 from app.exceptions.validation import FieldValidationError
-from app.services.market_data.stock_price.service import StockPriceService
+from app.services.data_synchronization.market_data.stock_price.service import StockPriceService
 from app.utils.database import get_db
 
 router = APIRouter(tags=["stock-price"])

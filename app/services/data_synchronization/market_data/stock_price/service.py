@@ -31,10 +31,10 @@ from app.repositories.market_data.stock_price import (
     StockData30mRepository,
 )
 from app.schemas.stock_data import StockPriceCreate
-from app.services.market_data.stock_price.converter import StockPriceConverter
-from app.services.market_data.stock_price.fetcher import StockPriceFetcher
-from app.services.market_data.stock_price.saver import StockPriceSaver
-from app.services.market_data.stock_price.validator import StockPriceValidator
+from app.services.data_synchronization.market_data.stock_price.converter import StockPriceConverter
+from app.services.data_synchronization.market_data.stock_price.fetcher import StockPriceFetcher
+from app.services.data_synchronization.market_data.stock_price.saver import StockPriceSaver
+from app.services.data_synchronization.market_data.stock_price.validator import StockPriceValidator
 from app.utils.logger import get_logger
 
 # 時間軸とリポジトリのマッピング（DB読み取り用）

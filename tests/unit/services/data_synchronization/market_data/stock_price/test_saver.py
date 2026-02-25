@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from app.exceptions.validation import FieldValidationError
-from app.services.market_data.stock_price.saver import StockPriceSaver
+from app.services.data_synchronization.market_data.stock_price.saver import StockPriceSaver
 
 
 def make_mock_repo():
@@ -41,7 +41,7 @@ class TestStockPriceSaver:
             ]
         }
         with patch.dict(
-            "app.services.market_data.stock_price.saver.StockPriceSaver.TIMEFRAME_REPOSITORIES",
+            "app.services.data_synchronization.market_data.stock_price.saver.StockPriceSaver.TIMEFRAME_REPOSITORIES",
             factories,
             clear=False,
         ):

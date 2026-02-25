@@ -10,9 +10,9 @@ import pandas as pd
 import pytest
 
 from app.exceptions.external_api import YahooFinanceError
-from app.services.market_data.stock_price.fetcher import StockPriceFetcher
-from app.services.market_data.stock_price.saver import StockPriceSaver
-from app.services.market_data.stock_price.service import StockPriceService
+from app.services.data_synchronization.market_data.stock_price.fetcher import StockPriceFetcher
+from app.services.data_synchronization.market_data.stock_price.saver import StockPriceSaver
+from app.services.data_synchronization.market_data.stock_price.service import StockPriceService
 
 
 class TestStockPriceService:
@@ -203,7 +203,7 @@ class TestStockPriceService:
                 return 5
 
         # Monkeypatch mapping in service module
-        import app.services.market_data.stock_price.service as svc_mod
+        import app.services.data_synchronization.market_data.stock_price.service as svc_mod
 
         monkeypatch.setitem(svc_mod.TIMEFRAME_REPOSITORY_MAP, "1d", FakeRepo)
 

@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import pytest
 
 from app.schemas.stock_data import StockPriceCreate
-from app.services.market_data.stock_price.converter import StockPriceConverter
+from app.services.data_synchronization.market_data.stock_price.converter import StockPriceConverter
 
 
 class TestStockPriceConverter:

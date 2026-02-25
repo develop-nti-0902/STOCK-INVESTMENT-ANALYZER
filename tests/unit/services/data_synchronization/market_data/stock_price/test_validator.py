@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from app.services.market_data.stock_price.validator import StockPriceValidator
+from app.services.data_synchronization.market_data.stock_price.validator import StockPriceValidator
 
 
 @pytest.fixture

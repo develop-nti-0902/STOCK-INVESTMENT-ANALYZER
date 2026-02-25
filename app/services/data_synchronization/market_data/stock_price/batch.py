@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from app.services.data_synchronization.market_data.stock_master.service import (
         StockMasterService,
     )
-    from app.services.market_data.stock_price.service import StockPriceService
+    from app.services.data_synchronization.market_data.stock_price.service import StockPriceService
 
 
 class StockPriceBatchRunner(BaseBatchRunner):
