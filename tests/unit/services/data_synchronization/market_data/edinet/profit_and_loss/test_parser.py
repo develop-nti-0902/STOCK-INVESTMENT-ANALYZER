@@ -7,7 +7,9 @@ from __future__ import annotations
 
 from lxml import etree
 
-from app.services.market_data.edinet.profit_and_loss.parser import EdinetProfitAndLossParser
+from app.services.data_synchronization.market_data.edinet.profit_and_loss.parser import (
+    EdinetProfitAndLossParser,
+)
 
 
 def _make_sample_root() -> etree._Element:
@@ -53,7 +55,7 @@ def test_parse_returns_five_years(monkeypatch):
         def parse_file(self, _path):
             return _DummyParsedXbrl()
 
-    import app.services.market_data.edinet.profit_and_loss.parser as pl_parser
+    import app.services.data_synchronization.market_data.edinet.profit_and_loss.parser as pl_parser
 
     monkeypatch.setattr(pl_parser, "XbrlParser", _DummyXbrlParser)
 

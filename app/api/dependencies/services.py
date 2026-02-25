@@ -43,6 +43,18 @@ from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_state
     EdinetCashFlowStatementSaver,
 )
 from app.services.data_synchronization.market_data.edinet.file_manager import EdinetFileManager
+from app.services.data_synchronization.market_data.edinet.profit_and_loss.converter import (
+    EdinetProfitAndLossConverter,
+)
+from app.services.data_synchronization.market_data.edinet.profit_and_loss.parser import (
+    EdinetProfitAndLossParser,
+)
+from app.services.data_synchronization.market_data.edinet.profit_and_loss.saver import (
+    EdinetProfitAndLossSaver,
+)
+from app.services.data_synchronization.market_data.edinet.profit_and_loss.service import (
+    EdinetProfitAndLossService,
+)
 from app.services.data_synchronization.market_data.stock_master import StockMasterService
 from app.services.data_synchronization.market_data.stock_price import (
     StockPriceConverter,
@@ -52,10 +64,6 @@ from app.services.data_synchronization.market_data.stock_price import (
     StockPriceValidator,
 )
 from app.services.market_data.edinet.download_service import EdinetDownloadService
-from app.services.market_data.edinet.profit_and_loss.converter import EdinetProfitAndLossConverter
-from app.services.market_data.edinet.profit_and_loss.parser import EdinetProfitAndLossParser
-from app.services.market_data.edinet.profit_and_loss.saver import EdinetProfitAndLossSaver
-from app.services.market_data.edinet.profit_and_loss.service import EdinetProfitAndLossService
 from app.services.market_data.edinet.stock_dividend.converter import EdinetStockDividendConverter
 from app.services.market_data.edinet.stock_dividend.parser import EdinetStockDividendParser
 from app.services.market_data.edinet.stock_dividend.saver import EdinetStockDividendSaver

@@ -7,7 +7,9 @@ from decimal import Decimal
 import pytest
 
 from app.schemas.market_data.edinet import EdinetProfitAndLossCreate
-from app.services.market_data.edinet.profit_and_loss.converter import EdinetProfitAndLossConverter
+from app.services.data_synchronization.market_data.edinet.profit_and_loss.converter import (
+    EdinetProfitAndLossConverter,
+)
 
 
 def test_to_pydantic_success():

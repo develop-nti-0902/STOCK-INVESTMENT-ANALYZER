@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from app.services.market_data.edinet.profit_and_loss.service import EdinetProfitAndLossService
+from app.services.data_synchronization.market_data.edinet.profit_and_loss.service import (
+    EdinetProfitAndLossService,
+)
 
 
 class _DummySaved:

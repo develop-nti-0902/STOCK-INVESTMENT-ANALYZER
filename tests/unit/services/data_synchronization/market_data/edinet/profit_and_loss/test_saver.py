@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.market_data.edinet.profit_and_loss.saver import EdinetProfitAndLossSaver
+from app.services.data_synchronization.market_data.edinet.profit_and_loss.saver import (
+    EdinetProfitAndLossSaver,
+)
 
 
 class _DummyModel:
@@ -62,7 +64,7 @@ async def test_save_single_success(monkeypatch):
     """save_single が正常に保存を返すことを検証する."""
     # リポジトリをモック化
     monkeypatch.setattr(
-        "app.services.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
+        "app.services.data_synchronization.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
         _DummyRepo,
     )
 
@@ -82,7 +84,7 @@ async def test_save_single_raises_on_empty_or_missing():
     monkeypatch = pytest.MonkeyPatch()
     try:
         monkeypatch.setattr(
-            "app.services.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
+            "app.services.data_synchronization.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
             _DummyRepo,
         )
 
@@ -101,7 +103,7 @@ async def test_save_single_raises_on_empty_or_missing():
 async def test_save_batch_continues_on_error(monkeypatch):
     """バッチ処理で一件の失敗が継続されることを検証する."""
     monkeypatch.setattr(
-        "app.services.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
+        "app.services.data_synchronization.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
         _DummyRepo,
     )
 
@@ -123,7 +125,7 @@ async def test_save_batch_continues_on_error(monkeypatch):
 async def test_exists_and_get_latest(monkeypatch):
     """exists と get_latest_by_sec_code の挙動を検証する."""
     monkeypatch.setattr(
-        "app.services.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
+        "app.services.data_synchronization.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
         _DummyRepo,
     )
 
