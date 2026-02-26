@@ -10,7 +10,10 @@ from typing import Any, Callable, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.repositories.market_data.stock_master.stock_master_repository import StockMasterRepository
+from app.repositories.market_data.stock_master import (
+    StockCodeMappingRepository,
+    StockMasterRepository,
+)
 from app.repositories.screening.screening_result_repository import ScreeningResultRepository
 from app.services.data_synchronization.market_data.stock_master.service import StockMasterService
 from app.utils.stock_code_converter import to_edinet_code
@@ -67,9 +70,16 @@ class SimpleScreeningService:
                 sm_service = StockMasterService(repo=repo)
                 symbols = await sm_service.get_all_active_symbols()
                 out: List[str] = []
+                mapping_repo = StockCodeMappingRepository(session=session)
                 for c in symbols:
                     try:
-                        out.append(to_edinet_code(c))
+                        # stock_code_mapping テーブルから対応する sec_code を取得
+                        mapping = await mapping_repo.get_by_stock_code(c)
+                        if mapping:
+                            out.append(mapping.sec_code)
+                        else:
+                            # フォールバック: 対応がない場合は静的変換を使用
+                            out.append(to_edinet_code(c))
                     except Exception as e:
                         print(f"[DEBUG] failed convert code {c}: {e}")
                 return out

@@ -97,6 +97,7 @@ class EdinetStockDividendService:
         from sqlalchemy import select
 
         from app.models.market_data.edinet.stock_split import StockSplit
+        from app.repositories.market_data.stock_master import StockCodeMappingRepository
         from app.utils.stock_code_converter import to_edinet_code
 
         session = getattr(self.saver, "session", None)
@@ -124,11 +125,19 @@ class EdinetStockDividendService:
         codes_res = await session.execute(select(StockSplit.code).distinct())
         codes_raw = [row[0] for row in codes_res.fetchall()]
 
+        # stock_code_mapping リポジトリを初期化
+        mapping_repo = StockCodeMappingRepository(session=session)
+
         adjusted = 0
         for orig_code in codes_raw:
-            # stock_master 形式のコードを EDINET 形式に変換
+            # stock_code_mapping テーブルから EDINET コードを取得
             try:
-                edinet_code = to_edinet_code(orig_code)
+                mapping = await mapping_repo.get_by_stock_code(orig_code)
+                if mapping:
+                    edinet_code = mapping.sec_code
+                else:
+                    # フォールバック: 対応がない場合は静的変換を使用
+                    edinet_code = to_edinet_code(orig_code)
             except Exception:
                 logger.exception("Failed to convert code %s to EDINET format", orig_code)
                 continue
