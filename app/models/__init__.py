@@ -11,7 +11,7 @@ from .market_data.edinet import (
     EdinetProfitAndLoss,
     EdinetStockDividend,
 )
-from .market_data.stock_master import StockMaster, StockMasterUpdates
+from .market_data.stock_master import StockCodeMapping, StockMaster, StockMasterUpdates
 from .market_data.stock_price import (
     Stocks1d,
     Stocks1h,
@@ -32,6 +32,7 @@ __all__ = [
     "AccountTransactions",
     "StockMaster",
     "StockMasterUpdates",
+    "StockCodeMapping",
     "EdinetBalanceSheet",
     "EdinetProfitAndLoss",
     "EdinetCashFlowStatement",
