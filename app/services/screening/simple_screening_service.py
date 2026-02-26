@@ -16,7 +16,6 @@ from app.repositories.market_data.stock_master import (
 )
 from app.repositories.screening.screening_result_repository import ScreeningResultRepository
 from app.services.data_synchronization.market_data.stock_master.service import StockMasterService
-from app.utils.stock_code_converter import to_edinet_code
 
 logger = logging.getLogger(__name__)
 
@@ -77,11 +76,8 @@ class SimpleScreeningService:
                         mapping = await mapping_repo.get_by_stock_code(c)
                         if mapping:
                             out.append(mapping.sec_code)
-                        else:
-                            # フォールバック: 対応がない場合は静的変換を使用
-                            out.append(to_edinet_code(c))
                     except Exception as e:
-                        print(f"[DEBUG] failed convert code {c}: {e}")
+                        print(f"[DEBUG] failed to get mapping for code {c}: {e}")
                 return out
         except Exception as exc:
             print(f"[DEBUG] fetch stock master failed: {exc}")

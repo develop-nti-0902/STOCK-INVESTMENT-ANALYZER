@@ -21,7 +21,6 @@ from app.repositories.market_data.stock_price.stock_data_repository import Stock
 from app.repositories.monitoring.dividend_yield_monitoring_repository import (
     DividendYieldMonitoringRepository,
 )
-from app.utils.stock_code_converter import from_edinet_code
 
 logger = logging.getLogger(__name__)
 
@@ -220,16 +219,6 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
         if stock_price <= Decimal("0"):
             return "株価が0以下"
         return "利回り計算不可"
-
-    @staticmethod
-    def _resolve_stock_symbol(sec_code: str) -> Optional[str]:
-        # This method is no longer needed as we use symbol directly
-        try:
-            symbol = from_edinet_code(sec_code)
-            return symbol
-        except Exception:
-            logger.exception("Failed to normalize sec_code=%s for stock lookup", sec_code)
-            return None
 
     def _print_report(
         self, monitoring_date: date, results: List[DividendYieldMonitoringResult]

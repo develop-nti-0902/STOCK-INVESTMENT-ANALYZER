@@ -98,7 +98,6 @@ class EdinetStockDividendService:
 
         from app.models.market_data.edinet.stock_split import StockSplit
         from app.repositories.market_data.stock_master import StockCodeMappingRepository
-        from app.utils.stock_code_converter import to_edinet_code
 
         session = getattr(self.saver, "session", None)
         if session is None:
@@ -133,13 +132,12 @@ class EdinetStockDividendService:
             # stock_code_mapping テーブルから EDINET コードを取得
             try:
                 mapping = await mapping_repo.get_by_stock_code(orig_code)
-                if mapping:
-                    edinet_code = mapping.sec_code
-                else:
-                    # フォールバック: 対応がない場合は静的変換を使用
-                    edinet_code = to_edinet_code(orig_code)
+                if not mapping:
+                    logger.warning("No mapping found for stock code %s, skipping", orig_code)
+                    continue
+                edinet_code = mapping.sec_code
             except Exception:
-                logger.exception("Failed to convert code %s to EDINET format", orig_code)
+                logger.exception("Failed to get mapping for code %s", orig_code)
                 continue
 
             # 指定銘柄の分割履歴を発効日順に取得（orig_code=stock_master 形式で照合）
