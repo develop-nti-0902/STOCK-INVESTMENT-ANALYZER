@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import List, Optional, Set
 
 from app.repositories.market_data.stock_master import (
+    StockCodeMappingRepository,
     StockMasterRepository,
     StockMasterUpdatesRepository,
 )
@@ -15,6 +16,9 @@ from app.services.data_synchronization.market_data.stock_master.converter import
 )
 from app.services.data_synchronization.market_data.stock_master.fetcher import StockMasterFetcher
 from app.services.data_synchronization.market_data.stock_master.saver import StockMasterSaver
+from app.services.data_synchronization.market_data.stock_master.stock_code_mapping_saver import (
+    StockCodeMappingSaver,
+)
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -27,10 +31,12 @@ class StockMasterService:
         - フェッチャーからデータを取得する
         - Pydanticモデルを永続化用の辞書に変換する
         - リポジトリの ``bulk_upsert`` をバッチ処理で呼び出す
+        - 同時に stock_code_mapping も更新する
 
     属性:
         repo (StockMasterRepository): 永続化用リポジトリ
         fetcher (StockMasterFetcher): データ取得フェッチャー
+        stock_code_mapping_repo (StockCodeMappingRepository): コード対応リポジトリ
     """
 
     def __init__(
@@ -40,12 +46,16 @@ class StockMasterService:
         converter: Optional[StockMasterConverter] = None,
         saver: Optional[StockMasterSaver] = None,
         updates_repo: Optional[StockMasterUpdatesRepository] = None,
+        stock_code_mapping_repo: Optional[StockCodeMappingRepository] = None,
+        stock_code_mapping_saver: Optional[StockCodeMappingSaver] = None,
     ):
         """サービスを初期化します.
 
         Args:
             repo (StockMasterRepository): 銘柄マスタ用リポジトリ
             fetcher (Optional[StockMasterFetcher]): フェッチャー（未指定時はデフォルトを生成）
+            stock_code_mapping_repo (Optional[StockCodeMappingRepository]): コード対応リポジトリ
+            stock_code_mapping_saver (Optional[StockCodeMappingSaver]): コード対応Saver
         """
         self.repo = repo
         # デフォルト実装を割り当てることで呼び出し側が None を渡しても安全に動作する
@@ -54,6 +64,9 @@ class StockMasterService:
         # Saver は repo を必要とするため、未指定の場合は repo を用いて生成する
         self.saver: StockMasterSaver = saver or StockMasterSaver(repo)
         self.updates_repo = updates_repo
+        # stock_code_mapping 対応
+        self.stock_code_mapping_repo = stock_code_mapping_repo
+        self.stock_code_mapping_saver = stock_code_mapping_saver
 
     async def get_all_active_symbols(self) -> List[str]:
         """全てのアクティブな銘柄コードを返します.
@@ -208,6 +221,27 @@ class StockMasterService:
             ##########################################################
             total_processed = await self.saver.save_batch(records, batch_size=batch_size)
 
+            ##########################################################
+            # stock_code_mapping を同時に保存
+            ##########################################################
+            if self.stock_code_mapping_repo and self.stock_code_mapping_saver:
+                try:
+                    mapping_records = self._generate_stock_code_mappings(records)
+                    if mapping_records:
+                        await self.stock_code_mapping_saver.save_batch(
+                            mapping_records, batch_size=batch_size
+                        )
+                        logger.info(
+                            "Stock code mappings saved",
+                            extra={"count": len(mapping_records)},
+                        )
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to save stock code mappings",
+                        extra={"error": str(exc)},
+                    )
+                    # マッピング保存エラーは致命的ではないため、続行する
+
             # サマリを成功として更新する
             if self.updates_repo and record_id is not None:
                 await self.updates_repo.update_status(
@@ -243,6 +277,37 @@ class StockMasterService:
                 except Exception:
                     logger.exception("Failed to mark summary as failed")
             raise
+
+    def _generate_stock_code_mappings(self, records: List[dict]) -> List[dict]:
+        """stock_master のレコードから stock_code_mapping レコードを生成します.
+
+        JPX 株式コード（stock_code）から EDINET 提出企業コード（sec_code）を
+        自動生成し、対応レコードを作成します。
+
+        Args:
+            records (List[dict]): stock_master のレコード辞書リスト
+
+        Returns:
+            List[dict]: stock_code_mapping の レコード辞書リスト
+        """
+        mappings: List[dict] = []
+        for record in records:
+            stock_code = record.get("stock_code")
+            if not stock_code:
+                continue
+
+            # sec_code = stock_code + "0" で生成
+            # 例：「1301」 -> 「13010」
+            sec_code = f"{stock_code}0"
+
+            mappings.append(
+                {
+                    "stock_code": stock_code,
+                    "sec_code": sec_code,
+                }
+            )
+
+        return mappings
 
     async def reset_stock_master(self) -> int:
         """銘柄マスターの全レコードを削除します.
