@@ -9,7 +9,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.utils.database import get_database_url
-from tests.e2e.utils import fetch_stock_master_for_artifact, run_async_safely, write_csv_artifact
+from tests.e2e.utils import (
+    fetch_stock_code_mapping_for_artifact,
+    fetch_stock_master_for_artifact,
+    run_async_safely,
+    write_csv_artifact,
+)
 
 # Ensure all e2e tests run on the same xdist worker (loadgroup)
 pytestmark = pytest.mark.xdist_group("e2e")
@@ -18,6 +23,24 @@ pytestmark = pytest.mark.xdist_group("e2e")
 async def _cleanup_batch_executions() -> None:
     """BatchExecution table removed — nothing to cleanup."""
     await asyncio.sleep(0)
+
+
+async def _cleanup_stock_code_mapping() -> None:
+    """stock_code_mapping テーブルをクリーンアップする."""
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.repositories.market_data.stock_master import StockCodeMappingRepository
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            repo = StockCodeMappingRepository(session=session)
+            deleted = await repo.delete_all()
+            await session.commit()
+            if deleted > 0:
+                print(f"DEBUG: Cleaned up {deleted} stock_code_mapping records")
+    finally:
+        await engine.dispose()
 
 
 def test_stock_master_flow(client):
@@ -36,6 +59,9 @@ def test_stock_master_flow(client):
 
     # 前準備: バッチ実行履歴をクリーンアップ
     run_async_safely(_cleanup_batch_executions())
+
+    # 前準備: stock_code_mapping をクリーンアップ
+    run_async_safely(_cleanup_stock_code_mapping())
 
     try:
         # 1) fetch/sample (テスト用パラメータ指定: sample_size=50 を使用)
@@ -60,6 +86,29 @@ def test_stock_master_flow(client):
 
             traceback.print_exc()
 
+        # artifact: refresh/sample後のstock_code_mappingデータを取得
+        try:
+            stock_code_mapping_data_sample = run_async_safely(
+                fetch_stock_code_mapping_for_artifact()
+            )
+            base_name_mapping_sample = "test_stock_master_flow_stock_code_mapping_1"
+            write_csv_artifact(stock_code_mapping_data_sample, name=base_name_mapping_sample)
+            # sample 後に stock_code_mapping に少なくともいくつかのレコードが存在することを検証
+            if stock_code_mapping_data_sample:
+                assert len(stock_code_mapping_data_sample) > 0, (
+                    "fetch/sample 後に stock_code_mapping がクリアされています。"
+                    "サービスで stock_code_mapping が正しく保存されているか確認してください"
+                )
+                print(
+                    f"DEBUG: fetch/sample後のstock_code_mapping レコード数: "
+                    f"{len(stock_code_mapping_data_sample)}"
+                )
+        except Exception as e:
+            print(f"DEBUG: Failed to validate stock_code_mapping after sample: {e}")
+            import traceback
+
+            traceback.print_exc()
+
         # 2) fetch
         r_refresh = client.post("/api/v1/stock-master/fetch")
         assert r_refresh.status_code == 200
@@ -73,6 +122,30 @@ def test_stock_master_flow(client):
             write_csv_artifact(stock_master_data, name=base_name)
         except Exception as e:
             print(f"DEBUG: Failed to write artifact after refresh: {e}")
+            import traceback
+
+            traceback.print_exc()
+
+        # artifact: refresh後のstock_code_mappingデータを取得
+        try:
+            stock_code_mapping_data = run_async_safely(fetch_stock_code_mapping_for_artifact())
+            base_name_mapping = "test_stock_master_flow_stock_code_mapping_2"
+            write_csv_artifact(stock_code_mapping_data, name=base_name_mapping)
+            # fetch後にstock_code_mappingに複数のレコードが存在することを検証
+            assert len(stock_code_mapping_data) > 0, (
+                "fetch 実行後に stock_code_mapping テーブルが空です。"
+                "StockMasterService が stock_code_mapping を正しく更新しているか確認してください"
+            )
+            print(f"DEBUG: fetch後のstock_code_mapping レコード数: {len(stock_code_mapping_data)}")
+            # stock_master のレコード数よりは少ないはずだが、ある程度の割合が対応していることを期待
+            if stock_master_data:
+                mapping_ratio = len(stock_code_mapping_data) / len(stock_master_data)
+                print(
+                    f"DEBUG: stock_code_mapping対応率: {mapping_ratio:.2%} "
+                    f"({len(stock_code_mapping_data)}/{len(stock_master_data)})"
+                )
+        except Exception as e:
+            print(f"DEBUG: Failed to validate stock_code_mapping after fetch: {e}")
             import traceback
 
             traceback.print_exc()
@@ -143,3 +216,10 @@ def test_stock_master_flow(client):
             print("DEBUG: Cleanup - Batch execution records deleted")
         except Exception as e:
             print(f"DEBUG: Failed to cleanup batch_executions: {e}")
+
+        # stock_code_mapping レコードのクリーンアップ
+        try:
+            run_async_safely(_cleanup_stock_code_mapping())
+            print("DEBUG: Cleanup - stock_code_mapping records deleted")
+        except Exception as e:
+            print(f"DEBUG: Failed to cleanup stock_code_mapping: {e}")

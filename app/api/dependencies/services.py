@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.latest_stocks_repository import LatestStocksRepository
 from app.repositories.market_data.stock_master import (
+    StockCodeMappingRepository,
     StockMasterRepository,
     StockMasterUpdatesRepository,
 )
@@ -70,7 +71,10 @@ from app.services.data_synchronization.market_data.edinet.stock_dividend.saver i
 from app.services.data_synchronization.market_data.edinet.update_service import (
     EdinetAggregateUpdateService,
 )
-from app.services.data_synchronization.market_data.stock_master import StockMasterService
+from app.services.data_synchronization.market_data.stock_master import (
+    StockCodeMappingSaver,
+    StockMasterService,
+)
 from app.services.data_synchronization.market_data.stock_price import (
     StockPriceConverter,
     StockPriceFetcher,
@@ -155,20 +159,44 @@ def get_stock_master_updates_repository(
     return StockMasterUpdatesRepository(session=db)
 
 
+def get_stock_code_mapping_repository(
+    db: AsyncSession = Depends(get_db),
+) -> StockCodeMappingRepository:
+    """StockCodeMappingRepository を提供する依存性プロバイダ.
+
+    Args:
+        db (AsyncSession): 非同期DBセッション
+
+    Returns:
+        StockCodeMappingRepository: JPXコードとEDINETコード対応のリポジトリ
+    """
+    return StockCodeMappingRepository(session=db)
+
+
 def get_stock_master_service(
     repo: StockMasterRepository = Depends(get_stock_master_repository),
     updates_repo: StockMasterUpdatesRepository = Depends(get_stock_master_updates_repository),
+    stock_code_mapping_repo: StockCodeMappingRepository = Depends(
+        get_stock_code_mapping_repository
+    ),
 ) -> StockMasterService:
     """StockMasterService を提供する依存性プロバイダ.
 
     Args:
         repo (StockMasterRepository): 銘柄マスタリポジトリ
         updates_repo (StockMasterUpdatesRepository): 銘柄マスタ更新履歴リポジトリ
+        stock_code_mapping_repo (StockCodeMappingRepository): JPX-EDINETコード対応リポジトリ
 
     Returns:
         StockMasterService: 銘柄マスタ関連のビジネスロジックサービス
     """
-    return StockMasterService(repo=repo, updates_repo=updates_repo)
+    stock_code_mapping_saver = StockCodeMappingSaver(repo=stock_code_mapping_repo)
+    return StockMasterService(
+        repo=repo,
+        updates_repo=updates_repo,
+        stock_code_mapping_repo=stock_code_mapping_repo,
+        stock_code_mapping_saver=stock_code_mapping_saver,
+    )
 
 
 def get_stock_price_service(

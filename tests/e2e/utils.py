@@ -274,3 +274,34 @@ async def fetch_stock_master_for_artifact() -> List[Dict[str, Any]]:
             ]
     finally:
         await engine.dispose()
+
+
+async def fetch_stock_code_mapping_for_artifact() -> List[Dict[str, Any]]:
+    """stock_code_mappingテーブルから全データを取得してアーティファクト用に返す。
+
+    Returns:
+        stock_code_mappingテーブルの全レコードを辞書のリストで返す。
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.stock_master import StockCodeMapping
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(StockCodeMapping))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": row.id,
+                    "stock_code": row.stock_code,
+                    "sec_code": row.sec_code,
+                    "created_at": (row.created_at.isoformat() if row.created_at else None),
+                    "updated_at": (row.updated_at.isoformat() if row.updated_at else None),
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
