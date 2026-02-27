@@ -305,3 +305,288 @@ async def fetch_stock_code_mapping_for_artifact() -> List[Dict[str, Any]]:
             ]
     finally:
         await engine.dispose()
+
+
+class TableCleanupManager:
+    """E2Eテスト用のテーブルクリーンアップ処理を提供するマネージャークラス。"""
+
+    # ========== EDINET関連のクリーンアップ ==========
+
+    @staticmethod
+    async def cleanup_edinet_balance_sheets() -> None:
+        """edinet_balance_sheets テーブルのデータをクリーンアップする."""
+        from sqlalchemy import delete
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        from app.models.market_data.edinet import EdinetBalanceSheet
+        from app.utils.database import get_database_url
+
+        engine = create_async_engine(get_database_url())
+        try:
+            async with AsyncSession(engine) as session:
+                await session.execute(delete(EdinetBalanceSheet))
+                await session.commit()
+        finally:
+            await engine.dispose()
+
+    @staticmethod
+    async def cleanup_edinet_profit_and_loss() -> None:
+        """edinet_profit_and_loss テーブルのデータをクリーンアップする."""
+        from sqlalchemy import delete
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        from app.models.market_data.edinet import EdinetProfitAndLoss
+        from app.utils.database import get_database_url
+
+        engine = create_async_engine(get_database_url())
+        try:
+            async with AsyncSession(engine) as session:
+                await session.execute(delete(EdinetProfitAndLoss))
+                await session.commit()
+        finally:
+            await engine.dispose()
+
+    @staticmethod
+    async def cleanup_edinet_stock_dividend() -> None:
+        """edinet_stock_dividend テーブルのデータをクリーンアップする."""
+        from sqlalchemy import delete
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        from app.models.market_data.edinet import EdinetStockDividend
+        from app.utils.database import get_database_url
+
+        engine = create_async_engine(get_database_url())
+        try:
+            async with AsyncSession(engine) as session:
+                await session.execute(delete(EdinetStockDividend))
+                await session.commit()
+        finally:
+            await engine.dispose()
+
+    @staticmethod
+    async def cleanup_edinet_cash_flow_statement() -> None:
+        """edinet_cash_flow_statement テーブルのデータをクリーンアップする."""
+        from sqlalchemy import delete
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        from app.models.market_data.edinet import EdinetCashFlowStatement
+        from app.utils.database import get_database_url
+
+        engine = create_async_engine(get_database_url())
+        try:
+            async with AsyncSession(engine) as session:
+                await session.execute(delete(EdinetCashFlowStatement))
+                await session.commit()
+        finally:
+            await engine.dispose()
+
+    # ========== EDINET関連のフェッチ ==========
+
+    @staticmethod
+    async def fetch_edinet_balance_sheet_rows() -> List[Dict[str, Any]]:
+        """edinet_balance_sheets テーブルから全データを取得する.
+
+        Returns:
+            edinet_balance_sheets テーブルの全レコードを辞書のリストで返す
+        """
+        from sqlalchemy import select
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        from app.models.market_data.edinet import EdinetBalanceSheet
+        from app.utils.database import get_database_url
+
+        engine = create_async_engine(get_database_url())
+        try:
+            async with AsyncSession(engine) as session:
+                result = await session.execute(select(EdinetBalanceSheet))
+                rows = result.scalars().all()
+                return [
+                    {
+                        "id": row.id,
+                        "sec_code": row.sec_code,
+                        "filer_name": row.filer_name,
+                        "doc_id": row.doc_id,
+                        "period_end_date": (
+                            row.period_end_date.isoformat() if row.period_end_date else None
+                        ),
+                        "submission_date": (
+                            row.submission_date.isoformat() if row.submission_date else None
+                        ),
+                        "fiscal_year": row.fiscal_year,
+                        "total_assets": float(row.total_assets) if row.total_assets else None,
+                        "total_liabilities": (
+                            float(row.total_liabilities) if row.total_liabilities else None
+                        ),
+                        "total_equity": float(row.total_equity) if row.total_equity else None,
+                        "created_at": row.created_at.isoformat() if row.created_at else None,
+                        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                    }
+                    for row in rows
+                ]
+        finally:
+            await engine.dispose()
+
+    @staticmethod
+    async def fetch_edinet_profit_and_loss_rows() -> List[Dict[str, Any]]:
+        """edinet_profit_and_loss テーブルから全データを取得する.
+
+        Returns:
+            edinet_profit_and_loss テーブルの全レコードを辞書のリストで返す
+        """
+        from sqlalchemy import select
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        from app.models.market_data.edinet import EdinetProfitAndLoss
+        from app.utils.database import get_database_url
+
+        engine = create_async_engine(get_database_url())
+        try:
+            async with AsyncSession(engine) as session:
+                result = await session.execute(select(EdinetProfitAndLoss))
+                rows = result.scalars().all()
+                return [
+                    {
+                        "id": row.id,
+                        "sec_code": row.sec_code,
+                        "doc_id": row.doc_id,
+                        "period_end_date": (
+                            row.period_end_date.isoformat() if row.period_end_date else None
+                        ),
+                        "submission_date": (
+                            row.submission_date.isoformat() if row.submission_date else None
+                        ),
+                        "fiscal_year": row.fiscal_year,
+                        "report_type": row.report_type,
+                        "net_sales": float(row.net_sales) if row.net_sales is not None else None,
+                        "operating_income": (
+                            float(row.operating_income)
+                            if row.operating_income is not None
+                            else None
+                        ),
+                        "eps": float(row.eps) if row.eps is not None else None,
+                        "candidate_contexts": row.candidate_contexts,
+                        "candidate_keys": row.candidate_keys,
+                        "is_consolidated": row.is_consolidated,
+                        "created_at": row.created_at.isoformat() if row.created_at else None,
+                        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                    }
+                    for row in rows
+                ]
+        finally:
+            await engine.dispose()
+
+    @staticmethod
+    async def fetch_edinet_stock_dividend_rows() -> List[Dict[str, Any]]:
+        """edinet_stock_dividend テーブルから全データを取得する.
+
+        Returns:
+            edinet_stock_dividend テーブルの全レコードを辞書のリストで返す
+        """
+        from sqlalchemy import select
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        from app.models.market_data.edinet import EdinetStockDividend
+        from app.utils.database import get_database_url
+
+        engine = create_async_engine(get_database_url())
+        try:
+            async with AsyncSession(engine) as session:
+                result = await session.execute(select(EdinetStockDividend))
+                rows = result.scalars().all()
+                return [
+                    {
+                        "id": row.id,
+                        "sec_code": row.sec_code,
+                        "doc_id": row.doc_id,
+                        "period_end_date": (
+                            row.period_end_date.isoformat() if row.period_end_date else None
+                        ),
+                        "submission_date": (
+                            row.submission_date.isoformat() if row.submission_date else None
+                        ),
+                        "fiscal_year": row.fiscal_year,
+                        "report_type": row.report_type,
+                        "dividend_actual": (
+                            float(row.dividend_actual) if row.dividend_actual is not None else None
+                        ),
+                        "candidate_contexts": row.candidate_contexts,
+                        "candidate_keys": row.candidate_keys,
+                        "is_consolidated": row.is_consolidated,
+                        "created_at": row.created_at.isoformat() if row.created_at else None,
+                        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                    }
+                    for row in rows
+                ]
+        finally:
+            await engine.dispose()
+
+    @staticmethod
+    async def fetch_edinet_cash_flow_statement_rows() -> List[Dict[str, Any]]:
+        """edinet_cash_flow_statement テーブルから全データを取得する.
+
+        Returns:
+            edinet_cash_flow_statement テーブルの全レコードを辞書のリストで返す
+        """
+        from sqlalchemy import select
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        from app.models.market_data.edinet import EdinetCashFlowStatement
+        from app.utils.database import get_database_url
+
+        engine = create_async_engine(get_database_url())
+        try:
+            async with AsyncSession(engine) as session:
+                result = await session.execute(select(EdinetCashFlowStatement))
+                rows = result.scalars().all()
+                return [
+                    {
+                        "id": row.id,
+                        "sec_code": row.sec_code,
+                        "doc_id": row.doc_id,
+                        "period_end_date": (
+                            row.period_end_date.isoformat() if row.period_end_date else None
+                        ),
+                        "submission_date": (
+                            row.submission_date.isoformat() if row.submission_date else None
+                        ),
+                        "fiscal_year": row.fiscal_year,
+                        "report_type": row.report_type,
+                        "operating_cf": (
+                            float(row.operating_cf) if row.operating_cf is not None else None
+                        ),
+                        "candidate_contexts": row.candidate_contexts,
+                        "candidate_keys": row.candidate_keys,
+                        "is_consolidated": row.is_consolidated,
+                        "created_at": row.created_at.isoformat() if row.created_at else None,
+                        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                    }
+                    for row in rows
+                ]
+        finally:
+            await engine.dispose()
+
+    # ========== Stock Master関連のクリーンアップ ==========
+
+    @staticmethod
+    async def cleanup_batch_executions() -> None:
+        """BatchExecution table removed — nothing to cleanup."""
+        await asyncio.sleep(0)
+
+    @staticmethod
+    async def cleanup_stock_code_mapping() -> None:
+        """stock_code_mapping テーブルをクリーンアップする."""
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        from app.repositories.market_data.stock_master import StockCodeMappingRepository
+        from app.utils.database import get_database_url
+
+        engine = create_async_engine(get_database_url())
+        try:
+            async with AsyncSession(engine) as session:
+                repo = StockCodeMappingRepository(session=session)
+                deleted = await repo.delete_all()
+                await session.commit()
+                if deleted > 0:
+                    print(f"DEBUG: Cleaned up {deleted} stock_code_mapping records")
+        finally:
+            await engine.dispose()

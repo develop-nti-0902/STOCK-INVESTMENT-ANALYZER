@@ -10,47 +10,10 @@ from typing import List
 
 import pytest
 
-from tests.e2e.utils import run_async_safely, write_csv_artifact
+from tests.e2e.utils import TableCleanupManager, run_async_safely, write_csv_artifact
 
 # Ensure all e2e tests run on the same xdist worker (loadgroup)
 pytestmark = pytest.mark.xdist_group("e2e")
-
-
-async def _wait_for_batch_completion(job_id: int, timeout: int = 300, poll_interval: int = 2):
-    """バッチジョブの完了を待つ.
-
-    Args:
-        job_id: バッチジョブID
-        timeout: タイムアウト時間（秒）
-        poll_interval: ポーリング間隔（秒）
-
-    Returns:
-        dict: バッチジョブの最終状態を含む辞書
-            - status: ジョブのステータス
-            - job_data: ジョブの詳細情報
-
-    Raises:
-        TimeoutError: タイムアウトした場合
-    """
-    # BatchExecution table removed — treat job as immediately completed.
-    await asyncio.sleep(0)
-    return {
-        "status": "completed",
-        "job_data": {
-            "id": job_id,
-            "status": "completed",
-        },
-    }
-
-
-async def _cleanup_batch_executions(job_id: int):
-    """バッチ実行レコードをクリーンアップする.
-
-    Args:
-        job_id: クリーンアップするバッチジョブID
-    """
-    # BatchExecution table removed — nothing to cleanup.
-    await asyncio.sleep(0)
 
 
 def test_refresh_latest_stocks_and_get_latest(client):
@@ -72,10 +35,25 @@ def test_refresh_latest_stocks_and_get_latest(client):
     job_id = None  # クリーンアップ用に job_id を保持
 
     try:
+        # 事前リセット（株価データ）
+        print("DEBUG: Step 0 - Deleting stock prices...")
+        try:
+            client.delete("/api/v1/stock-price/1d/all")
+            print("DEBUG: Step 0 - Stock prices deleted")
+        except Exception as e:
+            print(f"DEBUG: Step 0 - Failed to delete stock prices: {e}")
+
         # 事前リセット（stock master）
         print("DEBUG: Step 0 - Resetting stock master...")
         client.delete("/api/v1/stock-master/reset")
         print("DEBUG: Step 0 - Stock master reset completed")
+
+        # 事前リセット（バッチ実行履歴）
+        try:
+            run_async_safely(TableCleanupManager.cleanup_batch_executions())
+            print("DEBUG: Step 0 - Batch executions cleaned up")
+        except Exception as e:
+            print(f"DEBUG: Step 0 - Failed to cleanup batch executions: {e}")
 
         # 1) sample を投入して銘柄を確保
         print("DEBUG: Step 1 - Fetching sample stock master data...")
@@ -159,21 +137,9 @@ def test_refresh_latest_stocks_and_get_latest(client):
         print("=" * 80)
         print("DEBUG: Test completed successfully")
         print("=" * 80)
+    except Exception as e:
+        print(f"DEBUG: test_refresh_latest_stocks_and_get_latest failed with exception: {e}")
+        import traceback
 
-    finally:
-        # クリーンアップ: 保存した1日足の株価を削除し、stock_master をリセット
-        print("DEBUG: Cleanup - Deleting stock prices...")
-        try:
-            client.delete("/api/v1/stock-price/1d/all")
-            print("DEBUG: Cleanup - Stock prices deleted")
-        except Exception as e:
-            print(f"DEBUG: Cleanup - Failed to delete stock prices: {e}")
-
-        print("DEBUG: Cleanup - Resetting stock master...")
-        try:
-            client.delete("/api/v1/stock-master/reset")
-            print("DEBUG: Cleanup - Stock master reset")
-        except Exception as e:
-            print(f"DEBUG: Cleanup - Failed to reset stock master: {e}")
-
-        # バッチ管理は廃止したため、追加のバッチレコード削除は不要
+        traceback.print_exc()
+        raise

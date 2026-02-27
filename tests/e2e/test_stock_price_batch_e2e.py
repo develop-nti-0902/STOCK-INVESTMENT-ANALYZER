@@ -12,29 +12,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.utils.database import get_database_url
-from tests.e2e.utils import run_async_safely, write_csv_artifact
+from tests.e2e.utils import TableCleanupManager, run_async_safely, write_csv_artifact
 
 # Ensure all e2e tests run on the same xdist worker (loadgroup)
 pytestmark = pytest.mark.xdist_group("e2e")
-
-
-async def _cleanup_batch_executions() -> None:
-    """バッチ実行レコードをすべて削除する。"""
-    engine = create_async_engine(get_database_url())
-    try:
-        async with engine.begin() as conn:
-            # テーブルが存在しない場合はスキップする（migrationで削除されている可能性あり）
-            res = await conn.execute(
-                text(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='batch_executions'"
-                )
-            )
-            table_name = res.scalar()
-            if table_name:
-                # batch_execution_details は CASCADE で削除される
-                await conn.execute(text("DELETE FROM batch_executions"))
-    finally:
-        await engine.dispose()
 
 
 async def _fetch_table_rows_for_1d():
@@ -80,7 +61,7 @@ def test_stock_price_batch_flow(client):
         pass
 
     # 事前リセット（バッチ実行履歴）
-    run_async_safely(_cleanup_batch_executions())
+    run_async_safely(TableCleanupManager.cleanup_batch_executions())
 
     try:
 
@@ -115,26 +96,9 @@ def test_stock_price_batch_flow(client):
             time.sleep(1)
 
         assert found_any, "DB に保存された株価データが見つかりませんでした"
+    except Exception as e:
+        print(f"DEBUG: test_stock_price_batch_flow failed with exception: {e}")
+        import traceback
 
-    finally:
-        # クリーンアップ: 株価データ削除
-        try:
-            timeframe = "1d"
-            client.delete(f"/api/v1/stock-price/{timeframe}/all")
-            print(f"DEBUG: Cleanup - Deleted stock price data for {timeframe}")
-        except Exception as e:
-            print(f"DEBUG: Failed to delete stock price data: {e}")
-
-        # クリーンアップ: stock_master リセット
-        try:
-            client.delete("/api/v1/stock-master/reset")
-            print("DEBUG: Cleanup - Stock master reset")
-        except Exception as e:
-            print(f"DEBUG: Failed to reset stock_master: {e}")
-
-        # クリーンアップ: バッチ実行レコード削除
-        try:
-            run_async_safely(_cleanup_batch_executions())
-            print("DEBUG: Cleanup - Batch execution records deleted")
-        except Exception as e:
-            print(f"DEBUG: Failed to cleanup batch_executions: {e}")
+        traceback.print_exc()
+        raise

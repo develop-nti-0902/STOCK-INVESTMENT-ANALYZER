@@ -10,15 +10,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.utils.database import get_database_url
-from tests.e2e.utils import run_async_safely, write_csv_artifact
+from tests.e2e.utils import TableCleanupManager, run_async_safely, write_csv_artifact
 
 # Ensure all e2e tests run on the same xdist worker (loadgroup)
 pytestmark = pytest.mark.xdist_group("e2e")
-
-
-async def _cleanup_batch_executions():
-    # BatchExecution table removed — nothing to cleanup.
-    await asyncio.sleep(0)
 
 
 async def _fetch_table_rows_for_1d():
@@ -69,7 +64,7 @@ def test_stock_price_fetch_flow(client):
         pass
 
     client.delete("/api/v1/stock-master/reset")
-    run_async_safely(_cleanup_batch_executions())
+    run_async_safely(TableCleanupManager.cleanup_batch_executions())
 
     try:
         # 1) sample を投入して銘柄を確保
@@ -120,25 +115,9 @@ def test_stock_price_fetch_flow(client):
                 write_csv_artifact(rows, name=name)
         except Exception as e:
             print(f"DEBUG: failed to write stock price artifact: {e}")
+    except Exception as e:
+        print(f"DEBUG: test_stock_price_fetch_flow failed with exception: {e}")
+        import traceback
 
-    finally:
-        # クリーンアップ: 株価データ削除
-        try:
-            r_del = client.delete("/api/v1/stock-price/1d/all")
-            if r_del.status_code == 200:
-                print("DEBUG: Cleanup - Deleted stock price data for 1d")
-        except Exception as e:
-            print(f"DEBUG: Failed to cleanup stock price data: {e}")
-
-        # クリーンアップ: stock_master リセット
-        try:
-            client.delete("/api/v1/stock-master/reset")
-            print("DEBUG: Cleanup - Stock master reset")
-        except Exception as e:
-            print(f"DEBUG: Failed to reset stock master: {e}")
-
-        # クリーンアップ: batch_executions 削除
-        try:
-            run_async_safely(_cleanup_batch_executions())
-        except Exception as e:
-            print(f"DEBUG: Failed to cleanup batch executions: {e}")
+        traceback.print_exc()
+        raise

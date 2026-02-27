@@ -10,15 +10,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.utils.database import get_database_url
-from tests.e2e.utils import run_async_safely, write_csv_artifact
+from tests.e2e.utils import TableCleanupManager, run_async_safely, write_csv_artifact
 
 # Ensure all e2e tests run on the same xdist worker (loadgroup)
 pytestmark = pytest.mark.xdist_group("e2e")
-
-
-async def _cleanup_batch_executions() -> None:
-    """No-op cleanup: batch_executions table removed in finalization."""
-    await asyncio.sleep(0)
 
 
 def test_get_me_and_change_password(client):
@@ -45,7 +40,7 @@ def test_get_me_and_change_password(client):
 
     # テスト前のクリーンアップ（べき等性確保）
     try:
-        run_async_safely(_cleanup_batch_executions())
+        run_async_safely(TableCleanupManager.cleanup_batch_executions())
     except Exception:
         pass
 
@@ -171,57 +166,9 @@ def test_get_me_and_change_password(client):
         # 無効化後、同じトークンで /accounts/me にアクセスすると 403 になる
         me_after = client.get("/api/v1/accounts/me", headers=del_headers)
         assert me_after.status_code == 403
+    except Exception as e:
+        print(f"DEBUG: test_get_me_and_change_password failed with exception: {e}")
+        import traceback
 
-    finally:
-        # 包括的なクリーンアップ（テスト失敗時も確実に実行）
-        print("DEBUG: Cleanup - Starting comprehensive cleanup")
-
-        # アカウント関連データの削除
-        async def _final_cleanup(target_email: str) -> None:
-            engine = create_async_engine(get_database_url())
-            try:
-                async with engine.connect() as conn:
-                    async with conn.begin():
-                        # account_transactions を削除
-                        try:
-                            await conn.execute(
-                                text(
-                                    "DELETE FROM account_transactions WHERE account_id IN (SELECT id FROM accounts WHERE email = :email)"
-                                ),
-                                {"email": target_email},
-                            )
-                        except Exception:
-                            pass
-                        # account_portfolios を削除
-                        try:
-                            await conn.execute(
-                                text(
-                                    "DELETE FROM account_portfolios WHERE account_id IN (SELECT id FROM accounts WHERE email = :email)"
-                                ),
-                                {"email": target_email},
-                            )
-                        except Exception:
-                            pass
-                        # accounts を削除
-                        try:
-                            await conn.execute(
-                                text("DELETE FROM accounts WHERE email = :email"),
-                                {"email": target_email},
-                            )
-                        except Exception:
-                            pass
-            finally:
-                await engine.dispose()
-
-        try:
-            run_async_safely(_final_cleanup(email))
-            print(f"DEBUG: Cleanup - Account deleted: {email}")
-        except Exception as e:
-            print(f"DEBUG: Cleanup - Account cleanup failed: {e}")
-
-        # batch_executions のクリーンアップ
-        try:
-            run_async_safely(_cleanup_batch_executions())
-            print("DEBUG: Cleanup - Batch execution records deleted")
-        except Exception as e:
-            print(f"DEBUG: Cleanup - Batch cleanup failed: {e}")
+        traceback.print_exc()
+        raise

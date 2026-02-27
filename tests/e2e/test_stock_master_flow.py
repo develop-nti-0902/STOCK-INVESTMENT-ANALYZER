@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.utils.database import get_database_url
 from tests.e2e.utils import (
+    TableCleanupManager,
     fetch_stock_code_mapping_for_artifact,
     fetch_stock_master_for_artifact,
     run_async_safely,
@@ -18,29 +19,6 @@ from tests.e2e.utils import (
 
 # Ensure all e2e tests run on the same xdist worker (loadgroup)
 pytestmark = pytest.mark.xdist_group("e2e")
-
-
-async def _cleanup_batch_executions() -> None:
-    """BatchExecution table removed — nothing to cleanup."""
-    await asyncio.sleep(0)
-
-
-async def _cleanup_stock_code_mapping() -> None:
-    """stock_code_mapping テーブルをクリーンアップする."""
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.repositories.market_data.stock_master import StockCodeMappingRepository
-
-    engine = create_async_engine(get_database_url())
-    try:
-        async with AsyncSession(engine) as session:
-            repo = StockCodeMappingRepository(session=session)
-            deleted = await repo.delete_all()
-            await session.commit()
-            if deleted > 0:
-                print(f"DEBUG: Cleaned up {deleted} stock_code_mapping records")
-    finally:
-        await engine.dispose()
 
 
 def test_stock_master_flow(client):
@@ -58,10 +36,10 @@ def test_stock_master_flow(client):
     assert r0.status_code in (200, 404)
 
     # 前準備: バッチ実行履歴をクリーンアップ
-    run_async_safely(_cleanup_batch_executions())
+    run_async_safely(TableCleanupManager.cleanup_batch_executions())
 
     # 前準備: stock_code_mapping をクリーンアップ
-    run_async_safely(_cleanup_stock_code_mapping())
+    run_async_safely(TableCleanupManager.cleanup_stock_code_mapping())
 
     try:
         # 1) fetch/sample (テスト用パラメータ指定: sample_size=50 を使用)
@@ -202,24 +180,9 @@ def test_stock_master_flow(client):
             market_results[m] = items
 
         # (sample は先頭で実行済みのためここでは再実行しない)
+    except Exception as e:
+        print(f"DEBUG: test_stock_master_flow failed with exception: {e}")
+        import traceback
 
-    finally:
-        # 5) クリーンアップ
-        try:
-            client.delete("/api/v1/stock-master/reset")
-        except Exception as e:
-            print(f"DEBUG: Failed to reset stock_master: {e}")
-
-        # バッチ実行レコードのクリーンアップ
-        try:
-            run_async_safely(_cleanup_batch_executions())
-            print("DEBUG: Cleanup - Batch execution records deleted")
-        except Exception as e:
-            print(f"DEBUG: Failed to cleanup batch_executions: {e}")
-
-        # stock_code_mapping レコードのクリーンアップ
-        try:
-            run_async_safely(_cleanup_stock_code_mapping())
-            print("DEBUG: Cleanup - stock_code_mapping records deleted")
-        except Exception as e:
-            print(f"DEBUG: Failed to cleanup stock_code_mapping: {e}")
+        traceback.print_exc()
+        raise
