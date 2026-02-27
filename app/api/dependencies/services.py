@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.repositories.latest_stocks_repository import LatestStocksRepository
 from app.repositories.market_data.stock_master import (
@@ -72,7 +72,44 @@ from app.services.data_synchronization.market_data.stock_price import (
 )
 from app.services.data_synchronization.views.latest_stocks.refresh import LatestStocksRefreshService
 from app.services.data_synchronization.views.latest_stocks.service import LatestStocksService
-from app.utils.database import get_db
+from app.utils.database import get_db, get_engine
+
+
+# Screening service provider
+def get_screening_service() -> Any:
+    """Provide a `SimpleScreeningService` instance for API endpoints.
+
+    This is a minimal provider that wires a `FinancialQueryService` backed by
+    empty/dummy repositories (to avoid heavy DB logic in the DI). It also
+    constructs session makers from the global engine so `SimpleScreeningService`
+    can use them when persisting results.
+    """
+    # pylint: disable=import-outside-toplevel
+    from app.services.query.financial_query_service import FinancialQueryService
+    from app.services.screening.simple_screening_service import SimpleScreeningService
+
+    engine = get_engine()
+    session_maker = async_sessionmaker(
+        bind=engine, class_=AsyncSession, autocommit=False, autoflush=False, expire_on_commit=False
+    )
+
+    class _EmptyRepo:
+        def list_dividends(self, *_: Any) -> list:
+            return []
+
+        def list_profit_and_loss(self, *_: Any) -> list:
+            return []
+
+        def list_cash_flows(self, *_: Any) -> list:
+            return []
+
+    fq = FinancialQueryService(_EmptyRepo(), _EmptyRepo(), _EmptyRepo())
+    return SimpleScreeningService(
+        financial_query_service=fq,
+        stock_master_maker=session_maker,
+        screening_result_maker=session_maker,
+    )
+
 
 # Alias for profit-and-loss file manager (kept for backward compatibility)
 EdinetProfitAndLossFileManager = EdinetFileManager
