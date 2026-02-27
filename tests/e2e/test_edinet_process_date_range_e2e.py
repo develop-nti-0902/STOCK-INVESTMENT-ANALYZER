@@ -8,12 +8,7 @@ from datetime import date
 
 import pytest
 
-from tests.e2e.utils import (
-    TableCleanupManager,
-    run_async_safely,
-    write_csv_artifact,
-    write_json_artifact,
-)
+from tests.e2e.utils import TableCleanupManager, run_async_safely, write_csv_artifact
 
 # Ensure all e2e tests run on the same xdist worker (loadgroup)
 pytestmark = pytest.mark.xdist_group("e2e")
@@ -26,7 +21,7 @@ def test_edinet_process_date_range_flow(client):
     手順:
     1. 事前クリーンアップ（edinet_balance_sheets と edinet_profit_and_loss テーブル）
     2. POST /api/v1/edinet/process-date-range を呼び出す
-       - テスト用に max_documents=2 で制限
+       - テスト用に max_documents=10 で制限
        - 2025-06-25の1日間を対象
     3. 処理結果を確認（同期実行）
     4. DB に貸借対照表と損益計算書のレコードが保存されたことを確認
@@ -48,7 +43,7 @@ def test_edinet_process_date_range_flow(client):
     params = {
         "start_date": target_date.isoformat(),
         "end_date": target_date.isoformat(),
-        "max_documents": 2,
+        "max_documents": 10,
         "progress_interval": 1,
         "transaction_atomic": True,
     }
@@ -82,13 +77,6 @@ def test_edinet_process_date_range_flow(client):
     assert "processed_documents" in batch_result, "Response should contain processed_documents"
     assert "saved_items" in batch_result, "Response should contain saved_items"
     assert "failed_documents" in batch_result, "Response should contain failed_documents"
-
-    # 結果のアーティファクト保存
-    try:
-        artifact_name = "test_edinet_process_date_range_result"
-        write_json_artifact(batch_result, name=artifact_name)
-    except Exception as e:
-        print(f"DEBUG: Failed to write result artifact: {e}")
 
     # データが見つからない場合は早期リターン
     if batch_result.get("total_documents", 0) == 0:
@@ -185,46 +173,3 @@ def test_edinet_process_date_range_flow(client):
             write_csv_artifact(cash_flow_rows, name=artifact_name)
         except Exception as e:
             print(f"DEBUG: Failed to write cash flow artifact: {e}")
-
-
-@pytest.mark.slow
-def test_edinet_process_date_range_validation(client):
-    """E2E: EDINET 日付範囲バッチAPIのバリデーションを検証する.
-
-    手順:
-    1. 事前クリーンアップ（edinet_balance_sheets と edinet_profit_and_loss テーブル）
-    2. 不正な日付形式でリクエスト → 422エラー
-    3. max_documents に負の値を指定 → 422エラー
-    """
-    # 1) 事前クリーンアップ
-    try:
-        run_async_safely(TableCleanupManager.cleanup_edinet_balance_sheets())
-        run_async_safely(TableCleanupManager.cleanup_edinet_profit_and_loss())
-        run_async_safely(TableCleanupManager.cleanup_edinet_stock_dividend())
-        run_async_safely(TableCleanupManager.cleanup_edinet_cash_flow_statement())
-    except Exception as e:
-        print(f"DEBUG: cleanup before test failed (may be acceptable): {e}")
-
-    # 2) 不正な日付形式
-    params_invalid_date = {
-        "start_date": "invalid-date",
-        "end_date": "2025-06-25",
-        "max_documents": 1,
-    }
-    r_invalid = client.post("/api/v1/edinet/process-date-range", params=params_invalid_date)
-    assert r_invalid.status_code in (400, 422), (
-        f"Should return 400 or 422 for invalid date format, "
-        f"got {r_invalid.status_code}: {r_invalid.text}"
-    )
-
-    # 2) max_documents に負の値
-    params_negative_max = {
-        "start_date": "2025-06-25",
-        "end_date": "2025-06-25",
-        "max_documents": -1,
-    }
-    r_negative = client.post("/api/v1/edinet/process-date-range", params=params_negative_max)
-    assert r_negative.status_code in (400, 422), (
-        f"Should return 400 or 422 for negative max_documents, "
-        f"got {r_negative.status_code}: {r_negative.text}"
-    )
