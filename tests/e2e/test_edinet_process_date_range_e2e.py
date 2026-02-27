@@ -19,18 +19,17 @@ def test_edinet_process_date_range_flow(client):
     """E2E: EDINET 日付範囲バッチ処理を実行してDBに格納されることを検証する.
 
     手順:
-    1. 事前クリーンアップ（edinet_balance_sheets と edinet_profit_and_loss テーブル）
+    1. 事前クリーンアップ（edinet_profit_and_loss テーブル）
     2. POST /api/v1/edinet/process-date-range を呼び出す
        - テスト用に max_documents=10 で制限
        - 2025-06-25の1日間を対象
     3. 処理結果を確認（同期実行）
-    4. DB に貸借対照表と損益計算書のレコードが保存されたことを確認
+    4. DB に損益計算書のレコードが保存されたことを確認
     5. アーティファクトとして結果を保存
     6. クリーンアップ
     """
     # 1) 事前クリーンアップ
     try:
-        run_async_safely(TableCleanupManager.cleanup_edinet_balance_sheets())
         run_async_safely(TableCleanupManager.cleanup_edinet_profit_and_loss())
         run_async_safely(TableCleanupManager.cleanup_edinet_stock_dividend())
         run_async_safely(TableCleanupManager.cleanup_edinet_cash_flow_statement())
@@ -93,7 +92,8 @@ def test_edinet_process_date_range_flow(client):
     # ドキュメント処理がすべて失敗した場合はスキップ
     if batch_result.get("failed_documents", 0) > 0 and batch_result.get("saved_items", 0) == 0:
         print(
-            f"DEBUG: All documents failed processing (failed={batch_result.get('failed_documents')}, "
+            f"DEBUG: All documents failed processing "
+            f"(failed={batch_result.get('failed_documents')}, "
             f"saved={batch_result.get('saved_items')}), skipping DB verification"
         )
         pytest.skip(
@@ -103,15 +103,8 @@ def test_edinet_process_date_range_flow(client):
         return
 
     # 4) DB にレコードが保存されたことを確認
-    balance_sheet_rows = []
     profit_and_loss_rows = []
     cash_flow_rows = []
-
-    try:
-        balance_sheet_rows = run_async_safely(TableCleanupManager.fetch_edinet_balance_sheet_rows())
-        print(f"DEBUG: Found {len(balance_sheet_rows)} balance sheet records")
-    except Exception as e:
-        print(f"DEBUG: Failed to fetch balance sheet rows: {e}")
 
     try:
         profit_and_loss_rows = run_async_safely(
@@ -141,24 +134,14 @@ def test_edinet_process_date_range_flow(client):
     # 少なくとも1つのテーブルにデータが格納されていることを確認
     # ここに到達した場合、処理成功しているはずなので、データが存在することを確認
     assert (
-        len(balance_sheet_rows) > 0
-        or len(profit_and_loss_rows) > 0
-        or len(stock_dividend_rows) > 0
-        or len(cash_flow_rows) > 0
+        len(profit_and_loss_rows) > 0 or len(stock_dividend_rows) > 0 or len(cash_flow_rows) > 0
     ), (
         f"処理成功したにもかかわらずDB にファイナンシャルデータが見つかりませんでした。Result: {batch_result}\n"
-        f"Balance Sheets: {len(balance_sheet_rows)}, P&L: {len(profit_and_loss_rows)}, "
+        f"P&L: {len(profit_and_loss_rows)}, "
         f"Dividend: {len(stock_dividend_rows)}, CFS: {len(cash_flow_rows)}"
     )
 
     # 5) アーティファクトとして保存
-    if balance_sheet_rows:
-        try:
-            artifact_name = "test_edinet_process_date_range_balance_sheet_db_data"
-            write_csv_artifact(balance_sheet_rows, name=artifact_name)
-        except Exception as e:
-            print(f"DEBUG: Failed to write balance sheet artifact: {e}")
-
     if profit_and_loss_rows:
         try:
             artifact_name = "test_edinet_process_date_range_profit_and_loss_db_data"

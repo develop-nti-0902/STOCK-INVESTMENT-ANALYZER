@@ -6,7 +6,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.dialects.sqlite import insert
 
-from app.models.edinet_balance_sheet import EdinetBalanceSheet
 from app.models.market_data.stock_master import StockMaster
 from app.models.market_data.stock_price import Stocks1d
 
@@ -45,47 +44,6 @@ def test_stock_data_upsert_sql():
     print(f"SQL: {compiled}")
     print("✅ excluded参照: OK")
     print()
-
-
-def test_edinet_balance_sheet_upsert_sql():
-    """edinet_balance_sheet_repository.pyのUPSERT SQL確認."""
-    print("=" * 80)
-    print("2. edinet_balance_sheet_repository.py")
-    print("=" * 80)
-
-    table = EdinetBalanceSheet.__table__
-    insert_stmt = insert(table).values(
-        {
-            "doc_id": "DOC001",
-            "sec_code": "1234",
-            "submission_date": "2024-01-01",
-            "period_end_date": "2023-12-31",
-            "report_type": "Annual",
-        }
-    )
-
-    # 問題の箇所: excluded を事前に参照
-    try:
-        update_dict = {
-            c.name: getattr(insert_stmt.excluded, c.name)
-            for c in table.c
-            if c.name not in ("id", "created_at")
-        }
-
-        stmt = insert_stmt.on_conflict_do_update(
-            index_elements=["sec_code", "period_end_date"],
-            set_=update_dict,
-            where=(insert_stmt.excluded.submission_date >= table.c.submission_date),
-        )
-
-        engine = create_engine("sqlite:///:memory:")
-        compiled = stmt.compile(dialect=engine.dialect)
-        print(f"SQL (一部): {str(compiled)[:200]}...")
-        print("✅ excluded参照: OK (内部でプロキシとして動作)")
-        print()
-    except Exception as e:
-        print(f"❌ エラー: {e}")
-        print()
 
 
 def test_stock_master_upsert_sql():
@@ -130,7 +88,6 @@ def main():
     print("=" * 80 + "\n")
 
     test_stock_data_upsert_sql()
-    test_edinet_balance_sheet_upsert_sql()
     test_stock_master_upsert_sql()
 
     print("=" * 80)

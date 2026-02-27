@@ -313,23 +313,6 @@ class TableCleanupManager:
     # ========== EDINET関連のクリーンアップ ==========
 
     @staticmethod
-    async def cleanup_edinet_balance_sheets() -> None:
-        """edinet_balance_sheets テーブルのデータをクリーンアップする."""
-        from sqlalchemy import delete
-        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-
-        from app.models.market_data.edinet import EdinetBalanceSheet
-        from app.utils.database import get_database_url
-
-        engine = create_async_engine(get_database_url())
-        try:
-            async with AsyncSession(engine) as session:
-                await session.execute(delete(EdinetBalanceSheet))
-                await session.commit()
-        finally:
-            await engine.dispose()
-
-    @staticmethod
     async def cleanup_edinet_profit_and_loss() -> None:
         """edinet_profit_and_loss テーブルのデータをクリーンアップする."""
         from sqlalchemy import delete
@@ -381,50 +364,6 @@ class TableCleanupManager:
             await engine.dispose()
 
     # ========== EDINET関連のフェッチ ==========
-
-    @staticmethod
-    async def fetch_edinet_balance_sheet_rows() -> List[Dict[str, Any]]:
-        """edinet_balance_sheets テーブルから全データを取得する.
-
-        Returns:
-            edinet_balance_sheets テーブルの全レコードを辞書のリストで返す
-        """
-        from sqlalchemy import select
-        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-
-        from app.models.market_data.edinet import EdinetBalanceSheet
-        from app.utils.database import get_database_url
-
-        engine = create_async_engine(get_database_url())
-        try:
-            async with AsyncSession(engine) as session:
-                result = await session.execute(select(EdinetBalanceSheet))
-                rows = result.scalars().all()
-                return [
-                    {
-                        "id": row.id,
-                        "sec_code": row.sec_code,
-                        "filer_name": row.filer_name,
-                        "doc_id": row.doc_id,
-                        "period_end_date": (
-                            row.period_end_date.isoformat() if row.period_end_date else None
-                        ),
-                        "submission_date": (
-                            row.submission_date.isoformat() if row.submission_date else None
-                        ),
-                        "fiscal_year": row.fiscal_year,
-                        "total_assets": float(row.total_assets) if row.total_assets else None,
-                        "total_liabilities": (
-                            float(row.total_liabilities) if row.total_liabilities else None
-                        ),
-                        "total_equity": float(row.total_equity) if row.total_equity else None,
-                        "created_at": row.created_at.isoformat() if row.created_at else None,
-                        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-                    }
-                    for row in rows
-                ]
-        finally:
-            await engine.dispose()
 
     @staticmethod
     async def fetch_edinet_profit_and_loss_rows() -> List[Dict[str, Any]]:

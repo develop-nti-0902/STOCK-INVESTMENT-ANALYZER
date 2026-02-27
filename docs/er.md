@@ -15,7 +15,6 @@ erDiagram
     STOCK_MASTER ||--o{ DIVIDEND_YIELD_MONITORING : monitors
     STOCK_MASTER ||--o{ SCREENING_RESULTS : evaluates
     STOCK_MASTER ||--o{ STOCK_CODE_MAPPING : has
-    STOCK_CODE_MAPPING ||--o{ EDINET_BALANCE_SHEETS : connects
     STOCK_CODE_MAPPING ||--o{ EDINET_PROFIT_AND_LOSS : connects
     STOCK_CODE_MAPPING ||--o{ EDINET_STOCK_DIVIDEND : connects
     STOCK_CODE_MAPPING ||--o{ EDINET_CASH_FLOW_STATEMENT : connects
@@ -115,36 +114,6 @@ erDiagram
         decimal close "終値"
         decimal adj_close "調整終値"
         bigint volume "出来高"
-        datetime created_at "作成日時"
-        datetime updated_at "更新日時"
-    }
-
-    EDINET_BALANCE_SHEETS {
-        int id PK "プライマリキー"
-        string doc_id "書類ID"
-        string sec_code "証券コード（EDINET提出企業コード）"
-        string filer_name "提出企業名"
-        date submission_date "提出日"
-        date period_end_date "報告期末日"
-        int fiscal_year "会計年度"
-        string report_type "報告書タイプ"
-        decimal total_assets "総資産"
-        decimal current_assets "流動資産"
-        decimal non_current_assets "非流動資産"
-        decimal cash_and_equivalents "現金及び現金同等物"
-        decimal total_liabilities "総負債"
-        decimal current_liabilities "流動負債"
-        decimal non_current_liabilities "非流動負債"
-        decimal short_term_loans "短期借入金"
-        decimal long_term_loans "長期借入金"
-        decimal total_equity "総資本"
-        decimal shareholders_equity "株主資本"
-        decimal retained_earnings "利益剰余金"
-        decimal bps "1株当たり純資産"
-        decimal equity_to_asset_ratio "自己資本比率"
-        string candidate_contexts "候補コンテキスト"
-        string candidate_keys "候補キー"
-        boolean is_consolidated "連結フラグ"
         datetime created_at "作成日時"
         datetime updated_at "更新日時"
     }

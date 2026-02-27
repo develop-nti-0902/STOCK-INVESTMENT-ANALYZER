@@ -10,7 +10,7 @@ SQLite へ移行する際の最優先対応は UPSERT（ON CONFLICT）周りの�
 ## 変更概要（短く）
 1. `app/utils/db_compat.py` を追加して方言に応じた `insert()` を返すヘルパを実装する。
 2. 主要リポジトリを順次修正して `from sqlalchemy.dialects.postgresql import insert` を直接使わず、`db_compat.dialect_insert(...)` を使う。
-   - 優先対象: `app/repositories/stock_data_repository.py`, `app/repositories/stock_master_repository.py`, `app/repositories/edinet_balance_sheet_repository.py`
+   - 優先対象: `app/repositories/stock_data_repository.py`, `app/repositories/stock_master_repository.py`
 3. 必要に応じてフォールバックロジック（例外捕捉→SELECT/INSERT/UPDATE）を追加する。
 4. 単体/統合テストを修正・追加して insert/update の両パスを検証する。
 
@@ -100,7 +100,7 @@ poetry run pytest tests/unit/services/views/latest_stocks/test_latest_stocks_ref
 ## ロールアウト手順（簡潔）
 1. `app/utils/db_compat.py` を追加する（PR）
 2. `stock_data_repository.py` を方言対応に修正して PR（CI でユニットテストを通す）
-3. 続けて `stock_master_repository.py` と `edinet_balance_sheet_repository.py` を対応
+3. 続けて `stock_master_repository.py` を対応
 4. テスト、ローカル負荷（簡易バルク）を実行して `database is locked` 等を検証
 5. `app/utils/config.py` / `app/utils/database.py` の SQLite 切替を適用（最終段階）
 
