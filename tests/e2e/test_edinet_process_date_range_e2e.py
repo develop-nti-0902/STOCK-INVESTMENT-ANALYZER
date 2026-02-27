@@ -70,6 +70,12 @@ def test_edinet_process_date_range_flow(client):
     batch_result = r_batch.json()
     print(f"DEBUG: EDINET result: {batch_result}")
 
+    # 失敗情報があれば詳細を出力
+    if batch_result.get("failed_documents_details"):
+        print("DEBUG: Failed documents details:")
+        for detail in batch_result.get("failed_documents_details", []):
+            print(f"  - Doc ID: {detail.get('doc_id')}, Error: {detail.get('error')}")
+
     # 3) 処理結果の確認（同期実行のため即座に完了）
     assert isinstance(batch_result, dict), "Response should be a dictionary"
     assert "status" in batch_result, "Response should contain status"

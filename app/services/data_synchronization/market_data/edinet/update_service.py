@@ -343,6 +343,7 @@ class EdinetAggregateUpdateService:
         processed_docs = 0
         saved_items = 0
         failed_docs = 0
+        failed_docs_details: list[Dict[str, Any]] = []
 
         ##########################################################
         # 各ドキュメントの逐次処理
@@ -404,6 +405,13 @@ class EdinetAggregateUpdateService:
                             e,
                         )
                         failed_docs += 1
+                        failed_docs_details.append(
+                            {
+                                "doc_id": doc_id,
+                                "error": str(e),
+                                "error_type": type(e).__name__,
+                            }
+                        )
 
                     if i % progress_interval == 0:
                         logger.info(
@@ -443,6 +451,13 @@ class EdinetAggregateUpdateService:
                 except Exception as e:
                     logger.exception("Failed to process doc_id=%s: %s", doc_id, e)
                     failed_docs += 1
+                    failed_docs_details.append(
+                        {
+                            "doc_id": doc_id,
+                            "error": str(e),
+                            "error_type": type(e).__name__,
+                        }
+                    )
 
                 if i % progress_interval == 0:
                     logger.info(
@@ -462,6 +477,7 @@ class EdinetAggregateUpdateService:
             "processed_documents": processed_docs,
             "saved_items": saved_items,
             "failed_documents": failed_docs,
+            "failed_documents_details": failed_docs_details,
         }
         logger.info("Batch completed: %s", result)
         return result

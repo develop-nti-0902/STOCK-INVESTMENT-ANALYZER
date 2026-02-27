@@ -125,45 +125,31 @@ class EdinetStockDividendParser(BaseParser, XMLParserMixin):
         result = {}
         for tag_key, tag_list in self.XBRL_TAGS.items():
             for tag_name in tag_list:
-                value = self._extract_value(root, tag_name, contexts)
+                value = self._extract_value(parsed_xbrl, tag_name, contexts)
                 if value is not None:
                     result[tag_key] = value
                     break
         return result
 
-    def _extract_value(self, root: etree._Element, tag_name: str, contexts: List[str]) -> Any:
-        """Extract a numeric value for a given tag and contexts."""
-        namespaces = {
-            "xbrl": "http://www.xbrl.org/2003/instance",
-            "jpcrp": "http://disclosure.edinet-fsa.go.jp/jpcrp/2018-08-31",
-            "jpcrp_cor": "http://disclosure.edinet-fsa.go.jp/jpcrp/2020-11-30",
-        }
+    def _extract_value(self, parsed_xbrl: Any, tag_name: str, contexts: List[str]) -> Any:
+        """Extract a numeric value for a given tag and contexts.
 
-        # Try to find the element
-        for ns, ns_uri in namespaces.items():
-            full_tag = f"{{{ns_uri}}}{tag_name}" if ns != "xbrl" else tag_name
-            elements = root.findall(f".//{full_tag}")
-            for elem in elements:
-                ctx_ref = elem.get("contextRef")
-                if ctx_ref in contexts:
-                    text = elem.text
-                    if text:
+        Uses ParsedXBRL's get_data_by_context_ref method to properly handle namespace prefixes.
+        """
+        # Try each context in priority order
+        for ctx in contexts:
+            try:
+                info = parsed_xbrl.get_data_by_context_ref(tag_name, ctx)
+                if info:
+                    val = info.get_value()
+                    if val is not None:
                         try:
-                            return float(text)
-                        except ValueError:
+                            return float(val)
+                        except (ValueError, TypeError):
                             pass
-
-        # Fallback without namespace
-        elements = root.findall(f".//{tag_name}")
-        for elem in elements:
-            ctx_ref = elem.get("contextRef")
-            if ctx_ref in contexts:
-                text = elem.text
-                if text:
-                    try:
-                        return float(text)
-                    except ValueError:
-                        pass
+            except Exception:
+                # Continue to next context if this one fails
+                continue
 
         return None
 
