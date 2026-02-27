@@ -34,9 +34,6 @@ from datetime import date, datetime
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from app.repositories.market_data.edinet.edinet_balance_sheet_repository import (
-    EdinetBalanceSheetRepository,
-)
 from app.repositories.market_data.edinet.edinet_cash_flow_statement_repository import (
     EdinetCashFlowStatementRepository,
 )
@@ -45,12 +42,6 @@ from app.repositories.market_data.edinet.edinet_profit_and_loss_repository impor
 )
 from app.repositories.market_data.edinet.edinet_stock_dividend_repository import (
     EdinetStockDividendRepository,
-)
-from app.services.data_synchronization.market_data.edinet.balance_sheet.converter import (
-    EdinetBalanceSheetConverter,
-)
-from app.services.data_synchronization.market_data.edinet.balance_sheet.parser import (
-    EdinetBalanceSheetParser,
 )
 from app.services.data_synchronization.market_data.edinet.download_service import (
     EdinetDownloadService,
@@ -109,29 +100,21 @@ async def _run(
 
     async with session_maker() as session:  # type: AsyncSession
         # リポジトリの初期化
-        balance_sheet_repo = EdinetBalanceSheetRepository(session=session)
         profit_and_loss_repo = EdinetProfitAndLossRepository(session=session)
         stock_dividend_repo = EdinetStockDividendRepository(session=session)
         cash_flow_repo = EdinetCashFlowStatementRepository(session=session)
 
         # コンバータの初期化
-        balance_sheet_converter = EdinetBalanceSheetConverter()
         profit_and_loss_converter = EdinetProfitAndLossConverter()
         stock_dividend_converter = EdinetStockDividendConverter()
         cash_flow_converter = EdinetCashFlowStatementConverter()
 
         # パーサとセーバーのペアを設定
-        bs_parser = EdinetBalanceSheetParser()
         pl_parser = EdinetProfitAndLossParser()
         sd_parser = EdinetStockDividendParser()
         cfs_parser = EdinetCashFlowStatementParser()
 
         parser_saver_pairs = [
-            (
-                bs_parser.parse_root,
-                balance_sheet_converter,
-                balance_sheet_repo.upsert,
-            ),
             (
                 pl_parser.parse_root,
                 profit_and_loss_converter,

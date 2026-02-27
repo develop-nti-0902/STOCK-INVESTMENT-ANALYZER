@@ -129,6 +129,36 @@ class EdinetStockDividendParser(BaseParser, XMLParserMixin):
                 if value is not None:
                     result[tag_key] = value
                     break
+
+        # period_end_date を抽出（P/L パーサーと同様）
+        consolidation = self.determine_consolidation(root, contexts)
+        period_end = self.get_period_end_date(root, contexts)
+
+        # 正規化: period_end_date を常に含める（可能な限り date 型にする）
+        period_end_date = None
+        try:
+            if isinstance(period_end, datetime):
+                period_end_date = period_end.date()
+            elif isinstance(period_end, date):
+                period_end_date = period_end
+            elif isinstance(period_end, str):
+                try:
+                    period_end_date = datetime.fromisoformat(period_end).date()
+                except Exception:
+                    try:
+                        period_end_date = datetime.strptime(period_end, "%Y-%m-%d").date()
+                    except Exception:
+                        period_end_date = None
+        except Exception:
+            period_end_date = None
+
+        result.update(
+            {
+                "period_end": period_end,
+                "period_end_date": period_end_date,
+                "is_consolidated": consolidation,
+            }
+        )
         return result
 
     def _extract_value(self, parsed_xbrl: Any, tag_name: str, contexts: List[str]) -> Any:
