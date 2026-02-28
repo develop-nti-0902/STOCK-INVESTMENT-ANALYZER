@@ -8,7 +8,22 @@ from datetime import date
 
 import pytest
 
-from tests.e2e.utils import TableCleanupManager, run_async_safely, write_csv_artifact
+from app.repositories.market_data.edinet import (
+    EdinetCashFlowStatementRepository,
+    EdinetProfitAndLossRepository,
+    EdinetStockDividendRepository,
+)
+from app.repositories.market_data.stock_master import StockMasterRepository
+from app.repositories.screening import ScreeningResultRepository
+from tests.e2e.utils import (
+    cleanup_repository_delete_all,
+    fetch_edinet_cash_flow_statement_rows,
+    fetch_edinet_profit_and_loss_rows,
+    fetch_edinet_stock_dividend_rows,
+    fetch_screening_result_rows,
+    run_async_safely,
+    write_csv_artifact,
+)
 
 # Ensure all e2e tests run on the same xdist worker (loadgroup)
 pytestmark = pytest.mark.xdist_group("e2e")
@@ -32,11 +47,11 @@ def test_edinet_process_date_range_flow(client):
     """
     # 1) 事前クリーンアップ
     try:
-        run_async_safely(TableCleanupManager.cleanup_edinet_profit_and_loss())
-        run_async_safely(TableCleanupManager.cleanup_edinet_stock_dividend())
-        run_async_safely(TableCleanupManager.cleanup_edinet_cash_flow_statement())
-        run_async_safely(TableCleanupManager.cleanup_screening_results())
-        run_async_safely(TableCleanupManager.cleanup_stock_master())
+        run_async_safely(cleanup_repository_delete_all(EdinetProfitAndLossRepository))
+        run_async_safely(cleanup_repository_delete_all(EdinetStockDividendRepository))
+        run_async_safely(cleanup_repository_delete_all(EdinetCashFlowStatementRepository))
+        run_async_safely(cleanup_repository_delete_all(ScreeningResultRepository))
+        run_async_safely(cleanup_repository_delete_all(StockMasterRepository))
     except Exception as e:
         print(f"DEBUG: cleanup before test failed (may be acceptable): {e}")
 
@@ -125,26 +140,20 @@ def test_edinet_process_date_range_flow(client):
     cash_flow_rows = []
 
     try:
-        profit_and_loss_rows = run_async_safely(
-            TableCleanupManager.fetch_edinet_profit_and_loss_rows()
-        )
+        profit_and_loss_rows = run_async_safely(fetch_edinet_profit_and_loss_rows())
         print(f"DEBUG: Found {len(profit_and_loss_rows)} profit and loss records")
     except Exception as e:
         print(f"DEBUG: Failed to fetch profit and loss rows: {e}")
 
     stock_dividend_rows = []
     try:
-        stock_dividend_rows = run_async_safely(
-            TableCleanupManager.fetch_edinet_stock_dividend_rows()
-        )
+        stock_dividend_rows = run_async_safely(fetch_edinet_stock_dividend_rows())
         print(f"DEBUG: Found {len(stock_dividend_rows)} stock dividend records")
     except Exception as e:
         print(f"DEBUG: Failed to fetch stock dividend rows: {e}")
 
     try:
-        cash_flow_rows = run_async_safely(
-            TableCleanupManager.fetch_edinet_cash_flow_statement_rows()
-        )
+        cash_flow_rows = run_async_safely(fetch_edinet_cash_flow_statement_rows())
         print(f"DEBUG: Found {len(cash_flow_rows)} cash flow records")
     except Exception as e:
         print(f"DEBUG: Failed to fetch cash flow rows: {e}")
@@ -212,7 +221,7 @@ def test_edinet_process_date_range_flow(client):
     # スクリーニング実行後、DB に保存されたすべてのスクリーニング結果を取得
     screening_rows = []
     try:
-        screening_rows = run_async_safely(TableCleanupManager.fetch_screening_result_rows())
+        screening_rows = run_async_safely(fetch_screening_result_rows())
         print(f"DEBUG: Found {len(screening_rows)} screening result records in DB")
     except Exception as e:
         print(f"DEBUG: Failed to fetch screening result rows: {e}")

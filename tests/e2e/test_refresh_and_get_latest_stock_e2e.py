@@ -10,7 +10,7 @@ from typing import List
 
 import pytest
 
-from tests.e2e.utils import TableCleanupManager, run_async_safely, write_csv_artifact
+from tests.e2e.utils import run_async_safely, write_csv_artifact
 
 # Ensure all e2e tests run on the same xdist worker (loadgroup)
 pytestmark = pytest.mark.xdist_group("e2e")
@@ -47,13 +47,6 @@ def test_refresh_latest_stocks_and_get_latest(client):
         print("DEBUG: Step 0 - Resetting stock master...")
         client.delete("/api/v1/stock-master/reset")
         print("DEBUG: Step 0 - Stock master reset completed")
-
-        # 事前リセット（バッチ実行履歴）
-        try:
-            run_async_safely(TableCleanupManager.cleanup_batch_executions())
-            print("DEBUG: Step 0 - Batch executions cleaned up")
-        except Exception as e:
-            print(f"DEBUG: Step 0 - Failed to cleanup batch executions: {e}")
 
         # 1) sample を投入して銘柄を確保
         print("DEBUG: Step 1 - Fetching sample stock master data...")

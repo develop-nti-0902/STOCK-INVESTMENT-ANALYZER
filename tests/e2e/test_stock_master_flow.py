@@ -1,16 +1,13 @@
 """Stock master flow E2E tests."""
 
 # flake8: noqa
-import asyncio
 import time
 
 import pytest
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.utils.database import get_database_url
+from app.repositories.market_data.stock_master import StockCodeMappingRepository
 from tests.e2e.utils import (
-    TableCleanupManager,
+    cleanup_repository_delete_all,
     fetch_stock_code_mapping_for_artifact,
     fetch_stock_master_for_artifact,
     run_async_safely,
@@ -35,11 +32,8 @@ def test_stock_master_flow(client):
     r0 = client.delete("/api/v1/stock-master/reset")
     assert r0.status_code in (200, 404)
 
-    # 前準備: バッチ実行履歴をクリーンアップ
-    run_async_safely(TableCleanupManager.cleanup_batch_executions())
-
     # 前準備: stock_code_mapping をクリーンアップ
-    run_async_safely(TableCleanupManager.cleanup_stock_code_mapping())
+    run_async_safely(cleanup_repository_delete_all(StockCodeMappingRepository))
 
     try:
         # 1) fetch/sample (テスト用パラメータ指定: sample_size=50 を使用)

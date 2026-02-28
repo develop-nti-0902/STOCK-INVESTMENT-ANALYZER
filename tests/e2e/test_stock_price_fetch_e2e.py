@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.utils.database import get_database_url
-from tests.e2e.utils import TableCleanupManager, run_async_safely, write_csv_artifact
+from tests.e2e.utils import run_async_safely, write_csv_artifact
 
 # Ensure all e2e tests run on the same xdist worker (loadgroup)
 pytestmark = pytest.mark.xdist_group("e2e")
@@ -64,7 +64,6 @@ def test_stock_price_fetch_flow(client):
         pass
 
     client.delete("/api/v1/stock-master/reset")
-    run_async_safely(TableCleanupManager.cleanup_batch_executions())
 
     try:
         # 1) sample を投入して銘柄を確保

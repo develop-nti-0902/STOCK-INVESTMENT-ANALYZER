@@ -6,7 +6,7 @@ import logging
 from datetime import date
 from typing import Any, List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -132,6 +132,25 @@ class EdinetProfitAndLossRepository(BaseRepository[EdinetProfitAndLoss]):
         stmt = select(sql_count()).select_from(self.model).where(self.model.sec_code == sec_code)
         result = await self.session.execute(stmt)
         return result.scalar_one()
+
+    async def delete_all(self) -> int:
+        """テーブル内の全レコードを削除する。
+
+        Returns:
+            int: 削除された件数
+
+        Notes:
+            トランザクションのコミットは Service 層で行ってください。
+        """
+        try:
+            stmt = delete(self.model)
+            result = await self.session.execute(stmt)
+            await self.session.flush()
+            rc: Any = getattr(result, "rowcount", 0)
+            return int(rc or 0)
+        except SQLAlchemyError as e:
+            logger.exception("delete_all failed: %s", e)
+            raise
 
 
 __all__ = ["EdinetProfitAndLossRepository"]

@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.utils.database import get_database_url
-from tests.e2e.utils import TableCleanupManager, run_async_safely, write_csv_artifact
+from tests.e2e.utils import run_async_safely, write_csv_artifact
 
 # Ensure all e2e tests run on the same xdist worker (loadgroup)
 pytestmark = pytest.mark.xdist_group("e2e")
@@ -37,12 +37,6 @@ def test_get_me_and_change_password(client):
         "password": old_password,
         "display_name": "E2E Me Tester",
     }
-
-    # テスト前のクリーンアップ（べき等性確保）
-    try:
-        run_async_safely(TableCleanupManager.cleanup_batch_executions())
-    except Exception:
-        pass
 
     async def _cleanup_test_account(target_email: str) -> None:
         """テストアカウントのクリーンアップ（関連レコードも削除）"""

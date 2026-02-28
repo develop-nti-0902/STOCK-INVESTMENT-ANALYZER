@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -104,6 +104,25 @@ class ScreeningResultRepository(BaseRepository[ScreeningResult]):
 
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def delete_all(self) -> int:
+        """テーブル内の全レコードを削除する。
+
+        Returns:
+            int: 削除された件数
+
+        Notes:
+            トランザクションのコミットは Service 層で行ってください。
+        """
+        try:
+            stmt = delete(self.model)
+            result = await self.session.execute(stmt)
+            await self.session.flush()
+            rc: Any = getattr(result, "rowcount", 0)
+            return int(rc or 0)
+        except SQLAlchemyError as e:
+            logger.exception("delete_all failed: %s", e)
+            raise
 
 
 __all__ = ["ScreeningResultRepository"]
