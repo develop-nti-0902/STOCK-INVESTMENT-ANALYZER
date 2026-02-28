@@ -180,5 +180,5 @@ async def test_run_persists_results_with_repository():
 
     assert len(repo.calls) == 1
     payload = repo.calls[0]
-    assert payload["sec_code"] == "GOOD"
+    assert payload["symbol"] == "GOOD"
     assert payload["status"] == "priority"

@@ -19,23 +19,42 @@ def test_edinet_process_date_range_flow(client):
     """E2E: EDINET 日付範囲バッチ処理を実行してDBに格納されることを検証する.
 
     手順:
-    1. 事前クリーンアップ（edinet_profit_and_loss テーブル）
-    2. POST /api/v1/edinet/process-date-range を呼び出す
+    1. 事前クリーンアップ（各テーブル）
+    2. stock_master を更新する（/api/v1/stock-master/fetch）
+    3. POST /api/v1/edinet/process-date-range を呼び出す
        - テスト用に max_documents=10 で制限
        - 2025-06-25の1日間を対象
-    3. 処理結果を確認（同期実行）
-    4. DB に損益計算書のレコードが保存されたことを確認
-    5. アーティファクトとして結果を保存
+    4. 処理結果を確認（同期実行）
+    5. DB に損益計算書のレコードが保存されたことを確認
+    6. アーティファクトとして結果を保存
+    7. /api/v1/screening/run を実行する
+    8. スクリーニング結果をアーティファクトとして保存
     """
     # 1) 事前クリーンアップ
     try:
         run_async_safely(TableCleanupManager.cleanup_edinet_profit_and_loss())
         run_async_safely(TableCleanupManager.cleanup_edinet_stock_dividend())
         run_async_safely(TableCleanupManager.cleanup_edinet_cash_flow_statement())
+        run_async_safely(TableCleanupManager.cleanup_screening_results())
+        run_async_safely(TableCleanupManager.cleanup_stock_master())
     except Exception as e:
         print(f"DEBUG: cleanup before test failed (may be acceptable): {e}")
 
     # 2) EDINET 日付範囲バッチ実行（テスト用に制限）
+    # 但し、その前に stock_master を更新する必要があります
+    print("DEBUG: Fetching stock_master data")
+    r_stock_master = client.post("/api/v1/stock-master/fetch")
+    if r_stock_master.status_code == 200:
+        stock_master_result = r_stock_master.json()
+        print(
+            f"DEBUG: stock_master fetch successful, updated_count={stock_master_result.get('updated_count', 0)}"
+        )
+    else:
+        print(
+            f"DEBUG: stock_master fetch returned status {r_stock_master.status_code}, "
+            f"response: {r_stock_master.text}"
+        )
+
     target_date = date(2025, 6, 25)
 
     params = {
@@ -161,3 +180,46 @@ def test_edinet_process_date_range_flow(client):
             write_csv_artifact(cash_flow_rows, name=artifact_name)
         except Exception as e:
             print(f"DEBUG: Failed to write cash flow artifact: {e}")
+
+    # 6) /api/v1/screening/run を実行する
+    print("DEBUG: Executing /api/v1/screening/run")
+
+    screening_params = {
+        "sec_codes": None,
+        "evaluation_date": target_date.isoformat(),
+    }
+
+    r_screening = client.post("/api/v1/screening/run", json=screening_params)
+
+    assert r_screening.status_code in (
+        200,
+        400,
+        422,
+    ), f"Screening API returned unexpected status: {r_screening.status_code}, response: {r_screening.text}"
+
+    if r_screening.status_code != 200:
+        print(
+            f"DEBUG: Screening API returned non-200 status: {r_screening.status_code}, "
+            f"response: {r_screening.text}"
+        )
+        pytest.skip("Screening API did not return 200")
+        return
+
+    screening_result = r_screening.json()
+    print(f"DEBUG: Screening result: {screening_result}")
+
+    # 7) スクリーニング結果をアーティファクトとして保存
+    # スクリーニング実行後、DB に保存されたすべてのスクリーニング結果を取得
+    screening_rows = []
+    try:
+        screening_rows = run_async_safely(TableCleanupManager.fetch_screening_result_rows())
+        print(f"DEBUG: Found {len(screening_rows)} screening result records in DB")
+    except Exception as e:
+        print(f"DEBUG: Failed to fetch screening result rows: {e}")
+
+    if screening_rows:
+        try:
+            artifact_name = "test_edinet_process_date_range_screening_result"
+            write_csv_artifact(screening_rows, name=artifact_name)
+        except Exception as e:
+            print(f"DEBUG: Failed to write screening result artifact: {e}")

@@ -17,6 +17,7 @@ from app.models.screening.screening_result import ScreeningResult
 from app.repositories.market_data.edinet.edinet_stock_dividend_repository import (
     EdinetStockDividendRepository,
 )
+from app.repositories.market_data.stock_master import StockCodeMappingRepository
 from app.repositories.market_data.stock_price.stock_data_repository import StockData1dRepository
 from app.repositories.monitoring.dividend_yield_monitoring_repository import (
     DividendYieldMonitoringRepository,
@@ -109,7 +110,8 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
         )
 
         # Get sec_code from screening result
-        sec_code = screening_result.sec_code
+        # screening_result.symbol is the stock_code, need to convert to sec_code
+        sec_code = await self._resolve_sec_code(screening_result.symbol)
 
         dividend_entry = await self._safe_get_latest_dividend(sec_code)
         dividend_amount = self._extract_dividend_amount(dividend_entry)
@@ -161,6 +163,19 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
         except Exception:
             logger.exception("Failed to fetch latest stock price for %s", symbol)
             return None
+
+    async def _resolve_sec_code(self, stock_code: str) -> str:
+        """Convert stock_code to sec_code using stock_code_mapping table."""
+        try:
+            async with self._session_maker() as session:
+                mapping_repo = StockCodeMappingRepository(session=session)
+                mapping = await mapping_repo.get_by_stock_code(stock_code)
+                if mapping:
+                    return mapping.sec_code
+        except Exception:
+            logger.exception("Failed to resolve sec_code for stock_code %s", stock_code)
+        # Fallback: use stock_code as sec_code if mapping fails
+        return stock_code
 
     async def _fetch_screening_results(self) -> List[ScreeningResult]:
         async with self._session_maker() as session:

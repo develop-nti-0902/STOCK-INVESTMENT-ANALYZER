@@ -529,3 +529,88 @@ class TableCleanupManager:
                     print(f"DEBUG: Cleaned up {deleted} stock_code_mapping records")
         finally:
             await engine.dispose()
+
+    @staticmethod
+    async def cleanup_screening_results() -> None:
+        """screening_results テーブルをクリーンアップする."""
+        from sqlalchemy import delete
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        from app.models.screening.screening_result import ScreeningResult
+        from app.utils.database import get_database_url
+
+        engine = create_async_engine(get_database_url())
+        try:
+            async with AsyncSession(engine) as session:
+                query = delete(ScreeningResult)
+                result = await session.execute(query)
+                await session.commit()
+                if result.rowcount > 0:
+                    print(f"DEBUG: Cleaned up {result.rowcount} screening result records")
+        finally:
+            await engine.dispose()
+
+    @staticmethod
+    async def cleanup_stock_master() -> None:
+        """stock_master テーブルをクリーンアップする."""
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        from app.repositories.market_data.stock_master import StockMasterRepository
+        from app.utils.database import get_database_url
+
+        engine = create_async_engine(get_database_url())
+        try:
+            async with AsyncSession(engine) as session:
+                repo = StockMasterRepository(session=session)
+                deleted = await repo.delete_all()
+                await session.commit()
+                if deleted > 0:
+                    print(f"DEBUG: Cleaned up {deleted} stock_master records")
+        finally:
+            await engine.dispose()
+
+    @staticmethod
+    async def fetch_screening_result_rows() -> List[Dict[str, Any]]:
+        """screening_results テーブルから全データを取得する.
+
+        Returns:
+            screening_results テーブルの全レコードを辞書のリストで返す
+        """
+        from sqlalchemy import select
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        from app.models.screening.screening_result import ScreeningResult
+        from app.utils.database import get_database_url
+
+        engine = create_async_engine(get_database_url())
+        try:
+            async with AsyncSession(engine) as session:
+                result = await session.execute(select(ScreeningResult))
+                rows = result.scalars().all()
+                result_list = [
+                    {
+                        "id": row.id,
+                        "symbol": row.symbol,
+                        "evaluation_date": (
+                            row.evaluation_date.isoformat() if row.evaluation_date else None
+                        ),
+                        "fiscal_year_end": (
+                            row.fiscal_year_end.isoformat() if row.fiscal_year_end else None
+                        ),
+                        "pass_required_conditions": row.pass_required_conditions,
+                        "total_score": row.total_score,
+                        "score_dividend": row.score_dividend,
+                        "score_eps": row.score_eps,
+                        "score_stability": row.score_stability,
+                        "score_profitability": row.score_profitability,
+                        "status": row.status,
+                        "failed_conditions": row.failed_conditions,
+                        "screening_details": row.screening_details,
+                        "created_at": row.created_at.isoformat() if row.created_at else None,
+                        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                    }
+                    for row in rows
+                ]
+                return result_list
+        finally:
+            await engine.dispose()

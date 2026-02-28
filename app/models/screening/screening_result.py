@@ -17,7 +17,6 @@ class ScreeningResult(SerialPKMixin, TimestampMixin, Base):
     __tablename__ = "screening_results"
 
     symbol: Mapped[str] = mapped_column(String(10), nullable=False)
-    sec_code: Mapped[str] = mapped_column(String(10), nullable=False)
     evaluation_date: Mapped[date] = mapped_column(Date, nullable=False)
     fiscal_year_end: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     pass_required_conditions: Mapped[bool] = mapped_column(

@@ -8,8 +8,12 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Callable, Dict, List, Optional
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.models.market_data.edinet.edinet_cash_flow_statement import EdinetCashFlowStatement
+from app.models.market_data.edinet.edinet_profit_and_loss import EdinetProfitAndLoss
+from app.models.market_data.edinet.edinet_stock_dividend import EdinetStockDividend
 from app.repositories.market_data.stock_master import (
     StockCodeMappingRepository,
     StockMasterRepository,
@@ -90,6 +94,7 @@ class SimpleScreeningService:
             sec_codes: 対象銘柄コードのリスト。None の場合は銘柄マスターから全銘柄を取得します。
             evaluation_date: 評価実行日
         """
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         if sec_codes is None:
             sec_codes = await self._async_fetch_all_stock_master_codes()
 
@@ -99,6 +104,51 @@ class SimpleScreeningService:
         total = len(sec_codes)
         passed_summaries: List[str] = []
         for code in sec_codes:
+            # Skip if there is no EDINET data for this sec_code
+            # (do not screen unmapped EDINET codes)
+            if self._stock_master_maker is not None:
+                try:
+                    async with self._stock_master_maker() as session:
+                        # Check if any EDINET table contains at least one row for this sec_code
+                        has_data = False
+                        stmt_dividend = (
+                            select(EdinetStockDividend)
+                            .where(EdinetStockDividend.sec_code == code)
+                            .limit(1)
+                        )
+                        r = await session.execute(stmt_dividend)
+                        if r.scalar_one_or_none() is not None:
+                            has_data = True
+
+                        if not has_data:
+                            stmt_pl = (
+                                select(EdinetProfitAndLoss)
+                                .where(EdinetProfitAndLoss.sec_code == code)
+                                .limit(1)
+                            )
+                            r = await session.execute(stmt_pl)
+                            if r.scalar_one_or_none() is not None:
+                                has_data = True
+
+                        if not has_data:
+                            stmt_cf = (
+                                select(EdinetCashFlowStatement)
+                                .where(EdinetCashFlowStatement.sec_code == code)
+                                .limit(1)
+                            )
+                            r = await session.execute(stmt_cf)
+                            if r.scalar_one_or_none() is not None:
+                                has_data = True
+
+                        if not has_data:
+                            print(f"[DEBUG] skip {code}: no EDINET data; skipping screening")
+                            continue
+                except Exception as e:
+                    print(
+                        f"[DEBUG] edinet data check failed for {code}: {e}; "
+                        f"proceeding with screening"
+                    )
+
             res = await self.evaluate(code, evaluation_date)
             await self._persist_result(res, evaluation_date)
             score_part = f"{res.sec_code}: スコア{res.total_score} ({res.status})"
@@ -391,6 +441,20 @@ class SimpleScreeningService:
         payload = self._build_upsert_payload(result, evaluation_date)
         try:
             async with maker.begin() as session:
+                # Resolve symbol from sec_code using mapping table
+                # so we persist with `symbol` column
+                try:
+                    mapping_repo = StockCodeMappingRepository(session=session)
+                    mapping = await mapping_repo.get_by_sec_code(result.sec_code)
+                    if mapping and getattr(mapping, "stock_code", None):
+                        payload["symbol"] = mapping.stock_code
+                    else:
+                        # Fallback: use sec_code as symbol when no mapping is found
+                        payload["symbol"] = result.sec_code
+                except Exception:
+                    # Best-effort: ensure symbol key exists to satisfy DB constraints
+                    payload.setdefault("symbol", result.sec_code)
+
                 repo = self._screening_result_factory(session)
                 await repo.upsert(payload)
         except Exception:  # pragma: no cover - best effort persistence
@@ -399,8 +463,9 @@ class SimpleScreeningService:
     def _build_upsert_payload(
         self, result: ScreeningResult, evaluation_date: date
     ) -> Dict[str, Any]:
+        # Do not include `sec_code` here because DB schema uses `symbol` column.
+        # `_persist_result` will resolve and inject `symbol` before upsert.
         return {
-            "sec_code": result.sec_code,
             "evaluation_date": evaluation_date,
             "fiscal_year_end": result.fiscal_year_end,
             "pass_required_conditions": result.pass_required,
