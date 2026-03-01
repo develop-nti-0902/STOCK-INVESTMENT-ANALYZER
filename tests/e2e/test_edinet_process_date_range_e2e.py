@@ -20,7 +20,6 @@ from tests.e2e.utils import (
     fetch_edinet_cash_flow_statement_rows,
     fetch_edinet_profit_and_loss_rows,
     fetch_edinet_stock_dividend_rows,
-    fetch_screening_result_rows,
     run_async_safely,
     write_csv_artifact,
 )
@@ -198,8 +197,9 @@ def test_edinet_process_date_range_flow(client):
         "evaluation_date": target_date.isoformat(),
     }
 
-    r_screening = client.post("/api/v1/screening/run", json=screening_params)
+    r_screening = client.post("/api/v1/screening/run", params=screening_params)
 
+    # スクリーニングAPIの実行結果を確認
     assert r_screening.status_code in (
         200,
         400,
@@ -217,18 +217,16 @@ def test_edinet_process_date_range_flow(client):
     screening_result = r_screening.json()
     print(f"DEBUG: Screening result: {screening_result}")
 
-    # 7) スクリーニング結果をアーティファクトとして保存
-    # スクリーニング実行後、DB に保存されたすべてのスクリーニング結果を取得
-    screening_rows = []
-    try:
-        screening_rows = run_async_safely(fetch_screening_result_rows())
-        print(f"DEBUG: Found {len(screening_rows)} screening result records in DB")
-    except Exception as e:
-        print(f"DEBUG: Failed to fetch screening result rows: {e}")
+    # スクリーニング結果が返ってきたことを確認
+    assert screening_result.get("status") == "success", (
+        f"Screening API returned status: {screening_result.get('status')}, "
+        f"message: {screening_result.get('message')}"
+    )
 
-    if screening_rows:
+    # 8) スクリーニング結果をアーティファクトとして保存
+    if screening_result.get("result"):
         try:
             artifact_name = "test_edinet_process_date_range_screening_result"
-            write_csv_artifact(screening_rows, name=artifact_name)
+            write_csv_artifact(screening_result.get("result"), name=artifact_name)
         except Exception as e:
             print(f"DEBUG: Failed to write screening result artifact: {e}")

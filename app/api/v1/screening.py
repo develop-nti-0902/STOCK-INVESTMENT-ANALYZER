@@ -1,72 +1,213 @@
-"""Screening API router.
+"""新しいScreeningService対応 - スクリーニングAPI (v1).
 
-Minimal endpoints to trigger the `SimpleScreeningService` for screening.
+業種別ストラテジーパターンに対応した新しいスクリーニングサービスのAPIエンドポイント。
 """
 
 from __future__ import annotations
 
-from datetime import date
-from typing import List, Optional
+from datetime import datetime
+from types import SimpleNamespace
+from typing import Optional
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.api.dependencies.services import get_screening_service
-from app.services.screening.simple_screening_service import SimpleScreeningService
+from app.models.market_data.edinet.edinet_cash_flow_statement import EdinetCashFlowStatement
+from app.models.market_data.edinet.edinet_profit_and_loss import EdinetProfitAndLoss
+from app.models.market_data.edinet.edinet_stock_dividend import EdinetStockDividend
+from app.repositories.screening import ScreeningResultRepository
+from app.services.screening.screening_service import ScreeningService
+from app.utils.database import get_engine
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(tags=["screening"])
 
 
-class RunRequest(BaseModel):
-    sec_codes: Optional[List[str]] = None
-    evaluation_date: date
+class DbFinancialQueryAdapter:
+    """実DBから履歴を取得して FinancialQueryService と互換のインターフェースを提供するアダプタ。"""
+
+    def __init__(self, maker: async_sessionmaker[AsyncSession]):
+        self._maker = maker
+
+    async def list_dividends(self, sec_code: str):
+        async with self._maker() as s:
+            stmt = (
+                select(EdinetStockDividend)
+                .where(EdinetStockDividend.sec_code == sec_code)
+                .order_by(EdinetStockDividend.period_end_date.asc())
+            )
+            res = await s.execute(stmt)
+            rows = res.scalars().all()
+            out = [
+                SimpleNamespace(
+                    fiscal_year_end=r.period_end_date,
+                    dividend_per_share=(
+                        float(r.dividend_adj) if r.dividend_adj is not None else 0.0
+                    ),
+                )
+                for r in rows
+            ]
+        return out
+
+    async def list_profit_and_loss(self, sec_code: str):
+        async with self._maker() as s:
+            stmt = (
+                select(EdinetProfitAndLoss)
+                .where(EdinetProfitAndLoss.sec_code == sec_code)
+                .order_by(EdinetProfitAndLoss.period_end_date.asc())
+            )
+            res = await s.execute(stmt)
+            rows = res.scalars().all()
+            out = [
+                SimpleNamespace(
+                    fiscal_year_end=r.period_end_date,
+                    eps=(float(r.eps) if r.eps is not None else 0.0),
+                    net_sales=(float(r.net_sales) if r.net_sales is not None else 0.0),
+                    operating_income=(
+                        float(r.operating_income) if r.operating_income is not None else 0.0
+                    ),
+                )
+                for r in rows
+            ]
+        return out
+
+    async def list_cash_flows(self, sec_code: str):
+        async with self._maker() as s:
+            stmt = (
+                select(EdinetCashFlowStatement)
+                .where(EdinetCashFlowStatement.sec_code == sec_code)
+                .order_by(EdinetCashFlowStatement.period_end_date.asc())
+            )
+            res = await s.execute(stmt)
+            rows = res.scalars().all()
+            out = [
+                SimpleNamespace(
+                    fiscal_year_end=r.period_end_date,
+                    operating_cf=(float(r.operating_cf) if r.operating_cf is not None else 0.0),
+                )
+                for r in rows
+            ]
+        return out
+
+    async def close(self) -> None:
+        """エンジンのクリーンアップを行う。"""
+
+    # --- FinancialQueryService 互換メソッド ---
+    async def get_dividend_history(self, sec_code: str, _years: int = 5):
+        return await self.list_dividends(sec_code)
+
+    async def get_eps_history(self, sec_code: str, _years: int = 5):
+        records = await self.list_profit_and_loss(sec_code)
+        return [
+            SimpleNamespace(fiscal_year_end=r.fiscal_year_end, eps=getattr(r, "eps", 0.0))
+            for r in records
+        ]
+
+    async def get_operating_cf_history(self, sec_code: str, _years: int = 5):
+        records = await self.list_cash_flows(sec_code)
+        return [
+            SimpleNamespace(
+                fiscal_year_end=r.fiscal_year_end, operating_cf=getattr(r, "operating_cf", 0.0)
+            )
+            for r in records
+        ]
+
+    async def get_stability_history(self, sec_code: str, _years: int = 5):
+        records = await self.list_profit_and_loss(sec_code)
+        return [
+            SimpleNamespace(
+                fiscal_year_end=r.fiscal_year_end,
+                net_sales=getattr(r, "net_sales", 0.0),
+                operating_income=getattr(r, "operating_income", 0.0),
+                operating_margin=(
+                    getattr(r, "operating_income", 0.0) / getattr(r, "net_sales", 1.0)
+                    if getattr(r, "net_sales", 0.0)
+                    else 0.0
+                ),
+            )
+            for r in records
+        ]
 
 
-class RunResponse(BaseModel):
-    message: str
-
-
-class EvaluateResponse(BaseModel):
-    sec_code: str
-    pass_required: bool
-    total_score: int
-    score_dividend: int
-    score_eps: int
-    score_stability: int
-    score_profitability: int
-    status: str
-    failed_conditions: List[str]
-    fiscal_year_end: Optional[date]
-
-
-@router.post("/run", response_model=RunResponse)
+@router.post("/run")
 async def run_screening(
-    req: RunRequest, service: SimpleScreeningService = Depends(get_screening_service)
-) -> RunResponse:
-    """Run screening for given symbols (or all when `sec_codes` is None)."""
-    await service.run(req.sec_codes, req.evaluation_date)
-    return RunResponse(message="Screening completed")
+    sec_codes: Optional[list[str]] = None,
+    evaluation_date: Optional[str] = None,
+) -> dict:
+    """業種別ストラテジーを用いてスクリーニングを実行。
 
+    Args:
+        sec_codes: 対象銘柄コードのリスト。None の場合は全銘柄を対象。
+        evaluation_date: 評価実行日 (ISO形式, 指定なしの場合は本日)
 
-@router.get("/evaluate/{sec_code}", response_model=EvaluateResponse)
-async def evaluate(
-    sec_code: str,
-    evaluation_date: Optional[date] = None,
-    service: SimpleScreeningService = Depends(get_screening_service),
-) -> EvaluateResponse:
-    """Evaluate a single symbol and return the screening result."""
-    if evaluation_date is None:
-        evaluation_date = date.today()
-    res = await service.evaluate(sec_code, evaluation_date)
-    return EvaluateResponse(
-        sec_code=res.sec_code,
-        pass_required=res.pass_required,
-        total_score=res.total_score,
-        score_dividend=res.score_dividend,
-        score_eps=res.score_eps,
-        score_stability=res.score_stability,
-        score_profitability=res.score_profitability,
-        status=res.status,
-        failed_conditions=res.failed_conditions,
-        fiscal_year_end=res.fiscal_year_end,
-    )
+    Returns:
+        スクリーニング実行結果
+    """
+    try:
+        if evaluation_date is None:
+            eval_date = datetime.now().date()
+        else:
+            eval_date = datetime.fromisoformat(evaluation_date).date()
+
+        # セッションメーカーの取得
+        engine = get_engine()
+        maker = async_sessionmaker(bind=engine, expire_on_commit=False)
+
+        # 財務データアダプターの作成
+        fq_adapter = DbFinancialQueryAdapter(maker)
+
+        # スクリーニングサービスの作成と実行
+        screening_service = ScreeningService(
+            financial_query_service=fq_adapter,
+            stock_master_maker=maker,
+            screening_result_maker=maker,
+            screening_result_factory=ScreeningResultRepository,
+        )
+
+        await screening_service.run(
+            sec_codes=sec_codes,
+            evaluation_date=eval_date,
+        )
+
+        # DB から今回実行したスクリーニング結果を取得
+        async with maker() as session:
+            repo = ScreeningResultRepository(session=session)
+            screening_results = await repo.list()
+            # 評価日付でフィルタリング
+            filtered_results = [
+                r
+                for r in screening_results
+                if hasattr(r, "evaluation_date") and r.evaluation_date == eval_date
+            ]
+
+            # モデルオブジェクトを辞書に変換
+            results_as_dict = [
+                {
+                    "id": r.id,
+                    "symbol": r.symbol,
+                    "evaluation_date": r.evaluation_date.isoformat() if r.evaluation_date else None,
+                    "fiscal_year_end": r.fiscal_year_end.isoformat() if r.fiscal_year_end else None,
+                    "pass_required_conditions": r.pass_required_conditions,
+                    "total_score": r.total_score,
+                    "score_dividend": r.score_dividend,
+                    "score_eps": r.score_eps,
+                    "score_stability": r.score_stability,
+                    "score_profitability": r.score_profitability,
+                    "status": r.status,
+                    "failed_conditions": r.failed_conditions,
+                    "screening_details": r.screening_details,
+                }
+                for r in filtered_results
+            ]
+
+        return {
+            "status": "success",
+            "result": results_as_dict,
+            "evaluation_date": eval_date.isoformat(),
+        }
+    except Exception as e:
+        logger.error("Screening failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
