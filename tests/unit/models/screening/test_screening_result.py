@@ -9,7 +9,7 @@ def test_screening_result_fields_and_repr():
     """Model のフィールドが正しく設定され、repr に重要情報が含まれることを確認します."""
     model = ScreeningResult(
         symbol="7203",
-        evaluation_date=date(2026, 2, 19),
+        evaluation_year=2026,
         pass_required_conditions=True,
         status="priority",
         total_score=92,

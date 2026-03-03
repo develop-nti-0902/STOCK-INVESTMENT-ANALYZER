@@ -198,7 +198,7 @@ erDiagram
     SCREENING_RESULTS {
         int id PK "プライマリキー"
         string symbol FK "銘柄コード（stock_code）"
-        date evaluation_date "評価日"
+        int evaluation_year "評価年度（西暦）"
         date fiscal_year_end "会計年度末"
         boolean pass_required_conditions "必須条件判定"
         int total_score "総合スコア"

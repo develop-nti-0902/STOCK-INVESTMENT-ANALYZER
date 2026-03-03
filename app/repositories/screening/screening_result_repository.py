@@ -36,9 +36,8 @@ class ScreeningResultRepository(BaseRepository[ScreeningResult]):
             if c.name not in ("id", "created_at")
         }
         stmt = insert_stmt.on_conflict_do_update(
-            index_elements=["symbol", "evaluation_date"],
+            index_elements=["symbol", "evaluation_year"],
             set_=update_dict,
-            where=(insert_stmt.excluded.evaluation_date >= table.c.evaluation_date),
         )
 
         try:
@@ -57,7 +56,7 @@ class ScreeningResultRepository(BaseRepository[ScreeningResult]):
         stmt = (
             select(self.model)
             .where(self.model.symbol == symbol)
-            .order_by(self.model.evaluation_date.desc())
+            .order_by(self.model.evaluation_year.desc())
             .limit(1)
         )
         result = await self.session.execute(stmt)
@@ -68,7 +67,7 @@ class ScreeningResultRepository(BaseRepository[ScreeningResult]):
         stmt = (
             select(self.model)
             .where(self.model.symbol == symbol)
-            .order_by(self.model.evaluation_date.desc())
+            .order_by(self.model.evaluation_year.desc())
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
@@ -96,7 +95,7 @@ class ScreeningResultRepository(BaseRepository[ScreeningResult]):
         stmt = (
             stmt.order_by(
                 self.model.total_score.desc(),
-                self.model.evaluation_date.desc(),
+                self.model.evaluation_year.desc(),
             )
             .limit(limit)
             .offset(skip)

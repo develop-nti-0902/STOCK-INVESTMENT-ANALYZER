@@ -491,9 +491,7 @@ async def fetch_screening_result_rows() -> List[Dict[str, Any]]:
                 {
                     "id": row.id,
                     "symbol": row.symbol,
-                    "evaluation_date": (
-                        row.evaluation_date.isoformat() if row.evaluation_date else None
-                    ),
+                    "evaluation_year": row.evaluation_year,
                     "fiscal_year_end": (
                         row.fiscal_year_end.isoformat() if row.fiscal_year_end else None
                     ),

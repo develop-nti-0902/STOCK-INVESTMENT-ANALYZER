@@ -168,26 +168,35 @@ def test_edinet_process_date_range_flow(client):
     )
 
     # 5) アーティファクトとして保存
-    if profit_and_loss_rows:
+    if profit_and_loss_rows is not None:
         try:
             artifact_name = "test_edinet_process_date_range_profit_and_loss_db_data"
-            write_csv_artifact(profit_and_loss_rows, name=artifact_name)
+            artifact_path = write_csv_artifact(profit_and_loss_rows, name=artifact_name)
+            print(f"DEBUG: Artifact written (P&L): {artifact_path}")
         except Exception as e:
             print(f"DEBUG: Failed to write profit and loss artifact: {e}")
+    else:
+        print("DEBUG: Skipping profit and loss artifact (no data)")
 
-    if stock_dividend_rows:
+    if stock_dividend_rows is not None:
         try:
             artifact_name = "test_edinet_process_date_range_stock_dividend_db_data"
-            write_csv_artifact(stock_dividend_rows, name=artifact_name)
+            artifact_path = write_csv_artifact(stock_dividend_rows, name=artifact_name)
+            print(f"DEBUG: Artifact written (Dividend): {artifact_path}")
         except Exception as e:
             print(f"DEBUG: Failed to write stock dividend artifact: {e}")
+    else:
+        print("DEBUG: Skipping stock dividend artifact (no data)")
 
-    if cash_flow_rows:
+    if cash_flow_rows is not None:
         try:
             artifact_name = "test_edinet_process_date_range_cash_flow_db_data"
-            write_csv_artifact(cash_flow_rows, name=artifact_name)
+            artifact_path = write_csv_artifact(cash_flow_rows, name=artifact_name)
+            print(f"DEBUG: Artifact written (CFS): {artifact_path}")
         except Exception as e:
             print(f"DEBUG: Failed to write cash flow artifact: {e}")
+    else:
+        print("DEBUG: Skipping cash flow artifact (no data)")
 
     # 6) /api/v1/screening/run を実行する
     print("DEBUG: Executing /api/v1/screening/run")
@@ -224,9 +233,19 @@ def test_edinet_process_date_range_flow(client):
     )
 
     # 8) スクリーニング結果をアーティファクトとして保存
-    if screening_result.get("result"):
+    screening_result_data = screening_result.get("result")
+    if screening_result_data is not None:
         try:
             artifact_name = "test_edinet_process_date_range_screening_result"
-            write_csv_artifact(screening_result.get("result"), name=artifact_name)
+            artifact_path = write_csv_artifact(screening_result_data, name=artifact_name)
+            record_count = (
+                len(screening_result_data) if isinstance(screening_result_data, list) else 1
+            )
+            print(f"DEBUG: Artifact written (Screening): {artifact_path} ({record_count} records)")
         except Exception as e:
             print(f"DEBUG: Failed to write screening result artifact: {e}")
+            import traceback
+
+            traceback.print_exc()
+    else:
+        print("DEBUG: Skipping screening result artifact (no data)")

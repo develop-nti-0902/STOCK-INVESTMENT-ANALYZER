@@ -269,7 +269,7 @@ class ScreeningService:
     ) -> Dict[str, Any]:
         """DB 保存用のペイロードを構築。"""
         return {
-            "evaluation_date": evaluation_date,
+            "evaluation_year": evaluation_date.year,
             "fiscal_year_end": result.fiscal_year_end,
             "pass_required_conditions": result.pass_required,
             "total_score": result.total_score,

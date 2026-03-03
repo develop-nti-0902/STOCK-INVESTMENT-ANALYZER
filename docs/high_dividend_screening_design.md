@@ -74,8 +74,8 @@ app/services/
 | カラム名                 | 型          | NULL | 説明                                             |
 | ------------------------ | ----------- | ---- | ------------------------------------------------ |
 | id                       | INTEGER     | NO   | 主キー                                           |
-| sec_code                 | VARCHAR(10) | NO   | 証券コード                                       |
-| evaluation_date          | DATE        | NO   | 評価実施日                                       |
+| symbol                   | VARCHAR(10) | NO   | 銘柄コード                                       |
+| evaluation_year          | INTEGER     | NO   | 評価年度（西暦、example: 2026）                  |
 | fiscal_year_end          | DATE        | NULL | 評価対象の最新決算期末日                         |
 | pass_required_conditions | BOOLEAN     | NO   | 必須条件クリアフラグ                             |
 | total_score              | INTEGER     | NULL | 総合スコア（0〜100点）                           |
@@ -89,7 +89,7 @@ app/services/
 | created_at               | TIMESTAMP   | NO   | 作成日時                                         |
 | updated_at               | TIMESTAMP   | NO   | 更新日時                                         |
 
-**ユニーク制約**: `(sec_code, evaluation_date)`
+**ユニーク制約**: `(symbol, evaluation_year)`
 
 ---
 

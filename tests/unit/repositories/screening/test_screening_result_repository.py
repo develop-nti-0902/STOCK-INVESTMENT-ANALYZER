@@ -1,6 +1,5 @@
 """`ScreeningResultRepository` の単体テスト."""
 
-from datetime import date
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -27,7 +26,7 @@ def make_model(**kwargs):
     """テスト用の ScreeningResult モデルインスタンスを作成します."""
     defaults = {
         "symbol": "7203",
-        "evaluation_date": date(2026, 2, 19),
+        "evaluation_year": 2026,
         "pass_required_conditions": True,
         "status": "priority",
     }
@@ -45,7 +44,7 @@ async def test_upsert_inserts_and_returns_model(repository, mock_session):
 
     data = {
         "symbol": "7203",
-        "evaluation_date": date(2026, 2, 19),
+        "evaluation_year": 2026,
         "pass_required_conditions": True,
         "status": "priority",
         "total_score": 92,
@@ -86,8 +85,8 @@ async def test_find_by_symbol_returns_history(repository, mock_session):
     mock_result = MagicMock()
     mock_scalars = MagicMock()
     records = [
-        make_model(evaluation_date=date(2026, 2, 19)),
-        make_model(evaluation_date=date(2025, 2, 19)),
+        make_model(evaluation_year=2026),
+        make_model(evaluation_year=2025),
     ]
     mock_scalars.all.return_value = records
     mock_result.scalars.return_value = mock_scalars

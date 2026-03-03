@@ -73,7 +73,7 @@ def test_build_upsert_payload_keys():
     result = _make_result()
     eval_date = date(2026, 3, 2)
     payload = svc._build_upsert_payload(result, eval_date)
-    assert payload["evaluation_date"] == eval_date
+    assert payload["evaluation_year"] == 2026
     assert payload["status"] == "active"
     assert payload["total_score"] == 85
     assert payload["pass_required_conditions"] is True

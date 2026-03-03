@@ -96,17 +96,23 @@ class DbFinancialQueryAdapter:
         """エンジンのクリーンアップを行う。"""
 
     # --- FinancialQueryService 互換メソッド ---
-    async def get_dividend_history(self, sec_code: str, _years: int = 5):
+    async def get_dividend_history(
+        self, sec_code: str, years: int = 5
+    ):  # pylint: disable=unused-argument
         return await self.list_dividends(sec_code)
 
-    async def get_eps_history(self, sec_code: str, _years: int = 5):
+    async def get_eps_history(
+        self, sec_code: str, years: int = 5
+    ):  # pylint: disable=unused-argument
         records = await self.list_profit_and_loss(sec_code)
         return [
             SimpleNamespace(fiscal_year_end=r.fiscal_year_end, eps=getattr(r, "eps", 0.0))
             for r in records
         ]
 
-    async def get_operating_cf_history(self, sec_code: str, _years: int = 5):
+    async def get_operating_cf_history(
+        self, sec_code: str, years: int = 5
+    ):  # pylint: disable=unused-argument
         records = await self.list_cash_flows(sec_code)
         return [
             SimpleNamespace(
@@ -115,7 +121,9 @@ class DbFinancialQueryAdapter:
             for r in records
         ]
 
-    async def get_stability_history(self, sec_code: str, _years: int = 5):
+    async def get_stability_history(
+        self, sec_code: str, years: int = 5
+    ):  # pylint: disable=unused-argument
         records = await self.list_profit_and_loss(sec_code)
         return [
             SimpleNamespace(
@@ -176,11 +184,12 @@ async def run_screening(
         async with maker() as session:
             repo = ScreeningResultRepository(session=session)
             screening_results = await repo.list()
-            # 評価日付でフィルタリング
+            # 評価年でフィルタリング
+            target_year = eval_date.year
             filtered_results = [
                 r
                 for r in screening_results
-                if hasattr(r, "evaluation_date") and r.evaluation_date == eval_date
+                if hasattr(r, "evaluation_year") and r.evaluation_year == target_year
             ]
 
             # モデルオブジェクトを辞書に変換
@@ -188,7 +197,7 @@ async def run_screening(
                 {
                     "id": r.id,
                     "symbol": r.symbol,
-                    "evaluation_date": r.evaluation_date.isoformat() if r.evaluation_date else None,
+                    "evaluation_year": r.evaluation_year if hasattr(r, "evaluation_year") else None,
                     "fiscal_year_end": r.fiscal_year_end.isoformat() if r.fiscal_year_end else None,
                     "pass_required_conditions": r.pass_required_conditions,
                     "total_score": r.total_score,
@@ -206,7 +215,7 @@ async def run_screening(
         return {
             "status": "success",
             "result": results_as_dict,
-            "evaluation_date": eval_date.isoformat(),
+            "evaluation_year": target_year,
         }
     except Exception as e:
         logger.error("Screening failed: %s", e, exc_info=True)

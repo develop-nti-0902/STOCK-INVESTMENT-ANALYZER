@@ -182,7 +182,7 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
             stmt = (
                 select(ScreeningResult)
                 .where(ScreeningResult.status.in_(_MONITORING_STATUSES))
-                .order_by(ScreeningResult.symbol, desc(ScreeningResult.evaluation_date))
+                .order_by(ScreeningResult.symbol, desc(ScreeningResult.evaluation_year))
             )
             result = await session.execute(stmt)
             latest: Dict[str, ScreeningResult] = {}

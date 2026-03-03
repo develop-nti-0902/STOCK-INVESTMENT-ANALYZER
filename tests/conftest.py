@@ -94,33 +94,52 @@ def client(request):
 
     pytest の fixture 注入による名前のシャドーイングを避けるため、
     `request.getfixturevalue` で `mock_db_session` を取得します。
+
+    E2Eテストの場合は実際のDB接続を使用します。
     """
 
     # outer-scope 名と重複しないよう、request からフィクスチャ値を取得する
     # モジュールスコープのフィクスチャ名を上書きしないようにローカル名を変更する
-    mock_session = request.getfixturevalue("mock_db_session")
 
-    async def _override_get_db():
-        yield mock_session
+    # E2Eテストかどうかを判定
+    is_e2e = _is_e2e_test_item(request.node)
 
-    try:
-        with TestClient(fastapi_app) as tc:
-            yield tc
-    finally:
-        # テスト終了後にオーバーライドを削除してクリーンアップ
-        fastapi_app.dependency_overrides.pop(real_get_db, None)
+    if not is_e2e:
+        # ユニットテストの場合: モックセッションを使用
+        mock_session = request.getfixturevalue("mock_db_session")
 
-        # リソースのクリーンアップ
-        # ガベージコレクションを実行して未処理のリソースをクリーンアップ
-        gc.collect()
+        async def _override_get_db():
+            yield mock_session
 
-        # SQLAlchemy のコネクションプールをクリーンアップ
-        # これにより、古いイベントループへの参照が残らないようにする
+        # DBオーバーライドを設定
+        fastapi_app.dependency_overrides[real_get_db] = _override_get_db
+
         try:
-            import warnings
+            with TestClient(fastapi_app) as tc:
+                yield tc
+        finally:
+            # テスト終了後にオーバーライドを削除してクリーンアップ
+            fastapi_app.dependency_overrides.pop(real_get_db, None)
 
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                gc.collect()
-        except Exception:
-            pass
+            # リソースのクリーンアップ
+            # ガベージコレクションを実行して未処理のリソースをクリーンアップ
+            gc.collect()
+
+            # SQLAlchemy のコネクションプールをクリーンアップ
+            # これにより、古いイベントループへの参照が残らないようにする
+            try:
+                import warnings
+
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    gc.collect()
+            except Exception:
+                pass
+    else:
+        # E2Eテストの場合: 実際のDB接続を使用（オーバーライドなし）
+        try:
+            with TestClient(fastapi_app) as tc:
+                yield tc
+        finally:
+            # リソースのクリーンアップ
+            gc.collect()
