@@ -174,11 +174,15 @@ class StockMasterService:
                 )
                 record_id = getattr(summary, "id", None)
             ##########################################################
-            # フェッチ: データ取得
+            # フェッチ: データ取得 + マスターテーブル値抽出
             ##########################################################
-            data = await self.fetcher.fetch_all()
+            data_dict = await self.fetcher.fetch_and_extract_masters()
+            stocks_data = data_dict.get("stocks", [])
 
-            # limit が指定されていれば先頭から slice
+            # StockMasterNormalized オブジェクトを dict に変換
+            stocks_data_dicts = [item.model_dump() for item in stocks_data]
+
+            # limit が指定されていればフィルタ
             if limit is not None:
                 try:
                     limit_val = int(limit)
@@ -190,25 +194,15 @@ class StockMasterService:
                         extra={"limit": limit, "error": str(exc)},
                     )
                     raise
-                data = data[:limit_val]
-
-            ##########################################################
-            # 変換: Pydantic モデルを保存用辞書に変換（converter）
-            ##########################################################
-            for item in data:
-                if not hasattr(item, "model_dump"):
-                    raise TypeError(
-                        "Expected Pydantic v2 model with model_dump()," f" got {type(item)!r}"
-                    )
-
-            records = self.converter.to_records(data)
+                stocks_data_dicts = stocks_data_dicts[:limit_val]
+                data_dict["stocks"] = stocks_data_dicts
 
             # サマリ用にシンボル集合を計算する
             new_symbols = []
-            for record in records:
-                code = record.get("stock_code") or record.get("symbol")
-                if code:
-                    new_symbols.append(code)
+            for item in stocks_data_dicts:
+                stock_code = item.get("stock_code") or item.get("symbol")
+                if stock_code:
+                    new_symbols.append(stock_code)
 
             new_set = set(new_symbols)
             total = len(new_symbols)
@@ -217,16 +211,16 @@ class StockMasterService:
             removed = len(existing_symbols - new_set)
 
             ##########################################################
-            # 保存: Saver に委譲してデータベースへ永続化（saver）
+            # 保存: Saver に委譲（マスターテーブル作成 + FK変換 + 永続化）
             ##########################################################
-            total_processed = await self.saver.save_batch(records, batch_size=batch_size)
+            total_processed = await self.saver.save_with_masters(data_dict)
 
             ##########################################################
             # stock_code_mapping を同時に保存
             ##########################################################
             if self.stock_code_mapping_repo and self.stock_code_mapping_saver:
                 try:
-                    mapping_records = self._generate_stock_code_mappings(records)
+                    mapping_records = self._generate_stock_code_mappings(stocks_data_dicts)
                     if mapping_records:
                         await self.stock_code_mapping_saver.save_batch(
                             mapping_records, batch_size=batch_size

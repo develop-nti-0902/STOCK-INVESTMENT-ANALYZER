@@ -121,6 +121,115 @@ class StockMasterFetcher(BaseFetcher[StockMasterNormalized]):
                 context={"original_error": e},
             ) from e
 
+    async def fetch_and_extract_masters(self) -> dict[str, Any]:
+        """JPX データ取得 + マスター値抽出.
+
+        JPX からデータを取得し、unique な分類値（市場区分、業種、規模など）を
+        抽出して、マスターテーブル作成用のデータと元データの両方を返します。
+
+        Returns:
+            dict[str, Any]: 以下のキーを含む辞書
+                - "market_categories": {code: name} マッピング（市場区分）
+                - "sector_33": {code: name} マッピング（業種33分類）
+                - "sector_17": {code: name} マッピング（業種17分類）
+                - "scale": {code: name} マッピング（規模）
+                - "stocks": List[StockMasterNormalized]（正規化済み銘柄データ）
+
+        Raises:
+            JPXAPIError: ダウンロードや解析に失敗した場合.
+        """
+        # Step 1: raw データ取得
+        raw_stocks = await self.fetch_all()
+
+        logger.info("Extracting unique master values", extra={"total_stocks": len(raw_stocks)})
+
+        # Step 2: unique マスター値抽出
+        return {
+            "market_categories": self._extract_unique_market_categories(raw_stocks),
+            "sector_33": self._extract_unique_sector_33(raw_stocks),
+            "sector_17": self._extract_unique_sector_17(raw_stocks),
+            "scale": self._extract_unique_scale_codes(raw_stocks),
+            "stocks": raw_stocks,
+        }
+
+    def _extract_unique_market_categories(
+        self, data: list[StockMasterNormalized]
+    ) -> dict[str, str]:
+        """JPX raw データから unique な市場区分を抽出.
+
+        Args:
+            data (list[StockMasterNormalized]): 正規化済みデータ
+
+        Returns:
+            dict[str, str]: {code: name} マッピング
+        """
+        market_map = {}
+        for stock in data:
+            market_cat = stock.market_category
+            if market_cat:
+                # 有効値をそのまま code として使用
+                market_map[market_cat] = market_cat
+
+        logger.info("Extracted unique market categories", extra={"count": len(market_map)})
+        return market_map
+
+    def _extract_unique_sector_33(self, data: list[StockMasterNormalized]) -> dict[str, str]:
+        """業種33分類を抽出（{code: name}）.
+
+        Args:
+            data (list[StockMasterNormalized]): 正規化済みデータ
+
+        Returns:
+            dict[str, str]: {コード: 業種名} マッピング
+        """
+        sector_map = {}
+        for stock in data:
+            code = stock.sector_code_33
+            name = stock.sector_name_33
+            if code and name:
+                sector_map[code] = name
+
+        logger.info("Extracted unique sector_33 codes", extra={"count": len(sector_map)})
+        return sector_map
+
+    def _extract_unique_sector_17(self, data: list[StockMasterNormalized]) -> dict[str, str]:
+        """業種17分類を抽出（{code: name}）.
+
+        Args:
+            data (list[StockMasterNormalized]): 正規化済みデータ
+
+        Returns:
+            dict[str, str]: {コード: 業種名} マッピング
+        """
+        sector_map = {}
+        for stock in data:
+            code = stock.sector_code_17
+            name = stock.sector_name_17
+            if code and name:
+                sector_map[code] = name
+
+        logger.info("Extracted unique sector_17 codes", extra={"count": len(sector_map)})
+        return sector_map
+
+    def _extract_unique_scale_codes(self, data: list[StockMasterNormalized]) -> dict[str, str]:
+        """規模を抽出（{code: name}）.
+
+        Args:
+            data (list[StockMasterNormalized]): 正規化済みデータ
+
+        Returns:
+            dict[str, str]: {コード: 規模区分名} マッピング
+        """
+        scale_map = {}
+        for stock in data:
+            code = stock.scale_code
+            category = stock.scale_category
+            if code and category:
+                scale_map[code] = category
+
+        logger.info("Extracted unique scale codes", extra={"count": len(scale_map)})
+        return scale_map
+
     async def _download_excel(self) -> bytes:
         """Download the Excel file from JPX.
 

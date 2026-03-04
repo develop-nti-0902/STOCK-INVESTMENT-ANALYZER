@@ -1,5 +1,6 @@
 ---
 description: 安全性・権限・情報漏洩を点検し、危険操作は必ずHITLで止める。
+model: Claude Haiku 4.5 (copilot)
 tools: [vscode, execute, read, agent, edit, search, web, 'context7/*', 'gitkraken/*', 'serena/*', ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, todo]
 title: Security Agent (Local)
 role: security

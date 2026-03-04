@@ -210,7 +210,95 @@ git remote prune origin
 
 ---
 
+## 8. Stock Master Synchronization Workflow
+
+### 概要
+`stock_master` テーブルを JPX（日本取引所）からダウンロードしたデータで定期的に同期します。
+正規化されたマスターテーブル（market_category/sector_33/sector_17/scale）と FK 参照を活用します。
+
+### 実行シーケンス
+
+```
+1. Trigger (定期実行 or 手動)
+        ↓
+2. StockMasterService.sync_stock_master()
+        ├─ 既存シンボルリストを取得
+        ├─ StockMasterUpdates ログ作成（status: running）
+        │
+        ↓
+3. Fetcher.fetch_and_extract_masters()
+        ├─ JPX Excel ダウンロード
+        ├─ 市場カテゴリー一覧抽出
+        ├─ 業種(33分類) コード一覧抽出
+        ├─ 業種(17分類) コード一覧抽出
+        ├─ 規模カテゴリー一覧抽出
+        └─ 戻り値: { "market_categories": {...}, "sector_33": {...}, ..., "stocks": [...] }
+        │
+        ↓
+4. Saver.save_with_masters(data_dict)
+        ├─ _create_masters() ← マスターテーブル分進行
+        │  ├─ market_category_master.get_or_create(code, name)
+        │  ├─ sector_33_master.get_or_create(code, name)
+        │  ├─ sector_17_master.get_or_create(code, name)
+        │  └─ scale_master.get_or_create(code, name)
+        │
+        ├─ _prepare_stock_data() ← FK ID 解決
+        │  ├─ stock["sector_code_33"] → market_category_id 取得
+        │  ├─ stock["sector_code_33"] → sector_33_id 取得
+        │  ├─ stock["sector_code_17"] → sector_17_id 取得
+        │  └─ stock["scale_code"] → scale_id 取得
+        │
+        └─ _upsert_stock_master_batch()
+           ├─ DELETE FROM stock_master （既存データ削除）
+           └─ INSERT ... （新規データ一括挿入）
+        │
+        ↓
+5. StockCodeMapping.save_batch() ← JPX→EDINET マッピング同期
+        │
+        ↓
+6. StockMasterUpdates.update_status(record_id, "success", {...})
+        └─ added_stocks, updated_stocks, removed_stocks を記録
+```
+
+### 主な特徴
+
+#### Idempotent パターン
+- `get_or_create()` で既存マスターレコードの重複チェック
+- 再実行時も安全（既存レコードは UPDATE されない）
+
+#### Eager Loading
+```python
+# Screening Service での大量データ処理の場合
+stmt = select(StockMaster).options(
+    joinedload(StockMaster.market_category),
+    joinedload(StockMaster.sector_33),
+    joinedload(StockMaster.sector_17),
+    joinedload(StockMaster.scale),
+)
+```
+
+#### トランザクション管理
+- `Saver.save_with_masters()` は明示的な rollback を持つ
+- エラー発生時は全変更を Rollback
+
+### デバッグ・トラブルシューティング
+
+**Q: マスターテーブルが空のまま**
+- A: `fetch_and_extract_masters()` が JPX データを正しく抽出しているか確認
+  - 観点: JPX Excel ファイル形式が変更されていないか
+
+**Q: 新しい業種コードが認識されない**
+- A: `_extract_unique_sector_33()` で該当コードを抽出しているか確認
+  - ロギング: `logger.debug()` で各マスター抽出結果を確認
+
+**Q: Screening で "AttributeError: 'NoneType' object has no attribute 'code'"**
+- A: FK が `None`（orphan stock）の可能性
+  - 修正: `if stock.sector_17 is not None:` のチェック追加
+
+---
+
 **関連ドキュメント:**
+- [Stock Master 正規化設計](../architecture/stock_master_normalization.md)
 - [コミット規約](./COMMIT-REGULATION.md)
 - [ブランチ規約](./BRANCH-REGULATION.md)
 - [Git ワークフロー](../standards/git-workflow.md)

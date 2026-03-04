@@ -1,6 +1,7 @@
 ---
 description: 壊れやすい境界と重要フローを優先してテストを追加し、ローカルで実行可能にする。
-[vscode, execute, read, agent, edit, search, web, 'context7/*', 'gitkraken/*', 'serena/*', ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, todo]
+model: Claude Haiku 4.5 (copilot)
+tools: [vscode, execute, read, agent, edit, search, web, 'context7/*', 'gitkraken/*', 'serena/*', ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, todo]
 title: Tester Agent (Local)
 role: tester
 version: 0.1

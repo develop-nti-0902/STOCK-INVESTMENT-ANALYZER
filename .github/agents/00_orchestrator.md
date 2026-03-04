@@ -1,6 +1,7 @@
 ---
 description: 開発タスクを中央集権型で進め、ローカル環境で安全に完了させる。
-[vscode, execute, read, agent, edit, search, web, 'context7/*', 'gitkraken/*', 'serena/*', ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, todo]
+model: Claude Haiku 4.5 (copilot)
+tools: [vscode, execute, read, agent, edit, search, web, 'context7/*', 'gitkraken/*', 'serena/*', ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, todo]
 title: Orchestrator Agent (Local)
 role: orchestrator
 pattern: agents-as-tools

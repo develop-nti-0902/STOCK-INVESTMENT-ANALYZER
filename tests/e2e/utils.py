@@ -307,6 +307,130 @@ async def fetch_stock_code_mapping_for_artifact() -> List[Dict[str, Any]]:
         await engine.dispose()
 
 
+async def fetch_market_category_master_for_artifact() -> List[Dict[str, Any]]:
+    """market_category_masterテーブルから全データを取得してアーティファクト用に返す。
+
+    Returns:
+        market_category_masterテーブルの全レコードを辞書のリストで返す。
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.stock_master import MarketCategoryMaster
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(MarketCategoryMaster))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": row.id,
+                    "code": row.code,
+                    "name": row.name,
+                    "created_at": (row.created_at.isoformat() if row.created_at else None),
+                    "updated_at": (row.updated_at.isoformat() if row.updated_at else None),
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def fetch_sector_33_master_for_artifact() -> List[Dict[str, Any]]:
+    """sector_33_masterテーブルから全データを取得してアーティファクト用に返す。
+
+    Returns:
+        sector_33_masterテーブルの全レコードを辞書のリストで返す。
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.stock_master import Sector33Master
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(Sector33Master))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": row.id,
+                    "code": row.code,
+                    "name": row.name,
+                    "created_at": (row.created_at.isoformat() if row.created_at else None),
+                    "updated_at": (row.updated_at.isoformat() if row.updated_at else None),
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def fetch_sector_17_master_for_artifact() -> List[Dict[str, Any]]:
+    """sector_17_masterテーブルから全データを取得してアーティファクト用に返す。
+
+    Returns:
+        sector_17_masterテーブルの全レコードを辞書のリストで返す。
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.stock_master import Sector17Master
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(Sector17Master))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": row.id,
+                    "code": row.code,
+                    "name": row.name,
+                    "created_at": (row.created_at.isoformat() if row.created_at else None),
+                    "updated_at": (row.updated_at.isoformat() if row.updated_at else None),
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def fetch_scale_master_for_artifact() -> List[Dict[str, Any]]:
+    """scale_masterテーブルから全データを取得してアーティファクト用に返す。
+
+    Returns:
+        scale_masterテーブルの全レコードを辞書のリストで返す。
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.stock_master import ScaleMaster
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(ScaleMaster))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": row.id,
+                    "code": row.code,
+                    "name": row.name,
+                    "created_at": (row.created_at.isoformat() if row.created_at else None),
+                    "updated_at": (row.updated_at.isoformat() if row.updated_at else None),
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
 async def cleanup_repository_delete_all(repo_class: type) -> None:
     """汎用 cleanup 関数。指定リポジトリの delete_all() メソッドを使用してデータを削除。
 

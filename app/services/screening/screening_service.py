@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.orm import joinedload
 
 from app.models.market_data.edinet.edinet_cash_flow_statement import EdinetCashFlowStatement
 from app.models.market_data.edinet.edinet_profit_and_loss import EdinetProfitAndLoss
@@ -114,15 +115,33 @@ class ScreeningService:
             return []
 
     async def _async_fetch_sector_code_17(self, sec_code: str) -> Optional[str]:
-        """証券コードから17業種コードを取得。"""
+        """証券コードから17業種コードを取得。
+
+        修正: StockCodeMapping → StockMaster → sector_17 ForeignKey を通じて取得
+        """
         if self._stock_master_maker is None:
             return None
         try:
             async with self._stock_master_maker() as session:
+                # 1. sec_code から StockCodeMapping を取得
                 mapping_repo = StockCodeMappingRepository(session=session)
                 mapping = await mapping_repo.get_by_sec_code(sec_code)
-                if mapping:
-                    return getattr(mapping, "sector_code_17", None)
+                if not mapping:
+                    return None
+
+                # 2. stock_code から StockMaster を取得（sector_17 FK を eager load）
+                stock_repo = StockMasterRepository(session=session)
+                stmt = (
+                    select(stock_repo.model)
+                    .where(stock_repo.model.stock_code == mapping.stock_code)
+                    .options(joinedload(stock_repo.model.sector_17))
+                )
+
+                result = await session.execute(stmt)
+                stock = result.scalar_one_or_none()
+
+                if stock and stock.sector_17:
+                    return stock.sector_17.code
         except Exception as e:
             logger.debug("failed to get sector_code_17 for %s: %s", sec_code, e)
         return None

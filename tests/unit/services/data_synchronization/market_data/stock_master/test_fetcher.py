@@ -186,3 +186,79 @@ def test_fetch_and_fetch_batch_not_implemented():
 
     with pytest.raises(NotImplementedError):
         asyncio.run(f.fetch_batch(["1301", "7203"]))
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_extract_masters_returns_correct_structure():
+    """fetch_and_extract_masters が正しい辞書構造を返すことを検証する."""
+    f = StockMasterFetcher()
+
+    # fetch_all をモック - StockMasterNormalized オブジェクトのリストを返す
+    from dataclasses import dataclass
+
+    @dataclass
+    class MockStock:
+        stock_code: str
+        stock_name: str
+        market_category: str
+        sector_code_33: str
+        sector_name_33: str
+        sector_code_17: str
+        sector_name_17: str
+        scale_code: str
+        scale_category: str  # 追加: _extract_unique_scale_codes で必要
+
+    mock_data = [
+        MockStock(
+            stock_code="1301",
+            stock_name="極洋",
+            market_category="Prime",
+            sector_code_33="08",
+            sector_name_33="水産・農林業",
+            sector_code_17="1",
+            sector_name_17="水産物・農産物",
+            scale_code="L",
+            scale_category="Large",
+        ),
+        MockStock(
+            stock_code="7203",
+            stock_name="トヨタ",
+            market_category="Prime",
+            sector_code_33="07",
+            sector_name_33="輸送用機器",
+            sector_code_17="12",
+            sector_name_17="自動車",
+            scale_code="L",
+            scale_category="Large",
+        ),
+    ]
+
+    with patch.object(f, "fetch_all", new_callable=AsyncMock, return_value=mock_data):
+        result = await f.fetch_and_extract_masters()
+
+        # 返された辞書の構造を検証
+        assert isinstance(result, dict)
+        assert set(result.keys()) == {
+            "market_categories",
+            "sector_33",
+            "sector_17",
+            "scale",
+            "stocks",
+        }
+
+        # 各マスターテーブルの抽出を検証
+        assert isinstance(result["market_categories"], dict)
+        assert "Prime" in result["market_categories"]
+
+        assert isinstance(result["sector_33"], dict)
+        assert "08" in result["sector_33"]
+
+        assert isinstance(result["sector_17"], dict)
+        assert "1" in result["sector_17"]
+
+        assert isinstance(result["scale"], dict)
+        assert "L" in result["scale"]
+
+        # 株情報を検証
+        assert isinstance(result["stocks"], list)
+        assert len(result["stocks"]) == 2

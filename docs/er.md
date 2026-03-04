@@ -18,6 +18,10 @@ erDiagram
     STOCK_CODE_MAPPING ||--o{ EDINET_PROFIT_AND_LOSS : connects
     STOCK_CODE_MAPPING ||--o{ EDINET_STOCK_DIVIDEND : connects
     STOCK_CODE_MAPPING ||--o{ EDINET_CASH_FLOW_STATEMENT : connects
+    MARKET_CATEGORY_MASTER ||--o{ STOCK_MASTER : "categorizes"
+    SECTOR_33_MASTER ||--o{ STOCK_MASTER : "classifies"
+    SECTOR_17_MASTER ||--o{ STOCK_MASTER : "classifies"
+    SCALE_MASTER ||--o{ STOCK_MASTER : "categorizes"
 
     ACCOUNT {
         int id PK "プライマリキー"
@@ -70,15 +74,47 @@ erDiagram
         int id PK "プライマリキー"
         string stock_code UK "株式コード（ユニーク）"
         string stock_name "企業名"
-        string market_category "市場区分"
+        int market_category_id FK "市場区分マスターID"
         string sector_code_33 "業種コード（33分類）"
-        string sector_name_33 "業種名（33分類）"
+        int sector_33_id FK "業種(33分類)マスターID"
         string sector_code_17 "業種コード（17分類）"
-        string sector_name_17 "業種名（17分類）"
+        int sector_17_id FK "業種(17分類)マスターID"
         string scale_code "規模コード"
-        string scale_category "規模区分"
+        int scale_id FK "規模マスターID"
         string data_date "データ日付"
         int is_active "有効フラグ"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
+    MARKET_CATEGORY_MASTER {
+        int id PK "プライマリキー"
+        string code UK "市場区分コード（Prime/Standard/Growth等）"
+        string name "市場区分名"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
+    SECTOR_33_MASTER {
+        int id PK "プライマリキー"
+        string code UK "業種コード（33分類）"
+        string name "業種名（33分類）"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
+    SECTOR_17_MASTER {
+        int id PK "プライマリキー"
+        string code UK "業種コード（17分類）"
+        string name "業種名（17分類）"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
+    SCALE_MASTER {
+        int id PK "プライマリキー"
+        string code UK "規模コード"
+        string name "規模名"
         datetime created_at "作成日時"
         datetime updated_at "更新日時"
     }

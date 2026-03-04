@@ -1,84 +1,268 @@
 """`StockMasterSaver` の単体テスト.
 
 テスト内容:
- - 空のレコードリストで 0 を返すこと
- - チャンクごとの `bulk_upsert` の戻り値を合算して返すこと
- - `bulk_upsert` が `None` を返した場合は 0 として扱うこと
- - メソッド呼び出し時の `batch_size` オーバーライドが効くこと
+ - save_with_masters(): 完全フロー（マスター作成 > FK変換 > upsert）を検証
+ - save_with_masters(): FK参照への変換が正しいこと
+ - save_with_masters(): 空の stocks リストでも動作すること
+ - save_with_masters(): 存在しないマスター値への対応（None ID）
+ - save_with_masters(): 例外発生時のロールバック
 """
 
-import asyncio
-from typing import Callable, Optional
+from unittest.mock import AsyncMock
 
+import pytest
+
+from app.schemas.market_data.stock_master import StockMasterNormalized
 from app.services.data_synchronization.market_data.stock_master.saver import StockMasterSaver
 
-
-class DummyRepo:
-    """ダミーのリポジトリ実装 for tests."""
-
-    def __init__(self, return_val: Optional[Callable] = None):
-        """初期化.
-
-        `return_val` はチャンクを受け取る callable(chunk) -> int|None か、静的な値のいずれか.
-        """
-        # return_val はチャンクを受け取る callable(chunk) -> int|None か、静的な値のいずれか
-        self.return_val = return_val
-        self.calls = []
-
-    async def bulk_upsert(self, chunk):
-        """チャンクを受け取り、事前定義の戻り値を返す."""
-        self.calls.append(list(chunk))
-        if callable(self.return_val):
-            return self.return_val(chunk)
-        return self.return_val
+# ============================================================================
+# Tests for save_with_masters() - New Normalization Method
+# ============================================================================
 
 
-def test_save_batch_returns_zero_for_empty_records():
-    """空のレコードリストで 0 が返ることを確認する."""
-    repo = DummyRepo(return_val=lambda c: len(c))
-    saver = StockMasterSaver(repo=repo, batch_size=10)
+@pytest.mark.asyncio
+async def test_save_with_masters_returns_zero_for_empty_stocks():
+    """save_with_masters() が空の stocks リストで 0 を返すことを検証する."""
+    # Mock stock master repository
+    mock_stock_repo = AsyncMock()
+    mock_stock_repo.session = AsyncMock()
+    mock_stock_repo.delete_all = AsyncMock()
+    mock_stock_repo.bulk_upsert = AsyncMock(return_value=0)
 
-    result = asyncio.run(saver.save_batch([]))
+    # Create saver
+    saver = StockMasterSaver(stock_master_repo=mock_stock_repo, batch_size=10)
 
+    # Mock master repositories with tuple return values
+    mock_market = AsyncMock()
+    mock_market.id = 1
+    saver.market_repo = AsyncMock()
+    saver.market_repo.get_or_create = AsyncMock(return_value=(mock_market, True))
+
+    mock_sector_33 = AsyncMock()
+    mock_sector_33.id = 2
+    saver.sector_33_repo = AsyncMock()
+    saver.sector_33_repo.get_or_create = AsyncMock(return_value=(mock_sector_33, True))
+
+    mock_sector_17 = AsyncMock()
+    mock_sector_17.id = 3
+    saver.sector_17_repo = AsyncMock()
+    saver.sector_17_repo.get_or_create = AsyncMock(return_value=(mock_sector_17, True))
+
+    mock_scale = AsyncMock()
+    mock_scale.id = 4
+    saver.scale_repo = AsyncMock()
+    saver.scale_repo.get_or_create = AsyncMock(return_value=(mock_scale, True))
+
+    # Test data: 空の stocks
+    data_dict = {
+        "market_categories": {"Prime": "プライム市場"},
+        "sector_33": {"08": "水産・農林業"},
+        "sector_17": {"1": "水産物・農産物"},
+        "scale": {"L": "Large"},
+        "stocks": [],  # 空
+    }
+
+    # Execute
+    result = await saver.save_with_masters(data_dict)
+
+    # Assert: 0 を返す
     assert result == 0
-    assert repo.calls == []
+    mock_stock_repo.delete_all.assert_awaited()
 
 
-def test_save_batch_accumulates_counts_per_chunk():
-    """チャンクごとの合計件数が正しく算出されることを確認する."""
-    # リポジトリはチャンクごとに処理した件数を返す想定
-    repo = DummyRepo(return_val=lambda c: len(c))
-    saver = StockMasterSaver(repo=repo, batch_size=2)
+@pytest.mark.asyncio
+async def test_save_with_masters_converts_fk_references_correctly():
+    """save_with_masters() が FK 参照への変換を正しく実行することを検証する."""
+    # Setup: Mock stock master repository
+    mock_stock_repo = AsyncMock()
+    mock_stock_repo.session = AsyncMock()
+    mock_stock_repo.delete_all = AsyncMock()
+    mock_stock_repo.bulk_upsert = AsyncMock(return_value=1)
 
-    records = [{"stock_code": str(i)} for i in range(5)]
-    total = asyncio.run(saver.save_batch(records))
+    # Create saver
+    saver = StockMasterSaver(stock_master_repo=mock_stock_repo, batch_size=10)
 
-    assert total == 5
-    # 呼ばれたチャンクは 3 回: 2,2,1
-    assert [len(c) for c in repo.calls] == [2, 2, 1]
+    # Create mock master objects with proper structure
+    mock_market = AsyncMock()
+    mock_market.id = 1
+    mock_market.code = "Prime"
+    mock_market.name = "プライム市場"
+
+    mock_sector_33 = AsyncMock()
+    mock_sector_33.id = 2
+    mock_sector_33.code = "08"
+    mock_sector_33.name = "水産・農林業"
+
+    mock_sector_17 = AsyncMock()
+    mock_sector_17.id = 3
+    mock_sector_17.code = "1"
+    mock_sector_17.name = "水産物・農産物"
+
+    mock_scale = AsyncMock()
+    mock_scale.id = 4
+    mock_scale.code = "L"
+    mock_scale.name = "Large"
+
+    # Mock master repositories with tuple return values
+    saver.market_repo = AsyncMock()
+    saver.market_repo.get_or_create = AsyncMock(return_value=(mock_market, True))
+
+    saver.sector_33_repo = AsyncMock()
+    saver.sector_33_repo.get_or_create = AsyncMock(return_value=(mock_sector_33, True))
+
+    saver.sector_17_repo = AsyncMock()
+    saver.sector_17_repo.get_or_create = AsyncMock(return_value=(mock_sector_17, True))
+
+    saver.scale_repo = AsyncMock()
+    saver.scale_repo.get_or_create = AsyncMock(return_value=(mock_scale, True))
+
+    # Test data with StockMasterNormalized objects
+    stock = StockMasterNormalized(
+        stock_code="1301",
+        stock_name="極洋",
+        market_category="Prime",
+        sector_code_33="08",
+        sector_code_17="1",
+        scale_code="L",
+        data_date="20251209",
+        is_active=1,
+    )
+
+    data_dict = {
+        "market_categories": {"Prime": "プライム市場"},
+        "sector_33": {"08": "水産・農林業"},
+        "sector_17": {"1": "水産物・農産物"},
+        "scale": {"L": "Large"},
+        "stocks": [stock],
+    }
+
+    # Execute
+    result = await saver.save_with_masters(data_dict)
+
+    # Assert
+    assert result == 1
+    mock_stock_repo.delete_all.assert_awaited_once()
+    mock_stock_repo.bulk_upsert.assert_awaited_once()
+
+    # Check the bulk_upsert call
+    call_args = mock_stock_repo.bulk_upsert.call_args
+    records = call_args[0][0]  # First argument (records list)
+
+    assert len(records) == 1
+    assert records[0]["stock_code"] == "1301"
+    assert records[0]["stock_name"] == "極洋"
+    assert records[0]["market_category_id"] == 1
+    assert records[0]["sector_33_id"] == 2
+    assert records[0]["sector_17_id"] == 3
+    assert records[0]["scale_id"] == 4
+    assert records[0]["data_date"] == "20251209"
+    assert records[0]["is_active"] == 1
 
 
-def test_save_batch_handles_none_returned_by_repo():
-    """リポジトリが None を返した場合 0 と扱われることを確認する."""
-    # リポジトリが None を返す場合は 0 として扱う
-    repo = DummyRepo(return_val=None)
-    saver = StockMasterSaver(repo=repo, batch_size=3)
+@pytest.mark.asyncio
+async def test_save_with_masters_handles_missing_masters():
+    """save_with_masters() が存在しないマスターに対して None ID で処理することを検証する."""
+    # Setup: Mock stock master repository
+    mock_stock_repo = AsyncMock()
+    mock_stock_repo.session = AsyncMock()
+    mock_stock_repo.delete_all = AsyncMock()
+    mock_stock_repo.bulk_upsert = AsyncMock(return_value=1)
 
-    records = [{"stock_code": "1"}, {"stock_code": "2"}]
-    total = asyncio.run(saver.save_batch(records))
+    # Create saver
+    saver = StockMasterSaver(stock_master_repo=mock_stock_repo, batch_size=10)
 
-    assert total == 0
-    assert len(repo.calls) == 1
+    # Mock: マスターを見つけられない場合（タプル形式で None を返す）
+    saver.market_repo = AsyncMock()
+    saver.market_repo.get_or_create = AsyncMock(return_value=(None, False))
+
+    saver.sector_33_repo = AsyncMock()
+    saver.sector_33_repo.get_or_create = AsyncMock(return_value=(None, False))
+
+    saver.sector_17_repo = AsyncMock()
+    saver.sector_17_repo.get_or_create = AsyncMock(return_value=(None, False))
+
+    saver.scale_repo = AsyncMock()
+    saver.scale_repo.get_or_create = AsyncMock(return_value=(None, False))
+
+    # Test data
+    stock = StockMasterNormalized(
+        stock_code="9999",
+        stock_name="Unknown",
+        market_category="Unknown",
+        sector_code_33="99",
+        sector_code_17="99",
+        scale_code="X",
+        data_date="20251209",
+        is_active=1,
+    )
+
+    data_dict = {
+        "market_categories": {"Unknown": "Unknown"},
+        "sector_33": {"99": "Unknown"},
+        "sector_17": {"99": "Unknown"},
+        "scale": {"X": "Unknown"},
+        "stocks": [stock],
+    }
+
+    # Execute
+    result = await saver.save_with_masters(data_dict)
+
+    # Assert
+    assert result == 1
+    call_args = mock_stock_repo.bulk_upsert.call_args
+    records = call_args[0][0]
+
+    assert records[0]["market_category_id"] is None
+    assert records[0]["sector_33_id"] is None
+    assert records[0]["sector_17_id"] is None
+    assert records[0]["scale_id"] is None
 
 
-def test_save_batch_respects_override_batch_size():
-    """batch_size の上書きが反映されることを確認する."""
-    # デフォルトの batch_size は 5 だが、この呼び出しでは 2 にオーバーライドする
-    repo = DummyRepo(return_val=lambda c: len(c))
-    saver = StockMasterSaver(repo=repo, batch_size=5)
+@pytest.mark.asyncio
+async def test_save_with_masters_handles_exception_and_rollback():
+    """save_with_masters() が例外発生時にロールバックすることを検証する."""
+    # Setup: Mock stock master repository that throws error
+    mock_stock_repo = AsyncMock()
+    mock_session = AsyncMock()
+    mock_session.rollback = AsyncMock()
+    mock_stock_repo.session = mock_session
+    mock_stock_repo.delete_all = AsyncMock(side_effect=RuntimeError("DB Error"))
 
-    records = [{"stock_code": str(i)} for i in range(4)]
-    total = asyncio.run(saver.save_batch(records, batch_size=2))
+    # Create saver
+    saver = StockMasterSaver(stock_master_repo=mock_stock_repo, batch_size=10)
 
-    assert total == 4
-    assert [len(c) for c in repo.calls] == [2, 2]
+    # Mock master repositories with get_or_create returning tuples
+    mock_market = AsyncMock()
+    mock_market.id = 1
+    saver.market_repo = AsyncMock()
+    saver.market_repo.get_or_create = AsyncMock(return_value=(mock_market, True))
+
+    mock_sector_33 = AsyncMock()
+    mock_sector_33.id = 2
+    saver.sector_33_repo = AsyncMock()
+    saver.sector_33_repo.get_or_create = AsyncMock(return_value=(mock_sector_33, True))
+
+    mock_sector_17 = AsyncMock()
+    mock_sector_17.id = 3
+    saver.sector_17_repo = AsyncMock()
+    saver.sector_17_repo.get_or_create = AsyncMock(return_value=(mock_sector_17, True))
+
+    mock_scale = AsyncMock()
+    mock_scale.id = 4
+    saver.scale_repo = AsyncMock()
+    saver.scale_repo.get_or_create = AsyncMock(return_value=(mock_scale, True))
+
+    data_dict = {
+        "market_categories": {"Prime": "プライム市場"},
+        "sector_33": {"08": "水産・農林業"},
+        "sector_17": {"1": "水産物・農産物"},
+        "scale": {"L": "Large"},
+        "stocks": [],
+    }
+
+    # Execute: 例外が発生する想定
+    with pytest.raises(RuntimeError):
+        await saver.save_with_masters(data_dict)
+
+    # Assert: ロールバックが呼ばれたこと
+    mock_session.rollback.assert_awaited_once()

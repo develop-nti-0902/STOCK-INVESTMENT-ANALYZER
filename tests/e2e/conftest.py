@@ -17,6 +17,8 @@ def is_db_reachable() -> bool:
     """DB 到達性を同期ソケットで簡易チェックする.
 
     SQLiteの場合はファイルの存在またはメモリDBを確認します。
+    E2Eテストは各テスト内で独自のDBセットアップを行うため、
+    相対パスの場合は到達可能と判断します。
     """
     host = os.getenv("DB_HOST")
     port = os.getenv("DB_PORT")
@@ -50,12 +52,28 @@ def is_db_reachable() -> bool:
             scheme = (parsed.scheme or "").lower()
             # SQLite を使う場合、ファイルが存在するかメモリ DB の場合は到達可能と判断する
             if scheme.startswith("sqlite"):
-                # Windows では parsed.path が '/C:/path' になることがあるため正規化する
+                # sqlite:///path の場合、parsed.path は /path になる（Windows なら /C:/path）
                 path = unquote(parsed.path or "")
+
+                # メモリDB の場合
+                if path == ":memory:" or path == "" or not path:
+                    return True
+
+                # Windows 絶対パスの場合: /C:/path -> C:/path に正規化
                 if path.startswith("/") and len(path) > 2 and path[2] == ":":
                     path = path[1:]
-                if path == ":memory:" or path == "":
+
+                # ファイル存在確認（相対・絶対両方に対応）
+                # E2E テストは各テストで独自の DB をセットアップするため、
+                # 相対パスの場合は到達可能と判断する
+                if os.path.exists(path):
                     return True
+
+                # 相対パスの場合は E2E テスト用として許可
+                if not os.path.isabs(path):
+                    return True
+
+                # 絶対パスの場合、ファイルが存在しなければ到達不可
                 return os.path.exists(path)
         return False
     try:
@@ -133,4 +151,34 @@ def client():
 def clear_advisory_locks(request):
     """No-op for advisory locks in SQLite environment."""
     # SQLite環境では何もせずにyield
+    yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_e2e_database():
+    """E2Eテスト用データベースをセットアップ.
+
+    Alembicマイグレーションを実行して、テーブルを作成します。
+    セッションスコープで一度だけ実行されます。
+    """
+    import subprocess
+    import sys
+
+    try:
+        # alembic upgrade head を実行
+        result = subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            capture_output=True,
+            text=True,
+            cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+        )
+
+        if result.returncode != 0:
+            print(f"⚠️  Alembic migration warning: {result.stderr}")
+        else:
+            print("✅ E2E database initialized with alembic migrations")
+    except Exception as e:
+        print(f"⚠️  Failed to run alembic migrations: {e}")
+        # マイグレーション失敗時も続行（テーブルが既に存在する可能性）
+
     yield

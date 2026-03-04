@@ -5,9 +5,20 @@ import time
 
 import pytest
 
-from app.repositories.market_data.stock_master import StockCodeMappingRepository
+from app.repositories.market_data.stock_master import (
+    MarketCategoryMasterRepository,
+    ScaleMasterRepository,
+    Sector17MasterRepository,
+    Sector33MasterRepository,
+    StockCodeMappingRepository,
+    StockMasterRepository,
+)
 from tests.e2e.utils import (
     cleanup_repository_delete_all,
+    fetch_market_category_master_for_artifact,
+    fetch_scale_master_for_artifact,
+    fetch_sector_17_master_for_artifact,
+    fetch_sector_33_master_for_artifact,
     fetch_stock_code_mapping_for_artifact,
     fetch_stock_master_for_artifact,
     run_async_safely,
@@ -32,8 +43,13 @@ def test_stock_master_flow(client):
     r0 = client.delete("/api/v1/stock-master/reset")
     assert r0.status_code in (200, 404)
 
-    # 前準備: stock_code_mapping をクリーンアップ
+    # 前準備: 全マスターテーブルをクリーンアップ
+    run_async_safely(cleanup_repository_delete_all(StockMasterRepository))
     run_async_safely(cleanup_repository_delete_all(StockCodeMappingRepository))
+    run_async_safely(cleanup_repository_delete_all(MarketCategoryMasterRepository))
+    run_async_safely(cleanup_repository_delete_all(Sector33MasterRepository))
+    run_async_safely(cleanup_repository_delete_all(Sector17MasterRepository))
+    run_async_safely(cleanup_repository_delete_all(ScaleMasterRepository))
 
     try:
         # 1) fetch/sample (テスト用パラメータ指定: sample_size=50 を使用)
@@ -81,6 +97,39 @@ def test_stock_master_flow(client):
 
             traceback.print_exc()
 
+        # artifact: マスターテーブルのデータを取得（sample後）
+        try:
+            market_cat_data_sample = run_async_safely(fetch_market_category_master_for_artifact())
+            write_csv_artifact(
+                market_cat_data_sample, name="test_stock_master_flow_market_category_master_1"
+            )
+
+            sector_33_data_sample = run_async_safely(fetch_sector_33_master_for_artifact())
+            write_csv_artifact(
+                sector_33_data_sample, name="test_stock_master_flow_sector_33_master_1"
+            )
+
+            sector_17_data_sample = run_async_safely(fetch_sector_17_master_for_artifact())
+            write_csv_artifact(
+                sector_17_data_sample, name="test_stock_master_flow_sector_17_master_1"
+            )
+
+            scale_data_sample = run_async_safely(fetch_scale_master_for_artifact())
+            write_csv_artifact(scale_data_sample, name="test_stock_master_flow_scale_master_1")
+
+            print(
+                f"DEBUG: マスターテーブルデータ(sample後): "
+                f"market_category={len(market_cat_data_sample)}, "
+                f"sector_33={len(sector_33_data_sample)}, "
+                f"sector_17={len(sector_17_data_sample)}, "
+                f"scale={len(scale_data_sample)}"
+            )
+        except Exception as e:
+            print(f"DEBUG: Failed to write master tables after sample: {e}")
+            import traceback
+
+            traceback.print_exc()
+
         # 2) fetch
         r_refresh = client.post("/api/v1/stock-master/fetch")
         assert r_refresh.status_code == 200
@@ -118,6 +167,35 @@ def test_stock_master_flow(client):
                 )
         except Exception as e:
             print(f"DEBUG: Failed to validate stock_code_mapping after fetch: {e}")
+            import traceback
+
+            traceback.print_exc()
+
+        # artifact: マスターテーブルのデータを取得（fetch後）
+        try:
+            market_cat_data = run_async_safely(fetch_market_category_master_for_artifact())
+            write_csv_artifact(
+                market_cat_data, name="test_stock_master_flow_market_category_master_2"
+            )
+
+            sector_33_data = run_async_safely(fetch_sector_33_master_for_artifact())
+            write_csv_artifact(sector_33_data, name="test_stock_master_flow_sector_33_master_2")
+
+            sector_17_data = run_async_safely(fetch_sector_17_master_for_artifact())
+            write_csv_artifact(sector_17_data, name="test_stock_master_flow_sector_17_master_2")
+
+            scale_data = run_async_safely(fetch_scale_master_for_artifact())
+            write_csv_artifact(scale_data, name="test_stock_master_flow_scale_master_2")
+
+            print(
+                f"DEBUG: マスターテーブルデータ(fetch後): "
+                f"market_category={len(market_cat_data)}, "
+                f"sector_33={len(sector_33_data)}, "
+                f"sector_17={len(sector_17_data)}, "
+                f"scale={len(scale_data)}"
+            )
+        except Exception as e:
+            print(f"DEBUG: Failed to write master tables after fetch: {e}")
             import traceback
 
             traceback.print_exc()
