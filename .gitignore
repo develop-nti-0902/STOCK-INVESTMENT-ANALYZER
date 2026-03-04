@@ -57,6 +57,7 @@ work/edinet_temp
 work/edinet_api_test/downloads
 work/edinet_api_test/*.txt
 work/edinet_api_test/*.csv
+work/db/*.db
 
 # Mypy cache
 .mypy_cache
