@@ -12,7 +12,7 @@ from pathlib import Path
 # pylint: skip-file
 from typing import Any, cast
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.repositories.latest_stocks_repository import LatestStocksRepository
@@ -428,3 +428,27 @@ def get_edinet_aggregate_update_service(  # noqa: E501
     return EdinetAggregateUpdateService(
         download_service=download_service, parser_saver_pairs=cast(Any, parser_saver_pairs)
     )
+
+
+# Screening Service プロバイダー
+
+
+def get_screening_service(request: Request) -> Any:
+    """ScreeningService を提供する依存性プロバイダ.
+
+    Lifespan イベント内で初期化されたインスタンスを app.state から取得します。
+
+    Args:
+        request: FastAPI Request オブジェクト（app.state にアクセスするため）
+
+    Returns:
+        Any: 初期化済みの ScreeningService インスタンス（キャッシュ処理済み）
+
+    Raises:
+        RuntimeError: ScreeningService が初期化されていない場合
+    """
+    screening_service = getattr(request.app.state, "screening_service", None)
+    if screening_service is None:
+        msg = "ScreeningService not initialized. Ensure Lifespan startup completed successfully."
+        raise RuntimeError(msg)
+    return screening_service

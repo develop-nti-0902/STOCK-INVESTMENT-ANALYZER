@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import joinedload
 
+from app.exceptions.system import ConfigurationError
 from app.models.market_data.edinet.edinet_cash_flow_statement import EdinetCashFlowStatement
 from app.models.market_data.edinet.edinet_profit_and_loss import EdinetProfitAndLoss
 from app.models.market_data.edinet.edinet_stock_dividend import EdinetStockDividend
@@ -21,9 +22,12 @@ from app.repositories.market_data.stock_master import (
     StockCodeMappingRepository,
     StockMasterRepository,
 )
+from app.repositories.market_data.stock_master.sector_33_master_repository import (
+    Sector33MasterRepository,
+)
 from app.repositories.screening.screening_result_repository import ScreeningResultRepository
 from app.services.data_synchronization.market_data.stock_master.service import StockMasterService
-from app.services.screening.models import ScreeningResult
+from app.services.screening.models import ScreeningConfig, ScreeningResult
 from app.services.screening.strategy_factory import ScreeningStrategyFactory
 
 logger = logging.getLogger(__name__)
@@ -43,6 +47,7 @@ class ScreeningService:
         screening_result_factory: Callable[
             [AsyncSession], ScreeningResultRepository
         ] = ScreeningResultRepository,
+        sector_33_master_repo: Optional[Sector33MasterRepository] = None,
     ):
         """初期化。
 
@@ -51,12 +56,15 @@ class ScreeningService:
             stock_master_maker: 銘柄マスター用のセッションメーカー
             screening_result_maker: スクリーニング結果用のセッションメーカー
             screening_result_factory: ScreeningResultRepository ファクトリ
+            sector_33_master_repo: 業種マスター Repository (DI用)
         """
         self._fq = financial_query_service
         self._stock_master_maker = stock_master_maker
         self._screening_result_maker = screening_result_maker
         self._screening_result_factory = screening_result_factory
+        self._sector_33_master_repo = sector_33_master_repo
         self._strategy_factory = ScreeningStrategyFactory()
+        self._industry_config_cache: Dict[str, ScreeningConfig] = {}
 
     async def _async_fetch_all_stock_master_codes(self) -> List[str]:
         """銘柄マスターから全銘柄を取得。"""
@@ -223,7 +231,7 @@ class ScreeningService:
 
         # 業種に対応するストラテジーを取得
         try:
-            strategy = self._strategy_factory.create(industry_code)
+            strategy = self._strategy_factory.create(industry_code, screening_service=self)
         except ValueError:
             logger.warning(
                 "Unknown industry_code %s for sec_code %s; using default",
@@ -231,7 +239,7 @@ class ScreeningService:
                 sec_code,
             )
             industry_code = "33"
-            strategy = self._strategy_factory.create(industry_code)
+            strategy = self._strategy_factory.create(industry_code, screening_service=self)
 
         # 履歴データ取得
         divs = list(await self._call_history("get_dividend_history", sec_code) or [])
@@ -318,3 +326,47 @@ class ScreeningService:
                 result.fiscal_year_end.isoformat() if result.fiscal_year_end is not None else None
             ),
         }
+
+    async def _init_industry_config_cache(self) -> None:
+        """業種設定をキャッシュに初期化。
+
+        Sector33MasterRepository から全業種設定を DB 経由で取得し、
+        内部キャッシュ `_industry_config_cache` に保存します。
+
+        DB 読み込み失敗時は ConfigurationError を発生させます。
+        キャッシュが空の場合は警告ログを出力します。
+
+        Raises:
+            ConfigurationError: DB 読み込み失敗時
+        """
+        if self._sector_33_master_repo is None:
+            logger.warning("Sector33MasterRepository not injected; skipping cache initialization")
+            return
+
+        try:
+            self._industry_config_cache = await self._sector_33_master_repo.as_config_dict()
+            if not self._industry_config_cache:
+                logger.warning("Industry config cache is empty; no industry configurations loaded")
+        except Exception as exc:
+            msg = f"Failed to initialize industry config cache: {exc}"
+            logger.error(msg)
+            raise ConfigurationError(message=msg, context={"cause": str(exc)}) from exc
+
+    def get_industry_config_dict(self) -> Dict[str, ScreeningConfig]:
+        """キャッシュされた業種設定辞書を返す。
+
+        Returns:
+            Dict[str, ScreeningConfig]: 業種コードをキーとしたスクリーニング設定辞書
+        """
+        return self._industry_config_cache
+
+    def get_industry_config(self, industry_code: str) -> Optional[ScreeningConfig]:
+        """特定業種のスクリーニング設定を取得。
+
+        Args:
+            industry_code (str): 業種コード
+
+        Returns:
+            Optional[ScreeningConfig]: 見つかれば ScreeningConfig、なければ None
+        """
+        return self._industry_config_cache.get(industry_code)

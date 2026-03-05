@@ -3,20 +3,19 @@
 業種コードから対応するスクリーニング戦略インスタンスを生成します。
 """
 
+# pylint: disable=too-few-public-methods
+
 from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import Any, Dict, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 
 from app.services.screening.base_strategy import BaseScreeningStrategy
-from app.services.screening.models import (
-    INDUSTRY_CONFIGS,
-    ScreeningConfig,
-    ScreeningResult,
-    ScreeningScoreConfig,
-    ScreeningThresholds,
-)
+from app.services.screening.models import ScreeningResult
+
+if TYPE_CHECKING:
+    from app.services.screening.screening_service import ScreeningService
 
 logger = logging.getLogger(__name__)
 
@@ -48,39 +47,47 @@ class ScreeningStrategyFactory:
     _strategy_cache: Dict[str, type[BaseScreeningStrategy]] = {}
 
     @classmethod
-    def create(cls, industry_code: str) -> BaseScreeningStrategy:
+    def create(
+        cls,
+        industry_code: str,
+        screening_service: Optional["ScreeningService"] = None,
+    ) -> BaseScreeningStrategy:
         """業種コードに対応するスクリーニング戦略インスタンスを生成。
+
+        screening_service が必須です。DB から業種設定を取得します。
 
         Args:
             industry_code: 業種コード（"01" ~ "33"）
+            screening_service: ScreeningService インスタンス（DB キャッシュ取得用）
 
         Returns:
             BaseScreeningStrategy: インスタンス化されたスクリーニング戦略
 
         Raises:
-            ValueError: 業種コードが無効な場合
+            ValueError: screening_service が None の場合、または業種コードが見つからない場合
         """
-        if industry_code not in INDUSTRY_CONFIGS:
-            raise ValueError(
-                f"Invalid industry_code: {industry_code}. "
-                f"Valid codes: {', '.join(sorted(INDUSTRY_CONFIGS.keys()))}"
-            )
+        # screening_service が必須
+        if screening_service is None:
+            raise ValueError("screening_service is required to create strategy")
 
-        # 業種設定を取得
-        config = INDUSTRY_CONFIGS[industry_code]
+        # DB キャッシュから業種設定を取得
+        config = screening_service.get_industry_config(industry_code)
+        if config is None:
+            raise ValueError(f"Industry code {industry_code} not found in database")
 
-        # キャッシュからカスタム戦略クラスをロード（存在すれば）
+        # カスタム戦略クラスの読み込み（既存ロジック）
         strategy_class = cls._load_custom_strategy(industry_code)
 
-        # インスタンスを生成して返す
+        # 戦略インスタンスの生成
         return strategy_class(config)
 
     @classmethod
     def _load_custom_strategy(cls, industry_code: str) -> type[BaseScreeningStrategy]:
         """業種固有のカスタム戦略クラスをロード。
 
-        キャッシュをチェックし、見つからない場合は動的インポートを試みます。
-        カスタム戦略が存在しない場合はデフォルト戦略を返します。
+        キャッシュをチェックし、見つからない場合はデフォルト戦略を返します。
+        将来、業種固有カスタム戦略が必要になった場合は、
+        このメソッドで動的インポートを実装します。
 
         Args:
             industry_code: 業種コード
@@ -92,11 +99,6 @@ class ScreeningStrategyFactory:
         if industry_code in cls._strategy_cache:
             return cls._strategy_cache[industry_code]
 
-        # 業種設定から業種名を取得
-        config = INDUSTRY_CONFIGS.get(industry_code)
-        if config is None:
-            return cast(type[BaseScreeningStrategy], DefaultScreeningStrategy)
-
         # 将来の拡張: カスタム戦略ファイルからの動的インポート
         # 例: app.services.screening.strategies.industry_XX_YYY
         # 本実装では、全業種で DefaultScreeningStrategy を使用
@@ -106,57 +108,3 @@ class ScreeningStrategyFactory:
         cls._strategy_cache[industry_code] = strategy_class
 
         return cast(type[BaseScreeningStrategy], strategy_class)
-
-    @classmethod
-    def get_config(cls, industry_code: str) -> ScreeningConfig:
-        """業種に対応するスクリーニング設定を取得。
-
-        Args:
-            industry_code: 業種コード
-
-        Returns:
-            ScreeningConfig: 業種別設定
-
-        Raises:
-            ValueError: 業種コードが無効な場合
-        """
-        if industry_code not in INDUSTRY_CONFIGS:
-            raise ValueError(
-                f"Invalid industry_code: {industry_code}. "
-                f"Valid codes: {', '.join(sorted(INDUSTRY_CONFIGS.keys()))}"
-            )
-
-        return INDUSTRY_CONFIGS[industry_code]
-
-    @classmethod
-    def customize_config(
-        cls,
-        industry_code: str,
-        thresholds: Optional[ScreeningThresholds] = None,
-        score_config: Optional[ScreeningScoreConfig] = None,
-    ) -> ScreeningConfig:
-        """既存の業種設定をカスタマイズして返す。
-
-        Args:
-            industry_code: 業種コード
-            thresholds: カスタム閾値設定（None の場合はデフォルト）
-            score_config: カスタムスコア設定（None の場合はデフォルト）
-
-        Returns:
-            ScreeningConfig: カスタマイズされた設定
-
-        Raises:
-            ValueError: 業種コードが無効な場合
-        """
-        base_config = cls.get_config(industry_code)
-
-        # 既存設定をコピー して、カスタマイズ部分のみ上書き
-        custom_config = ScreeningConfig(
-            industry_code=base_config.industry_code,
-            industry_name=base_config.industry_name,
-            thresholds=thresholds or base_config.thresholds,
-            score_config=score_config or base_config.score_config,
-            custom_params=base_config.custom_params.copy(),
-        )
-
-        return custom_config

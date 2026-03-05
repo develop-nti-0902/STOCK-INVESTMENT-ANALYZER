@@ -1,12 +1,15 @@
 """業種（33分類）マスター Repository モジュール."""
 
-from typing import Optional, cast
+from typing import TYPE_CHECKING, Dict, Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.market_data.stock_master import Sector33Master
 from app.repositories.core.base import BaseRepository
+
+if TYPE_CHECKING:
+    from app.services.screening.models import ScreeningConfig
 
 
 class Sector33MasterRepository(BaseRepository[Sector33Master]):
@@ -62,12 +65,36 @@ class Sector33MasterRepository(BaseRepository[Sector33Master]):
         Returns:
             int: 削除したレコード数
         """
-        from sqlalchemy import delete
-
         stmt = delete(self.model)
         result = await self.session.execute(stmt)
         await self.session.flush()
         return int(result.rowcount) if result.rowcount else 0  # type: ignore[attr-defined]
+
+    async def as_config_dict(self) -> "Dict[str, 'ScreeningConfig']":
+        """業種設定を辞書形式で返す.
+
+        DB から全レコードを取得し、ScreeningConfig に変換して辞書形式で返します。
+        キーは業種コード、値は ScreeningConfig インスタンスです。
+
+        Returns:
+            Dict[str, ScreeningConfig]: 業種コードをキーとしたスクリーニング設定辞書
+
+        Raises:
+            Exception: DB読み込み失敗時
+        """
+        # 循環参照を避けるため、実行時にインポート
+        from app.services.screening.models import ScreeningConfig
+
+        records = await self.list_all()
+        config_dict: Dict[str, ScreeningConfig] = {}
+
+        for record in records:
+            config_dict[record.code] = ScreeningConfig(
+                industry_code=record.code,
+                industry_name=record.name,
+            )
+
+        return config_dict
 
 
 __all__ = ["Sector33MasterRepository"]

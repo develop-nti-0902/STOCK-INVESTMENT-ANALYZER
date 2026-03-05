@@ -9,10 +9,11 @@ from datetime import datetime
 from types import SimpleNamespace
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.api.dependencies.services import get_screening_service
 from app.models.market_data.edinet.edinet_cash_flow_statement import EdinetCashFlowStatement
 from app.models.market_data.edinet.edinet_profit_and_loss import EdinetProfitAndLoss
 from app.models.market_data.edinet.edinet_stock_dividend import EdinetStockDividend
@@ -144,12 +145,14 @@ class DbFinancialQueryAdapter:
 async def run_screening(
     sec_codes: Optional[list[str]] = None,
     evaluation_date: Optional[str] = None,
+    screening_service: ScreeningService = Depends(get_screening_service),
 ) -> dict:
     """業種別ストラテジーを用いてスクリーニングを実行。
 
     Args:
         sec_codes: 対象銘柄コードのリスト。None の場合は全銘柄を対象。
         evaluation_date: 評価実行日 (ISO形式, 指定なしの場合は本日)
+        screening_service: ScreeningService インスタンス（DI から自動取得）
 
     Returns:
         スクリーニング実行結果
@@ -160,27 +163,16 @@ async def run_screening(
         else:
             eval_date = datetime.fromisoformat(evaluation_date).date()
 
-        # セッションメーカーの取得
-        engine = get_engine()
-        maker = async_sessionmaker(bind=engine, expire_on_commit=False)
-
-        # 財務データアダプターの作成
-        fq_adapter = DbFinancialQueryAdapter(maker)
-
-        # スクリーニングサービスの作成と実行
-        screening_service = ScreeningService(
-            financial_query_service=fq_adapter,
-            stock_master_maker=maker,
-            screening_result_maker=maker,
-            screening_result_factory=ScreeningResultRepository,
-        )
-
+        # ScreeningService は DI で自動取得
         await screening_service.run(
             sec_codes=sec_codes,
             evaluation_date=eval_date,
         )
 
         # DB から今回実行したスクリーニング結果を取得
+        engine = get_engine()
+        maker = async_sessionmaker(bind=engine, expire_on_commit=False)
+
         async with maker() as session:
             repo = ScreeningResultRepository(session=session)
             screening_results = await repo.list()

@@ -57,6 +57,25 @@ def get_stock_master_repository(
     return StockMasterRepository(session=db)
 
 
+def get_sector_33_master_repository(
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Sector33MasterRepository を提供する依存性プロバイダ.
+
+    業種マスタデータへのアクセスを提供します。
+
+    Args:
+        db (AsyncSession): 非同期DBセッション
+
+    Returns:
+        Sector33MasterRepository: 業種マスタリポジトリ
+    """
+    # pylint: disable=import-outside-toplevel
+    from app.repositories.market_data.stock_master import Sector33MasterRepository
+
+    return Sector33MasterRepository(session=db)
+
+
 # 以下は、各エンティティ専用のRepositoryプロバイダの例
 # 実際のモデルとRepositoryクラスが実装された後に追加する
 

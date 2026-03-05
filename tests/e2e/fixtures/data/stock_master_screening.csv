@@ -1,0 +1,6 @@
+stock_code,symbol,stock_name,industry_code,market_capitalization,is_active
+1001,1001,Growth Inc,1000,500000000,1
+1002,1002,High Dividend Corp,1100,400000000,1
+1003,1003,Quality Ltd,1200,600000000,1
+2001,2001,Declining Inc,2000,300000000,1
+2002,2002,Recovery Co,2100,250000000,1
