@@ -236,36 +236,36 @@ def write_text_artifact(text: str, name: Optional[str] = None) -> str:
     return path
 
 
-async def fetch_stock_master_for_artifact() -> List[Dict[str, Any]]:
-    """stock_masterテーブルから全データを取得してアーティファクト用に返す。
+def fetch_stock_master_for_artifact() -> List[Dict[str, Any]]:
+    """同期版: stock_masterテーブルから全データを取得（テスト環境用）.
 
     Returns:
         stock_masterテーブルの全レコードを辞書のリストで返す。
     """
-    from sqlalchemy import select
-    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+    from sqlalchemy import create_engine, select
 
     from app.models.market_data.stock_master import StockMaster
     from app.utils.database import get_database_url
 
-    engine = create_async_engine(get_database_url())
+    # テスト環境用スキーム変換
+    db_url = get_database_url()
+    if db_url.startswith("postgresql+asyncpg://"):
+        db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+    elif db_url.startswith("sqlite+aiosqlite://"):
+        db_url = db_url.replace("sqlite+aiosqlite://", "sqlite:///")
+
+    engine = create_engine(db_url)
     try:
-        async with AsyncSession(engine) as session:
-            result = await session.execute(select(StockMaster))
+        from sqlalchemy.orm import Session
+
+        with Session(engine) as session:
+            result = session.execute(select(StockMaster))
             rows = result.scalars().all()
             return [
                 {
-                    "id": row.id,
                     "stock_code": row.stock_code,
                     "stock_name": row.stock_name,
-                    "market_category": row.market_category,
-                    "sector_code_33": row.sector_code_33,
-                    "sector_name_33": row.sector_name_33,
-                    "sector_code_17": row.sector_code_17,
-                    "sector_name_17": row.sector_name_17,
-                    "scale_code": row.scale_code,
-                    "scale_category": row.scale_category,
-                    "data_date": row.data_date,
+                    "data_date": str(row.data_date) if row.data_date else None,
                     "is_active": row.is_active,
                     "created_at": (row.created_at.isoformat() if row.created_at else None),
                     "updated_at": (row.updated_at.isoformat() if row.updated_at else None),
@@ -273,7 +273,7 @@ async def fetch_stock_master_for_artifact() -> List[Dict[str, Any]]:
                 for row in rows
             ]
     finally:
-        await engine.dispose()
+        engine.dispose()
 
 
 async def fetch_stock_code_mapping_for_artifact() -> List[Dict[str, Any]]:
@@ -636,3 +636,251 @@ async def fetch_screening_result_rows() -> List[Dict[str, Any]]:
             return result_list
     finally:
         await engine.dispose()
+
+
+# ========== DB Verification Functions (Phase 1) ==========
+
+
+async def _verify_table_has_data_async(table_class: Any) -> bool:
+    """テーブルに1行以上のデータが存在するかを非同期で確認する（内部用）.
+
+    Args:
+        table_class: SQLAlchemy のモデルクラス
+
+    Returns:
+        テーブルに1行以上のデータが存在する場合 True、存在しない場合 False
+    """
+    from sqlalchemy import func, select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(func.count()).select_from(table_class))
+            count = result.scalar()
+            return count is not None and count > 0
+    except Exception as e:
+        import logging
+
+        logging.warning(f"Failed to verify table {table_class.__tablename__}: {e}", exc_info=True)
+        return False
+    finally:
+        await engine.dispose()
+
+
+async def _cleanup_table_async(table_class: Any) -> None:
+    """テーブルをクリーンアップ（全行削除）する（内部用）.
+
+    Args:
+        table_class: SQLAlchemy のモデルクラス
+    """
+    from sqlalchemy import delete
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            await session.execute(delete(table_class))
+            await session.commit()
+    except Exception as e:
+        import logging
+
+        logging.warning(f"Failed to cleanup table {table_class.__tablename__}: {e}", exc_info=True)
+    finally:
+        await engine.dispose()
+
+
+async def _verify_table_is_empty_async(table_class: Any) -> bool:
+    """テーブルが空かどうかを非同期で確認する（内部用）.
+
+    Args:
+        table_class: SQLAlchemy のモデルクラス
+
+    Returns:
+        テーブルが空である場合 True、1行以上のデータが存在する場合 False
+    """
+    from sqlalchemy import func, select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(func.count()).select_from(table_class))
+            count = result.scalar()
+            return count is None or count == 0
+    except Exception as e:
+        import logging
+
+        logging.warning(
+            f"Failed to check if table {table_class.__tablename__} is empty: {e}",
+            exc_info=True,
+        )
+        return False
+    finally:
+        await engine.dispose()
+
+
+def verify_table_has_data(table_class: Any) -> bool:
+    """テーブルに1行以上のデータが存在するかを確認する（同期ラッパー）.
+
+    E2E テストから直接呼び出すことを想定します。
+
+    Args:
+        table_class: SQLAlchemy のモデルクラス
+
+    Returns:
+        テーブルに1行以上のデータが存在する場合 True、存在しない場合 False
+
+    Example:
+        from app.models.market_data.stock_price import Stocks1d
+        assert verify_table_has_data(Stocks1d), "Stocks1d テーブルにデータが見つかりません"
+    """
+    return run_async_safely(_verify_table_has_data_async(table_class))
+
+
+def verify_table_is_empty(table_class: Any) -> bool:
+    """テーブルが空かどうかを確認する（同期ラッパー）.
+
+    E2E テストから直接呼び出すことを想定します。
+
+    Args:
+        table_class: SQLAlchemy のモデルクラス
+
+    Returns:
+        テーブルが空である場合 True、1行以上のデータが存在する場合 False
+
+    Example:
+        from app.models.market_data.stock_price import Stocks1d
+        assert verify_table_is_empty(Stocks1d), "Stocks1d テーブルがクリーンアップされていません"
+    """
+    return run_async_safely(_verify_table_is_empty_async(table_class))
+
+
+def cleanup_table(table_class: Any) -> None:
+    """テーブルをクリーンアップ（全行削除）する（同期ラッパー）.
+
+    E2E テストから直接呼び出すことを想定します。
+
+    Args:
+        table_class: SQLAlchemy のモデルクラス
+
+    Example:
+        from app.models.market_data.stock_price import Stocks1d
+        cleanup_table(Stocks1d)
+    """
+    run_async_safely(_cleanup_table_async(table_class))
+
+
+# ========== Table-specific Verification Helpers ==========
+
+
+def verify_stocks_1d_has_data() -> bool:
+    """Stocks1d テーブルにデータが存在するかを確認する.
+
+    Returns:
+        Stocks1d テーブルに1行以上のデータが存在する場合 True
+
+    Example:
+        assert verify_stocks_1d_has_data(), "Stocks1d テーブルにデータが見つかりません"
+    """
+    from app.models.market_data.stock_price import Stocks1d
+
+    return verify_table_has_data(Stocks1d)
+
+
+def verify_stock_master_has_data() -> bool:
+    """StockMaster テーブルにデータが存在するかを確認する.
+
+    Returns:
+        StockMaster テーブルに1行以上のデータが存在する場合 True
+
+    Example:
+        assert verify_stock_master_has_data(), "StockMaster テーブルにデータが見つかりません"
+    """
+    from app.models.market_data.stock_master import StockMaster
+
+    return verify_table_has_data(StockMaster)
+
+
+def verify_edinet_profit_and_loss_has_data() -> bool:
+    """EdinetProfitAndLoss テーブルにデータが存在するかを確認する.
+
+    Returns:
+        EdinetProfitAndLoss テーブルに1行以上のデータが存在する場合 True
+
+    Example:
+        assert verify_edinet_profit_and_loss_has_data(), "EdinetProfitAndLoss テーブルにデータが見つかりません"
+    """
+    from app.models.market_data.edinet import EdinetProfitAndLoss
+
+    return verify_table_has_data(EdinetProfitAndLoss)
+
+
+def verify_edinet_stock_dividend_has_data() -> bool:
+    """EdinetStockDividend テーブルにデータが存在するかを確認する.
+
+    Returns:
+        EdinetStockDividend テーブルに1行以上のデータが存在する場合 True
+
+    Example:
+        assert verify_edinet_stock_dividend_has_data(), "EdinetStockDividend テーブルにデータが見つかりません"
+    """
+    from app.models.market_data.edinet import EdinetStockDividend
+
+    return verify_table_has_data(EdinetStockDividend)
+
+
+def verify_edinet_cash_flow_statement_has_data() -> bool:
+    """EdinetCashFlowStatement テーブルにデータが存在するかを確認する.
+
+    Returns:
+        EdinetCashFlowStatement テーブルに1行以上のデータが存在する場合 True
+
+    Example:
+        assert verify_edinet_cash_flow_statement_has_data(), "EdinetCashFlowStatement テーブルにデータが見つかりません"
+    """
+    from app.models.market_data.edinet import EdinetCashFlowStatement
+
+    return verify_table_has_data(EdinetCashFlowStatement)
+
+
+# ========== Artifact Verification Helpers ==========
+
+
+def assert_artifact_written(artifact_name: str) -> bool:
+    """Artifact ファイルが正しく生成されたことを確認する.
+
+    Args:
+        artifact_name: Artifact ファイル名のベース（拡張子なし）
+
+    Returns:
+        ファイルが存在する場合 True
+
+    Raises:
+        AssertionError: Artifact ファイルが見つからない場合、または空の場合
+
+    Example:
+        write_csv_artifact(data, name="test_xxx")
+        assert_artifact_written("test_xxx")  # artifact ファイル確認が必須
+    """
+    base = _safe_name(artifact_name)
+    filename = f"{base}.csv"
+    path = os.path.join(ARTIFACT_DIR, filename)
+
+    assert os.path.exists(path), (
+        f"Artifact file not found: {path}. " f"Table data was updated but artifact was not written."
+    )
+
+    # ファイルが空でないことも確認
+    file_size = os.path.getsize(path)
+    assert file_size > 0, (
+        f"Artifact file is empty: {path}. " f"Artifact must contain at least header row."
+    )
+
+    return True
