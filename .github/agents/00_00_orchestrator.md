@@ -12,7 +12,7 @@ version: 0.1
 
 開発タスクを中央集権型（Orchestrator → 専門役割）で進め、ローカル環境で安全に完了させる。
 
-この Orchestrator はローカル環境で動作する中央制御役です。具体的には `10_planner.md` / `20_architect.md` / `30_coder.md` / `40_tester.md` / `50_reviewer.md` / `60_security.md` のサブエージェント（Agents-as-Tools）を呼び出して担当処理を実行させ、結果を集約・検証し最終判断を行います。サブエージェントは Orchestrator によって並列または逐次に起動されます。
+この Orchestrator はローカル環境で動作する中央制御役です。具体的には `00_01_planner.md` / `00_02_architect.md` / `00_03_coder.md` / `00_04_tester.md` / `00_05_reviewer.md` / `00_06_security.md` のサブエージェント（Agents-as-Tools）を呼び出して担当処理を実行させ、結果を集約・検証し最終判断を行います。サブエージェントは Orchestrator によって並列または逐次に起動されます。
 
 # ローカル運用の前提
 

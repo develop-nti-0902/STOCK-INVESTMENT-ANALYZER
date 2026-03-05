@@ -38,19 +38,13 @@ commitとpushで**--no-verifyは絶対に利用しない**でください。
 
 ### エージェントフロー
 
-`.github/agents/00_orchestrator.md` の指示に従い、次の順で進める：
+#### Orchestrator
 
-| # | エージェント | 用途 |
-|---|---|---|
-| 00 | Orchestrator | タスク全体を束ねる |
-| 10 | Planner | 要件 → タスク分解 |
-| 20 | Architect | API/DB 設計（必要時） |
-| 30 | Coder | 最小差分実装 |
-| 40 | Tester | テスト追加 |
-| 50 | Reviewer | 4層品質ゲート |
-| 60 | Security | 安全性点検（必要時） |
+- `00_00_` — 標準 Orchestrator: リポジトリ全体の開発ワークフローを統括します。`00_00_orchestrator.md` を参照し、Planner/Architect/Coder/Tester/Reviewer/Security といったサブエージェントを起動し、handoff を管理します。基本的に提案までを自動化し、最終的な git 操作は人間が実行します。
 
-### HITL（必ず人間が承認する）
+- `01_00_` — コミット専用 Orchestrator: ユーザーからの「コミットして」の要求で起動する軽量 Orchestrator です。差分解析、コミットメッセージ案の生成、自動修正（Fix Agent）の呼び出し、承認取得までを支援します。実行は承認後にローカルで行い、`push` は自動化しません。
+
+#### HITL（必ず人間が承認する）
 
 - データ削除・大量更新・破壊的マイグレーション
 - 権限変更・認証/認可の方針変更
