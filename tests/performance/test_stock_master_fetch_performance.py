@@ -112,9 +112,9 @@ class TestStockMasterFetchPerformance:
 
         計測結果は JSON 形式で `tests/performance/artifacts/` に出力します。
         """
-        # テスト実行ID
-        timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        test_id = f"fetch_stock_master_{timestamp_str}_{str(uuid4())[:8]}"
+        # テスト名（ファイル名に使用、実行ごとに上書き）
+        test_name = "stock_master_fetch_performance"
+        test_id = test_name
 
         # パフォーマンス計測を実行
         metrics = self._measure_fetch_performance(perf_client, caplog)
@@ -135,8 +135,8 @@ class TestStockMasterFetchPerformance:
         perf_results_dir = Path(__file__).parent / "artifacts"
         perf_results_dir.mkdir(parents=True, exist_ok=True)
 
-        # JSON ファイルに出力
-        output_file = perf_results_dir / f"fetch_performance_{timestamp_str}.json"
+        # JSON ファイルに出力（テスト名のみで上書き）
+        output_file = perf_results_dir / f"{test_name}.json"
 
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump(result_data, f, indent=2, ensure_ascii=False)
