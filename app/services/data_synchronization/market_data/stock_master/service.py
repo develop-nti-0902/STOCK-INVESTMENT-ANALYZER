@@ -3,6 +3,7 @@
 サービス層: フェッチ -> 変換 -> 保存 のオーケストレーションを提供します.
 """
 
+import time
 from datetime import datetime, timezone
 from typing import List, Optional, Set
 
@@ -176,7 +177,10 @@ class StockMasterService:
             ##########################################################
             # フェッチ: データ取得 + マスターテーブル値抽出
             ##########################################################
+            fetch_start = time.perf_counter()
             data_dict = await self.fetcher.fetch_and_extract_masters()
+            fetch_end = time.perf_counter()
+            fetch_time = fetch_end - fetch_start
             stocks_data = data_dict.get("stocks", [])
 
             # StockMasterNormalized オブジェクトを dict に変換
@@ -213,7 +217,10 @@ class StockMasterService:
             ##########################################################
             # 保存: Saver に委譲（マスターテーブル作成 + FK変換 + 永続化）
             ##########################################################
+            save_start = time.perf_counter()
             total_processed = await self.saver.save_with_masters(data_dict)
+            save_end = time.perf_counter()
+            save_time = save_end - save_start
 
             ##########################################################
             # stock_code_mapping を同時に保存
@@ -252,7 +259,11 @@ class StockMasterService:
 
             logger.info(
                 "Stock master fetched",
-                extra={"updated_count": total_processed},
+                extra={
+                    "updated_count": total_processed,
+                    "fetch_time_seconds": fetch_time,
+                    "save_time_seconds": save_time,
+                },
             )
             return total_processed
         except Exception as exc:
