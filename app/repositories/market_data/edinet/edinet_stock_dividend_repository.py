@@ -54,7 +54,10 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
         return list(result.scalars().all())
 
     async def upsert(self, data: dict) -> EdinetStockDividend:
-        """与えられた辞書でレコードを upsert し、保存後のモデルを返します。"""
+        """与えられた辞書でレコードを upsert し、保存後のモデルを返します.
+
+        内部で RETURNING 句を使用し、INSERT/UPDATE と結果取得を1クエリで実行します。
+        """
         if not data:
             raise ValueError("data is required for upsert")
 
@@ -71,17 +74,67 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
             index_elements=["sec_code", "period_end_date"],
             set_=update_dict,
             where=(insert_stmt.excluded.submission_date >= table.c.submission_date),
-        )
+        ).returning(table)
 
         try:
-            await self.session.execute(stmt)
-            await self.session.flush()
-            res = await self.find_by_period(data["sec_code"], data["period_end_date"])
-            if res is None:
+            result = await self.session.execute(stmt)
+            row = result.first()
+
+            if row is None:
                 raise RuntimeError("upsert succeeded but result not found")
-            return res
+
+            await self.session.flush()
+            # Row オブジェクトを ORM モデルに変換
+            return self.model(**dict(row._mapping))
         except SQLAlchemyError as e:
             logger.exception("edinet stock dividend upsert failed: %s", e)
+            raise
+
+    async def save_batch(self, data_list: list[dict]) -> list[EdinetStockDividend]:
+        """複数レコードを一括 upsert し、保存後のモデルリストを返します.
+
+        内部で RETURNING 句を使用し、複数 INSERT/UPDATE を1クエリで実行します。
+
+        Args:
+            data_list: upsert するデータのリスト (空リストも許容)
+
+        Returns:
+            保存後の EdinetStockDividend インスタンスのリスト
+
+        Raises:
+            ValueError: data_list が None の場合
+            SQLAlchemyError: DB エラー
+        """
+        if data_list is None:
+            raise ValueError("data_list is required for save_batch_upsert")
+
+        if not data_list:
+            return []
+
+        table = self.model.__table__
+        insert_stmt = insert(table).values(data_list)
+
+        update_dict: dict[str, Any] = {
+            c.name: getattr(insert_stmt.excluded, c.name)
+            for c in table.c
+            if c.name not in ("id", "created_at")
+        }
+
+        stmt = insert_stmt.on_conflict_do_update(
+            index_elements=["sec_code", "period_end_date"],
+            set_=update_dict,
+            where=(insert_stmt.excluded.submission_date >= table.c.submission_date),
+        ).returning(table)
+
+        try:
+            result = await self.session.execute(stmt)
+            rows = result.fetchall()
+
+            await self.session.flush()
+            # Row オブジェクトを ORM モデルリストに変換
+            return [self.model(**dict(row._mapping)) for row in rows]
+        except SQLAlchemyError as e:
+            logger.exception("save_batch_upsert failed for edinet_stock_dividend: %s", e)
             raise
 
     async def get_latest_by_sec_codes(self, sec_codes: List[str]) -> List[EdinetStockDividend]:

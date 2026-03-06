@@ -121,10 +121,16 @@ def test_edinet_process_date_range_triggers_api(client):
         pytest.skip("No documents found by EDINET API in the specified period")
         return
 
-    # ドキュメント処理がすべて失敗した場合はスキップ
+    # ドキュメント処理がすべて失敗した場合は異常として扱う
     if batch_result.get("failed_documents", 0) > 0 and batch_result.get("saved_items", 0) == 0:
-        pytest.skip("All documents failed: not worth testing DB storage")
-        return
+        assert False, (
+            f"All documents failed (異常):\\n"
+            f"  Total: {batch_result.get('total_documents')}\\n"
+            f"  Failed: {batch_result.get('failed_documents')}\\n"
+            f"  Saved: {batch_result.get('saved_items')}\\n"
+            f"  Status: {batch_result.get('status')}\\n"
+            f"  Results: {batch_result.get('results')}"
+        )
 
 
 @pytest.mark.slow
@@ -162,8 +168,13 @@ def test_edinet_process_date_range_saves_to_db_profit_and_loss(client):
         return
 
     if batch_result.get("failed_documents", 0) > 0 and batch_result.get("saved_items", 0) == 0:
-        pytest.skip("All documents failed")
-        return
+        assert False, (
+            f"All documents failed (異常):\\n"
+            f"  Total: {batch_result.get('total_documents')}\\n"
+            f"  Failed: {batch_result.get('failed_documents')}\\n"
+            f"  Saved: {batch_result.get('saved_items')}\\n"
+            f"  Status: {batch_result.get('status')}"
+        )
 
     # DB確認（存在確認のみ）
     has_data = verify_edinet_profit_and_loss_has_data()
@@ -212,8 +223,13 @@ def test_edinet_process_date_range_saves_to_db_dividends(client):
         return
 
     if batch_result.get("failed_documents", 0) > 0 and batch_result.get("saved_items", 0) == 0:
-        pytest.skip("All documents failed")
-        return
+        assert False, (
+            f"All documents failed (異常):\\n"
+            f"  Total: {batch_result.get('total_documents')}\\n"
+            f"  Failed: {batch_result.get('failed_documents')}\\n"
+            f"  Saved: {batch_result.get('saved_items')}\\n"
+            f"  Status: {batch_result.get('status')}"
+        )
 
     # DB確認（存在確認のみ）
     has_data = verify_edinet_stock_dividend_has_data()
@@ -262,8 +278,13 @@ def test_edinet_process_date_range_saves_to_db_cash_flow(client):
         return
 
     if batch_result.get("failed_documents", 0) > 0 and batch_result.get("saved_items", 0) == 0:
-        pytest.skip("All documents failed")
-        return
+        assert False, (
+            f"All documents failed (異常):\\n"
+            f"  Total: {batch_result.get('total_documents')}\\n"
+            f"  Failed: {batch_result.get('failed_documents')}\\n"
+            f"  Saved: {batch_result.get('saved_items')}\\n"
+            f"  Status: {batch_result.get('status')}"
+        )
 
     # DB確認（存在確認のみ）
     has_data = verify_edinet_cash_flow_statement_has_data()

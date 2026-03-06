@@ -309,4 +309,16 @@ def loaded_edinet_test_data():
     # asyncio.run() で async 処理を実行
     result = asyncio.run(_load_data())
 
+    # screening_service のキャッシュを再度初期化（fixture で投入したデータを反映）
+    import asyncio
+
+    from app.main import app as fastapi_app
+
+    if hasattr(fastapi_app.state, "screening_service") and fastapi_app.state.screening_service:
+        try:
+            asyncio.run(fastapi_app.state.screening_service._init_industry_config_cache())
+            print("✅ Screening service industry config cache reloaded after test data load")
+        except Exception as e:
+            print(f"⚠️  Failed to reload screening service cache: {e}")
+
     yield result

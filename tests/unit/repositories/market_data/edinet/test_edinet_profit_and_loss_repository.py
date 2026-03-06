@@ -124,19 +124,22 @@ async def test_find_by_doc_id(repository, mock_session):
 @pytest.mark.asyncio
 async def test_upsert_success(repository, mock_session):
     """`upsert` の成功ケースを検証します."""
-    # Setup mocks for upsert
-    mock_session.execute = AsyncMock()
+    # Setup mocks for upsert with RETURNING clause
     mock_session.flush = AsyncMock()
 
-    # Mock the find_by_period call that happens after upsert
-    repository.find_by_period = AsyncMock(
-        return_value=make_model(
-            sec_code="7203",
-            period_end_date=date(2025, 3, 31),
-            operating_income=1500.0,
-            eps=120.5,
-        )
-    )
+    # Mock the result object that includes first() for RETURNING clause
+    mock_row = MagicMock()
+    mock_row._mapping = {
+        "sec_code": "7203",
+        "period_end_date": date(2025, 3, 31),
+        "operating_income": 1500.0,
+        "eps": 120.5,
+    }
+
+    mock_result = MagicMock()
+    mock_result.first.return_value = mock_row
+
+    mock_session.execute = AsyncMock(return_value=mock_result)
 
     data = {
         "sec_code": "7203",
@@ -203,3 +206,72 @@ async def test_count_by_sec_code(repository, mock_session):
 
     assert result == 3
     mock_session.execute.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_save_batch_upsert_success(repository, mock_session):
+    """`save_batch_upsert` の成功ケースを検証します."""
+    # Setup mocks for save_batch with RETURNING clause
+    mock_session.flush = AsyncMock()
+
+    # Mock the result object that includes fetchall() for RETURNING clause
+    mock_rows = [
+        MagicMock(
+            _mapping={
+                "sec_code": "7203",
+                "period_end_date": date(2025, 3, 31),
+                "operating_income": 1500.0,
+                "eps": 120.5,
+            }
+        ),
+        MagicMock(
+            _mapping={
+                "sec_code": "9984",
+                "period_end_date": date(2025, 2, 28),
+                "operating_income": 1400.0,
+                "eps": 110.5,
+            }
+        ),
+    ]
+
+    mock_result = MagicMock()
+    mock_result.fetchall.return_value = mock_rows
+
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    data_list = [
+        {
+            "sec_code": "7203",
+            "period_end_date": date(2025, 3, 31),
+            "operating_income": 1500.0,
+            "eps": 120.5,
+        },
+        {
+            "sec_code": "9984",
+            "period_end_date": date(2025, 2, 28),
+            "operating_income": 1400.0,
+            "eps": 110.5,
+        },
+    ]
+
+    result = await repository.save_batch(data_list)
+
+    assert len(result) == 2
+    assert result[0].sec_code == "7203"
+    assert result[1].sec_code == "9984"
+    mock_session.execute.assert_called_once()
+    mock_session.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_save_batch_upsert_empty_list(repository):
+    """`save_batch_upsert` で空リストの場合の振る舞いを検証します."""
+    result = await repository.save_batch([])
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_save_batch_upsert_none_raises_error(repository):
+    """`save_batch_upsert` で None の場合にエラーが発生することを検証します."""
+    with pytest.raises(ValueError, match="data_list is required for save_batch_upsert"):
+        await repository.save_batch(None)
