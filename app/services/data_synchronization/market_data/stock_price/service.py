@@ -174,6 +174,8 @@ class StockPriceService:
             len(symbols),
             timeframe,
         )
+        # 全体の処理計測開始
+        overall_start_time = perf_counter()
 
         async def process_symbols(symbols_list: List[str]) -> List[StockPriceServiceResult]:
             # 複数銘柄を一括で処理する（fetch_batch を有効活用）
@@ -184,12 +186,18 @@ class StockPriceService:
             )
 
             results: List[StockPriceServiceResult] = []
+            fetch_start_time: Optional[float] = None
+            fetch_end_time: Optional[float] = None
+            save_start_time: Optional[float] = None
+            save_end_time: Optional[float] = None
 
             try:
                 # 一度にまとめて取得
+                fetch_start_time = perf_counter()
                 batch_results = await self.fetcher.fetch_batch(
                     symbols=symbols_list, timeframe=timeframe, period=period
                 )
+                fetch_end_time = perf_counter()
 
                 for symbol in symbols_list:
                     try:
@@ -240,7 +248,14 @@ class StockPriceService:
                             }
                         ]
 
+                        # 最初の save_batch の計測時刻を記録（複数回呼ばれる可能性）
+                        if save_start_time is None:
+                            save_start_time = perf_counter()
+
                         saved_count = await self.saver.save_batch(payload)
+
+                        # 最後の save_batch の完了時刻を記録
+                        save_end_time = perf_counter()
 
                         logger.info(
                             "Successfully processed %s: %d/%d records saved",
@@ -309,6 +324,29 @@ class StockPriceService:
                             failed_results.append(res)
                     return failed_results
 
+                # 計測情報をログ出力（performance テスト用）
+                fetch_time = (
+                    (fetch_end_time - fetch_start_time)
+                    if (fetch_end_time and fetch_start_time)
+                    else 0.0
+                )
+                save_time = (
+                    (save_end_time - save_start_time)
+                    if (save_end_time and save_start_time)
+                    else 0.0
+                )
+                logger.info(
+                    "Stock price batch metrics: fetch_time=%.3f, save_time=%.3f, symbols=%d",
+                    fetch_time,
+                    save_time,
+                    len(symbols_list),
+                    extra={
+                        "fetch_time_seconds": fetch_time,
+                        "save_time_seconds": save_time,
+                        "symbols_count": len(symbols_list),
+                    },
+                )
+
                 return results
 
             except Exception:
@@ -326,6 +364,24 @@ class StockPriceService:
 
         # 一括処理（fetch_batch を一度だけ呼ぶ）
         processed_results = await process_symbols(symbols)
+
+        # 全体の経過時間を計測してログ出力（performance テスト用）
+        overall_elapsed = perf_counter() - overall_start_time
+        total_processed = sum(r.records_processed for r in processed_results)
+        total_saved = sum(r.records_saved for r in processed_results)
+        logger.info(
+            "Stock price batch overall metrics: elapsed=%.3f, symbols=%d, total_processed=%d, total_saved=%d",
+            overall_elapsed,
+            len(symbols),
+            total_processed,
+            total_saved,
+            extra={
+                "overall_elapsed_seconds": overall_elapsed,
+                "symbols_count": len(symbols),
+                "total_records_processed": total_processed,
+                "total_records_saved": total_saved,
+            },
+        )
 
         # 集計ログ
         successful = sum(1 for r in processed_results if r.success)
