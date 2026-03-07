@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -72,7 +73,10 @@ class EdinetAggregateUpdateService:
             # - `download_and_extract` を呼び、抽出結果のファイル/ディレクトリパスを取得します。
             # - 以降の全てのパーサはこの抽出成果物を共有して解析を行います。
             ##########################################################
+            _download_start = time.perf_counter()
             extracted_path = await self.download_service.download_and_extract(doc_id)
+            _download_time = time.perf_counter() - _download_start
+            _db_op_start = time.perf_counter()
 
             ##########################################################
             # XBRL のパース（ここで1回だけ lxml によるパースを行う）
@@ -269,6 +273,10 @@ class EdinetAggregateUpdateService:
                 if res is None:
                     continue
                 summary["results"].append(res)
+            summary["metrics"] = {
+                "download_time_seconds": _download_time,
+                "db_operation_time_seconds": time.perf_counter() - _db_op_start,
+            }
 
             return summary
         finally:
@@ -304,6 +312,7 @@ class EdinetAggregateUpdateService:
         ##########################################################
         all_documents: list[dict[str, Any]] = []
         current_date = start_date
+        _search_start = time.perf_counter()
         while current_date <= end_date:
             try:
                 docs = await self.download_service.search_documents(current_date)
@@ -318,6 +327,7 @@ class EdinetAggregateUpdateService:
             except Exception:
                 logger.warning("Failed to search documents for %s", current_date)
             current_date += timedelta(days=1)
+        _search_time = time.perf_counter() - _search_start
 
         ##########################################################
         # ドキュメント数制限（オプション）
@@ -332,6 +342,17 @@ class EdinetAggregateUpdateService:
         ##########################################################
         total_docs = len(all_documents)
         if total_docs == 0:
+            logger.info(
+                "EDINET batch metrics",
+                extra={
+                    "total_download_time_seconds": _search_time,
+                    "total_db_operation_time_seconds": 0.0,
+                    "total_documents": 0,
+                    "processed_documents": 0,
+                    "saved_items": 0,
+                    "failed_documents": 0,
+                },
+            )
             return {
                 "status": "completed",
                 "total_documents": 0,
@@ -344,6 +365,8 @@ class EdinetAggregateUpdateService:
         saved_items = 0
         failed_docs = 0
         failed_docs_details: list[Dict[str, Any]] = []
+        total_download_time: float = 0.0
+        total_db_operation_time: float = 0.0
 
         ##########################################################
         # 各ドキュメントの逐次処理
@@ -397,6 +420,11 @@ class EdinetAggregateUpdateService:
                             else:
                                 saved_items += 1
 
+                        _doc_metrics = summary.get("metrics", {})
+                        total_download_time += _doc_metrics.get("download_time_seconds", 0.0)
+                        total_db_operation_time += _doc_metrics.get(
+                            "db_operation_time_seconds", 0.0
+                        )
                         processed_docs += 1
                     except Exception as e:
                         logger.exception(
@@ -447,6 +475,9 @@ class EdinetAggregateUpdateService:
                         else:
                             saved_items += 1
 
+                    _doc_metrics = summary.get("metrics", {})
+                    total_download_time += _doc_metrics.get("download_time_seconds", 0.0)
+                    total_db_operation_time += _doc_metrics.get("db_operation_time_seconds", 0.0)
                     processed_docs += 1
                 except Exception as e:
                     logger.exception("Failed to process doc_id=%s: %s", doc_id, e)
@@ -479,6 +510,17 @@ class EdinetAggregateUpdateService:
             "failed_documents": failed_docs,
             "failed_documents_details": failed_docs_details,
         }
+        logger.info(
+            "EDINET batch metrics",
+            extra={
+                "total_download_time_seconds": _search_time + total_download_time,
+                "total_db_operation_time_seconds": total_db_operation_time,
+                "total_documents": total_docs,
+                "processed_documents": processed_docs,
+                "saved_items": saved_items,
+                "failed_documents": failed_docs,
+            },
+        )
         logger.info("Batch completed: %s", result)
         return result
 
