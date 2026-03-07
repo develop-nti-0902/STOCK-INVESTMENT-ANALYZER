@@ -601,6 +601,43 @@ async def fetch_edinet_cash_flow_statement_rows() -> List[Dict[str, Any]]:
         await engine.dispose()
 
 
+async def fetch_edinet_document_rows() -> List[Dict[str, Any]]:
+    """edinet_document テーブルから全データを取得する.
+
+    Returns:
+        edinet_document テーブルの全レコードを辞書のリストで返す
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.edinet import EdinetDocument
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(EdinetDocument))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": row.id,
+                    "doc_id": row.doc_id,
+                    "sec_code": row.sec_code,
+                    "submission_date": (
+                        row.submission_date.isoformat() if row.submission_date else None
+                    ),
+                    "report_type": row.report_type,
+                    "candidate_contexts": row.candidate_contexts,
+                    "candidate_keys": row.candidate_keys,
+                    "created_at": row.created_at.isoformat() if row.created_at else None,
+                    "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
 async def fetch_screening_result_rows() -> List[Dict[str, Any]]:
     """screening_results テーブルから全データを取得する.
 

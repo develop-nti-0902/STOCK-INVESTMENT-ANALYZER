@@ -20,6 +20,7 @@ erDiagram
     STOCK_MASTER ||--o{ STOCKS_1D : contains
     STOCK_MASTER ||--o{ STOCK_SPLIT : references
     STOCK_MASTER ||--o{ DIVIDEND_YIELD_MONITORING : monitors
+    STOCK_MASTER ||--o{ DIVIDEND_YIELD_HISTORY : "contains_history"
     STOCK_MASTER ||--o{ SCREENING_RESULTS : evaluates
     STOCK_MASTER ||--o{ STOCK_CODE_MAPPING : has
     STOCK_CODE_MAPPING ||--o{ EDINET_DOCUMENT : connects
@@ -27,6 +28,8 @@ erDiagram
     EDINET_DOCUMENT ||--o{ EDINET_STOCK_DIVIDEND : contains
     EDINET_DOCUMENT ||--o{ EDINET_CASH_FLOW_STATEMENT : contains
     EDINET_DOCUMENT ||--o{ EDINET_BALANCE_SHEET : contains
+    EDINET_STOCK_DIVIDEND ||--o{ DIVIDEND_YIELD_HISTORY : "references"
+    STOCKS_1D ||--o{ DIVIDEND_YIELD_HISTORY : "references_price"
     MARKET_CATEGORY_MASTER ||--o{ STOCK_MASTER : "categorizes"
     SECTOR_33_MASTER ||--o{ STOCK_MASTER : "classifies"
     SECTOR_17_MASTER ||--o{ STOCK_MASTER : "classifies"
@@ -252,6 +255,19 @@ erDiagram
         datetime updated_at "更新日時"
     }
 
+    DIVIDEND_YIELD_HISTORY {
+        int id PK "プライマリキー"
+        string symbol FK "銘柄コード（stock_code）"
+        date date UK "日付（symbol と合わせてユニーク）"
+        decimal dividend "使用した年間配当"
+        decimal stock_price "計算に使用した株価（COALESCE(adj_close, close)）"
+        decimal dividend_yield "配当利回り（dividend/stock_price）"
+        int fiscal_year "使用した配当年度"
+        int edinet_document_id FK "配当取得元ドキュメントID"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
     SCREENING_RESULTS {
         int id PK "プライマリキー"
         string symbol FK "銘柄コード（stock_code）"
@@ -293,7 +309,8 @@ erDiagram
 
 ### Analysis & Monitoring
 - **StockSplit**: 株式分割イベントの履歴。
-- **DividendYieldMonitoring**: 配当利回り監視結果。`symbol`（stock_code）を使用してStockMasterと紐付け。
+- **DividendYieldMonitoring**: 配当利回り監視結果（スナップショット）。`symbol`（stock_code）を使用してStockMasterと紐付け。最新の監視情報を保持。
+- **DividendYieldHistory**: 日次配当利回り履歴。EDINETから取得した年間配当と株価データから生成された時系列データ。計算に使用した``stock_price``は``COALESCE(adj_close, close)``で決定され、スナップショットとして保持（履歴の不変性を確保）。`symbol`（stock_code）でStockMasterを参照し、`edinet_document_id`でEdinetDocumentを参照。(symbol, date)をユニークキーとしてUPSERT可能。配当利回りレンジ分析やグラフ表示に利用。
 - **ScreeningResults**: 高配当スクリーニング結果とスコア情報。`symbol`（stock_code）を使用してStockMasterと紐付け。
 
 ## Key Relationships
@@ -306,6 +323,8 @@ erDiagram
 | StockMaster      | Stocks_1d（他の時間軸も同様）                                    | 1:N  | 銘柄は複数の日足株価データを持つ                        |
 | StockMaster      | StockSplit                                                       | 1:N  | 銘柄は複数の分割イベントを持つ                          |
 | StockMaster      | DividendYieldMonitoring                                          | 1:N  | 銘柄は複数の監視レコードを持つ                          |
+| StockMaster      | DividendYieldHistory                                             | 1:N  | 銘柄は複数の日次配当利回り履歴を持つ                    |
+| EdinetDocument   | DividendYieldHistory                                             | 1:N  | ドキュメントは複数の履歴レコードで参照される            |
 | StockMaster      | ScreeningResults                                                 | 1:N  | 銘柄は複数のスクリーニング結果を持つ                    |
 | StockMaster      | StockCodeMapping                                                 | 1:N  | 銘柄はEDINET対応企業コード（1つ以上）を持つ可能性がある |
 | StockCodeMapping | EdinetDocument                                                   | 1:N  | マッピングを通じてEDINETドキュメントと連結              |

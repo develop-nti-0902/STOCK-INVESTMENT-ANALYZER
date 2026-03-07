@@ -19,6 +19,7 @@ import pytest
 
 from app.models.market_data.edinet import (
     EdinetCashFlowStatement,
+    EdinetDocument,
     EdinetProfitAndLoss,
     EdinetStockDividend,
 )
@@ -34,6 +35,7 @@ from tests.e2e.utils import (
     cleanup_repository_delete_all,
     cleanup_table,
     fetch_edinet_cash_flow_statement_rows,
+    fetch_edinet_document_rows,
     fetch_edinet_profit_and_loss_rows,
     fetch_edinet_stock_dividend_rows,
     fetch_stock_master_for_artifact,
@@ -144,6 +146,7 @@ def test_edinet_process_date_range_saves_to_db_profit_and_loss(client):
     """
     # テーブルクリーンアップ
     cleanup_table(EdinetProfitAndLoss)
+    cleanup_table(EdinetDocument)
 
     target_date = date(2025, 6, 25)
 
@@ -199,6 +202,7 @@ def test_edinet_process_date_range_saves_to_db_dividends(client):
     """
     # テーブルクリーンアップ
     cleanup_table(EdinetStockDividend)
+    cleanup_table(EdinetDocument)
 
     target_date = date(2025, 6, 25)
 
@@ -254,6 +258,7 @@ def test_edinet_process_date_range_saves_to_db_cash_flow(client):
     """
     # テーブルクリーンアップ
     cleanup_table(EdinetCashFlowStatement)
+    cleanup_table(EdinetDocument)
 
     target_date = date(2025, 6, 25)
 
@@ -296,3 +301,9 @@ def test_edinet_process_date_range_saves_to_db_cash_flow(client):
     artifact_name = "edinet_cash_flow_artifact"
     write_csv_artifact(cash_flow_rows, name=artifact_name)
     assert_artifact_written(artifact_name)
+
+    # edinet_document の artifact も出力（追加）
+    edinet_doc_rows = run_async_safely(fetch_edinet_document_rows())
+    if edinet_doc_rows:
+        write_csv_artifact(edinet_doc_rows, name="edinet_document_artifact")
+        assert_artifact_written("edinet_document_artifact")

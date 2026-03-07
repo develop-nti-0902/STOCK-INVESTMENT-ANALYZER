@@ -53,6 +53,7 @@ related_docs:
 
 **特徴**:
 - 実データベースを使用
+  - 実データベースは.envに記載されているsqliteのDBを利用するように作成されています。
 - **実外部API呼び出し**（Yahoo Finance、EDINET等からの実データ取得）
 - **実データの DB 永続化確認**（取得したデータが正確に DB に格納されることを検証）
 - FastAPI を `TestClient` でインプロセス実行
