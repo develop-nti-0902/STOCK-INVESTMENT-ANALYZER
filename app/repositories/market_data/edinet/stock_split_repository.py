@@ -19,15 +19,18 @@ class StockSplitRepository(BaseRepository[StockSplit]):
     """`stock_split` テーブルの CRUD を扱うリポジトリ."""
 
     def __init__(self, session: AsyncSession):
+        """初期化処理で AsyncSession とモデルクラスをセットします."""
         super().__init__(session, model=StockSplit)
 
     async def find_by_code(self, code: str) -> List[StockSplit]:
+        """銘柄コードから株式分割レコードを検索します."""
         if not code:
             return []
         result = await self.session.execute(select(self.model).where(self.model.code == code))
         return list(result.scalars().all())
 
     async def find_by_date(self, code: str, effective_date: date) -> Optional[StockSplit]:
+        """銘柄コードと発効日から株式分割レコードを検索します."""
         result = await self.session.execute(
             select(self.model).where(
                 self.model.code == code, self.model.effective_date == effective_date

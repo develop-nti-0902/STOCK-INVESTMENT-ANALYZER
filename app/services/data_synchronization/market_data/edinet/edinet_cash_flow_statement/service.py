@@ -11,13 +11,13 @@ from datetime import date
 from app.services.data_synchronization.market_data.edinet.download_service import (
     EdinetDownloadService,
 )
-from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_statement.converter import (
+from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_statement.converter import (  # noqa: E501
     EdinetCashFlowStatementConverter,
 )
-from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_statement.parser import (
+from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_statement.parser import (  # noqa: E501
     EdinetCashFlowStatementParser,
 )
-from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_statement.saver import (
+from app.services.data_synchronization.market_data.edinet.edinet_cash_flow_statement.saver import (  # noqa: E501
     EdinetCashFlowStatementSaver,
 )
 from app.services.data_synchronization.market_data.edinet.file_manager import EdinetFileManager

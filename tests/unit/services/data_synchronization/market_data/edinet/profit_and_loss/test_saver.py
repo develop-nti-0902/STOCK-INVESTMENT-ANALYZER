@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from app.services.data_synchronization.market_data.edinet.profit_and_loss.saver import (
@@ -13,9 +15,31 @@ from app.services.data_synchronization.market_data.edinet.profit_and_loss.saver 
 
 
 class _DummyModel:
-    def __init__(self, id: int, sec_code: str):
+    def __init__(self, id: int, **kwargs):
         self.id = id
-        self.sec_code = sec_code
+        self.sec_code = kwargs.get("sec_code")
+        self.edinet_document_id = kwargs.get("edinet_document_id")
+
+
+class _DummyDocumentModel:
+    def __init__(self, id: int, doc_id: str):
+        self.id = id
+        self.doc_id = doc_id
+
+
+class _DummyDocumentRepo:
+    def __init__(self, session):
+        self._session = session
+
+    async def create_or_get(self, **kwargs):
+        # EdinetDocument をモック化して返す
+        # sec_code + doc_idの組み合わせで特定の behavior をシミュレート
+        doc_id = kwargs.get("doc_id", "D1")
+        sec_code = kwargs.get("sec_code", "")
+
+        # RAISE という sec_code の場合は特殊な ID を返す（失敗をシミュレート）
+        mock_id = 888 if sec_code == "RAISE" else 999
+        return _DummyDocumentModel(id=mock_id, doc_id=doc_id)
 
 
 class _DummyRepo:
@@ -23,9 +47,11 @@ class _DummyRepo:
         self._session = session
 
     async def upsert(self, data):
-        if data.get("sec_code") == "RAISE":
+        # edinet_document_id が 888 の場合は失敗をシミュレート
+        if data.get("edinet_document_id") == 888:
             raise RuntimeError("upsert failed")
-        return _DummyModel(id=123, sec_code=data.get("sec_code"))
+        # model を返す
+        return _DummyModel(id=123, edinet_document_id=data.get("edinet_document_id"))
 
     async def find_by_period(self, sec_code, period_end_date):
         if sec_code == "FOUND":
@@ -51,7 +77,12 @@ async def test_validate_data_true_and_false():
     """validate_data の真偽を検証する."""
     saver = ConcreteSaver(session=None)
 
-    good = {"sec_code": "7203", "period_end_date": "2024-03-31"}
+    good = {
+        "doc_id": "D123456",
+        "sec_code": "7203",
+        "submission_date": date(2024, 4, 1),
+        "period_end_date": date(2024, 3, 31),
+    }
     bad = {"sec_code": None}
 
     assert await saver.validate_data(good) is True
@@ -67,36 +98,42 @@ async def test_save_single_success(monkeypatch):
         "app.services.data_synchronization.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
         _DummyRepo,
     )
+    monkeypatch.setattr(
+        "app.services.data_synchronization.market_data.edinet.profit_and_loss.saver.EdinetDocumentRepository",
+        _DummyDocumentRepo,
+    )
 
     saver = ConcreteSaver(session=None)
 
-    data = {"sec_code": "7203", "period_end_date": "2024-03-31"}
+    data = {
+        "doc_id": "D123456",
+        "sec_code": "7203",
+        "submission_date": date(2024, 4, 1),
+        "period_end_date": date(2024, 3, 31),
+        "operating_income": 1000.0,
+        "eps": 50.0,
+    }
     result = await saver.save_single(data)
 
     assert result is not None
     assert getattr(result, "id") == 123
-    assert result.sec_code == "7203"
 
 
 @pytest.mark.asyncio
-async def test_save_single_raises_on_empty_or_missing():
+async def test_save_single_raises_on_empty_or_missing(monkeypatch):
     """空や不正データで例外が上がることを検証する."""
-    monkeypatch = pytest.MonkeyPatch()
-    try:
-        monkeypatch.setattr(
-            "app.services.data_synchronization.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
-            _DummyRepo,
-        )
+    monkeypatch.setattr(
+        "app.services.data_synchronization.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
+        _DummyRepo,
+    )
 
-        saver = ConcreteSaver(session=None)
+    saver = ConcreteSaver(session=None)
 
-        with pytest.raises(ValueError):
-            await saver.save_single({})
+    with pytest.raises(ValueError):
+        await saver.save_single({})
 
-        with pytest.raises(ValueError):
-            await saver.save_single({"sec_code": "X"})
-    finally:
-        monkeypatch.undo()
+    with pytest.raises(ValueError):
+        await saver.save_single({"sec_code": "X"})
 
 
 @pytest.mark.asyncio
@@ -106,13 +143,32 @@ async def test_save_batch_continues_on_error(monkeypatch):
         "app.services.data_synchronization.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
         _DummyRepo,
     )
+    monkeypatch.setattr(
+        "app.services.data_synchronization.market_data.edinet.profit_and_loss.saver.EdinetDocumentRepository",
+        _DummyDocumentRepo,
+    )
 
     saver = ConcreteSaver(session=None)
 
     data_list = [
-        {"sec_code": "GOOD", "period_end_date": "2024-03-31"},
-        {"sec_code": "RAISE", "period_end_date": "2024-03-31"},
-        {"sec_code": "GOOD2", "period_end_date": "2024-03-31"},
+        {
+            "doc_id": "D1",
+            "sec_code": "GOOD",
+            "submission_date": date(2024, 4, 1),
+            "period_end_date": date(2024, 3, 31),
+        },
+        {
+            "doc_id": "D2",
+            "sec_code": "RAISE",
+            "submission_date": date(2024, 4, 1),
+            "period_end_date": date(2024, 3, 31),
+        },
+        {
+            "doc_id": "D3",
+            "sec_code": "GOOD2",
+            "submission_date": date(2024, 4, 1),
+            "period_end_date": date(2024, 3, 31),
+        },
     ]
 
     results = await saver.save_batch(data_list)
@@ -128,11 +184,15 @@ async def test_exists_and_get_latest(monkeypatch):
         "app.services.data_synchronization.market_data.edinet.profit_and_loss.saver.EdinetProfitAndLossRepository",
         _DummyRepo,
     )
+    monkeypatch.setattr(
+        "app.services.data_synchronization.market_data.edinet.profit_and_loss.saver.EdinetDocumentRepository",
+        _DummyDocumentRepo,
+    )
 
     saver = ConcreteSaver(session=None)
 
-    exists_true = await saver.exists("FOUND", "2024-03-31")
-    exists_false = await saver.exists("NOT_FOUND", "2024-03-31")
+    exists_true = await saver.exists("FOUND", date(2024, 3, 31))
+    exists_false = await saver.exists("NOT_FOUND", date(2024, 3, 31))
 
     assert exists_true is True
     assert exists_false is False

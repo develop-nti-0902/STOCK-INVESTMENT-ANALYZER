@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.api.dependencies.services import get_screening_service
 from app.models.market_data.edinet.edinet_cash_flow_statement import EdinetCashFlowStatement
+from app.models.market_data.edinet.edinet_document import EdinetDocument
 from app.models.market_data.edinet.edinet_profit_and_loss import EdinetProfitAndLoss
 from app.models.market_data.edinet.edinet_stock_dividend import EdinetStockDividend
 from app.repositories.screening import ScreeningResultRepository
@@ -37,7 +38,8 @@ class DbFinancialQueryAdapter:
         async with self._maker() as s:
             stmt = (
                 select(EdinetStockDividend)
-                .where(EdinetStockDividend.sec_code == sec_code)
+                .join(EdinetDocument)
+                .where(EdinetDocument.sec_code == sec_code)
                 .order_by(EdinetStockDividend.period_end_date.asc())
             )
             res = await s.execute(stmt)
@@ -57,7 +59,8 @@ class DbFinancialQueryAdapter:
         async with self._maker() as s:
             stmt = (
                 select(EdinetProfitAndLoss)
-                .where(EdinetProfitAndLoss.sec_code == sec_code)
+                .join(EdinetDocument)
+                .where(EdinetDocument.sec_code == sec_code)
                 .order_by(EdinetProfitAndLoss.period_end_date.asc())
             )
             res = await s.execute(stmt)
@@ -79,7 +82,8 @@ class DbFinancialQueryAdapter:
         async with self._maker() as s:
             stmt = (
                 select(EdinetCashFlowStatement)
-                .where(EdinetCashFlowStatement.sec_code == sec_code)
+                .join(EdinetDocument)
+                .where(EdinetDocument.sec_code == sec_code)
                 .order_by(EdinetCashFlowStatement.period_end_date.asc())
             )
             res = await s.execute(stmt)

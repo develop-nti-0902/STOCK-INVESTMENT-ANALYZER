@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, List
 
-from app.models.market_data.edinet import EdinetStockDividend
+from app.models.market_data.edinet import EdinetDocument, EdinetStockDividend
 from app.services.data_synchronization.market_data.edinet.download_service import (
     EdinetDownloadService,
 )
@@ -91,7 +91,6 @@ class EdinetStockDividendService:
 
         戻り値: 更新・初期化したレコード数を返します。
         """
-
         from decimal import Decimal
 
         from sqlalchemy import select
@@ -153,7 +152,9 @@ class EdinetStockDividendService:
 
             # 当該銘柄の配当レコードを全件取得（EDINET 形式で照合）
             divs_res = await session.execute(
-                select(EdinetStockDividend).where(EdinetStockDividend.sec_code == edinet_code)
+                select(EdinetStockDividend)
+                .join(EdinetDocument, EdinetStockDividend.edinet_document_id == EdinetDocument.id)
+                .where(EdinetDocument.sec_code == edinet_code)
             )
             divs = divs_res.scalars().all()
 

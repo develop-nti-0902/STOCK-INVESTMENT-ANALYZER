@@ -12,7 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import count as sql_count
 
-from app.models.market_data.edinet import EdinetCashFlowStatement
+from app.models.market_data.edinet import EdinetCashFlowStatement, EdinetDocument
 from app.repositories.core.base import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -29,8 +29,9 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
         """指定証券コードの最新のキャッシュフロー（営業）レコードを返します。"""
         stmt = (
             select(self.model)
-            .where(self.model.sec_code == sec_code)
-            .order_by(self.model.period_end_date.desc(), self.model.submission_date.desc())
+            .join(EdinetDocument, self.model.edinet_document_id == EdinetDocument.id)
+            .where(EdinetDocument.sec_code == sec_code)
+            .order_by(self.model.period_end_date.desc(), EdinetDocument.submission_date.desc())
             .limit(1)
         )
         result = await self.session.execute(stmt)
@@ -40,17 +41,32 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
         self, sec_code: str, period_end_date: date
     ) -> Optional[EdinetCashFlowStatement]:
         """指定証券コードと期日でキャッシュフロー（営業）レコードを検索して返します。"""
-        result = await self.session.execute(
-            select(self.model).where(
-                self.model.sec_code == sec_code,
-                self.model.period_end_date == period_end_date,
+        stmt = (
+            select(self.model)
+            .join(EdinetDocument, self.model.edinet_document_id == EdinetDocument.id)
+            .where(
+                EdinetDocument.sec_code == sec_code, self.model.period_end_date == period_end_date
             )
         )
+        result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def find_by_doc_id(self, doc_id: str) -> List[EdinetCashFlowStatement]:
-        """ドキュメント ID に紐づくキャッシュフローレコードのリストを返します。"""
-        result = await self.session.execute(select(self.model).where(self.model.doc_id == doc_id))
+    async def find_by_edinet_document_id(
+        self, edinet_document_id: int
+    ) -> List[EdinetCashFlowStatement]:
+        """EDINET ドキュメント ID に紐づくキャッシュフローレコードのリストを返します。
+
+        Args:
+            edinet_document_id: edinet_document テーブルの id
+
+        Returns:
+            該当する EdinetCashFlowStatement インスタンスのリスト
+        """
+        result = await self.session.execute(
+            select(self.model)
+            .where(self.model.edinet_document_id == edinet_document_id)
+            .order_by(self.model.period_end_date.desc())
+        )
         return list(result.scalars().all())
 
     async def upsert(self, data: dict) -> EdinetCashFlowStatement:
@@ -71,9 +87,8 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
         }
 
         stmt = insert_stmt.on_conflict_do_update(
-            index_elements=["sec_code", "period_end_date"],
+            index_elements=["edinet_document_id", "period_end_date"],
             set_=update_dict,
-            where=(insert_stmt.excluded.submission_date >= table.c.submission_date),
         ).returning(table)
 
         try:
@@ -121,9 +136,8 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
         }
 
         stmt = insert_stmt.on_conflict_do_update(
-            index_elements=["sec_code", "period_end_date"],
+            index_elements=["edinet_document_id", "period_end_date"],
             set_=update_dict,
-            where=(insert_stmt.excluded.submission_date >= table.c.submission_date),
         ).returning(table)
 
         try:
@@ -144,12 +158,13 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
 
         stmt = (
             select(self.model)
-            .where(self.model.sec_code.in_(sec_codes))
-            .distinct(self.model.sec_code)
+            .join(EdinetDocument, self.model.edinet_document_id == EdinetDocument.id)
+            .where(EdinetDocument.sec_code.in_(sec_codes))
+            .distinct(EdinetDocument.sec_code)
             .order_by(
-                self.model.sec_code,
+                EdinetDocument.sec_code,
                 self.model.period_end_date.desc(),
-                self.model.submission_date.desc(),
+                EdinetDocument.submission_date.desc(),
             )
         )
         result = await self.session.execute(stmt)
@@ -161,7 +176,8 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
         """指定会計年度のキャッシュフローレコードを返します。"""
         result = await self.session.execute(
             select(self.model)
-            .where(self.model.sec_code == sec_code, self.model.fiscal_year == fiscal_year)
+            .join(EdinetDocument, self.model.edinet_document_id == EdinetDocument.id)
+            .where(EdinetDocument.sec_code == sec_code, self.model.fiscal_year == fiscal_year)
             .order_by(self.model.period_end_date.desc())
         )
         return list(result.scalars().all())
@@ -172,8 +188,9 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
         """指定期間内のキャッシュフローレコードを返します（start_date から end_date）。"""
         result = await self.session.execute(
             select(self.model)
+            .join(EdinetDocument, self.model.edinet_document_id == EdinetDocument.id)
             .where(
-                self.model.sec_code == sec_code,
+                EdinetDocument.sec_code == sec_code,
                 self.model.period_end_date >= start_date,
                 self.model.period_end_date <= end_date,
             )
@@ -183,7 +200,14 @@ class EdinetCashFlowStatementRepository(BaseRepository[EdinetCashFlowStatement])
 
     async def count_by_sec_code(self, sec_code: str) -> int:
         """指定証券コードに紐づくキャッシュフローレコード件数を返します。"""
-        stmt = select(sql_count()).select_from(self.model).where(self.model.sec_code == sec_code)
+        stmt = (
+            select(sql_count())
+            .select_from(self.model)
+            .join(EdinetDocument, self.model.edinet_document_id == EdinetDocument.id)
+            .where(EdinetDocument.sec_code == sec_code)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
         result = await self.session.execute(stmt)
         return result.scalar_one()
 

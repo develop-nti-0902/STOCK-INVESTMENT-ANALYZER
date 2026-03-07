@@ -37,6 +37,7 @@ class StockSplit(SerialPKMixin, TimestampMixin, Base):
     )
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
+        """株式分割の文字列表現を生成します."""
         return f"<StockSplit(code={self.code!r}, effective_date={self.effective_date!r})>"
 
 

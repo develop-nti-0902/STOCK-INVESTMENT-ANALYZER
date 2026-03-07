@@ -22,12 +22,9 @@ async def test_upsert_calls_session_and_returns_model():
     # Mock the result object with first() for RETURNING clause
     mock_row = MagicMock()
     mock_row._mapping = {
-        "doc_id": "D1",
-        "sec_code": "7203",
-        "submission_date": date(2024, 4, 1),
+        "edinet_document_id": 1,
         "period_end_date": date(2024, 3, 31),
         "fiscal_year": 2024,
-        "report_type": "annual",
         "dividend_actual": 12.34,
     }
 
@@ -39,15 +36,13 @@ async def test_upsert_calls_session_and_returns_model():
     repo = EdinetStockDividendRepository(mock_session)
 
     data = {
-        "doc_id": "D1",
-        "sec_code": "7203",
-        "submission_date": date(2024, 4, 1),
+        "edinet_document_id": 1,
         "period_end_date": date(2024, 3, 31),
     }
     res = await repo.upsert(data)
 
     assert res is not None
-    assert res.sec_code == "7203"
+    assert res.edinet_document_id == 1
     mock_session.execute.assert_awaited()
     mock_session.flush.assert_awaited()
 
@@ -69,12 +64,9 @@ async def test_upsert_with_empty_data_raises():
 async def test_find_latest_by_sec_code_returns_model():
     """sec_code から最新のモデルを取得できることを確認する."""
     dummy = EdinetStockDividend(
-        doc_id="D1",
-        sec_code="7203",
-        submission_date=date(2024, 4, 1),
+        edinet_document_id=1,
         period_end_date=date(2024, 3, 31),
         fiscal_year=2024,
-        report_type="annual",
         dividend_actual=12.34,
     )
 
@@ -100,23 +92,17 @@ async def test_save_batch_upsert_success():
     mock_rows = [
         MagicMock(
             _mapping={
-                "doc_id": "D1",
-                "sec_code": "7203",
-                "submission_date": date(2024, 4, 1),
+                "edinet_document_id": 1,
                 "period_end_date": date(2024, 3, 31),
                 "fiscal_year": 2024,
-                "report_type": "annual",
                 "dividend_actual": 12.34,
             }
         ),
         MagicMock(
             _mapping={
-                "doc_id": "D2",
-                "sec_code": "9984",
-                "submission_date": date(2024, 4, 1),
+                "edinet_document_id": 2,
                 "period_end_date": date(2024, 3, 31),
                 "fiscal_year": 2024,
-                "report_type": "annual",
                 "dividend_actual": 11.50,
             }
         ),
@@ -131,15 +117,11 @@ async def test_save_batch_upsert_success():
 
     data_list = [
         {
-            "doc_id": "D1",
-            "sec_code": "7203",
-            "submission_date": date(2024, 4, 1),
+            "edinet_document_id": 1,
             "period_end_date": date(2024, 3, 31),
         },
         {
-            "doc_id": "D2",
-            "sec_code": "9984",
-            "submission_date": date(2024, 4, 1),
+            "edinet_document_id": 2,
             "period_end_date": date(2024, 3, 31),
         },
     ]
@@ -147,8 +129,8 @@ async def test_save_batch_upsert_success():
     res = await repo.save_batch(data_list)
 
     assert len(res) == 2
-    assert res[0].sec_code == "7203"
-    assert res[1].sec_code == "9984"
+    assert res[0].edinet_document_id == 1
+    assert res[1].edinet_document_id == 2
     mock_session.execute.assert_awaited()
     mock_session.flush.assert_awaited()
 

@@ -39,9 +39,7 @@ async def test_crud_basic_operations(repository, mock_session):
     mock_session.flush = AsyncMock()
 
     data = {
-        "doc_id": "DOC1",
-        "sec_code": "7203",
-        "submission_date": date(2025, 12, 31),
+        "edinet_document_id": 1,
         "period_end_date": date(2025, 3, 31),
         "fiscal_year": 2024,
         "operating_income": 1500.0,
@@ -51,7 +49,7 @@ async def test_crud_basic_operations(repository, mock_session):
     created = await repository.create(data)
 
     assert isinstance(created, EdinetProfitAndLoss)
-    assert created.sec_code == "7203"
+    assert created.edinet_document_id == 1
     assert created.operating_income == 1500.0
     assert created.eps == 120.5
     mock_session.flush.assert_called_once()
@@ -63,7 +61,7 @@ async def test_find_latest_by_sec_code(repository, mock_session):
     # Mock result with scalar_one_or_none method
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = make_model(
-        sec_code="7203",
+        edinet_document_id=1,
         period_end_date=date(2025, 3, 31),
         operating_income=1500.0,
         eps=120.5,
@@ -74,7 +72,7 @@ async def test_find_latest_by_sec_code(repository, mock_session):
     result = await repository.find_latest_by_sec_code("7203")
 
     assert result is not None
-    assert result.sec_code == "7203"
+    assert result.edinet_document_id == 1
     assert result.operating_income == 1500.0
     mock_session.execute.assert_called_once()
 
@@ -85,7 +83,7 @@ async def test_find_by_period(repository, mock_session):
     # Mock result
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = make_model(
-        sec_code="7203",
+        edinet_document_id=1,
         period_end_date=date(2025, 3, 31),
         eps=120.5,
     )
@@ -95,29 +93,33 @@ async def test_find_by_period(repository, mock_session):
     result = await repository.find_by_period("7203", date(2025, 3, 31))
 
     assert result is not None
-    assert result.sec_code == "7203"
+    assert result.edinet_document_id == 1
     assert result.eps == 120.5
     mock_session.execute.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_find_by_doc_id(repository, mock_session):
-    """`find_by_doc_id` の振る舞いを検証します."""
+async def test_find_by_edinet_document_id(repository, mock_session):
+    """EdinetDocumentIDで損益レコードを検索する振る舞いを検証します."""
     # Mock result with scalars().all()
     mock_result = MagicMock()
     mock_scalars = MagicMock()
     mock_scalars.all.return_value = [
-        make_model(doc_id="DOC1", sec_code="7203", operating_income=1500.0),
-        make_model(doc_id="DOC1", sec_code="7203", operating_income=1400.0),
+        make_model(
+            edinet_document_id=1, period_end_date=date(2025, 3, 31), operating_income=1500.0
+        ),
+        make_model(
+            edinet_document_id=1, period_end_date=date(2025, 2, 28), operating_income=1400.0
+        ),
     ]
     mock_result.scalars.return_value = mock_scalars
 
     mock_session.execute.return_value = mock_result
 
-    result = await repository.find_by_doc_id("DOC1")
+    result = await repository.find_by_edinet_document_id(1)
 
     assert len(result) == 2
-    assert all(r.doc_id == "DOC1" for r in result)
+    assert all(r.edinet_document_id == 1 for r in result)
     mock_session.execute.assert_called_once()
 
 
@@ -130,7 +132,7 @@ async def test_upsert_success(repository, mock_session):
     # Mock the result object that includes first() for RETURNING clause
     mock_row = MagicMock()
     mock_row._mapping = {
-        "sec_code": "7203",
+        "edinet_document_id": 1,
         "period_end_date": date(2025, 3, 31),
         "operating_income": 1500.0,
         "eps": 120.5,
@@ -142,7 +144,7 @@ async def test_upsert_success(repository, mock_session):
     mock_session.execute = AsyncMock(return_value=mock_result)
 
     data = {
-        "sec_code": "7203",
+        "edinet_document_id": 1,
         "period_end_date": date(2025, 3, 31),
         "operating_income": 1500.0,
         "eps": 120.5,
@@ -151,7 +153,7 @@ async def test_upsert_success(repository, mock_session):
     result = await repository.upsert(data)
 
     assert result is not None
-    assert result.sec_code == "7203"
+    assert result.edinet_document_id == 1
     assert result.operating_income == 1500.0
     mock_session.execute.assert_called_once()
     mock_session.flush.assert_called_once()
@@ -171,8 +173,8 @@ async def test_get_latest_by_sec_codes(repository, mock_session):
     mock_result = MagicMock()
     mock_scalars = MagicMock()
     mock_scalars.all.return_value = [
-        make_model(sec_code="7203", period_end_date=date(2025, 3, 31)),
-        make_model(sec_code="9984", period_end_date=date(2025, 2, 28)),
+        make_model(edinet_document_id=1, period_end_date=date(2025, 3, 31)),
+        make_model(edinet_document_id=2, period_end_date=date(2025, 2, 28)),
     ]
     mock_result.scalars.return_value = mock_scalars
 
@@ -181,8 +183,8 @@ async def test_get_latest_by_sec_codes(repository, mock_session):
     result = await repository.get_latest_by_sec_codes(["7203", "9984"])
 
     assert len(result) == 2
-    assert result[0].sec_code == "7203"
-    assert result[1].sec_code == "9984"
+    assert result[0].edinet_document_id == 1
+    assert result[1].edinet_document_id == 2
     mock_session.execute.assert_called_once()
 
 
@@ -218,7 +220,7 @@ async def test_save_batch_upsert_success(repository, mock_session):
     mock_rows = [
         MagicMock(
             _mapping={
-                "sec_code": "7203",
+                "edinet_document_id": 1,
                 "period_end_date": date(2025, 3, 31),
                 "operating_income": 1500.0,
                 "eps": 120.5,
@@ -226,7 +228,7 @@ async def test_save_batch_upsert_success(repository, mock_session):
         ),
         MagicMock(
             _mapping={
-                "sec_code": "9984",
+                "edinet_document_id": 2,
                 "period_end_date": date(2025, 2, 28),
                 "operating_income": 1400.0,
                 "eps": 110.5,
@@ -241,13 +243,13 @@ async def test_save_batch_upsert_success(repository, mock_session):
 
     data_list = [
         {
-            "sec_code": "7203",
+            "edinet_document_id": 1,
             "period_end_date": date(2025, 3, 31),
             "operating_income": 1500.0,
             "eps": 120.5,
         },
         {
-            "sec_code": "9984",
+            "edinet_document_id": 2,
             "period_end_date": date(2025, 2, 28),
             "operating_income": 1400.0,
             "eps": 110.5,
@@ -257,8 +259,10 @@ async def test_save_batch_upsert_success(repository, mock_session):
     result = await repository.save_batch(data_list)
 
     assert len(result) == 2
-    assert result[0].sec_code == "7203"
-    assert result[1].sec_code == "9984"
+    assert result[0].operating_income == 1500.0
+    assert result[1].operating_income == 1400.0
+    assert result[0].edinet_document_id == 1
+    assert result[1].edinet_document_id == 2
     mock_session.execute.assert_called_once()
     mock_session.flush.assert_called_once()
 

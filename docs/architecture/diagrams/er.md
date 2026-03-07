@@ -3,6 +3,13 @@
 ## Overview
 This ER diagram represents the database schema for the Stock Investment Analyzer application, showing all entities and their relationships.
 
+### Key Design Decisions
+
+**EDINET テーブルの正規化**
+- EDINET データは`EDINET_DOCUMENT`テーブルに**ドキュメント・メタデータ**（書類ID、提出日、報告書タイプなど）を集約することで正規化。
+- `EDINET_PROFIT_AND_LOSS`、`EDINET_STOCK_DIVIDEND`、`EDINET_CASH_FLOW_STATEMENT`、`EDINET_BALANCE_SHEET` は各々の**実データのみ**を格納し、`EDINET_DOCUMENT_ID`の外部キーを通じてメタデータを参照。
+- この設計により、同一のドキュメントから抽出された複数の財務statement に対してメタデータの重複を排除し、データの一貫性と保守性を向上。
+
 ## Mermaid ER Diagram
 
 ```mermaid
@@ -15,9 +22,11 @@ erDiagram
     STOCK_MASTER ||--o{ DIVIDEND_YIELD_MONITORING : monitors
     STOCK_MASTER ||--o{ SCREENING_RESULTS : evaluates
     STOCK_MASTER ||--o{ STOCK_CODE_MAPPING : has
-    STOCK_CODE_MAPPING ||--o{ EDINET_PROFIT_AND_LOSS : connects
-    STOCK_CODE_MAPPING ||--o{ EDINET_STOCK_DIVIDEND : connects
-    STOCK_CODE_MAPPING ||--o{ EDINET_CASH_FLOW_STATEMENT : connects
+    STOCK_CODE_MAPPING ||--o{ EDINET_DOCUMENT : connects
+    EDINET_DOCUMENT ||--o{ EDINET_PROFIT_AND_LOSS : contains
+    EDINET_DOCUMENT ||--o{ EDINET_STOCK_DIVIDEND : contains
+    EDINET_DOCUMENT ||--o{ EDINET_CASH_FLOW_STATEMENT : contains
+    EDINET_DOCUMENT ||--o{ EDINET_BALANCE_SHEET : contains
     MARKET_CATEGORY_MASTER ||--o{ STOCK_MASTER : "categorizes"
     SECTOR_33_MASTER ||--o{ STOCK_MASTER : "classifies"
     SECTOR_17_MASTER ||--o{ STOCK_MASTER : "classifies"
@@ -154,53 +163,65 @@ erDiagram
         datetime updated_at "更新日時"
     }
 
+    EDINET_DOCUMENT {
+        int id PK "プライマリキー"
+        string doc_id UK "書類ID（ユニーク）"
+        string sec_code FK "証券コード（EDINET提出企業コード）"
+        date submission_date "提出日"
+        string report_type "報告書タイプ（有価証券報告書等）"
+        string candidate_contexts "候補コンテキスト"
+        string candidate_keys "候補キー"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
     EDINET_PROFIT_AND_LOSS {
         int id PK "プライマリキー"
-        string doc_id "書類ID"
-        string sec_code "証券コード（EDINET提出企業コード）"
-        date submission_date "提出日"
+        int edinet_document_id FK "EDINETドキュメントID"
         date period_end_date "報告期末日"
         int fiscal_year "会計年度"
-        string report_type "報告書タイプ"
+        boolean is_consolidated "連結フラグ"
         decimal net_sales "売上高"
         decimal operating_income "営業利益"
         decimal eps "1株当たり利益"
-        string candidate_contexts "候補コンテキスト"
-        string candidate_keys "候補キー"
-        boolean is_consolidated "連結フラグ"
         datetime created_at "作成日時"
         datetime updated_at "更新日時"
     }
 
     EDINET_STOCK_DIVIDEND {
         int id PK "プライマリキー"
-        string doc_id "書類ID"
-        string sec_code "証券コード（EDINET提出企業コード）"
-        date submission_date "提出日"
+        int edinet_document_id FK "EDINETドキュメントID"
         date period_end_date "報告期末日"
         int fiscal_year "会計年度"
-        string report_type "報告書タイプ"
+        boolean is_consolidated "連結フラグ"
         decimal dividend_actual "年間配当金（実績）"
         decimal dividend_adj "年間配当金（調整後）"
-        string candidate_contexts "候補コンテキスト"
-        string candidate_keys "候補キー"
-        boolean is_consolidated "連結フラグ"
         datetime created_at "作成日時"
         datetime updated_at "更新日時"
     }
 
     EDINET_CASH_FLOW_STATEMENT {
         int id PK "プライマリキー"
-        string doc_id "書類ID"
-        string sec_code "証券コード（EDINET提出企業コード）"
-        date submission_date "提出日"
+        int edinet_document_id FK "EDINETドキュメントID"
         date period_end_date "報告期末日"
         int fiscal_year "会計年度"
-        string report_type "報告書タイプ"
-        decimal operating_cf "営業キャッシュフロー"
-        string candidate_contexts "候補コンテキスト"
-        string candidate_keys "候補キー"
         boolean is_consolidated "連結フラグ"
+        decimal operating_cf "営業キャッシュフロー"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
+    EDINET_BALANCE_SHEET {
+        int id PK "プライマリキー"
+        int edinet_document_id FK "EDINETドキュメントID"
+        date period_end_date "報告期末日"
+        int fiscal_year "会計年度"
+        boolean is_consolidated "連結フラグ"
+        decimal total_assets "総資産"
+        decimal total_liabilities "総負債"
+        decimal total_equity "総資本"
+        decimal current_assets "流動資産"
+        decimal current_liabilities "流動負債"
         datetime created_at "作成日時"
         datetime updated_at "更新日時"
     }
@@ -263,11 +284,12 @@ erDiagram
 - **StockCodeMapping**: JPX株式コード（stock_code）とEDINET提出企業コード（sec_code）の対応関係を管理するマッピングテーブル。1つのJPX企業が複数のEDINET企業コードを持つ可能性に対応。
 - **Stocks_1d（他の時間軸1m/5m/15m/30m/1h/1wkも同様）**: 複数の時間軸における株価データ。OHLCV データを格納。ER図では日足（1d）を代表として表示。
 
-### EDINET Financial Data（独立したエンティティ）
-- **EdinetBalanceSheet**: EDINET から取得した貸借対照表データ。`sec_code`（EDINET提出企業コード）で企業を識別。StockCodeMapping を通じてStockMasterと対応。
-- **EdinetProfitAndLoss**: EDINET から取得した損益計算書データ。`sec_code` で企業を識別。StockCodeMapping を通じてStockMasterと対応。
-- **EdinetStockDividend**: EDINET から取得した年間配当情報。`sec_code` で企業を識別。StockCodeMapping を通じてStockMasterと対応。
-- **EdinetCashFlowStatement**: EDINET から取得したキャッシュフロー計算書データ。`sec_code` で企業を識別。StockCodeMapping を通じてStockMasterと対応。
+### EDINET Financial Data（正規化済み）
+- **EdinetDocument**: EDINET文書メタデータの集約テーブル。`doc_id`（書類ID）、`sec_code`（EDINET提出企業コード）、提出日、報告書タイプなど、複数の財務statement間で共通するドキュメント情報を管理。これにより、同一のドキュメントから抽出された複数の財務指標に対して単一のメタデータソースを提供。
+- **EdinetProfitAndLoss**: EDINET損益計算書データ。`edinet_document_id`で EdinetDocument を参照。売上高、営業利益、EPS など実際の財務データのみを格納。
+- **EdinetStockDividend**: EDINET配当情報データ。`edinet_document_id`で EdinetDocument を参照。年間配当金（実績/調整後）のみを格納。
+- **EdinetCashFlowStatement**: EDINETキャッシュフロー計算書データ。`edinet_document_id`で EdinetDocument を参照。営業キャッシュフローなどの実データのみを格納。
+- **EdinetBalanceSheet**: EDINET貸借対照表データ。`edinet_document_id`で EdinetDocument を参照。総資産、負債、資本などのバランスシート実データのみを格納。
 
 ### Analysis & Monitoring
 - **StockSplit**: 株式分割イベントの履歴。
@@ -286,7 +308,8 @@ erDiagram
 | StockMaster      | DividendYieldMonitoring                                          | 1:N  | 銘柄は複数の監視レコードを持つ                          |
 | StockMaster      | ScreeningResults                                                 | 1:N  | 銘柄は複数のスクリーニング結果を持つ                    |
 | StockMaster      | StockCodeMapping                                                 | 1:N  | 銘柄はEDINET対応企業コード（1つ以上）を持つ可能性がある |
-| StockCodeMapping | EdinetBalanceSheet/ProfitAndLoss/StockDividend/CashFlowStatement | 1:N  | マッピングテーブルを通じてEDINET財務データと連結        |
+| StockCodeMapping | EdinetDocument                                                   | 1:N  | マッピングを通じてEDINETドキュメントと連結              |
+| EdinetDocument   | EdinetProfitAndLoss/StockDividend/CashFlowStatement/BalanceSheet | 1:N  | ドキュメントメタデータは複数の財務データを共有           |
 
 ## Naming Conventions
 

@@ -16,6 +16,7 @@ from sqlalchemy.orm import joinedload
 
 from app.exceptions.system import ConfigurationError
 from app.models.market_data.edinet.edinet_cash_flow_statement import EdinetCashFlowStatement
+from app.models.market_data.edinet.edinet_document import EdinetDocument
 from app.models.market_data.edinet.edinet_profit_and_loss import EdinetProfitAndLoss
 from app.models.market_data.edinet.edinet_stock_dividend import EdinetStockDividend
 from app.repositories.market_data.stock_master import (
@@ -100,17 +101,26 @@ class ScreeningService:
             async with self._stock_master_maker() as session:
                 # EDINETの3つのテーブル全てに存在する銘柄を取得
                 # 配当データ
-                stmt = select(func.distinct(EdinetStockDividend.sec_code))
+                stmt = select(func.distinct(EdinetDocument.sec_code)).join(
+                    EdinetStockDividend,
+                    EdinetStockDividend.edinet_document_id == EdinetDocument.id,
+                )
                 result = await session.execute(stmt)
                 div_codes = set(result.scalars().all() or [])
 
                 # P&Lデータ
-                stmt = select(func.distinct(EdinetProfitAndLoss.sec_code))
+                stmt = select(func.distinct(EdinetDocument.sec_code)).join(
+                    EdinetProfitAndLoss,
+                    EdinetProfitAndLoss.edinet_document_id == EdinetDocument.id,
+                )
                 result = await session.execute(stmt)
                 pl_codes = set(result.scalars().all() or [])
 
                 # キャッシュフロー データ
-                stmt = select(func.distinct(EdinetCashFlowStatement.sec_code))
+                stmt = select(func.distinct(EdinetDocument.sec_code)).join(
+                    EdinetCashFlowStatement,
+                    EdinetCashFlowStatement.edinet_document_id == EdinetDocument.id,
+                )
                 result = await session.execute(stmt)
                 cf_codes = set(result.scalars().all() or [])
 
@@ -183,7 +193,15 @@ class ScreeningService:
                             EdinetProfitAndLoss,
                             EdinetCashFlowStatement,
                         ):
-                            stmt = select(model_class).where(model_class.sec_code == code).limit(1)
+                            stmt = (
+                                select(model_class)
+                                .join(
+                                    EdinetDocument,
+                                    model_class.edinet_document_id == EdinetDocument.id,
+                                )
+                                .where(EdinetDocument.sec_code == code)
+                                .limit(1)
+                            )
                             r = await session.execute(stmt)
                             if r.scalar_one_or_none() is not None:
                                 has_data = True

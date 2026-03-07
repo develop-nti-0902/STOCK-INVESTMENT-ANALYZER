@@ -16,13 +16,80 @@ from app.main import app
 def is_db_reachable() -> bool:
     """DB 到達性を同期ソケットで簡易チェックする.
 
+    優先順序:
+    1. DATABASE_URL を優先。SQLite の場合はファイル存在確認で判定
+    2. DATABASE_URL がなければ DB_HOST/DB_PORT でソケット接続判定
+
     SQLiteの場合はファイルの存在またはメモリDBを確認します。
     E2Eテストは各テスト内で独自のDBセットアップを行うため、
     相対パスの場合は到達可能と判断します。
     """
+    # 最優先: DATABASE_URL を取得して判定
+    db_url = None
+    try:
+        from app.utils.config import get_settings
+
+        try:
+            settings = get_settings()
+            db_url = getattr(settings, "DATABASE_URL", None)
+        except Exception:
+            # 設定が不完全な場合は環境変数にフォールバック
+            pass
+    except Exception:
+        # import エラー等は無視
+        pass
+
+    # get_settings() から取得できなかった場合は環境変数を使う
+    if not db_url:
+        db_url = os.getenv("DATABASE_URL")
+
+    # DATABASE_URL が設定されている場合、それを優先的に使用
+    if db_url:
+        parsed = urlparse(db_url)
+        scheme = (parsed.scheme or "").lower()
+
+        # SQLite を使う場合、ファイルが存在するかメモリ DB の場合は到達可能と判定
+        if scheme.startswith("sqlite"):
+            # sqlite:///path の場合、parsed.path は /path になる（Windows なら /C:/path）
+            path = unquote(parsed.path or "")
+
+            # メモリDB の場合
+            if path == ":memory:" or path == "" or not path:
+                return True
+
+            # Windows 絶対パスの場合: /C:/path -> C:/path に正規化
+            if path.startswith("/") and len(path) > 2 and path[2] == ":":
+                path = path[1:]
+
+            # ファイル存在確認（相対・絶対両方に対応）
+            # E2E テストは各テストで独自の DB をセットアップするため、
+            # 相対パスの場合は到達可能と判断する
+            if os.path.exists(path):
+                return True
+
+            # 相対パスの場合は E2E テスト用として許可
+            if not os.path.isabs(path):
+                return True
+
+            # 絶対パスの場合、ファイルが存在しなければ到達不可
+            return os.path.exists(path)
+
+        # PostgreSQL など他のスキームの場合、ソケット接続を試みる
+        parsed_host = parsed.hostname
+        parsed_port = parsed.port
+        if parsed_host and parsed_port:
+            try:
+                with socket.create_connection((parsed_host, parsed_port), timeout=1):
+                    return True
+            except Exception:
+                return False
+        return False
+
+    # DATABASE_URL が設定されていない場合、DB_HOST/DB_PORT を使用
     host = os.getenv("DB_HOST")
     port = os.getenv("DB_PORT")
-    # 優先: アプリ設定から取得（.env や環境変数を参照した結果）
+
+    # アプリ設定から取得
     try:
         from app.utils.config import get_settings
 
@@ -31,51 +98,13 @@ def is_db_reachable() -> bool:
             host = getattr(settings, "DB_HOST", host)
             port = getattr(settings, "DB_PORT", port)
         except Exception:
-            # 設定が不完全な場合は環境変数にフォールバック
             pass
     except Exception:
-        # import エラー等は無視して環境変数を使う
         pass
+
     if not host or not port:
-        # ホスト/ポートが指定されていない場合は `DATABASE_URL` を確認する
-        try:
-            # 設定内の `DATABASE_URL` を優先して取得する
-            from app.utils.config import get_settings
-
-            settings = get_settings()
-            db_url = getattr(settings, "DATABASE_URL", os.getenv("DATABASE_URL"))
-        except Exception:
-            db_url = os.getenv("DATABASE_URL")
-
-        if db_url:
-            parsed = urlparse(db_url)
-            scheme = (parsed.scheme or "").lower()
-            # SQLite を使う場合、ファイルが存在するかメモリ DB の場合は到達可能と判断する
-            if scheme.startswith("sqlite"):
-                # sqlite:///path の場合、parsed.path は /path になる（Windows なら /C:/path）
-                path = unquote(parsed.path or "")
-
-                # メモリDB の場合
-                if path == ":memory:" or path == "" or not path:
-                    return True
-
-                # Windows 絶対パスの場合: /C:/path -> C:/path に正規化
-                if path.startswith("/") and len(path) > 2 and path[2] == ":":
-                    path = path[1:]
-
-                # ファイル存在確認（相対・絶対両方に対応）
-                # E2E テストは各テストで独自の DB をセットアップするため、
-                # 相対パスの場合は到達可能と判断する
-                if os.path.exists(path):
-                    return True
-
-                # 相対パスの場合は E2E テスト用として許可
-                if not os.path.isabs(path):
-                    return True
-
-                # 絶対パスの場合、ファイルが存在しなければ到達不可
-                return os.path.exists(path)
         return False
+
     try:
         with socket.create_connection((host, int(port)), timeout=1):
             return True

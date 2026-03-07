@@ -463,40 +463,43 @@ async def fetch_edinet_profit_and_loss_rows() -> List[Dict[str, Any]]:
     Returns:
         edinet_profit_and_loss テーブルの全レコードを辞書のリストで返す
     """
-    from sqlalchemy import select
+    from sqlalchemy import join, select
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-    from app.models.market_data.edinet import EdinetProfitAndLoss
+    from app.models.market_data.edinet import EdinetDocument, EdinetProfitAndLoss
     from app.utils.database import get_database_url
 
     engine = create_async_engine(get_database_url())
     try:
         async with AsyncSession(engine) as session:
-            result = await session.execute(select(EdinetProfitAndLoss))
-            rows = result.scalars().all()
+            stmt = select(EdinetProfitAndLoss, EdinetDocument).join(EdinetDocument)
+            result = await session.execute(stmt)
+            rows = result.all()
             return [
                 {
-                    "id": row.id,
-                    "sec_code": row.sec_code,
-                    "doc_id": row.doc_id,
+                    "id": row[0].id,
+                    "sec_code": row[1].sec_code,
+                    "doc_id": row[1].doc_id,
                     "period_end_date": (
-                        row.period_end_date.isoformat() if row.period_end_date else None
+                        row[0].period_end_date.isoformat() if row[0].period_end_date else None
                     ),
                     "submission_date": (
-                        row.submission_date.isoformat() if row.submission_date else None
+                        row[1].submission_date.isoformat() if row[1].submission_date else None
                     ),
-                    "fiscal_year": row.fiscal_year,
-                    "report_type": row.report_type,
-                    "net_sales": float(row.net_sales) if row.net_sales is not None else None,
+                    "fiscal_year": row[0].fiscal_year,
+                    "report_type": row[1].report_type,
+                    "net_sales": float(row[0].net_sales) if row[0].net_sales is not None else None,
                     "operating_income": (
-                        float(row.operating_income) if row.operating_income is not None else None
+                        float(row[0].operating_income)
+                        if row[0].operating_income is not None
+                        else None
                     ),
-                    "eps": float(row.eps) if row.eps is not None else None,
-                    "candidate_contexts": row.candidate_contexts,
-                    "candidate_keys": row.candidate_keys,
-                    "is_consolidated": row.is_consolidated,
-                    "created_at": row.created_at.isoformat() if row.created_at else None,
-                    "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                    "eps": float(row[0].eps) if row[0].eps is not None else None,
+                    "candidate_contexts": row[1].candidate_contexts,
+                    "candidate_keys": row[1].candidate_keys,
+                    "is_consolidated": row[0].is_consolidated,
+                    "created_at": row[0].created_at.isoformat() if row[0].created_at else None,
+                    "updated_at": row[0].updated_at.isoformat() if row[0].updated_at else None,
                 }
                 for row in rows
             ]
@@ -510,38 +513,41 @@ async def fetch_edinet_stock_dividend_rows() -> List[Dict[str, Any]]:
     Returns:
         edinet_stock_dividend テーブルの全レコードを辞書のリストで返す
     """
-    from sqlalchemy import select
+    from sqlalchemy import join, select
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-    from app.models.market_data.edinet import EdinetStockDividend
+    from app.models.market_data.edinet import EdinetDocument, EdinetStockDividend
     from app.utils.database import get_database_url
 
     engine = create_async_engine(get_database_url())
     try:
         async with AsyncSession(engine) as session:
-            result = await session.execute(select(EdinetStockDividend))
-            rows = result.scalars().all()
+            stmt = select(EdinetStockDividend, EdinetDocument).join(EdinetDocument)
+            result = await session.execute(stmt)
+            rows = result.all()
             return [
                 {
-                    "id": row.id,
-                    "sec_code": row.sec_code,
-                    "doc_id": row.doc_id,
+                    "id": row[0].id,
+                    "sec_code": row[1].sec_code,
+                    "doc_id": row[1].doc_id,
                     "period_end_date": (
-                        row.period_end_date.isoformat() if row.period_end_date else None
+                        row[0].period_end_date.isoformat() if row[0].period_end_date else None
                     ),
                     "submission_date": (
-                        row.submission_date.isoformat() if row.submission_date else None
+                        row[1].submission_date.isoformat() if row[1].submission_date else None
                     ),
-                    "fiscal_year": row.fiscal_year,
-                    "report_type": row.report_type,
+                    "fiscal_year": row[0].fiscal_year,
+                    "report_type": row[1].report_type,
                     "dividend_actual": (
-                        float(row.dividend_actual) if row.dividend_actual is not None else None
+                        float(row[0].dividend_actual)
+                        if row[0].dividend_actual is not None
+                        else None
                     ),
-                    "candidate_contexts": row.candidate_contexts,
-                    "candidate_keys": row.candidate_keys,
-                    "is_consolidated": row.is_consolidated,
-                    "created_at": row.created_at.isoformat() if row.created_at else None,
-                    "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                    "candidate_contexts": row[1].candidate_contexts,
+                    "candidate_keys": row[1].candidate_keys,
+                    "is_consolidated": row[0].is_consolidated,
+                    "created_at": row[0].created_at.isoformat() if row[0].created_at else None,
+                    "updated_at": row[0].updated_at.isoformat() if row[0].updated_at else None,
                 }
                 for row in rows
             ]
@@ -555,38 +561,39 @@ async def fetch_edinet_cash_flow_statement_rows() -> List[Dict[str, Any]]:
     Returns:
         edinet_cash_flow_statement テーブルの全レコードを辞書のリストで返す
     """
-    from sqlalchemy import select
+    from sqlalchemy import join, select
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-    from app.models.market_data.edinet import EdinetCashFlowStatement
+    from app.models.market_data.edinet import EdinetCashFlowStatement, EdinetDocument
     from app.utils.database import get_database_url
 
     engine = create_async_engine(get_database_url())
     try:
         async with AsyncSession(engine) as session:
-            result = await session.execute(select(EdinetCashFlowStatement))
-            rows = result.scalars().all()
+            stmt = select(EdinetCashFlowStatement, EdinetDocument).join(EdinetDocument)
+            result = await session.execute(stmt)
+            rows = result.all()
             return [
                 {
-                    "id": row.id,
-                    "sec_code": row.sec_code,
-                    "doc_id": row.doc_id,
+                    "id": row[0].id,
+                    "sec_code": row[1].sec_code,
+                    "doc_id": row[1].doc_id,
                     "period_end_date": (
-                        row.period_end_date.isoformat() if row.period_end_date else None
+                        row[0].period_end_date.isoformat() if row[0].period_end_date else None
                     ),
                     "submission_date": (
-                        row.submission_date.isoformat() if row.submission_date else None
+                        row[1].submission_date.isoformat() if row[1].submission_date else None
                     ),
-                    "fiscal_year": row.fiscal_year,
-                    "report_type": row.report_type,
+                    "fiscal_year": row[0].fiscal_year,
+                    "report_type": row[1].report_type,
                     "operating_cf": (
-                        float(row.operating_cf) if row.operating_cf is not None else None
+                        float(row[0].operating_cf) if row[0].operating_cf is not None else None
                     ),
-                    "candidate_contexts": row.candidate_contexts,
-                    "candidate_keys": row.candidate_keys,
-                    "is_consolidated": row.is_consolidated,
-                    "created_at": row.created_at.isoformat() if row.created_at else None,
-                    "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                    "candidate_contexts": row[1].candidate_contexts,
+                    "candidate_keys": row[1].candidate_keys,
+                    "is_consolidated": row[0].is_consolidated,
+                    "created_at": row[0].created_at.isoformat() if row[0].created_at else None,
+                    "updated_at": row[0].updated_at.isoformat() if row[0].updated_at else None,
                 }
                 for row in rows
             ]

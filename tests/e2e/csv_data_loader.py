@@ -54,13 +54,14 @@ class EdinetCsvDataLoader:
             {model_name: LoadResult, ...}
 
         Raises:
-            FileNotFoundError: CSV ファイルが見つからない
+            FileNotFoundError: CSV ファイルが見つかりない
             ValueError: CSV パースエラー
         """
         from app.models.market_data.edinet.edinet_cash_flow_statement import EdinetCashFlowStatement
         from app.models.market_data.edinet.edinet_profit_and_loss import EdinetProfitAndLoss
         from app.models.market_data.edinet.edinet_stock_dividend import EdinetStockDividend
         from app.models.market_data.stock_master.stock_master import StockMaster
+        from app.repositories.market_data.edinet import EdinetDocumentRepository
 
         results = {}
 
@@ -84,15 +85,67 @@ class EdinetCsvDataLoader:
                 errors=[],
             )
 
-        # EDINET テーブル投入（順序: P&L → CF → Dividend）
+        # ===== 1. EdinetDocument を先行投入 =====
+        # CSV から EDINET メタデータを抽出してドキュメントレコードを事前投入
+        edinet_doc_map: Dict[str, int] = {}  # doc_id → edinet_document.id
+        edinet_repo = EdinetDocumentRepository(self._session)
+
+        # 全 EDINET CSV から doc_id の一覧を抽出
+        edinet_csv_keys = ["profit_and_loss", "cash_flow_statement", "stock_dividend"]
+        all_doc_ids_metadata = {}  # doc_id → {sec_code, submission_date, ...}
+
+        for key in edinet_csv_keys:
+            if key not in source_csv_paths:
+                continue
+            csv_path = source_csv_paths[key]
+            if not csv_path.exists():
+                raise FileNotFoundError(f"CSV ファイルが見つかりません: {csv_path}")
+
+            with open(csv_path, encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    doc_id = row.get("doc_id")
+                    if not doc_id or doc_id in all_doc_ids_metadata:
+                        continue  # 既に記録済み or 空
+                    # メタデータを集約
+                    all_doc_ids_metadata[doc_id] = {
+                        "sec_code": row.get("sec_code"),
+                        "submission_date": row.get("submission_date"),
+                        "report_type": row.get("report_type", "annual"),
+                        "candidate_contexts": row.get("candidate_contexts"),
+                        "candidate_keys": row.get("candidate_keys"),
+                    }
+
+        # EdinetDocument を create_or_get で投入
+        for doc_id, metadata in all_doc_ids_metadata.items():
+            # submission_date を date 型に変換
+            from datetime import datetime
+
+            submission_date_str = metadata["submission_date"]
+            submission_date = datetime.strptime(submission_date_str, "%Y-%m-%d").date()
+
+            # create_or_get で既存or新規作成
+            edinet_doc = await edinet_repo.create_or_get(
+                doc_id=doc_id,
+                sec_code=metadata["sec_code"],
+                submission_date=submission_date,
+                report_type=metadata["report_type"],
+                candidate_contexts=metadata["candidate_contexts"],
+                candidate_keys=metadata["candidate_keys"],
+            )
+            edinet_doc_map[doc_id] = edinet_doc.id
+
+        # ===== 2. EDINET テーブル投入（P&L → CF → Dividend）=====
         all_models: Dict[str, List[Any]] = {}
-        for key in ["profit_and_loss", "cash_flow_statement", "stock_dividend"]:
+        for key in edinet_csv_keys:
             if key not in source_csv_paths:
                 continue
 
             csv_path = source_csv_paths[key]
             model_class = model_mapping[key]
-            models = self._parse_csv_to_models(csv_path, model_class, sec_codes, fiscal_years)
+            models = self._parse_csv_to_models_with_fk(
+                csv_path, model_class, edinet_doc_map, sec_codes, fiscal_years
+            )
             all_models[key] = models
 
         # 財務整合性チェック (3つのテーブルが揃っている場合)
@@ -150,6 +203,70 @@ class EdinetCsvDataLoader:
                     if fiscal_years and row.get("fiscal_year"):
                         if int(row["fiscal_year"]) not in fiscal_years:
                             continue
+
+                    # 型変換
+                    converted_row = EdinetCsvDataLoader._convert_row_types(row, model_class)
+                    model_instance = model_class(**converted_row)
+                    models.append(model_instance)
+
+                except ValueError as e:
+                    errors.append(f"行 {row_num} でのパースエラー: {str(e)}")
+                except Exception as e:
+                    errors.append(f"行 {row_num} での予期しないエラー: {str(e)}")
+
+        if errors:
+            # ログに出力するが、処理は継続
+            for error in errors:
+                print(f"⚠️  {error}")
+
+        return models
+
+    @staticmethod
+    def _parse_csv_to_models_with_fk(
+        csv_path: Path,
+        model_class: Type[T],
+        edinet_doc_map: Dict[str, int],
+        sec_codes: Optional[List[str]] = None,
+        fiscal_years: Optional[List[int]] = None,
+    ) -> List[T]:
+        """
+        CSV パースと SQLAlchemy モデル変換（FK 対応版）
+
+        EdinetDocument との外部キー参照が必要な EDINET テーブル用。
+        doc_id から edinet_document_id を取得してモデルに設定します。
+
+        Args:
+            csv_path: CSV ファイルパス
+            model_class: ターゲットモデルクラス
+            edinet_doc_map: doc_id → edinet_document.id のマッピング
+            sec_codes: フィルタ対象の証券コード
+            fiscal_years: フィルタ対象の会計年度
+
+        Returns:
+            パース済みモデルインスタンスリスト
+        """
+        if not csv_path.exists():
+            raise FileNotFoundError(f"CSV ファイルが見つかりません: {csv_path}")
+
+        models: List[T] = []
+        errors: List[str] = []
+
+        with open(csv_path, encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row_num, row in enumerate(reader, start=2):  # ヘッダー行をスキップ
+                try:
+                    # フィルタリング
+                    if sec_codes and row.get("sec_code") not in sec_codes:
+                        continue
+                    if fiscal_years and row.get("fiscal_year"):
+                        if int(row["fiscal_year"]) not in fiscal_years:
+                            continue
+
+                    # doc_id から edinet_document_id を取得
+                    doc_id = row.get("doc_id")
+                    if not doc_id or doc_id not in edinet_doc_map:
+                        raise ValueError(f"Unknown doc_id: {doc_id}")
+                    row["edinet_document_id"] = edinet_doc_map[doc_id]
 
                     # 型変換
                     converted_row = EdinetCsvDataLoader._convert_row_types(row, model_class)
@@ -257,18 +374,22 @@ class EdinetCsvDataLoader:
             if pl.eps and pl.net_sales:
                 if pl.eps > pl.net_sales:
                     raise ValueError(
-                        f"EPS > net_sales: {pl.sec_code} " f"({pl.eps} > {pl.net_sales})"
+                        f"EPS > net_sales: {pl.edinet_document_id} " f"({pl.eps} > {pl.net_sales})"
                     )
 
         # CF: 営業CF は正値
         for cf in cf_models:
             if cf.operating_cf and cf.operating_cf < 0:
-                raise ValueError(f"Negative operating_cf: {cf.sec_code} ({cf.operating_cf})")
+                raise ValueError(
+                    f"Negative operating_cf: {cf.edinet_document_id} ({cf.operating_cf})"
+                )
 
         # Dividend: 配当は正値
         for div in dividend_models:
             if div.dividend_adj and div.dividend_adj < 0:
-                raise ValueError(f"Negative dividend_adj: {div.sec_code} ({div.dividend_adj})")
+                raise ValueError(
+                    f"Negative dividend_adj: {div.edinet_document_id} ({div.dividend_adj})"
+                )
 
         return True
 

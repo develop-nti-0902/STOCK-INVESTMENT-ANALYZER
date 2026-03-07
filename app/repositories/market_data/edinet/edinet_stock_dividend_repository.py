@@ -12,7 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import count as sql_count
 
-from app.models.market_data.edinet import EdinetStockDividend
+from app.models.market_data.edinet import EdinetDocument, EdinetStockDividend
 from app.repositories.core.base import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -29,8 +29,9 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
         """指定した証券コードの最新の配当レコードを返します（存在しない場合は None）。"""
         stmt = (
             select(self.model)
-            .where(self.model.sec_code == sec_code)
-            .order_by(self.model.period_end_date.desc(), self.model.submission_date.desc())
+            .join(EdinetDocument, self.model.edinet_document_id == EdinetDocument.id)
+            .where(EdinetDocument.sec_code == sec_code)
+            .order_by(self.model.period_end_date.desc(), EdinetDocument.submission_date.desc())
             .limit(1)
         )
         result = await self.session.execute(stmt)
@@ -40,18 +41,53 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
         self, sec_code: str, period_end_date: date
     ) -> Optional[EdinetStockDividend]:
         """指定した証券コードと期日で配当レコードを検索して返します。"""
-        result = await self.session.execute(
-            select(self.model).where(
-                self.model.sec_code == sec_code,
-                self.model.period_end_date == period_end_date,
+        stmt = (
+            select(self.model)
+            .join(EdinetDocument, self.model.edinet_document_id == EdinetDocument.id)
+            .where(
+                EdinetDocument.sec_code == sec_code, self.model.period_end_date == period_end_date
             )
         )
+        result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def find_by_doc_id(self, doc_id: str) -> list[EdinetStockDividend]:
-        """ドキュメント ID に紐づく配当レコードのリストを返します。"""
-        result = await self.session.execute(select(self.model).where(self.model.doc_id == doc_id))
+    async def find_by_edinet_document_id(
+        self, edinet_document_id: int
+    ) -> List[EdinetStockDividend]:
+        """EDINET ドキュメント ID に紐づく配当レコードのリストを返します。
+
+        Args:
+            edinet_document_id: edinet_document テーブルの id
+
+        Returns:
+            該当する EdinetStockDividend インスタンスのリスト
+        """
+        result = await self.session.execute(
+            select(self.model)
+            .where(self.model.edinet_document_id == edinet_document_id)
+            .order_by(self.model.period_end_date.desc())
+        )
         return list(result.scalars().all())
+
+    async def find_latest_by_edinet_document_id(
+        self, edinet_document_id: int
+    ) -> Optional[EdinetStockDividend]:
+        """EDINET ドキュメント ID に紐づく最新の配当レコードを返します。
+
+        Args:
+            edinet_document_id: edinet_document テーブルの id
+
+        Returns:
+            見つかった EdinetStockDividend インスタンス（見つからない場合は None）
+        """
+        stmt = (
+            select(self.model)
+            .where(self.model.edinet_document_id == edinet_document_id)
+            .order_by(self.model.period_end_date.desc())
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def upsert(self, data: dict) -> EdinetStockDividend:
         """与えられた辞書でレコードを upsert し、保存後のモデルを返します.
@@ -71,9 +107,8 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
         }
 
         stmt = insert_stmt.on_conflict_do_update(
-            index_elements=["sec_code", "period_end_date"],
+            index_elements=["edinet_document_id", "period_end_date"],
             set_=update_dict,
-            where=(insert_stmt.excluded.submission_date >= table.c.submission_date),
         ).returning(table)
 
         try:
@@ -121,9 +156,8 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
         }
 
         stmt = insert_stmt.on_conflict_do_update(
-            index_elements=["sec_code", "period_end_date"],
+            index_elements=["edinet_document_id", "period_end_date"],
             set_=update_dict,
-            where=(insert_stmt.excluded.submission_date >= table.c.submission_date),
         ).returning(table)
 
         try:
@@ -144,12 +178,13 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
 
         stmt = (
             select(self.model)
-            .where(self.model.sec_code.in_(sec_codes))
-            .distinct(self.model.sec_code)
+            .join(EdinetDocument, self.model.edinet_document_id == EdinetDocument.id)
+            .where(EdinetDocument.sec_code.in_(sec_codes))
+            .distinct(EdinetDocument.sec_code)
             .order_by(
-                self.model.sec_code,
+                EdinetDocument.sec_code,
                 self.model.period_end_date.desc(),
-                self.model.submission_date.desc(),
+                EdinetDocument.submission_date.desc(),
             )
         )
         result = await self.session.execute(stmt)
@@ -161,7 +196,8 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
         """指定の会計年度（fiscal_year）に該当する配当レコードを返します。"""
         result = await self.session.execute(
             select(self.model)
-            .where(self.model.sec_code == sec_code, self.model.fiscal_year == fiscal_year)
+            .join(EdinetDocument, self.model.edinet_document_id == EdinetDocument.id)
+            .where(EdinetDocument.sec_code == sec_code, self.model.fiscal_year == fiscal_year)
             .order_by(self.model.period_end_date.desc())
         )
         return list(result.scalars().all())
@@ -172,8 +208,9 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
         """指定期間内の配当レコードを返します（start_date から end_date）。"""
         result = await self.session.execute(
             select(self.model)
+            .join(EdinetDocument, self.model.edinet_document_id == EdinetDocument.id)
             .where(
-                self.model.sec_code == sec_code,
+                EdinetDocument.sec_code == sec_code,
                 self.model.period_end_date >= start_date,
                 self.model.period_end_date <= end_date,
             )
@@ -183,7 +220,12 @@ class EdinetStockDividendRepository(BaseRepository[EdinetStockDividend]):
 
     async def count_by_sec_code(self, sec_code: str) -> int:
         """指定証券コードに紐づく配当レコード件数を返します。"""
-        stmt = select(sql_count()).select_from(self.model).where(self.model.sec_code == sec_code)
+        stmt = (
+            select(sql_count())
+            .select_from(self.model)
+            .join(EdinetDocument, self.model.edinet_document_id == EdinetDocument.id)
+            .where(EdinetDocument.sec_code == sec_code)
+        )
         result = await self.session.execute(stmt)
         return result.scalar_one()
 

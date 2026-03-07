@@ -9,7 +9,8 @@ from typing import Any, Dict, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.market_data.edinet.edinet_stock_dividend_repository import (
+from app.repositories.market_data.edinet import (
+    EdinetDocumentRepository,
     EdinetStockDividendRepository,
 )
 from app.services.data_synchronization._core.savers.base_saver import BaseSaver
@@ -26,19 +27,51 @@ class EdinetStockDividendSaver(BaseSaver[Dict[str, Any]]):
         super().__init__()
         self.session = session
         self.repository = EdinetStockDividendRepository(session)
+        self.edinet_document_repository = EdinetDocumentRepository(session)
 
     async def save_single(self, data: Dict[str, Any]) -> Any:
         """Validate and upsert a single stock dividend record."""
         if not data:
             raise ValueError("data is required")
 
-        required_fields = ["sec_code", "period_end_date"]
+        required_fields = ["doc_id", "sec_code", "submission_date", "period_end_date"]
         for field in required_fields:
             if field not in data:
                 raise ValueError(f"Required field '{field}' is missing")
 
+        ##########################################################
+        # EdinetDocument の先行作成
+        ##########################################################
+        edinet_doc = await self.edinet_document_repository.create_or_get(
+            doc_id=data["doc_id"],
+            sec_code=data["sec_code"],
+            submission_date=data["submission_date"],
+            report_type=data.get("report_type", "annual"),
+            candidate_contexts=data.get("candidate_contexts"),
+            candidate_keys=data.get("candidate_keys"),
+        )
+        logger.debug(f"EdinetDocument created or retrieved: {edinet_doc.id}")
+
+        ##########################################################
+        # 財務データ用に辞書を準備（メタデータを削除）
+        ##########################################################
+        financial_data = {
+            k: v
+            for k, v in data.items()
+            if k
+            not in {
+                "doc_id",
+                "sec_code",
+                "submission_date",
+                "report_type",
+                "candidate_contexts",
+                "candidate_keys",
+            }
+        }
+        financial_data["edinet_document_id"] = edinet_doc.id
+
         logger.debug(f"Upserting stock dividend data for {data.get('sec_code')}")
-        result = await self.repository.upsert(data)
+        result = await self.repository.upsert(financial_data)
         logger.info(f"Successfully upserted stock dividend data: {getattr(result, 'id', None)}")
         return result
 

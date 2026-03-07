@@ -17,9 +17,7 @@ def test_model_tablename_and_attrs():
     """モデルのテーブル名と属性が正しく定義されていることを検証する."""
     assert getattr(EdinetCashFlowStatement, "__tablename__") == "edinet_cash_flow_statement"
     for attr in (
-        "doc_id",
-        "sec_code",
-        "submission_date",
+        "edinet_document_id",
         "period_end_date",
         "operating_cf",
     ):
@@ -80,9 +78,7 @@ async def test_save_batch_upsert_success():
     mock_rows = [
         MagicMock(
             _mapping={
-                "doc_id": "D1",
-                "sec_code": "7203",
-                "submission_date": date(2024, 4, 1),
+                "edinet_document_id": 1,
                 "period_end_date": date(2024, 3, 31),
                 "fiscal_year": 2024,
                 "operating_cf": 1000.0,
@@ -90,9 +86,7 @@ async def test_save_batch_upsert_success():
         ),
         MagicMock(
             _mapping={
-                "doc_id": "D2",
-                "sec_code": "9984",
-                "submission_date": date(2024, 4, 1),
+                "edinet_document_id": 2,
                 "period_end_date": date(2024, 3, 31),
                 "fiscal_year": 2024,
                 "operating_cf": 2000.0,
@@ -109,15 +103,11 @@ async def test_save_batch_upsert_success():
 
     data_list = [
         {
-            "doc_id": "D1",
-            "sec_code": "7203",
-            "submission_date": date(2024, 4, 1),
+            "edinet_document_id": 1,
             "period_end_date": date(2024, 3, 31),
         },
         {
-            "doc_id": "D2",
-            "sec_code": "9984",
-            "submission_date": date(2024, 4, 1),
+            "edinet_document_id": 2,
             "period_end_date": date(2024, 3, 31),
         },
     ]
@@ -125,8 +115,8 @@ async def test_save_batch_upsert_success():
     res = await repo.save_batch(data_list)
 
     assert len(res) == 2
-    assert res[0].sec_code == "7203"
-    assert res[1].sec_code == "9984"
+    assert res[0].edinet_document_id == 1
+    assert res[1].edinet_document_id == 2
     mock_session.execute.assert_awaited()
     mock_session.flush.assert_awaited()
 

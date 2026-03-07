@@ -1,7 +1,7 @@
 ---
 description: 最小差分で実装し、ローカル開発で安全に動作確認できる状態まで持っていく。
 model: Claude Haiku 4.5 (copilot)
-tools: [vscode, execute, read, agent, edit, search, web, 'context7/*', 'gitkraken/*', 'serena/*', ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, todo]
+tools: [vscode, execute, read, agent, edit, search, web, 'context7/*', 'serena/*', ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, todo]
 title: Coder Agent (Local)
 role: coder
 version: 0.1
