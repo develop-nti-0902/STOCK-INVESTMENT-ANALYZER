@@ -5,10 +5,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import logging
 from datetime import date
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Set
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -19,6 +20,8 @@ from app.models.market_data.edinet.edinet_cash_flow_statement import EdinetCashF
 from app.models.market_data.edinet.edinet_document import EdinetDocument
 from app.models.market_data.edinet.edinet_profit_and_loss import EdinetProfitAndLoss
 from app.models.market_data.edinet.edinet_stock_dividend import EdinetStockDividend
+from app.models.market_data.stock_master import StockCodeMapping, StockMaster
+from app.models.market_data.stock_master.sector_33_master import Sector33Master
 from app.repositories.market_data.stock_master import (
     StockCodeMappingRepository,
     StockMasterRepository,
@@ -164,9 +167,119 @@ class ScreeningService:
             logger.debug("failed to get sector_code_17 for %s: %s", sec_code, e)
         return None
 
+    async def _async_fetch_sec_code_to_sector_33_mapping(
+        self, sec_codes: List[str]
+    ) -> Dict[str, str]:
+        """複数の証券コードから sector_33_code へのマッピングを一括取得（1-query JOIN）。
+
+        Args:
+            sec_codes: 証券コードのリスト
+
+        Returns:
+            Dict[str, str]: sec_code -> sector_33_code のマッピング
+        """
+        if self._stock_master_maker is None or not sec_codes:
+            return {}
+
+        try:
+            async with self._stock_master_maker() as session:
+                # StockCodeMapping + StockMaster + Sector33Master を JOIN して1クエリで取得
+                stmt = (
+                    select(
+                        StockCodeMapping.sec_code,
+                        Sector33Master.code.label("sector_33_code"),
+                    )
+                    .join(StockMaster, StockMaster.stock_code == StockCodeMapping.stock_code)
+                    .join(Sector33Master, Sector33Master.id == StockMaster.sector_33_id)
+                    .where(StockCodeMapping.sec_code.in_(sec_codes))
+                )
+
+                result = await session.execute(stmt)
+                rows = result.all()
+
+                pairs = [(row[0], row[1]) for row in rows]
+                return dict(pairs)
+        except Exception as exc:
+            logger.error("fetch sec_code to sector_33 mapping failed: %s", exc)
+            return {}
+
+    async def _async_fetch_sec_code_to_stock_code_mapping(
+        self, sec_codes: List[str]
+    ) -> Dict[str, str]:
+        """複数の証券コードから stock_code へのマッピングを一括取得。
+
+        保存時に逆引きするための映射を事前取得することで、保存時のDB参照を削減します。
+
+        Args:
+            sec_codes: 証券コードのリスト
+
+        Returns:
+            Dict[str, str]: sec_code -> stock_code のマッピング
+        """
+        if self._stock_master_maker is None or not sec_codes:
+            return {}
+
+        try:
+            async with self._stock_master_maker() as session:
+                stmt = select(StockCodeMapping.sec_code, StockCodeMapping.stock_code).where(
+                    StockCodeMapping.sec_code.in_(sec_codes)
+                )
+                result = await session.execute(stmt)
+                rows = result.all()
+                pairs = [(row[0], row[1]) for row in rows]
+                return dict(pairs)
+        except Exception as exc:
+            logger.error("fetch sec_code to stock_code mapping failed: %s", exc)
+            return {}
+
+    async def _async_fetch_edinet_codes_set(self) -> Set[str]:
+        """EDINETデータが存在する証券コードのセットを一括取得。
+
+        3つのEDINETテーブル（配当、P&L、キャッシュフロー）すべてに存在する
+        証券コードを返します。（AND条件）
+
+        Returns:
+            Set[str]: EDINET データが存在する sec_code のセット
+        """
+        if self._stock_master_maker is None:
+            return set()
+
+        try:
+            async with self._stock_master_maker() as session:
+                # 配当データ
+                stmt = select(func.distinct(EdinetDocument.sec_code)).join(
+                    EdinetStockDividend,
+                    EdinetStockDividend.edinet_document_id == EdinetDocument.id,
+                )
+                result = await session.execute(stmt)
+                div_codes = set(result.scalars().all() or [])
+
+                # P&L データ
+                stmt = select(func.distinct(EdinetDocument.sec_code)).join(
+                    EdinetProfitAndLoss,
+                    EdinetProfitAndLoss.edinet_document_id == EdinetDocument.id,
+                )
+                result = await session.execute(stmt)
+                pl_codes = set(result.scalars().all() or [])
+
+                # キャッシュフロー データ
+                stmt = select(func.distinct(EdinetDocument.sec_code)).join(
+                    EdinetCashFlowStatement,
+                    EdinetCashFlowStatement.edinet_document_id == EdinetDocument.id,
+                )
+                result = await session.execute(stmt)
+                cf_codes = set(result.scalars().all() or [])
+
+                # 3つのテーブル全てに存在する銘柄を返す（AND条件で全に存在必須）
+                common_codes = div_codes & pl_codes & cf_codes
+                return common_codes
+        except Exception as exc:
+            logger.error("fetch edinet codes set failed: %s", exc)
+            return set()
+
     # pylint: disable=R0914
     async def run(self, sec_codes: Optional[List[str]], evaluation_date: date) -> None:
-        """スクリーニングを実行して結果を出力。
+        """スクリーニングを実行して結果を出力。業種単位でバッチ処理。
 
         Args:
             sec_codes: 対象銘柄コードのリスト。None の場合は全銘柄を取得
@@ -177,75 +290,246 @@ class ScreeningService:
             sec_codes = await self._async_fetch_all_stock_master_codes()
 
         print(f"[{evaluation_date}] スクリーニング結果")
-        passed_count = 0
-        failed_count = 0
-        skipped_count = 0
-        total = len(sec_codes)
 
+        # 事前に必要なデータを一括取得
+        sector_33_mapping = await self._async_fetch_sec_code_to_sector_33_mapping(sec_codes)
+        sec_to_stock_mapping = await self._async_fetch_sec_code_to_stock_code_mapping(sec_codes)
+        edinet_codes_set = await self._async_fetch_edinet_codes_set()
+
+        # sec_code を sector_33_code でグループ化
+        grouped_by_sector: Dict[str, List[str]] = {}
         for code in sec_codes:
-            # EDINET データ存在チェック
-            if self._stock_master_maker is not None:
-                try:
-                    async with self._stock_master_maker() as session:
-                        has_data = False
-                        for model_class in (
-                            EdinetStockDividend,
-                            EdinetProfitAndLoss,
-                            EdinetCashFlowStatement,
-                        ):
-                            stmt = (
-                                select(model_class)
-                                .join(
-                                    EdinetDocument,
-                                    model_class.edinet_document_id == EdinetDocument.id,
-                                )
-                                .where(EdinetDocument.sec_code == code)
-                                .limit(1)
-                            )
-                            r = await session.execute(stmt)
-                            if r.scalar_one_or_none() is not None:
-                                has_data = True
-                                break
+            sector_33 = sector_33_mapping.get(code, "33")  # デフォルト
+            if sector_33 not in grouped_by_sector:
+                grouped_by_sector[sector_33] = []
+            grouped_by_sector[sector_33].append(code)
 
-                        if not has_data:
-                            logger.debug("skip %s: no EDINET data", code)
-                            skipped_count += 1
-                            continue
-                except Exception as e:
-                    logger.debug("edinet data check failed for %s: %s; proceeding", code, e)
+        # 業種別統計
+        sector_stats: Dict[str, Dict[str, int]] = {}
+        total_passed = 0
+        total_failed = 0
+        total_skipped = 0
 
-            # スクリーニング評価
-            # (業種別ストラテジーは evaluate() メソッド内で自動適用)
-            res = await self.evaluate(code, evaluation_date)
-            await self._persist_result(res, evaluation_date)
+        # 業種単位で処理（並列化は最大 4 業種同時）
+        semaphore = asyncio.Semaphore(4)
 
-            # 結果集計
-            if res.status in ("priority", "active", "watch"):
-                passed_count += 1
-            else:
-                failed_count += 1
+        async def process_sector(sector_33_code: str, codes: List[str]) -> None:
+            """業種単位の処理。"""
+            nonlocal total_passed, total_failed, total_skipped
 
-        # 統計情報を出力
+            async with semaphore:
+                passed, failed, skipped = await self._process_sector(
+                    sector_33_code,
+                    codes,
+                    edinet_codes_set,
+                    evaluation_date,
+                    sec_to_stock_mapping,
+                )
+                sector_stats[sector_33_code] = {
+                    "passed": passed,
+                    "failed": failed,
+                    "skipped": skipped,
+                }
+                total_passed += passed
+                total_failed += failed
+                total_skipped += skipped
+
+        # 全業種を並列処理
+        await asyncio.gather(
+            *[
+                process_sector(sector_33_code, codes)
+                for sector_33_code, codes in grouped_by_sector.items()
+            ]
+        )
+
+        # 業種別統計を出力
+        if sector_stats:
+            logger.info("--- 業種別スクリーニング統計 ---")
+            for sector_code, stats in sorted(sector_stats.items()):
+                logger.info(
+                    "  Sector %s: 合格 %d件 / 不合格 %d件 / スキップ %d件",
+                    sector_code,
+                    stats["passed"],
+                    stats["failed"],
+                    stats["skipped"],
+                )
+
+        # 全体統計
+        total = len(sec_codes)
         stats_msg = (
-            f"--- 合格 {passed_count}件 / 不合格 {failed_count}件 / "
-            f"スキップ {skipped_count}件 / 全体 {total}件 ---"
+            f"--- 合格 {total_passed}件 / 不合格 {total_failed}件 / "
+            f"スキップ {total_skipped}件 / 全体 {total}件 ---"
         )
         print(stats_msg)
 
-    async def evaluate(self, sec_code: str, evaluation_date: date) -> ScreeningResult:
+    async def _process_sector(  # pylint: disable=R0912
+        self,
+        sector_33_code: str,
+        sec_codes: List[str],
+        edinet_codes_set: Set[str],
+        evaluation_date: date,
+        sec_to_stock_mapping: Dict[str, str],
+    ) -> tuple[int, int, int]:
+        """業種単位の処理。業種内銘柄を並列評価し、結果をまとめて保存。
+
+        - 一部の銘柄評価失敗が全体を失敗させない（部分的な例外を個別扱い）
+        - sector_33_code をオーバーライドとして evaluate に渡す
+
+        Args:
+            sector_33_code: 業種コード（Sector33Master.code）
+            sec_codes: 証券コードのリスト
+            edinet_codes_set: EDINET データが存在する証券コードのセット
+            evaluation_date: 評価実行日
+            sec_to_stock_mapping: sec_code -> stock_code のマッピング(保存高速化用)
+
+        Returns:
+            (passed_count, failed_count, skipped_count)
+        """
+        passed_count = 0
+        failed_count = 0
+        skipped_count = 0
+
+        # EDINET 存在チェック（事前フィルタ）
+        codes_with_edinet = [c for c in sec_codes if c in edinet_codes_set]
+        skipped_count = len(sec_codes) - len(codes_with_edinet)
+
+        if not codes_with_edinet:
+            logger.debug("skip sector %s: no codes with edinet data", sector_33_code)
+            return passed_count, failed_count, skipped_count
+
+        # 業種内銘柄を並列評価（最大 8 同時）
+        sem = asyncio.Semaphore(8)
+
+        async def evaluate_and_build(
+            code: str,
+        ) -> tuple[str, Optional[ScreeningResult], Optional[Exception]]:
+            """銘柄を評価。例外は tuple に含める。"""
+            async with sem:
+                try:
+                    result = await self.evaluate(
+                        code, evaluation_date, industry_code_override=sector_33_code
+                    )
+                    return code, result, None
+                except Exception as e:
+                    logger.debug(
+                        "evaluate failed for code %s in sector %s: %s", code, sector_33_code, e
+                    )
+                    return code, None, e
+
+        results = await asyncio.gather(
+            *[evaluate_and_build(code) for code in codes_with_edinet],
+            return_exceptions=False,
+        )
+
+        # 業種単位でトランザクション開始して結果を保存
+        if self._screening_result_maker is not None:
+            try:
+                async with self._screening_result_maker.begin() as session:
+                    for code, result, error in results:
+                        if error:
+                            # 評価失敗は失敗扱いに計上するが、トランザクション全体は続行
+                            logger.warning(
+                                "skip saving result for code %s: evaluation failed", code
+                            )
+                            failed_count += 1
+                            continue
+
+                        if result is None:
+                            # 型安全のためのガード（通常はここに来ないはず）
+                            logger.warning("skip saving result for code %s: no result", code)
+                            failed_count += 1
+                            continue
+
+                        try:
+                            # sec_to_stock_mapping から stock_code を取得（DB参照回避）
+                            await self._persist_result_internal(
+                                result, evaluation_date, session, sec_to_stock_mapping
+                            )
+
+                            # 結果集計
+                            if result.status in ("priority", "active", "watch"):
+                                passed_count += 1
+                            else:
+                                failed_count += 1
+                        except Exception as e:
+                            logger.warning("failed to persist code %s: %s", code, e)
+                            failed_count += 1
+            except Exception as e:
+                logger.error("failed to persist results for sector %s: %s", sector_33_code, e)
+                # トランザクション失敗時は各銘柄をすべて失敗に変更
+                passed_count = 0
+                failed_count = len(codes_with_edinet)
+        else:
+            # maker がない場合は評価結果のみ集計
+            for code, result, error in results:
+                if error:
+                    failed_count += 1
+                    continue
+
+                if result is None:
+                    failed_count += 1
+                    continue
+
+                if result.status in ("priority", "active", "watch"):
+                    passed_count += 1
+                else:
+                    failed_count += 1
+
+        return passed_count, failed_count, skipped_count
+
+    async def _persist_result_internal(
+        self,
+        result: ScreeningResult,
+        evaluation_date: date,
+        session: AsyncSession,
+        sec_to_stock_mapping: Optional[Dict[str, str]] = None,
+    ) -> None:
+        """スクリーニング結果をDB に保存（既存セッション使用）。
+
+        Args:
+            result: スクリーニング結果
+            evaluation_date: 評価実行日
+            session: SQLAlchemy AsyncSession（トランザクション内で使用）
+            sec_to_stock_mapping: 事前取得した sec_code -> stock_code マッピング(オプション)
+        """
+        payload = self._build_upsert_payload(result, evaluation_date)
+
+        # 事前マッピングがある場合はそれを使用、なければDB参照
+        if sec_to_stock_mapping and result.sec_code in sec_to_stock_mapping:
+            payload["symbol"] = sec_to_stock_mapping[result.sec_code]
+        else:
+            try:
+                mapping_repo = StockCodeMappingRepository(session=session)
+                mapping = await mapping_repo.get_by_sec_code(result.sec_code)
+                if mapping and getattr(mapping, "stock_code", None):
+                    payload["symbol"] = mapping.stock_code
+                else:
+                    payload["symbol"] = result.sec_code
+            except Exception:
+                payload.setdefault("symbol", result.sec_code)
+
+        repo = self._screening_result_factory(session)
+        await repo.upsert(payload)
+
+    async def evaluate(
+        self, sec_code: str, evaluation_date: date, industry_code_override: Optional[str] = None
+    ) -> ScreeningResult:
         """単一銘柄をスクリーニング評価。
 
         Args:
             sec_code: 証券コード
             evaluation_date: 評価実行日
+            industry_code_override: 業種コード（指定時はこれを優先）
 
         Returns:
             ScreeningResult
         """
-        # 業種コード（17業種）を取得
-        industry_code = await self._async_fetch_sector_code_17(sec_code)
-        if not industry_code:
-            industry_code = "33"  # デフォルトはサービス業
+        # 業種コードを決定：オーバーライドがあればそれを使用、なければDB から取得
+        if industry_code_override:
+            industry_code: str = industry_code_override
+        else:
+            fetched_code = await self._async_fetch_sector_code_17(sec_code)
+            industry_code = fetched_code if fetched_code else "33"
 
         # 業種に対応するストラテジーを取得
         try:

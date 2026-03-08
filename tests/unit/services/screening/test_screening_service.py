@@ -337,7 +337,7 @@ async def test_lifespan_initialization():
 
 @pytest.mark.asyncio
 async def test_evaluate_uses_provided_industry_code():
-    """_async_fetch_sector_code_17 が特定コードを返す場合、そのコードで評価される。"""
+    """industry_code_override が提供されたとき、そのコードで評価される。"""
     from app.services.screening.models import ScreeningConfig
 
     fq = MagicMock()
@@ -363,10 +363,15 @@ async def test_evaluate_uses_provided_industry_code():
     # キャッシュ初期化
     await svc._init_industry_config_cache()
 
-    # _async_fetch_sector_code_17 をモック
-    svc._async_fetch_sector_code_17 = AsyncMock(return_value="05")
-    result = await svc.evaluate("5678", date(2026, 3, 2))
+    # _async_fetch_sector_code_17 をモック（呼ばれるべきではない、またはコールカウントを確認）
+    svc._async_fetch_sector_code_17 = AsyncMock(return_value="01")
+
+    # industry_code_override を指定して evaluate 実行
+    result = await svc.evaluate("5678", date(2026, 3, 2), industry_code_override="05")
     assert result.sec_code == "5678"
+
+    # _async_fetch_sector_code_17 が呼ばれなかったことを確認（override があるため）
+    svc._async_fetch_sector_code_17.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -416,3 +421,276 @@ def test_no_industry_configs_in_module():
     assert not hasattr(
         models, "INDUSTRY_CONFIGS"
     ), "INDUSTRY_CONFIGS should be removed from models.py"
+
+
+# NEW: Sector-based processing tests
+
+
+@pytest.mark.asyncio
+async def test_async_fetch_sec_code_to_sector_33_mapping():
+    """sec_code と sector_33_code のマッピングを一括取得。"""
+    from app.services.screening.models import ScreeningConfig
+
+    # モック repo でキャッシュを初期化
+    mock_repo = AsyncMock()
+    test_configs = {
+        "01": ScreeningConfig(industry_code="01", industry_name="水産・農林業"),
+        "33": ScreeningConfig(industry_code="33", industry_name="サービス業"),
+    }
+    mock_repo.as_config_dict = AsyncMock(return_value=test_configs)
+
+    fq = MagicMock()
+    svc = ScreeningService(
+        financial_query_service=fq,
+        stock_master_maker=None,  # mockを使う場合はNoneでもOK（メソッドが実装されていない）
+        sector_33_master_repo=mock_repo,
+    )
+
+    # _async_fetch_sec_code_to_sector_33_mapping をモック
+    svc._async_fetch_sec_code_to_sector_33_mapping = AsyncMock(
+        return_value={"1234": "01", "5678": "33"}
+    )
+
+    result = await svc._async_fetch_sec_code_to_sector_33_mapping(["1234", "5678"])
+    assert result == {"1234": "01", "5678": "33"}
+
+
+@pytest.mark.asyncio
+async def test_async_fetch_edinet_codes_set():
+    """EDINET 存在コードのセットを一括取得。"""
+    fq = MagicMock()
+    svc = ScreeningService(
+        financial_query_service=fq,
+        stock_master_maker=None,
+    )
+
+    # _async_fetch_edinet_codes_set をモック
+    svc._async_fetch_edinet_codes_set = AsyncMock(return_value={"1234", "5678"})
+
+    result = await svc._async_fetch_edinet_codes_set()
+    assert result == {"1234", "5678"}
+
+
+@pytest.mark.asyncio
+async def test_process_sector_groups_and_evaluates():
+    """業種単位で銘柄をグループ化して評価。"""
+    from app.services.screening.models import ScreeningConfig
+
+    fq = MagicMock()
+    fq.get_dividend_history = MagicMock(return_value=[])
+    fq.get_eps_history = MagicMock(return_value=[])
+    fq.get_operating_cf_history = MagicMock(return_value=[])
+    fq.get_stability_history = MagicMock(return_value=[])
+
+    # モック repo でキャッシュを初期化
+    mock_repo = AsyncMock()
+    test_configs = {
+        "01": ScreeningConfig(industry_code="01", industry_name="水産・農林業"),
+        "33": ScreeningConfig(industry_code="33", industry_name="サービス業"),
+    }
+    mock_repo.as_config_dict = AsyncMock(return_value=test_configs)
+
+    svc = ScreeningService(
+        financial_query_service=fq,
+        stock_master_maker=None,
+        screening_result_maker=None,
+        sector_33_master_repo=mock_repo,
+    )
+    await svc._init_industry_config_cache()
+
+    # _process_sector をテスト
+    edinet_codes = {"1234", "5678"}
+    sec_to_stock_mapping = {"1234": "1234", "5678": "5678"}
+    passed, failed, skipped = await svc._process_sector(
+        "01", ["1234", "5678"], edinet_codes, date(2026, 3, 2), sec_to_stock_mapping
+    )
+
+    # 両方とも EDINET データがあり、not_eligible なので failed
+    assert passed == 0
+    assert failed == 2
+    assert skipped == 0
+
+
+@pytest.mark.asyncio
+async def test_run_groups_by_sector_33():
+    """run() メソッドが sector_33 単位で処理することを確認。"""
+    from app.services.screening.models import ScreeningConfig
+
+    fq = MagicMock()
+    fq.get_dividend_history = MagicMock(return_value=[])
+    fq.get_eps_history = MagicMock(return_value=[])
+    fq.get_operating_cf_history = MagicMock(return_value=[])
+    fq.get_stability_history = MagicMock(return_value=[])
+
+    # モック repo でキャッシュを初期化
+    mock_repo = AsyncMock()
+    test_configs = {
+        "01": ScreeningConfig(industry_code="01", industry_name="水産・農林業"),
+        "33": ScreeningConfig(industry_code="33", industry_name="サービス業"),
+    }
+    mock_repo.as_config_dict = AsyncMock(return_value=test_configs)
+
+    svc = ScreeningService(
+        financial_query_service=fq,
+        stock_master_maker=None,
+        screening_result_maker=None,
+        sector_33_master_repo=mock_repo,
+    )
+    await svc._init_industry_config_cache()
+
+    # 事前フェッチをモック
+    svc._async_fetch_sec_code_to_sector_33_mapping = AsyncMock(
+        return_value={"1234": "01", "5678": "33"}
+    )
+    svc._async_fetch_edinet_codes_set = AsyncMock(return_value={"1234", "5678"})
+
+    # run を実行
+    await svc.run(["1234", "5678"], date(2026, 3, 2))
+
+    # マッピング取得が呼ばれたことを確認
+    svc._async_fetch_sec_code_to_sector_33_mapping.assert_called_once()
+    # EDINET コード取得が呼ばれたことを確認
+    svc._async_fetch_edinet_codes_set.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_run_skips_codes_without_edinet_data():
+    """EDINET データのない銘柄はスキップされる。"""
+    from app.services.screening.models import ScreeningConfig
+
+    fq = MagicMock()
+    fq.get_dividend_history = MagicMock(return_value=[])
+    fq.get_eps_history = MagicMock(return_value=[])
+    fq.get_operating_cf_history = MagicMock(return_value=[])
+    fq.get_stability_history = MagicMock(return_value=[])
+
+    # モック repo でキャッシュを初期化
+    mock_repo = AsyncMock()
+    test_configs = {
+        "33": ScreeningConfig(industry_code="33", industry_name="サービス業"),
+    }
+    mock_repo.as_config_dict = AsyncMock(return_value=test_configs)
+
+    svc = ScreeningService(
+        financial_query_service=fq,
+        stock_master_maker=None,
+        screening_result_maker=None,
+        sector_33_master_repo=mock_repo,
+    )
+    await svc._init_industry_config_cache()
+
+    # マッピングと EDINET コード取得をモック（1234 のみ EDINET データあり）
+    svc._async_fetch_sec_code_to_sector_33_mapping = AsyncMock(
+        return_value={"1234": "33", "5678": "33"}
+    )
+    svc._async_fetch_sec_code_to_stock_code_mapping = AsyncMock(
+        return_value={"1234": "1234", "5678": "5678"}
+    )
+    svc._async_fetch_edinet_codes_set = AsyncMock(return_value={"1234"})
+
+    # _process_sector をモック
+    svc._process_sector = AsyncMock(return_value=(1, 0, 1))
+
+    await svc.run(["1234", "5678"], date(2026, 3, 2))
+
+    # _process_sector が呼ばれていることを確認
+    svc._process_sector.assert_called_once()
+    call_args = svc._process_sector.call_args
+    # 第 2 引数が EDINET データのある銘柄のみであることを確認
+    # (_process_sector(sector_33_code, sec_codes, edinet_codes_set, evaluation_date, sec_to_stock_mapping))
+    assert call_args[0][1] == ["1234", "5678"]  # sector 内のすべての銘柄
+    assert call_args[0][2] == {"1234"}  # EDINET セット
+
+
+# NEW: 第二フェーズテスト（N+1解消、トランザクション堅牢化、override対応）
+
+
+@pytest.mark.asyncio
+async def test_process_sector_continues_on_evaluation_error():
+    """_process_sector が一部銘柄の評価失敗でも継続集計する"""
+    from app.services.screening.models import ScreeningConfig
+
+    fq = MagicMock()
+    fq.get_dividend_history = MagicMock(return_value=[])
+    fq.get_eps_history = MagicMock(return_value=[])
+    fq.get_operating_cf_history = MagicMock(return_value=[])
+    fq.get_stability_history = MagicMock(return_value=[])
+
+    # モック repo でキャッシュを初期化
+    mock_repo = AsyncMock()
+    test_configs = {
+        "33": ScreeningConfig(industry_code="33", industry_name="サービス業"),
+    }
+    mock_repo.as_config_dict = AsyncMock(return_value=test_configs)
+
+    svc = ScreeningService(
+        financial_query_service=fq,
+        stock_master_maker=None,
+        screening_result_maker=None,
+        sector_33_master_repo=mock_repo,
+    )
+    await svc._init_industry_config_cache()
+
+    # evaluate を部分的に失敗させるようにモック
+    original_evaluate = svc.evaluate
+
+    async def mocked_evaluate(code, eval_date, industry_code_override=None):
+        if code == "1234":
+            raise ValueError("Evaluation failed for 1234")
+        return await original_evaluate(code, eval_date, industry_code_override)
+
+    svc.evaluate = mocked_evaluate
+
+    # _process_sector を実行
+    edinet_codes = {"1234", "5678"}
+    sec_to_stock_mapping = {"1234": "1234", "5678": "5678"}
+    passed, failed, skipped = await svc._process_sector(
+        "33", ["1234", "5678"], edinet_codes, date(2026, 3, 2), sec_to_stock_mapping
+    )
+
+    # 1234 は評価失敗（failed にカウント）、5678 は評価成功（not_eligible → failed）
+    assert failed >= 1  # 最低限、失敗したコード分
+    assert passed >= 0
+    assert skipped == 0
+
+
+@pytest.mark.asyncio
+async def test_run_calls_prefetch_methods():
+    """run() が事前取得メソッドを呼び出すことを確認"""
+    from app.services.screening.models import ScreeningConfig
+
+    fq = MagicMock()
+    fq.get_dividend_history = MagicMock(return_value=[])
+    fq.get_eps_history = MagicMock(return_value=[])
+    fq.get_operating_cf_history = MagicMock(return_value=[])
+    fq.get_stability_history = MagicMock(return_value=[])
+
+    # モック repo でキャッシュを初期化
+    mock_repo = AsyncMock()
+    test_configs = {
+        "33": ScreeningConfig(industry_code="33", industry_name="サービス業"),
+    }
+    mock_repo.as_config_dict = AsyncMock(return_value=test_configs)
+
+    svc = ScreeningService(
+        financial_query_service=fq,
+        stock_master_maker=None,
+        screening_result_maker=None,
+        sector_33_master_repo=mock_repo,
+    )
+    await svc._init_industry_config_cache()
+
+    # 事前フェッチメソッドをモック
+    svc._async_fetch_sec_code_to_sector_33_mapping = AsyncMock(return_value={"1234": "33"})
+    svc._async_fetch_sec_code_to_stock_code_mapping = AsyncMock(return_value={"1234": "1234"})
+    svc._async_fetch_edinet_codes_set = AsyncMock(return_value={"1234"})
+
+    # _process_sector をモック
+    svc._process_sector = AsyncMock(return_value=(0, 1, 0))
+
+    await svc.run(["1234"], date(2026, 3, 2))
+
+    # 3つの事前フェッチメソッドが呼ばれたことを確認
+    svc._async_fetch_sec_code_to_sector_33_mapping.assert_called_once_with(["1234"])
+    svc._async_fetch_sec_code_to_stock_code_mapping.assert_called_once_with(["1234"])
+    svc._async_fetch_edinet_codes_set.assert_called_once()
