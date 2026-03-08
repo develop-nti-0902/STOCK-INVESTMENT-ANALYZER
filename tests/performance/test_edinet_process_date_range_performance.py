@@ -11,7 +11,7 @@
 1. EDINET 関連テーブル（edinet_profit_and_loss / edinet_stock_dividend / edinet_cash_flow_statement）をクリーンアップ
 2. `/api/v1/stock-master/fetch/sample?sample_size=50` でサンプル50件の stock_master を取得
 3. `/api/v1/edinet/process-date-range` を以下パラメータで実行：
-   - start_date=2025-06-25, end_date=2025-06-25, max_documents=10
+   - start_date=2025-06-25, end_date=2025-06-25, max_documents=50
 4. ダウンロード時間、DB操作時間、トータル時間を計測
 5. 結果をJSON形式で出力
 
@@ -134,7 +134,7 @@ class TestEdinetProcessDateRangePerformance:
         params = {
             "start_date": "2025-06-25",
             "end_date": "2025-06-25",
-            "max_documents": 10,
+            "max_documents": 50,
             "progress_interval": 1,
             "transaction_atomic": True,
         }
@@ -216,7 +216,7 @@ class TestEdinetProcessDateRangePerformance:
             "params": {
                 "start_date": "2025-06-25",
                 "end_date": "2025-06-25",
-                "max_documents": 10,
+                "max_documents": 50,
             },
             "results": metrics.to_dict(),
             "environment": {
