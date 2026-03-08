@@ -200,6 +200,155 @@ def setup_e2e_database():
     yield
 
 
+@pytest.fixture(scope="session", autouse=True)
+def setup_dividend_yield_history_test_data():
+    """配当利回り履歴e2eテスト用テストデータをセットアップ.
+
+    セッションスコープで一度だけ実行されます。
+    全テストプロセスで共有されるようにセッション開始時にデータを投入します。
+    """
+    import asyncio
+    from datetime import date, datetime, timedelta
+    from decimal import Decimal
+
+    from sqlalchemy import delete
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.dividend_yield_history import DividendYieldHistory
+    from app.models.market_data.edinet import EdinetDocument, EdinetStockDividend
+    from app.models.market_data.stock_master import StockCodeMapping, StockMaster
+    from app.models.market_data.stock_price import Stocks1d
+    from app.utils.database import get_database_url
+
+    async def _setup_data():
+        """非同期でテストデータを投入"""
+        engine = create_async_engine(get_database_url())
+        try:
+            async with AsyncSession(engine) as session:
+                target_date = date(2026, 3, 7)
+
+                # 1. 既存データをクリーンアップ
+                tables_to_clean = [
+                    DividendYieldHistory,
+                    EdinetStockDividend,
+                    EdinetDocument,
+                    Stocks1d,
+                    StockCodeMapping,
+                    StockMaster,
+                ]
+                for table in tables_to_clean:
+                    await session.execute(delete(table))
+                await session.commit()
+                print("✅ Cleaned up existing dividend yield history test data")
+
+                # 2. StockMaster を投入
+                stock_definitions = [
+                    ("7203", "トヨタ自動車"),
+                    ("6098", "リクルート"),
+                    ("9984", "ソフトバンクグループ"),
+                    ("9437", "ＮＴＴドコモ"),
+                    ("8306", "三井住友銀行"),
+                ]
+                stocks = [
+                    StockMaster(
+                        stock_code=code,
+                        stock_name=name,
+                        data_date=target_date,
+                        is_active=True,
+                    )
+                    for code, name in stock_definitions
+                ]
+                stock_codes = [s.stock_code for s in stocks]
+
+                for stock in stocks:
+                    session.add(stock)
+                await session.flush()
+                print(f"✅ Inserted {len(stocks)} StockMaster records")
+
+                # 3. StockCodeMapping を投入
+                sec_codes = ["10001", "10002", "10003", "10004", "10005"]
+                mappings = [
+                    StockCodeMapping(stock_code=code, sec_code=sec)
+                    for code, sec in zip(stock_codes, sec_codes)
+                ]
+                for mapping in mappings:
+                    session.add(mapping)
+                await session.flush()
+                print(f"✅ Inserted {len(mappings)} StockCodeMapping records")
+
+                # 4. Stocks1d を投入（過去30日分）
+                total_stocks_1d = 0
+                for symbol in stock_codes:
+                    for i in range(30):
+                        check_date = target_date - timedelta(days=i)
+                        timestamp = datetime.combine(check_date, datetime.min.time())
+                        stock_1d = Stocks1d(
+                            symbol=symbol,
+                            timestamp=timestamp,
+                            open=Decimal("1000.0") + Decimal(i),
+                            high=Decimal("1050.0") + Decimal(i),
+                            low=Decimal("950.0") + Decimal(i),
+                            close=Decimal("1010.0") + Decimal(i),
+                            adj_close=Decimal("1010.0") + Decimal(i),
+                            volume=1000000,
+                        )
+                        session.add(stock_1d)
+                        total_stocks_1d += 1
+                await session.flush()
+                print(f"✅ Inserted {total_stocks_1d} Stocks1d records")
+
+                # 5. EdinetDocument を投入
+                fiscal_year = target_date.year - 1
+                edinet_docs = []
+                for sec_code in sec_codes:
+                    for fy_offset in range(3):
+                        doc_id = f"E{sec_code}{fiscal_year - fy_offset:04d}12-31-000"
+                        doc = EdinetDocument(
+                            doc_id=doc_id,
+                            sec_code=sec_code,
+                            submission_date=date(fiscal_year - fy_offset, 6, 30),
+                            report_type="annual",
+                        )
+                        edinet_docs.append(doc)
+                        session.add(doc)
+                await session.flush()
+                print(f"✅ Inserted {len(edinet_docs)} EdinetDocument records")
+
+                # 6. EdinetStockDividend を投入
+                dividend_count = 0
+                for _stock_code, sec_code in zip(stock_codes, sec_codes):
+                    matching_docs = [d for d in edinet_docs if d.sec_code == sec_code]
+                    if matching_docs:
+                        doc = matching_docs[0]
+                        dividend = EdinetStockDividend(
+                            edinet_document_id=doc.id,
+                            period_end_date=date(target_date.year - 1, 3, 31),
+                            fiscal_year=target_date.year - 1,
+                            dividend_actual=Decimal("50.00"),
+                            dividend_adj=Decimal("50.00"),
+                            is_consolidated=True,
+                        )
+                        session.add(dividend)
+                        dividend_count += 1
+
+                await session.commit()
+                print(f"✅ Inserted {dividend_count} EdinetStockDividend records")
+                print("✅ Dividend yield history e2e test data initialization completed")
+        finally:
+            await engine.dispose()
+
+    # セッション開始時にデータ投入
+    print("🔧 Starting dividend yield history e2e test data setup fixture...")
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(_setup_data())
+    finally:
+        loop.close()
+
+    yield
+
+
 @pytest.fixture(scope="function")
 def loaded_edinet_test_data():
     """

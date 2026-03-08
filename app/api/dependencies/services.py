@@ -13,13 +13,16 @@ from pathlib import Path
 from typing import Any, cast
 
 from fastapi import Depends, Request
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.repositories.latest_stocks_repository import LatestStocksRepository
 from app.repositories.market_data.stock_master import (
     StockCodeMappingRepository,
     StockMasterRepository,
     StockMasterUpdatesRepository,
+)
+from app.services.data_synchronization.market_data.dividend_yield_history import (
+    DividendYieldHistoryService,
 )
 from app.services.data_synchronization.market_data.edinet.common.api_client import EdinetAPIClient
 from app.services.data_synchronization.market_data.edinet.download_service import (
@@ -452,3 +455,21 @@ def get_screening_service(request: Request) -> Any:
         msg = "ScreeningService not initialized. Ensure Lifespan startup completed successfully."
         raise RuntimeError(msg)
     return screening_service
+
+
+# DividendYieldHistory Service プロバイダー
+
+
+def get_dividend_yield_history_service(
+    engine: AsyncEngine = Depends(get_engine),
+) -> DividendYieldHistoryService:
+    """DividendYieldHistoryService を提供する依存性プロバイダ.
+
+    Args:
+        engine (AsyncEngine): 非同期DB エンジン
+
+    Returns:
+        DividendYieldHistoryService: 配当利回り履歴生成サービスのインスタンス
+    """
+    session_maker = async_sessionmaker(bind=engine, class_=AsyncSession)
+    return DividendYieldHistoryService(session_maker=session_maker)

@@ -5,6 +5,7 @@ from fastapi import APIRouter
 # v1 のサブルータをまとめて登録
 from . import accounts as accounts_module
 from . import auth as auth_module
+from . import dividend_yield_history as dividend_yield_history_module
 from . import edinet as edinet_module
 from . import latest_stocks as latest_stocks_module
 from . import screening as screening_module
@@ -16,6 +17,7 @@ router = APIRouter()
 router.include_router(edinet_module.router, prefix="/edinet")
 router.include_router(stock_master_module.router, prefix="/stock-master")
 router.include_router(stock_price_module.router, prefix="/stock-price")
+router.include_router(dividend_yield_history_module.router, prefix="/dividend-yield-history")
 router.include_router(auth_module.router, prefix="/auth")
 router.include_router(accounts_module.router, prefix="/accounts")
 router.include_router(latest_stocks_module.router, prefix="/views")
