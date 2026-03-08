@@ -28,6 +28,9 @@ async def refresh_latest_stocks(
 
     バックグラウンドのジョブ管理を廃止し、呼び出し元で同期的にリフレッシュ処理を実行します。
     成功時は HTTP 200 を返します。
+
+    **関連テーブル:**
+    - 参照 (ビュー): `latest_stocks_1d` (内部で `stocks_1d`, `stock_master` を利用)
     """
     try:
         await service.run_refresh()
@@ -59,6 +62,9 @@ async def get_latest_stock(
     Raises:
         404: 銘柄が見つからない場合
         500: サーバーエラー
+
+    **関連テーブル:**
+    - 読取 (ビュー): `latest_stocks_1d` (内部で `stocks_1d`, `stock_master` を利用)
     """
     try:
         result = await service.get_latest_stock(symbol)

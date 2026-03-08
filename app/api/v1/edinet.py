@@ -19,8 +19,9 @@ from app.services.data_synchronization.market_data.edinet.update_service import 
 from app.utils.database import get_db
 
 # The batch endpoints that used to call per-service orchestration methods
-# have been removed in favor of the centralized update API (`EdinetAggregateUpdateService`).
-# If you need to expose batch endpoints, call the appropriate update service directly.
+# have been removed in favor of the centralized update API
+# (`EdinetAggregateUpdateService`). If you need to expose batch endpoints,
+# call the appropriate update service directly.
 
 router = APIRouter(tags=["edinet"])
 
@@ -39,9 +40,17 @@ async def process_date_range(  # pylint: disable=too-many-arguments,too-many-pos
 ) -> dict:
     """指定期間の EDINET ドキュメントを検索して処理するバッチを実行します.
 
-    - `start_date` と `end_date` は ISO 日付 (YYYY-MM-DD) で渡してください。
-    - `max_documents` を指定すると処理対象数を制限します。
-    - 処理は同期的に実行され、完了後に集計結果を返します。
+    以下の処理を垢列実行:
+    1. 指定期間の訪文日仁写を EDINET API から検索
+    2. 各ドキュメントをダウンロード〉XBRL 解析
+    3. 複数の訪文シート（各種計算書）を抽出・保存
+
+        **関連テーブル:**
+        - 書込/UPSERT:
+            - `edinet_document`
+            - `edinet_profit_and_loss`
+            - `edinet_cash_flow_statement`
+            - `edinet_stock_dividend`
     """
     try:  # pylint: disable=R0913,R0917
         result = await service.process_date_range(

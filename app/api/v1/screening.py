@@ -153,13 +153,28 @@ async def run_screening(
 ) -> dict:
     """業種別ストラテジーを用いてスクリーニングを実行。
 
+    理緡情報（配当、EPS、キャッシュフロー等）を取得し、
+    業種別の計算ロジックで計算スコアを算出しば合格した銘柄をスクリーニング。
+
     Args:
         sec_codes: 対象銘柄コードのリスト。None の場合は全銘柄を対象。
-        evaluation_date: 評価実行日 (ISO形式, 指定なしの場合は本日)
+        evaluation_date: 計算実行日 (ISO形式, 指定なしの場合は本日)
         screening_service: ScreeningService インスタンス（DI から自動取得）
 
     Returns:
         スクリーニング実行結果
+
+        **関連テーブル:**
+        - 読取:
+            - `stock_master`
+            - `stock_code_mapping`
+            - `sector_17_master`
+            - `edinet_document`
+            - `edinet_stock_dividend`
+            - `edinet_profit_and_loss`
+            - `edinet_cash_flow_statement`
+        - 書込:
+            - `screening_results`
     """
     try:
         if evaluation_date is None:

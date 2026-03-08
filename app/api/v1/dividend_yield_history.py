@@ -36,7 +36,21 @@ async def generate_dividend_yield_history(
 ) -> GenerateDividendYieldHistoryResponse:
     """配当利回り履歴を同期実行で生成・保存します。
 
-    処理完了まで待機し、rowcount/skipped/error を返します。
+    指定日付で:
+    1. 理緡情報（EDINET）から配当を取得
+    2. 株価データから等妨栽量を取得
+    3. 配当利回りを計算
+    4. 結果を保存
+
+        **関連テーブル:**
+        - 読取:
+            - `stock_master`
+            - `stock_code_mapping`
+            - `edinet_stock_dividend`
+            - `edinet_document`
+            - `stocks_1d`
+        - 書込:
+            - `dividend_yield_history`
 
     Args:
         request: GenerateDividendYieldHistoryRequest
@@ -52,7 +66,7 @@ async def generate_dividend_yield_history(
     today = date.today()
     if request.target_date > today:
         error_msg = (
-            f"target_date must not be a future date. " f"got={request.target_date}, today={today}"
+            "target_date must not be a future date. " + f"got={request.target_date}, today={today}"
         )
         raise HTTPException(
             status_code=http_status.HTTP_400_BAD_REQUEST,

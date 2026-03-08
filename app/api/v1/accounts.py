@@ -20,6 +20,11 @@ async def get_account_repo(db=Depends(get_db)) -> AccountRepository:
 
 @router.get("/me", response_model=AccountResponse)
 async def me(current_user=Depends(get_current_active_user)):
+    """ログイン中のユーザー情報を取得する.
+
+    **関連テーブル:**
+    - 読取: `account`
+    """
     return current_user
 
 
@@ -29,6 +34,11 @@ async def update_me(
     repo: AccountRepository = Depends(get_account_repo),
     current_user=Depends(get_current_active_user),
 ):
+    """ログイン中のユーザー情報（メールアドレス・表示名）を更新する.
+
+    **関連テーブル:**
+    - 読取/更新: `account`
+    """
     updated = current_user
 
     # Email update: check duplication
@@ -51,6 +61,11 @@ async def change_password(
     repo: AccountRepository = Depends(get_account_repo),
     current_user=Depends(get_current_active_user),
 ):
+    """ログイン中のユーザーのパスワードを変更する.
+
+    **関連テーブル:**
+    - 更新: `account`
+    """
     ok = auth_service.verify_password(
         payload.current_password, getattr(current_user, "hashed_password", "")
     )
@@ -67,6 +82,11 @@ async def deactivate_me(
     repo: AccountRepository = Depends(get_account_repo),
     current_user=Depends(get_current_active_user),
 ):
+    """ログイン中のユーザーアカウントを無効化する (ソフトデリート).
+
+    **関連テーブル:**
+    - 更新: `account`
+    """
     await repo.deactivate_account(current_user.id)
     return None
 

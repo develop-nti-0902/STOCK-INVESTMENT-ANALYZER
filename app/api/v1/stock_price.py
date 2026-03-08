@@ -164,6 +164,17 @@ async def get_stock_price_data(
 
     データベースに格納されている株価データを返します。
 
+        **関連テーブル:**
+        - 読取:
+            - `stocks_1m`
+            - `stocks_5m`
+            - `stocks_15m`
+            - `stocks_30m`
+            - `stocks_1h`
+            - `stocks_1d`
+            - `stocks_1wk`
+            - `stocks_1mo` (時間軸に応じたテーブル)
+
     Args:
         symbol (str): 銘柄コード
         timeframe (str): 時間軸
@@ -238,7 +249,21 @@ async def fetch_and_save_stock_price(
     req: FetchRequest,
     service: StockPriceService = Depends(get_stock_price_service),
 ):
-    """指定銘柄リストの株価データを取得して保存する (fetch_and_save を呼ぶ)."""
+    """指定銘柄リストの株価データを取得して保存する (fetch_and_save を呼ぶ).
+
+    Yahoo Finance から最新データを取得し、指定時間軸のテーブルに保存します。
+
+        **関連テーブル:**
+        - 書込:
+            - `stocks_1m`
+            - `stocks_5m`
+            - `stocks_15m`
+            - `stocks_30m`
+            - `stocks_1h`
+            - `stocks_1d`
+            - `stocks_1wk`
+            - `stocks_1mo` (時間軸に応じたテーブル)
+    """
     try:
         results = await service.fetch_and_save(
             symbols=req.symbols, timeframe=req.timeframe, period=req.period
@@ -272,7 +297,23 @@ async def execute_jpx_batch(
     req: BatchRequest,
     service: StockPriceService = Depends(get_stock_price_service),
 ):
-    """JPX 全銘柄を対象に指定時間軸で一括取得・保存を実行します."""
+    """JPX 全銘柄を対象に指定時間軸で一括取得・保存を実行します.
+
+    stock_master から全銘柄を取得し、各銘柄の株価データを示指時間軸で一括保存します。
+
+        **関連テーブル:**
+        - 読取:
+            - `stock_master`
+        - 書込:
+            - `stocks_1m`
+            - `stocks_5m`
+            - `stocks_15m`
+            - `stocks_30m`
+            - `stocks_1h`
+            - `stocks_1d`
+            - `stocks_1wk`
+            - `stocks_1mo` (時間軸に応じたテーブル)
+    """
     try:
         summary = await service.fetch_and_save_for_all_jpx(
             timeframe=req.timeframe, market=req.market, batch_size=req.batch_size, period=req.period
@@ -307,6 +348,17 @@ async def delete_all_stock_price_data(
     """指定時間軸の全株価データを削除.
 
     指定された時間軸テーブルの全レコードを削除します。取り消し不可です。
+
+        **関連テーブル:**
+        - 削除:
+            - `stocks_1m`
+            - `stocks_5m`
+            - `stocks_15m`
+            - `stocks_30m`
+            - `stocks_1h`
+            - `stocks_1d`
+            - `stocks_1wk`
+            - `stocks_1mo` (時間軸に応じたテーブル)
 
     Args:
         timeframe (str): 時間軸
