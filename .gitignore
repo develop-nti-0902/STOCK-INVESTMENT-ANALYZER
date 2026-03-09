@@ -61,6 +61,7 @@ work/edinet_api_test/downloads
 work/edinet_api_test/*.txt
 work/edinet_api_test/*.csv
 work/db/*.db
+screening_results_2026_active.csv
 
 # Mypy cache
 .mypy_cache
