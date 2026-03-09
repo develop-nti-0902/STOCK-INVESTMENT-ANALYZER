@@ -1,6 +1,6 @@
 ---
 description: 人間からの「コミットして」の依頼を受けてコミットフローを起動する Orchestrator（コミット専用）。
-model: Claude Haiku 4.5 (copilot)
+model: GPT-5 mini (copilot)
 tools: [vscode, execute, read, agent, edit, search, web, 'context7/*', 'serena/*', ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, todo]
 title: Commit Orchestrator (Local) - commit
 role: orchestrator

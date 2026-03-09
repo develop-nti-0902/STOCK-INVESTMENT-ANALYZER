@@ -79,6 +79,8 @@ class EdinetProfitAndLossParser(BaseParser, XMLParserMixin):
         "net_sales": [
             "jppfs_cor:NetSales",
             "jpcrp_cor:NetSalesSummaryOfBusinessResults",
+            # 銀行関連の売上高は以下の固有タグ
+            "jpcrp_cor:OrdinaryIncomeSummaryOfBusinessResults",
         ],
     }
 
