@@ -67,24 +67,7 @@ if not exist "%DB_FILE%" (
   exit /b 1
 )
 
-echo Running Alembic downgrade to base (if alembic history present)...
-REM Ensure DATABASE_URL points to the target DB for Alembic run
-if not defined DATABASE_URL (
-  for %%F in ("%DB_FILE%") do set ABS=%%~fF
-  set ABS=%ABS:\=/%
-  set DATABASE_URL=sqlite:///%ABS%
-)
-
-REM Use local environment variable for this process only
-setlocal DISABLEDELAYEDEXPANSION
-set "OLD_DBURL=%DATABASE_URL%"
-endlocal & set "DATABASE_URL=%OLD_DBURL%"
-
-pushd "%REPO_ROOT%" >nul 2>&1
-%PYTHON_CMD% -m alembic -c "%REPO_ROOT%alembic.ini" downgrade base || (
-  echo [WARN] Alembic downgrade failed or not initialized for this DB; continuing to file removal
-)
-popd >nul 2>&1
+REM Skipping Alembic downgrade: directly remove DB file
 
 echo Deleting DB file: %DB_FILE%
 del /f /q "%DB_FILE%" >nul 2>&1 || (

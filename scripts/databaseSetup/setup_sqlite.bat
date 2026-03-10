@@ -88,6 +88,12 @@ pushd "%REPO_ROOT%" >nul 2>&1
 )
 popd >nul 2>&1
 
+echo Checking and ensuring expected tables exist (fallback to SQLAlchemy create_all if missing)...
+%PYTHON_CMD% "%REPO_ROOT%scripts\databaseSetup\ensure_sqlite_tables.py" || (
+  echo [ERROR] ensure_sqlite_tables.py failed
+  exit /b 1
+)
+
 endlocal
 echo [SUCCESS] SQLite DB ready: %DB_FILE%
 exit /b 0

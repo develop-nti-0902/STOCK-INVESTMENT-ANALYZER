@@ -67,17 +67,7 @@ fi
   exit 1
 }
 
-echo "Running Alembic downgrade to base (if alembic history present)..."
-# Ensure DATABASE_URL points to this DB for Alembic
-: "${DATABASE_URL:=}"
-if [[ -z "${DATABASE_URL:-}" ]]; then
-  export DATABASE_URL="sqlite:///$DB_FILE"
-  echo "Exported DATABASE_URL=$DATABASE_URL"
-fi
-
-"${PYTHON_CMD}" -m alembic downgrade base || {
-  echo "[WARN] Alembic downgrade failed or not initialized for this DB; continuing to file removal"
-}
+# Skipping Alembic downgrade: directly remove DB file
 
 echo "Deleting DB file: $DB_FILE"
 rm -f -- "$DB_FILE" || {
