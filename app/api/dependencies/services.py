@@ -24,6 +24,15 @@ from app.repositories.market_data.stock_master import (
 from app.services.data_synchronization.market_data.dividend_yield_history import (
     DividendYieldHistoryService,
 )
+from app.services.data_synchronization.market_data.edinet.balance_sheet.converter import (
+    EdinetBalanceSheetConverter,
+)
+from app.services.data_synchronization.market_data.edinet.balance_sheet.parser import (
+    EdinetBalanceSheetParser,
+)
+from app.services.data_synchronization.market_data.edinet.balance_sheet.saver import (
+    EdinetBalanceSheetSaver,
+)
 from app.services.data_synchronization.market_data.edinet.common.api_client import EdinetAPIClient
 from app.services.data_synchronization.market_data.edinet.download_service import (
     EdinetDownloadService,
@@ -399,6 +408,38 @@ def get_edinet_cash_flow_statement_saver(
     return EdinetCashFlowStatementSaver(session=db)
 
 
+def get_edinet_balance_sheet_parser() -> EdinetBalanceSheetParser:
+    """EdinetBalanceSheetParser を提供する依存性プロバイダ.
+
+    Returns:
+        EdinetBalanceSheetParser: EDINET 貸借対照表パーサ
+    """
+    return EdinetBalanceSheetParser()
+
+
+def get_edinet_balance_sheet_converter() -> EdinetBalanceSheetConverter:
+    """EdinetBalanceSheetConverter を提供する依存性プロバイダ.
+
+    Returns:
+        EdinetBalanceSheetConverter: EDINET 貸借対照表コンバータ
+    """
+    return EdinetBalanceSheetConverter()
+
+
+def get_edinet_balance_sheet_saver(
+    db: AsyncSession = Depends(get_db),
+) -> EdinetBalanceSheetSaver:
+    """EdinetBalanceSheetSaver を提供する依存性プロバイダ.
+
+    Args:
+        db: 非同期DBセッション
+
+    Returns:
+        EdinetBalanceSheetSaver: EDINET 貸借対照表データ保存サービス
+    """
+    return EdinetBalanceSheetSaver(session=db)
+
+
 # pylint: disable=too-many-arguments,too-many-positional-arguments
 def get_edinet_aggregate_update_service(  # noqa: E501
     fetcher: EdinetDownloadService = Depends(get_edinet_document_fetcher),
@@ -413,10 +454,13 @@ def get_edinet_aggregate_update_service(  # noqa: E501
         get_edinet_cash_flow_statement_converter
     ),
     cfs_saver: EdinetCashFlowStatementSaver = Depends(get_edinet_cash_flow_statement_saver),
+    bs_parser: EdinetBalanceSheetParser = Depends(get_edinet_balance_sheet_parser),
+    bs_converter: EdinetBalanceSheetConverter = Depends(get_edinet_balance_sheet_converter),
+    bs_saver: EdinetBalanceSheetSaver = Depends(get_edinet_balance_sheet_saver),
 ) -> EdinetAggregateUpdateService:
     """EdinetAggregateUpdateService を提供する依存性プロバイダ.
 
-    - `profit_and_loss`, `stock_dividend`, `cash_flow_statement` のパーサ/セーバ組み合わせを事前設定して返します。
+    - `profit_and_loss`, `stock_dividend`, `cash_flow_statement`, `balance_sheet` のパーサ/セーバ組み合わせを事前設定して返します。
     """
     # DI で渡された `EdinetDownloadService` をそのまま使用する
     download_service = fetcher
@@ -425,6 +469,7 @@ def get_edinet_aggregate_update_service(  # noqa: E501
         (pl_parser.parse_root, pl_converter, pl_saver.save),
         (sd_parser.parse_root, sd_converter, sd_saver.save),
         (cfs_parser.parse_root, cfs_converter, cfs_saver.save),
+        (bs_parser.parse_root, bs_converter, bs_saver.save),
     ]
     # cast to Any to satisfy the aggregate service typing expectations
     # pylint: disable=too-many-arguments,too-many-positional-arguments

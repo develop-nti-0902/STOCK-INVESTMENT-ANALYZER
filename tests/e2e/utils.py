@@ -601,6 +601,64 @@ async def fetch_edinet_cash_flow_statement_rows() -> List[Dict[str, Any]]:
         await engine.dispose()
 
 
+async def fetch_edinet_balance_sheet_rows() -> List[Dict[str, Any]]:
+    """edinet_balance_sheet テーブルから全データを取得する.
+
+    Returns:
+        edinet_balance_sheet テーブルの全レコードを辞書のリストで返す
+    """
+    from sqlalchemy import join, select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.edinet import EdinetBalanceSheet, EdinetDocument
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            stmt = select(EdinetBalanceSheet, EdinetDocument).join(EdinetDocument)
+            result = await session.execute(stmt)
+            rows = result.all()
+            return [
+                {
+                    "id": row[0].id,
+                    "sec_code": row[1].sec_code,
+                    "doc_id": row[1].doc_id,
+                    "period_end_date": (
+                        row[0].period_end_date.isoformat() if row[0].period_end_date else None
+                    ),
+                    "submission_date": (
+                        row[1].submission_date.isoformat() if row[1].submission_date else None
+                    ),
+                    "fiscal_year": row[0].fiscal_year,
+                    "report_type": row[1].report_type,
+                    "total_assets": (
+                        float(row[0].total_assets) if row[0].total_assets is not None else None
+                    ),
+                    "net_assets": (
+                        float(row[0].net_assets) if row[0].net_assets is not None else None
+                    ),
+                    "shareholders_equity": (
+                        float(row[0].shareholders_equity)
+                        if row[0].shareholders_equity is not None
+                        else None
+                    ),
+                    "bps": float(row[0].bps) if row[0].bps is not None else None,
+                    "equity_ratio": (
+                        float(row[0].equity_ratio) if row[0].equity_ratio is not None else None
+                    ),
+                    "candidate_contexts": row[1].candidate_contexts,
+                    "candidate_keys": row[1].candidate_keys,
+                    "is_consolidated": row[0].is_consolidated,
+                    "created_at": row[0].created_at.isoformat() if row[0].created_at else None,
+                    "updated_at": row[0].updated_at.isoformat() if row[0].updated_at else None,
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
 async def fetch_edinet_document_rows() -> List[Dict[str, Any]]:
     """edinet_document テーブルから全データを取得する.
 
@@ -892,6 +950,20 @@ def verify_edinet_cash_flow_statement_has_data() -> bool:
     from app.models.market_data.edinet import EdinetCashFlowStatement
 
     return verify_table_has_data(EdinetCashFlowStatement)
+
+
+def verify_edinet_balance_sheet_has_data() -> bool:
+    """EdinetBalanceSheet テーブルにデータが存在するかを確認する.
+
+    Returns:
+        EdinetBalanceSheet テーブルに1行以上のデータが存在する場合 True
+
+    Example:
+        assert verify_edinet_balance_sheet_has_data(), "EdinetBalanceSheet テーブルにデータが見つかりません"
+    """
+    from app.models.market_data.edinet import EdinetBalanceSheet
+
+    return verify_table_has_data(EdinetBalanceSheet)
 
 
 # ========== Artifact Verification Helpers ==========

@@ -18,6 +18,7 @@ from datetime import date
 import pytest
 
 from app.models.market_data.edinet import (
+    EdinetBalanceSheet,
     EdinetCashFlowStatement,
     EdinetDocument,
     EdinetProfitAndLoss,
@@ -25,6 +26,7 @@ from app.models.market_data.edinet import (
 )
 from app.models.market_data.stock_master import StockMaster
 from app.repositories.market_data.edinet import (
+    EdinetBalanceSheetRepository,
     EdinetCashFlowStatementRepository,
     EdinetProfitAndLossRepository,
     EdinetStockDividendRepository,
@@ -34,12 +36,14 @@ from tests.e2e.utils import (
     assert_artifact_written,
     cleanup_repository_delete_all,
     cleanup_table,
+    fetch_edinet_balance_sheet_rows,
     fetch_edinet_cash_flow_statement_rows,
     fetch_edinet_document_rows,
     fetch_edinet_profit_and_loss_rows,
     fetch_edinet_stock_dividend_rows,
     fetch_stock_master_for_artifact,
     run_async_safely,
+    verify_edinet_balance_sheet_has_data,
     verify_edinet_cash_flow_statement_has_data,
     verify_edinet_profit_and_loss_has_data,
     verify_edinet_stock_dividend_has_data,
@@ -300,6 +304,68 @@ def test_edinet_process_date_range_saves_to_db_cash_flow(client):
     assert cash_flow_rows, "No cash flow data to write artifact"
     artifact_name = "edinet_cash_flow_artifact"
     write_csv_artifact(cash_flow_rows, name=artifact_name)
+    assert_artifact_written(artifact_name)
+
+    # edinet_document の artifact も出力（追加）
+    edinet_doc_rows = run_async_safely(fetch_edinet_document_rows())
+    if edinet_doc_rows:
+        write_csv_artifact(edinet_doc_rows, name="edinet_document_artifact")
+        assert_artifact_written("edinet_document_artifact")
+
+
+@pytest.mark.slow
+def test_edinet_process_date_range_saves_to_db_balance_sheet(client):
+    """DB確認: EDINET 処理で貸借対照表（Balance Sheet）が DB に格納されることを確認.
+
+    手順:
+    1. EdinetBalanceSheet テーブルをクリーンアップ
+    2. /api/v1/edinet/process-date-range でバッチ実行
+    3. DB に貸借対照表レコードが格納されたことを確認（存在確認のみ）
+    """
+    # テーブルクリーンアップ
+    cleanup_table(EdinetBalanceSheet)
+    cleanup_table(EdinetDocument)
+
+    target_date = date(2025, 6, 25)
+
+    params = {
+        "start_date": target_date.isoformat(),
+        "end_date": target_date.isoformat(),
+        "max_documents": 10,
+        "progress_interval": 1,
+        "transaction_atomic": True,
+    }
+
+    # API実行
+    r_batch = client.post("/api/v1/edinet/process-date-range", params=params)
+
+    if r_batch.status_code != 200:
+        pytest.skip("EDINET API did not return 200")
+        return
+
+    batch_result = r_batch.json()
+    if batch_result.get("total_documents", 0) == 0:
+        pytest.skip("No documents found by EDINET API")
+        return
+
+    if batch_result.get("failed_documents", 0) > 0 and batch_result.get("saved_items", 0) == 0:
+        assert False, (
+            f"All documents failed (異常):\\n"
+            f"  Total: {batch_result.get('total_documents')}\\n"
+            f"  Failed: {batch_result.get('failed_documents')}\\n"
+            f"  Saved: {batch_result.get('saved_items')}\\n"
+            f"  Status: {batch_result.get('status')}"
+        )
+
+    # DB確認（存在確認のみ）
+    has_data = verify_edinet_balance_sheet_has_data()
+    assert has_data, "DB確認失敗: EdinetBalanceSheet テーブルにレコードが見つかりません"
+
+    # artifact 出力（必須）
+    balance_sheet_rows = run_async_safely(fetch_edinet_balance_sheet_rows())
+    assert balance_sheet_rows, "No balance sheet data to write artifact"
+    artifact_name = "edinet_balance_sheet_artifact"
+    write_csv_artifact(balance_sheet_rows, name=artifact_name)
     assert_artifact_written(artifact_name)
 
     # edinet_document の artifact も出力（追加）

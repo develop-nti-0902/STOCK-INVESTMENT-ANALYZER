@@ -49,6 +49,7 @@ async def process_date_range(  # pylint: disable=too-many-arguments,too-many-pos
         - 書込/UPSERT:
             - `edinet_document`
             - `edinet_profit_and_loss`
+            - `edinet_balance_sheet`
             - `edinet_cash_flow_statement`
             - `edinet_stock_dividend`
     """
