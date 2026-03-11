@@ -1,4 +1,10 @@
+# DEPRECATED: moved from scripts/ and slated for removal in future.
+# This script remains for one-off migration/adjustment tasks. Consider
+# porting its logic into the application's service layer if it needs to be
+# kept long-term.
+
 import asyncio
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -31,7 +37,8 @@ async def main() -> None:
         expire_on_commit=False,
     )
 
-    csv_path = "scripts/stock_splits.csv"
+    # CSV は deprecated 配下に移動済み
+    csv_path = Path(__file__).parent / "stock_splits.csv"
 
     try:
         async with Session() as session:
