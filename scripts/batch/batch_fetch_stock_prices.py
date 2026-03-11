@@ -29,7 +29,7 @@ logger = get_logger(__name__)
 
 def _run(
     client: TestClient,
-    days: int = 7,
+    days: int = 2,
     timeframe: str = "1d",
     batch_size: int = 100,
 ) -> Dict[str, Any]:

@@ -12,6 +12,8 @@
 - `batch_run_screening.py` : スクリーニング処理を実行するバッチ（ScreeningService を使用）。
 - `batch_dividend_yield_monitoring.py` / `batch_dividend_yield_history.py` : 配当利回り関連の監視・履歴処理バッチ。
 
+- `initial_only_update_stock_master_and_prices.py` : プロジェクトの初回セットアップ時にのみ実行することを意図したスクリプト。銘柄マスタを全取得して保存し、全銘柄の `1d` 株価を取得してDBに保存します（大規模処理のため通常運用では実行しないでください）。
+
 ログ
 - ジョブ実行ログは `log/` 配下に `scripts_batch_<module>.log` の形式で出力されます（ランナー経由で実行した場合）。
 
@@ -26,6 +28,8 @@ poetry run python -m scripts.batch.batch_fetch_stock_master
 poetry run python -m scripts.batch.batch_fetch_stock_master --sample --sample-size 100 --batch-size 500
 poetry run python -m scripts.batch.batch_fetch_stock_prices --days 30
 poetry run python -m scripts.batch.batch_fetch_edinet_data --start-date 2025-06-24 --end-date 2025-06-24
+# 初回セットアップ専用スクリプトの実行例（注意: 基本1回だけ実行）
+poetry run python -m scripts.batch.initial_only_update_stock_master_and_prices --timeframe 1d --batch-size 500
 ```
 
 スケジューラへの登録（例）

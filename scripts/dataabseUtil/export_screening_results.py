@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import csv
+from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import select
@@ -152,12 +153,20 @@ def parse_args() -> argparse.Namespace:
 
 def make_default_out(year: int, status: Optional[str]) -> str:
     status_part = status if status else "all"
-    return f"screening_results_{year}_{status_part}.csv"
+    filename = f"screening_results_{year}_{status_part}.csv"
+    # デフォルトはこのスクリプトがあるディレクトリ直下に出力する
+    default_dir = Path(__file__).parent
+    return str(default_dir / filename)
 
 
 def main() -> None:
     args = parse_args()
     out_path = args.out or make_default_out(args.year, args.status)
+    # 出力先ディレクトリを事前に作成（念のため）
+    try:
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
     asyncio.run(export_csv(args.status, args.year, out_path))
 
 

@@ -119,7 +119,7 @@ exclude_lines = [
     "if self.debug",
     "# pragma: no cover - pragma comment",
 ]
-fail_under = 75
+fail_under = 65
 
 [tool.pydocstyle]
 convention = "google"

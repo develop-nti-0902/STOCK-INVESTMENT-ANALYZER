@@ -1,7 +1,9 @@
-"""初期化スクリプト: 銘柄マスタ全更新 & 全銘柄の 1d 株価を取得してDB保存します.
+"""初期化スクリプト（初回実行のみ）: 銘柄マスタ全更新 & 全銘柄の 1d 株価を取得してDB保存します.
+
+このスクリプトは基本的にプロジェクト初回セットアップ時など、1回だけ実行する用途を意図しています。
 
 使い方:
-    python -m scripts.init.update_stock_master_and_prices --timeframe 1d --batch-size 500
+    python -m scripts.batch.initial_only_update_stock_master_and_prices --timeframe 1d --batch-size 500
 """
 
 from __future__ import annotations
@@ -106,7 +108,7 @@ async def _run(timeframe: str = "1d", batch_size: int = 500) -> None:
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Update stock master and fetch 1d stock prices for all symbols"
+        description="One-time initial update: stock master and fetch 1d stock prices for all symbols"
     )
     p.add_argument("--timeframe", default="1d", help="Timeframe to fetch (default: 1d)")
     p.add_argument(

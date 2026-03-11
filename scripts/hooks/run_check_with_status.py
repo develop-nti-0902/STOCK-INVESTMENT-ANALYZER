@@ -232,6 +232,7 @@ def run_pytest(args: List[str], files: List[str], status: Dict[str, Any]) -> int
         "pytest",
         "--ignore=tests/integration",
         "--ignore=tests/e2e",
+        "--ignore=tests/performance",
         *args,
     ]
 

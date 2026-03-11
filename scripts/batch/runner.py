@@ -34,31 +34,76 @@ def run_job(module: str) -> int:
     標準出力 / 標準エラーはログに出す。
     戻り値はプロセスの終了コード。
     """
-    cmd = [sys.executable, "-m", module]
-
-    # 一部のバッチは必須引数（例: EDINET の start/end date）を必要とする。
-    # 日次運用向けに、EDINETフェッチには前日を start/end に指定する既定動作を入れる。
-    if module == "scripts.batch.batch_fetch_edinet_data":
-        yesterday = (date.today() - timedelta(days=1)).isoformat()
-        # モジュール自体に引数を渡す仕組みがないため、ここでコマンドに追加する
-        cmd += ["--start-date", yesterday, "--end-date", yesterday]
-    logging.info("Starting job: %s", module)
-    logging.debug("Command: %s", " ".join(cmd))
-
-    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-    # ログディレクトリを作成し、モジュール名ごとのログファイルへ追記
+    # 一部のバッチは複数回呼び出す（例: 日足と分足を別々に取得）
+    # 特別扱い: batch_fetch_stock_prices は timeframe を変えて 1d と 1m を順次実行する
     log_dir = Path(__file__).parent / "log"
     try:
         log_dir.mkdir(parents=True, exist_ok=True)
     except Exception:
         logging.exception("Failed to create log directory: %s", log_dir)
 
+    results: list[int] = []
+
+    if module == "scripts.batch.batch_fetch_stock_prices":
+        timeframes = ("1d", "1m")
+        for tf in timeframes:
+            cmd = [sys.executable, "-m", module, "--timeframe", tf]
+            logging.info("Starting job: %s timeframe=%s", module, tf)
+            logging.debug("Command: %s", " ".join(cmd))
+
+            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+            safe_name = f"{module.replace('.', '_')}_{tf}"
+            logfile = log_dir / f"{safe_name}.log"
+            now = datetime.now().isoformat()
+
+            try:
+                with logfile.open("w", encoding="utf-8") as f:
+                    f.write(f"RUN AT: {now}\n")
+                    f.write("--- COMMAND ---\n")
+                    f.write("%s\n" % (" ".join(cmd)))
+                    f.write("--- EXIT CODE ---\n")
+                    f.write("%s\n" % proc.returncode)
+                    f.write("--- STDOUT ---\n")
+                    if proc.stdout:
+                        f.write(proc.stdout)
+                    f.write("\n--- STDERR ---\n")
+                    if proc.stderr:
+                        f.write(proc.stderr)
+                    f.write("\n")
+            except Exception:
+                logging.exception("Failed to write job log for %s", safe_name)
+
+            if proc.stdout:
+                logging.info(proc.stdout)
+            if proc.stderr:
+                logging.error(proc.stderr)
+
+            logging.info(
+                "Job %s timeframe=%s finished with exit code %d", module, tf, proc.returncode
+            )
+            results.append(proc.returncode)
+
+        # いずれかが失敗していれば非ゼロを返す
+        return 0 if all(rc == 0 for rc in results) else 1
+
+    # 通常の単発ジョブ実行
+    cmd = [sys.executable, "-m", module]
+
+    # EDINET の既定引数を付与
+    if module == "scripts.batch.batch_fetch_edinet_data":
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        cmd += ["--start-date", yesterday, "--end-date", yesterday]
+
+    logging.info("Starting job: %s", module)
+    logging.debug("Command: %s", " ".join(cmd))
+
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
     safe_name = module.replace(".", "_")
     logfile = log_dir / f"{safe_name}.log"
     now = datetime.now().isoformat()
 
-    # 毎回上書きする: 実行時刻をファイル先頭に書き込む
     try:
         with logfile.open("w", encoding="utf-8") as f:
             f.write(f"RUN AT: {now}\n")
@@ -76,7 +121,6 @@ def run_job(module: str) -> int:
     except Exception:
         logging.exception("Failed to write job log for %s", module)
 
-    # 重要な出力はコンソールにも表示
     if proc.stdout:
         logging.info(proc.stdout)
     if proc.stderr:
