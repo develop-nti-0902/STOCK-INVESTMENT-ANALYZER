@@ -61,8 +61,9 @@ jobs:
 
       - name: Setup SQLite database
         run: |
-          # SQLite セットアップスクリプトを実行
-          bash scripts/databaseSetup/setup_sqlite.sh "$SQLITE_DB_FILE"
+          # SQLite セットアップスクリプトを実行 (Python版)
+          # CI では環境を汚さないよう永続化は抑止する
+          poetry run python scripts/databaseSetup/setup_sqlite.py "$SQLITE_DB_FILE" --no-persist
 
       - name: Run tests
         run: |
