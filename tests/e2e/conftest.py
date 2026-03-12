@@ -118,7 +118,11 @@ def pytest_collection_modifyitems(config, items):
         skip_marker = pytest.mark.skip(reason="DB unreachable — skipping E2E tests")
         for item in items:
             # ファイルパスをUNIX形式に変換して判定
-            if "tests/e2e" in str(item.fspath).replace("\\", "/"):
+            fpath_unix = str(item.fspath).replace("\\", "/")
+            # - tests/e2e 配下のファイル
+            # - もしくは pytest マーカーで `e2e` が付与されているテスト
+            has_e2e_marker = item.get_closest_marker("e2e") is not None
+            if "tests/e2e" in fpath_unix or has_e2e_marker:
                 item.add_marker(skip_marker)
 
 
