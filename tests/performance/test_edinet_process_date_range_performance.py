@@ -38,6 +38,9 @@ from app.models.market_data.edinet import (
 )
 from app.utils.database import get_database_url
 
+# Ensure all performance tests run on the same xdist worker (loadgroup)
+pytestmark = pytest.mark.xdist_group("e2e")
+
 
 class PerformanceMetrics:
     """パフォーマンス計測用のメトリクス保持クラス."""
