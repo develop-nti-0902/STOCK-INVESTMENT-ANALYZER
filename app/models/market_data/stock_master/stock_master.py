@@ -5,12 +5,18 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Index, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey, Index, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.core.base import Base, SerialPKMixin, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.market_data.stock_master.market_category_master import MarketCategoryMaster
+    from app.models.market_data.stock_master.scale_master import ScaleMaster
+    from app.models.market_data.stock_master.sector_17_master import Sector17Master
+    from app.models.market_data.stock_master.sector_33_master import Sector33Master
 
 # is_active カラムの値を表す定数
 IS_ACTIVE = 1
@@ -25,21 +31,35 @@ class StockMaster(SerialPKMixin, TimestampMixin, Base):
 
     stock_code: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)
     stock_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    market_category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    sector_code_33: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    sector_name_33: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    sector_code_17: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    sector_name_17: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    scale_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    scale_category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    # ✨ FK カラム（新規）
+    market_category_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("market_category_master.id"), nullable=True
+    )
+    sector_33_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("sector_33_master.id"), nullable=True
+    )
+    sector_17_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("sector_17_master.id"), nullable=True
+    )
+    scale_id: Mapped[Optional[int]] = mapped_column(ForeignKey("scale_master.id"), nullable=True)
+
     data_date: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
     is_active: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    # ✨ Relationships（新規）
+    market_category: Mapped[Optional["MarketCategoryMaster"]] = relationship(
+        "MarketCategoryMaster", lazy="select"
+    )
+    sector_33: Mapped[Optional["Sector33Master"]] = relationship("Sector33Master", lazy="select")
+    sector_17: Mapped[Optional["Sector17Master"]] = relationship("Sector17Master", lazy="select")
+    scale: Mapped[Optional["ScaleMaster"]] = relationship("ScaleMaster", lazy="select")
 
     __table_args__ = (
         Index("idx_stock_master_code", "stock_code"),
         Index("idx_stock_master_active", "is_active"),
-        Index("idx_stock_master_market", "market_category"),
-        Index("idx_stock_master_sector_33", "sector_code_33"),
+        Index("idx_stock_master_market_category_id", "market_category_id"),
+        Index("idx_stock_master_sector_33_id", "sector_33_id"),
     )
 
     @property

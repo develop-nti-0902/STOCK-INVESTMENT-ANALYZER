@@ -67,7 +67,7 @@ async def test_calculate_for_stock_prioritizes_high_yield():
     builder = DummyMaker(session)
     dividend_record = SimpleNamespace(
         sec_code="7203",
-        dividend_actual=Decimal("63"),
+        dividend_adj=Decimal("63"),
         period_end_date=date(2025, 3, 31),
     )
     stock_record = SimpleNamespace(
@@ -82,6 +82,7 @@ async def test_calculate_for_stock_prioritizes_high_yield():
         stock_repo_factory=lambda session: MockStockRepository(stock_record),
     )
     service._screening_index["7203"] = SimpleNamespace(
+        symbol="7203",
         sec_code="7203",
         status="watch",
         total_score=85,
@@ -110,17 +111,29 @@ async def test_run_groups_results_and_prints_summary(capsys):
     async def fake_fetch(self):
         return [
             SimpleNamespace(
-                sec_code="7203", status="priority", total_score=85, fiscal_year_end=None
+                symbol="7203",
+                sec_code="7203",
+                status="priority",
+                total_score=85,
+                fiscal_year_end=None,
             ),
-            SimpleNamespace(sec_code="6758", status="active", total_score=72, fiscal_year_end=None),
-            SimpleNamespace(sec_code="9998", status="watch", total_score=60, fiscal_year_end=None),
+            SimpleNamespace(
+                symbol="6758",
+                sec_code="6758",
+                status="active",
+                total_score=72,
+                fiscal_year_end=None,
+            ),
+            SimpleNamespace(
+                symbol="9998", sec_code="9998", status="watch", total_score=60, fiscal_year_end=None
+            ),
         ]
 
     service._fetch_screening_results = MethodType(fake_fetch, service)
 
     monitoring_map = {
         "7203": DividendYieldMonitoringResult(
-            sec_code="7203",
+            symbol="7203",
             dividend_amount=Decimal("63"),
             stock_price=Decimal("1500"),
             dividend_yield=Decimal("4.2"),
@@ -131,7 +144,7 @@ async def test_run_groups_results_and_prints_summary(capsys):
             dividend_fiscal_year_end=date(2025, 3, 31),
         ),
         "6758": DividendYieldMonitoringResult(
-            sec_code="6758",
+            symbol="6758",
             dividend_amount=Decimal("40"),
             stock_price=Decimal("1100"),
             dividend_yield=Decimal("3.6"),
@@ -142,7 +155,7 @@ async def test_run_groups_results_and_prints_summary(capsys):
             dividend_fiscal_year_end=date(2025, 3, 31),
         ),
         "9998": DividendYieldMonitoringResult(
-            sec_code="9998",
+            symbol="9998",
             dividend_amount=None,
             stock_price=None,
             dividend_yield=None,
@@ -155,8 +168,8 @@ async def test_run_groups_results_and_prints_summary(capsys):
         ),
     }
 
-    async def fake_calculate(self, sec_code, monitoring_date):
-        return monitoring_map[sec_code]
+    async def fake_calculate(self, symbol, monitoring_date):
+        return monitoring_map[symbol]
 
     service.calculate_for_stock = MethodType(fake_calculate, service)
 
@@ -177,4 +190,16 @@ async def test_run_groups_results_and_prints_summary(capsys):
     assert len(persisted_calls) == 1
     saved_date, saved_results = persisted_calls[0]
     assert saved_date == date(2026, 2, 21)
-    assert {entry.sec_code for entry in saved_results} == {"7203", "6758", "9998"}
+    assert {entry.symbol for entry in saved_results} == {"7203", "6758", "9998"}
+
+
+def test_extract_dividend_amount_prefers_adjusted_value():
+    """調整済み配当金額を優先して返すことを確認する。"""
+    entry = SimpleNamespace(dividend_adj=Decimal("12.3"))
+    assert DividendYieldMonitoringService._extract_dividend_amount(entry) == Decimal("12.3")
+
+
+def test_extract_dividend_amount_returns_none_without_adjusted():
+    """調整済み配当がない場合はNoneを返すことを確認する。"""
+    entry = SimpleNamespace(dividend_adj=None)
+    assert DividendYieldMonitoringService._extract_dividend_amount(entry) is None

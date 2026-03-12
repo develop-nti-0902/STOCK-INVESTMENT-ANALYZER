@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -16,9 +17,7 @@ def test_model_tablename_and_attrs():
     """モデルのテーブル名と属性が正しく定義されていることを検証する."""
     assert getattr(EdinetCashFlowStatement, "__tablename__") == "edinet_cash_flow_statement"
     for attr in (
-        "doc_id",
-        "sec_code",
-        "submission_date",
+        "edinet_document_id",
         "period_end_date",
         "operating_cf",
     ):
@@ -67,3 +66,76 @@ async def test_find_latest_and_find_by_period_calls_execute(monkeypatch):
     res2 = await repo.find_by_period("7203", date(2024, 3, 31))
     assert res2 is None
     assert called.get("ok", False)
+
+
+@pytest.mark.asyncio
+async def test_save_batch_upsert_success():
+    """save_batch_upsert がバッチ処理を実行し、モデルリストを返すことを確認する."""
+    mock_session = MagicMock()
+    mock_session.flush = AsyncMock()
+
+    # Mock the result object with fetchall() for RETURNING clause
+    mock_rows = [
+        MagicMock(
+            _mapping={
+                "edinet_document_id": 1,
+                "period_end_date": date(2024, 3, 31),
+                "fiscal_year": 2024,
+                "operating_cf": 1000.0,
+            }
+        ),
+        MagicMock(
+            _mapping={
+                "edinet_document_id": 2,
+                "period_end_date": date(2024, 3, 31),
+                "fiscal_year": 2024,
+                "operating_cf": 2000.0,
+            }
+        ),
+    ]
+
+    mock_result = MagicMock()
+    mock_result.fetchall.return_value = mock_rows
+
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    repo = EdinetCashFlowStatementRepository(mock_session)
+
+    data_list = [
+        {
+            "edinet_document_id": 1,
+            "period_end_date": date(2024, 3, 31),
+        },
+        {
+            "edinet_document_id": 2,
+            "period_end_date": date(2024, 3, 31),
+        },
+    ]
+
+    res = await repo.save_batch(data_list)
+
+    assert len(res) == 2
+    assert res[0].edinet_document_id == 1
+    assert res[1].edinet_document_id == 2
+    mock_session.execute.assert_awaited()
+    mock_session.flush.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_save_batch_upsert_empty_list():
+    """save_batch_upsert で空リストの場合、空リストを返すことを確認する."""
+    mock_session = MagicMock()
+    repo = EdinetCashFlowStatementRepository(mock_session)
+
+    res = await repo.save_batch([])
+    assert res == []
+
+
+@pytest.mark.asyncio
+async def test_save_batch_upsert_none_raises():
+    """save_batch_upsert で None の場合に ValueError を発生させることを確認する."""
+    mock_session = MagicMock()
+    repo = EdinetCashFlowStatementRepository(mock_session)
+
+    with pytest.raises(ValueError, match="data_list is required for save_batch_upsert"):
+        await repo.save_batch(None)

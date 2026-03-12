@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.api.dependencies.services import get_stock_master_service
 from app.exceptions.business import ServiceError
 from app.exceptions.database import RecordNotFoundError
-from app.services.market_data.stock_master import StockMasterService
+from app.services.data_synchronization.market_data.stock_master import StockMasterService
 
 router = APIRouter(tags=["stock-master"])
 
@@ -64,7 +64,19 @@ async def fetch_stock_master(
     """銘柄マスタを取得して保存します.
 
     JPXから最新の銘柄情報を取得してDBに保存します。
-    更新履歴も stock_master_updates テーブルに記録されます。
+    併せて以下の関連マスターテーブルも作成/更新されます:
+    - 市場区分、業種(17/33)、規模などのマスターデータ
+    - 銘柄コードマッピング
+
+        **関連テーブル:**
+        - 書込/UPSERT:
+            - `stock_master`
+            - `stock_master_updates`
+            - `market_category_master`
+            - `sector_33_master`
+            - `sector_17_master`
+            - `scale_master`
+            - `stock_code_mapping`
 
     Args:
         service (StockMasterService): 銘柄マスタサービス
@@ -96,6 +108,18 @@ async def fetch_stock_master_sample(
 ) -> FetchResponse:
     """銘柄マスタの先頭N件のみを取得してDBに保持する (テスト用).
 
+    fetch エンドポイントと同じ処理ですが、保存対象件数を制限します。
+
+        **関連テーブル:**
+        - 書込/UPSERT:
+            - `stock_master`
+            - `stock_master_updates`
+            - `market_category_master`
+            - `sector_33_master`
+            - `sector_17_master`
+            - `scale_master`
+            - `stock_code_mapping`
+
     Args:
         sample_size (int): 保存する銘柄件数（デフォルト: 100）
         batch_size (int): バッチ処理のサイズ（デフォルト: 500）
@@ -126,6 +150,9 @@ async def get_all_active_symbols(
 ) -> SymbolListResponse:
     """アクティブな全銘柄コードを取得.
 
+    **関連テーブル:**
+    - 読取: `stock_master`
+
     Args:
         service (StockMasterService): 銘柄マスタサービス
 
@@ -151,6 +178,9 @@ async def get_symbols_by_market(
     service: StockMasterService = Depends(get_stock_master_service),
 ) -> SymbolListResponse:
     """市場別の銘柄コードを取得.
+
+    **関連テーブル:**
+    - 読取: `stock_master`, `market_category_master`
 
     Args:
         market (str): 市場名（例: "プライム", "スタンダード", "グロース"）
@@ -183,6 +213,9 @@ async def reset_stock_master(
     """銘柄マスタの全データを削除.
 
     ⚠️ 警告: このエンドポイントは全ての銘柄マスタデータを削除します。
+
+    **関連テーブル:**
+    - 削除: `stock_master`
 
     Args:
         service (StockMasterService): 銘柄マスタサービス

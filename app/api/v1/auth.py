@@ -14,7 +14,7 @@ from app.schemas.accounts import (
     AccountResponse,
     TokenResponse,
 )
-from app.services import auth_service
+from app.services.auth import auth_service
 from app.utils.database import get_db
 
 router = APIRouter(tags=["user"])  # OpenAPI tag: user
@@ -33,6 +33,11 @@ async def register(
     payload: AccountRegisterRequest,
     repo: AccountRepository = Depends(get_account_repo),
 ):
+    """新規ユーザーを登録する.
+
+    **関連テーブル:**
+    - 書込: `account`
+    """
     existing = await repo.get_by_email(payload.email)
     if existing is not None:
         raise DuplicateEmailError()
@@ -48,6 +53,11 @@ async def login(
     payload: AccountLoginRequest,
     repo: AccountRepository = Depends(get_account_repo),
 ):
+    """メールアドレスとパスワードで認証し、アクセストークンを発行する.
+
+    **関連テーブル:**
+    - 読取/更新: `account` (last_login を更新)
+    """
     user = await auth_service.authenticate_user(repo, payload.email, payload.password)
     if user is None:
         raise InvalidCredentialsError()

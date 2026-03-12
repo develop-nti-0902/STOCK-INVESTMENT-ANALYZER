@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,15 +36,14 @@ class ScreeningResultRepository(BaseRepository[ScreeningResult]):
             if c.name not in ("id", "created_at")
         }
         stmt = insert_stmt.on_conflict_do_update(
-            index_elements=["sec_code", "evaluation_date"],
+            index_elements=["symbol", "evaluation_year"],
             set_=update_dict,
-            where=(insert_stmt.excluded.evaluation_date >= table.c.evaluation_date),
         )
 
         try:
             await self.session.execute(stmt)
             await self.session.flush()
-            result = await self.find_latest_by_sec_code(data["sec_code"])
+            result = await self.find_latest_by_symbol(data["symbol"])
             if result is None:
                 raise RuntimeError("upsert succeeded but result not found")
             return result
@@ -52,23 +51,23 @@ class ScreeningResultRepository(BaseRepository[ScreeningResult]):
             logger.exception("upsert failed for screening_results")
             raise
 
-    async def find_latest_by_sec_code(self, sec_code: str) -> Optional[ScreeningResult]:
+    async def find_latest_by_symbol(self, symbol: str) -> Optional[ScreeningResult]:
         """指定銘柄の最新スクリーニング結果を返します."""
         stmt = (
             select(self.model)
-            .where(self.model.sec_code == sec_code)
-            .order_by(self.model.evaluation_date.desc())
+            .where(self.model.symbol == symbol)
+            .order_by(self.model.evaluation_year.desc())
             .limit(1)
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def find_by_sec_code(self, sec_code: str) -> List[ScreeningResult]:
+    async def find_by_symbol(self, symbol: str) -> List[ScreeningResult]:
         """指定銘柄に対して過去スクリーニング結果を全件取得します."""
         stmt = (
             select(self.model)
-            .where(self.model.sec_code == sec_code)
-            .order_by(self.model.evaluation_date.desc())
+            .where(self.model.symbol == symbol)
+            .order_by(self.model.evaluation_year.desc())
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
@@ -80,7 +79,7 @@ class ScreeningResultRepository(BaseRepository[ScreeningResult]):
         limit: int = 100,
         min_score: Optional[int] = None,
         status: Optional[str] = None,
-        sec_codes: Optional[List[str]] = None,
+        symbols: Optional[List[str]] = None,
     ) -> List[ScreeningResult]:
         """条件を指定してスクリーニング結果をページング取得します."""
         validate_pagination(skip, limit)
@@ -90,13 +89,13 @@ class ScreeningResultRepository(BaseRepository[ScreeningResult]):
             stmt = stmt.where(self.model.status == status)
         if min_score is not None:
             stmt = stmt.where(self.model.total_score >= min_score)
-        if sec_codes:
-            stmt = stmt.where(self.model.sec_code.in_(sec_codes))
+        if symbols:
+            stmt = stmt.where(self.model.symbol.in_(symbols))
 
         stmt = (
             stmt.order_by(
                 self.model.total_score.desc(),
-                self.model.evaluation_date.desc(),
+                self.model.evaluation_year.desc(),
             )
             .limit(limit)
             .offset(skip)
@@ -104,6 +103,25 @@ class ScreeningResultRepository(BaseRepository[ScreeningResult]):
 
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def delete_all(self) -> int:
+        """テーブル内の全レコードを削除する。
+
+        Returns:
+            int: 削除された件数
+
+        Notes:
+            トランザクションのコミットは Service 層で行ってください。
+        """
+        try:
+            stmt = delete(self.model)
+            result = await self.session.execute(stmt)
+            await self.session.flush()
+            rc: Any = getattr(result, "rowcount", 0)
+            return int(rc or 0)
+        except SQLAlchemyError as e:
+            logger.exception("delete_all failed: %s", e)
+            raise
 
 
 __all__ = ["ScreeningResultRepository"]

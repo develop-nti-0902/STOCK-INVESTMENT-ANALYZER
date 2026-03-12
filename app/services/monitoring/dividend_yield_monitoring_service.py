@@ -8,7 +8,7 @@ import logging
 from dataclasses import dataclass
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -17,11 +17,11 @@ from app.models.screening.screening_result import ScreeningResult
 from app.repositories.market_data.edinet.edinet_stock_dividend_repository import (
     EdinetStockDividendRepository,
 )
+from app.repositories.market_data.stock_master import StockCodeMappingRepository
 from app.repositories.market_data.stock_price.stock_data_repository import StockData1dRepository
 from app.repositories.monitoring.dividend_yield_monitoring_repository import (
     DividendYieldMonitoringRepository,
 )
-from app.utils.stock_code_converter import from_edinet_code
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ _MONITORING_STATUSES = ("watch", "active", "priority")
 
 @dataclass
 class DividendYieldMonitoringResult:
-    sec_code: str
+    symbol: str
     dividend_amount: Optional[Decimal]
     stock_price: Optional[Decimal]
     dividend_yield: Optional[Decimal]
@@ -70,19 +70,20 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
         self._screening_index: Dict[str, ScreeningResult] = {}
 
     async def run(self, monitoring_date: date) -> None:
+        await self._delete_existing_monitoring_results(monitoring_date)
         screening_results = await self._fetch_screening_results()
-        self._screening_index = {result.sec_code: result for result in screening_results}
+        self._screening_index = {result.symbol: result for result in screening_results}
         monitoring_results: List[DividendYieldMonitoringResult] = []
         for result in screening_results:
             try:
                 monitoring_results.append(
-                    await self.calculate_for_stock(result.sec_code, monitoring_date)
+                    await self.calculate_for_stock(result.symbol, monitoring_date)
                 )
             except Exception:  # pragma: no cover - best effort per銘柄
-                logger.exception("Failed to process dividend yield for %s", result.sec_code)
+                logger.exception("Failed to process dividend yield for %s", result.symbol)
                 monitoring_results.append(
                     DividendYieldMonitoringResult(
-                        sec_code=result.sec_code,
+                        symbol=result.symbol,
                         dividend_amount=None,
                         stock_price=None,
                         dividend_yield=None,
@@ -99,14 +100,18 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
         self._print_report(monitoring_date, monitoring_results)
 
     async def calculate_for_stock(
-        self, sec_code: str, monitoring_date: date
+        self, symbol: str, monitoring_date: date
     ) -> DividendYieldMonitoringResult:
-        screening_result = self._screening_index.get(sec_code)
+        screening_result = self._screening_index.get(symbol)
         if screening_result is None:
-            raise RuntimeError(f"screening result is not ready for {sec_code}")
+            raise RuntimeError(f"screening result is not ready for {symbol}")
         logger.debug(
-            "Calculating dividend yield for %s (monitoring_date=%s)", sec_code, monitoring_date
+            "Calculating dividend yield for %s (monitoring_date=%s)", symbol, monitoring_date
         )
+
+        # Get sec_code from screening result
+        # screening_result.symbol is the stock_code, need to convert to sec_code
+        sec_code = await self._resolve_sec_code(screening_result.symbol)
 
         dividend_entry = await self._safe_get_latest_dividend(sec_code)
         dividend_amount = self._extract_dividend_amount(dividend_entry)
@@ -116,10 +121,7 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
 
         stock_price = None
         stock_price_date: Optional[date] = None
-        stock_symbol = self._resolve_stock_symbol(sec_code)
-        stock_entry = (
-            await self._safe_get_latest_stock_price(stock_symbol) if stock_symbol else None
-        )
+        stock_entry = await self._safe_get_latest_stock_price(symbol)
         if stock_entry is not None:
             stock_price = stock_entry.close
             stock_price_date = stock_entry.timestamp.date()
@@ -131,7 +133,7 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
             error_message = self._derive_unavailable_reason(dividend_amount, stock_price)
 
         return DividendYieldMonitoringResult(
-            sec_code=sec_code,
+            symbol=symbol,
             dividend_amount=dividend_amount,
             stock_price=stock_price,
             dividend_yield=dividend_yield,
@@ -143,7 +145,7 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
             error_message=error_message,
         )
 
-    async def _safe_get_latest_dividend(self, sec_code: str):
+    async def _safe_get_latest_dividend(self, sec_code: str) -> Optional[Any]:
         try:
             async with self._session_maker() as session:
                 repo = self._edinet_repo_factory(session)
@@ -152,7 +154,7 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
             logger.exception("Failed to fetch latest dividend for %s", sec_code)
             return None
 
-    async def _safe_get_latest_stock_price(self, symbol: str):
+    async def _safe_get_latest_stock_price(self, symbol: str) -> Optional[Any]:
         try:
             async with self._session_maker() as session:
                 repo = self._stock_repo_factory(session)
@@ -162,25 +164,40 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
             logger.exception("Failed to fetch latest stock price for %s", symbol)
             return None
 
+    async def _resolve_sec_code(self, stock_code: str) -> str:
+        """Convert stock_code to sec_code using stock_code_mapping table."""
+        try:
+            async with self._session_maker() as session:
+                mapping_repo = StockCodeMappingRepository(session=session)
+                mapping = await mapping_repo.get_by_stock_code(stock_code)
+                if mapping:
+                    return mapping.sec_code
+        except Exception:
+            logger.exception("Failed to resolve sec_code for stock_code %s", stock_code)
+        # Fallback: use stock_code as sec_code if mapping fails
+        return stock_code
+
     async def _fetch_screening_results(self) -> List[ScreeningResult]:
         async with self._session_maker() as session:
             stmt = (
                 select(ScreeningResult)
                 .where(ScreeningResult.status.in_(_MONITORING_STATUSES))
-                .order_by(ScreeningResult.sec_code, desc(ScreeningResult.evaluation_date))
+                .order_by(ScreeningResult.symbol, desc(ScreeningResult.evaluation_year))
             )
             result = await session.execute(stmt)
             latest: Dict[str, ScreeningResult] = {}
             for record in result.scalars():
-                if record.sec_code not in latest:
-                    latest[record.sec_code] = record
+                if record.symbol not in latest:
+                    latest[record.symbol] = record
             return list(latest.values())
 
     @staticmethod
     def _extract_dividend_amount(entry) -> Optional[Decimal]:
-        if entry is None or entry.dividend_actual is None:
+        if entry is None:
             return None
-        value = entry.dividend_actual
+        value = getattr(entry, "dividend_adj", None)
+        if value is None:
+            return None
         return Decimal(str(value)) if not isinstance(value, Decimal) else value
 
     @staticmethod
@@ -218,15 +235,6 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
             return "株価が0以下"
         return "利回り計算不可"
 
-    @staticmethod
-    def _resolve_stock_symbol(sec_code: str) -> Optional[str]:
-        try:
-            symbol = from_edinet_code(sec_code)
-            return symbol
-        except Exception:
-            logger.exception("Failed to normalize sec_code=%s for stock lookup", sec_code)
-            return None
-
     def _print_report(
         self, monitoring_date: date, results: List[DividendYieldMonitoringResult]
     ) -> None:
@@ -255,7 +263,7 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
                 reason = entry.error_message or self._derive_unavailable_reason(
                     entry.dividend_amount, entry.stock_price
                 )
-                print(f"  {entry.sec_code}: {reason}")
+                print(f"  {entry.symbol}: {reason}")
         print(header)
         print(
             f"合計監視対象: {len(results)}銘柄 / "
@@ -271,7 +279,7 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
         dividend_value = DividendYieldMonitoringService._format_currency(result.dividend_amount)
         status = f"[{result.screening_status}/{score}]"
         return (
-            f"  {result.sec_code}: 利回り {percentage} "
+            f"  {result.symbol}: 利回り {percentage} "
             f"(stock: {stock_value}, "
             f"dividend: {dividend_value}) "
             f"{status}"
@@ -331,7 +339,7 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
     ) -> List[dict]:
         return [
             {
-                "sec_code": result.sec_code,
+                "symbol": result.symbol,
                 "monitoring_date": monitoring_date,
                 "latest_dividend_amount": result.dividend_amount,
                 "latest_stock_price": result.stock_price,
@@ -344,6 +352,23 @@ class DividendYieldMonitoringService:  # pylint: disable=too-many-instance-attri
             }
             for result in results
         ]
+
+    async def _delete_existing_monitoring_results(self, monitoring_date: date) -> None:
+        try:
+            async with self._session_maker() as session:
+                repository = self._monitoring_repo_factory(session)
+                async with session.begin():
+                    deleted_rows = await repository.delete_by_date(monitoring_date)
+                logger.info(
+                    "Deleted %s existing dividend yield monitoring rows for %s",
+                    deleted_rows,
+                    monitoring_date,
+                )
+        except Exception:
+            logger.exception(
+                "Failed to clear previous dividend yield monitoring data for %s",
+                monitoring_date,
+            )
 
 
 __all__ = ["DividendYieldMonitoringResult", "DividendYieldMonitoringService"]

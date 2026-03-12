@@ -1,7 +1,7 @@
 """EDINET スキーマ群のパッケージ.
 
 このパッケージは既存のフラットなモジュールからの再エクスポートを提供し、
-`from app.schemas.market_data.edinet import EdinetBalanceSheetCreate` のようなインポートを可能にします。
+`from app.schemas.market_data.edinet import EdinetProfitAndLossCreate` のようなインポートを可能にします。
 """
 
 from .edinet_balance_sheet import (

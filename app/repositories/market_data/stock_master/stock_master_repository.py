@@ -11,8 +11,16 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
-from app.models.market_data.stock_master import IS_ACTIVE, StockMaster
+from app.models.market_data.stock_master import (
+    IS_ACTIVE,
+    MarketCategoryMaster,
+    ScaleMaster,
+    Sector17Master,
+    Sector33Master,
+    StockMaster,
+)
 from app.repositories.core.base import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -82,9 +90,18 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         Returns:
             List[str]: 銘柄コードリスト
         """
+        # Step 1: 市場マスターを取得
+        master_result = await self.session.execute(
+            select(MarketCategoryMaster).where(MarketCategoryMaster.name == market)
+        )
+        market_master = master_result.scalar_one_or_none()
+        if not market_master:
+            return []
+
+        # Step 2: FK で StockMaster を検索
         result = await self.session.execute(
             select(self.model.stock_code).where(
-                self.model.market_category == market,
+                self.model.market_category_id == market_master.id,
                 self.model.is_active == IS_ACTIVE,
             )
         )
@@ -94,14 +111,23 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         """業種別の銘柄コードを取得する.
 
         Args:
-            sector (str): 業種名
+            sector (str): 業種コード（sector_33 を想定）
 
         Returns:
             List[str]: 銘柄コードリスト
         """
+        # Step 1: 業種マスターを取得
+        sector_result = await self.session.execute(
+            select(Sector33Master).where(Sector33Master.code == sector)
+        )
+        sector_master = sector_result.scalar_one_or_none()
+        if not sector_master:
+            return []
+
+        # Step 2: FK で銘柄コード取得
         result = await self.session.execute(
             select(self.model.stock_code).where(
-                self.model.sector_name_33 == sector,
+                self.model.sector_33_id == sector_master.id,
                 self.model.is_active == IS_ACTIVE,
             )
         )
@@ -116,8 +142,17 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         Returns:
             List[StockMaster]: モデルリスト
         """
+        # Step 1: 市場マスターを取得
+        master_result = await self.session.execute(
+            select(MarketCategoryMaster).where(MarketCategoryMaster.name == market)
+        )
+        market_master = master_result.scalar_one_or_none()
+        if not market_master:
+            return []
+
+        # Step 2: FK で StockMaster を検索
         result = await self.session.execute(
-            select(self.model).where(self.model.market_category == market)
+            select(self.model).where(self.model.market_category_id == market_master.id)
         )
         return list(result.scalars().all())
 
@@ -150,6 +185,27 @@ class StockMasterRepository(BaseRepository[StockMaster]):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_all_with_masters_eager_load(self) -> List[StockMaster]:
+        """マスターデータを eager load して全取得（N+1 回避）.
+
+        screening service など、複数の stock を処理する際に
+        relationship を参照する場合、このメソッドで eager load することで
+        N+1 問題を回避できます。
+
+        Returns:
+            List[StockMaster]: 全レコード（マスターデータ eager load 済み）
+        """
+        result = await self.session.execute(
+            select(self.model).options(
+                joinedload(self.model.market_category),
+                joinedload(self.model.sector_33),
+                joinedload(self.model.sector_17),
+                joinedload(self.model.scale),
+            )
+        )
+        # unique() を使って重複を除外
+        return list(result.unique().scalars().all())
+
     async def bulk_create(self, records: List[dict]) -> List[StockMaster]:
         """一括作成はサポートしない.
 
@@ -174,11 +230,12 @@ class StockMasterRepository(BaseRepository[StockMaster]):
             "Single upsert is not supported for StockMaster; use bulk_upsert instead"
         )
 
-    async def bulk_upsert(self, records: List[dict]) -> int:
+    async def bulk_upsert(self, records: List[dict], batch_size: int = 1000) -> int:
         """複数レコードの一括 UPSERT を実行する.
 
         Args:
             records (List[dict]): UPSERT 対象のレコード辞書リスト
+            batch_size (int): バッチサイズ（デフォルト: 1000）
 
         Returns:
             int: 処理した件数

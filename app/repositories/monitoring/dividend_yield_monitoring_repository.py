@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
 from typing import Any, List
 
+from sqlalchemy import delete
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,6 +45,20 @@ class DividendYieldMonitoringRepository(BaseRepository[DividendYieldMonitoring])
             return rowcount or len(records)
         except Exception:
             logger.exception("Failed to upsert dividend yield monitoring records")
+            raise
+
+    async def delete_by_date(self, monitoring_date: date) -> int:
+        """Remove monitoring rows for the provided monitoring date."""
+        table = self.model.__table__
+        stmt = delete(table).where(table.c.monitoring_date == monitoring_date)
+        try:
+            result = await self.session.execute(stmt)
+            rowcount = getattr(result, "rowcount", None)
+            return rowcount or 0
+        except Exception:
+            logger.exception(
+                "Failed to delete dividend yield monitoring records for %s", monitoring_date
+            )
             raise
 
 

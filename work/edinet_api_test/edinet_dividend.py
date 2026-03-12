@@ -48,7 +48,6 @@ def extract_and_save(results, keys, out_path):
         pd.DataFrame: 抽出したデータのDataFrame
     """
     extracted = [{k: item.get(k) for k in keys} for item in results]
-    extracted = extracted[:200]
     extracted_df = pd.DataFrame(extracted)
 
     # 抽出結果をCSVに保存
@@ -232,9 +231,9 @@ def make_day_list(start: datetime.date, end: datetime.date) -> List[datetime.dat
     return days
 
 
-start_date = datetime.date(2025, 6, 25)
-end_date = datetime.date(2025, 6, 25)
-stock_code = "42740"
+start_date = datetime.date(2025, 6, 20)
+end_date = datetime.date(2025, 6, 20)
+stock_code = "83160"
 
 # 日付リストを作成（datetime.date のリスト）
 day_list = make_day_list(start_date, end_date)
@@ -272,10 +271,9 @@ for day in day_list:
         continue
 
     # secCodeがnullのデータは除外し、指定したstock_codeのデータのみ抽出する
-    # submission_info_df = submission_info_df[
-    #     (submission_info_df["secCode"].notnull())
-    #     & (submission_info_df["secCode"] == stock_code)
-    # ]
+    submission_info_df = submission_info_df[
+        (submission_info_df["secCode"].notnull()) & (submission_info_df["secCode"] == stock_code)
+    ]
 
     submission_info_df = submission_info_df[(submission_info_df["secCode"].notnull())]
 

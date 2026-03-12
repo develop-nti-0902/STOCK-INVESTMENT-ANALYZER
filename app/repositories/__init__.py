@@ -7,9 +7,6 @@ Repository Patternを採用し、データベース操作の抽象化を行う�
 
 from app.repositories.account_repository import AccountRepository
 from app.repositories.core.base import BaseRepository
-from app.repositories.market_data.edinet.edinet_balance_sheet_repository import (  # noqa: F401
-    EdinetBalanceSheetRepository,
-)
 from app.repositories.market_data.edinet.edinet_profit_and_loss_repository import (  # noqa: F401
     EdinetProfitAndLossRepository,
 )
@@ -41,6 +38,5 @@ __all__ = [
     "StockData1wkRepository",
     "StockData1moRepository",
 ]
-__all__.append("EdinetBalanceSheetRepository")
 __all__.append("EdinetProfitAndLossRepository")
 __all__.append("ScreeningResultRepository")

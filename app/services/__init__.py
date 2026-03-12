@@ -3,7 +3,7 @@
 公開エントリポイントをここで定義します。
 """
 
-from .auth_service import (
+from .auth import (
     authenticate_user,
     create_access_token,
     decode_access_token,

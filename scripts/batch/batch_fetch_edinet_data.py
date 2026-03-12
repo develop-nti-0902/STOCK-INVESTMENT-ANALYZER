@@ -28,161 +28,143 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import logging
 from datetime import date, datetime
+from typing import Any, Dict, Optional
 
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from fastapi.testclient import TestClient
 
-from app.repositories.market_data.edinet.edinet_balance_sheet_repository import (
-    EdinetBalanceSheetRepository,
-)
-from app.repositories.market_data.edinet.edinet_cash_flow_statement_repository import (
-    EdinetCashFlowStatementRepository,
-)
-from app.repositories.market_data.edinet.edinet_profit_and_loss_repository import (
-    EdinetProfitAndLossRepository,
-)
-from app.repositories.market_data.edinet.edinet_stock_dividend_repository import (
-    EdinetStockDividendRepository,
-)
-from app.services.market_data.edinet.balance_sheet.converter import EdinetBalanceSheetConverter
-from app.services.market_data.edinet.balance_sheet.parser import EdinetBalanceSheetParser
-from app.services.market_data.edinet.download_service import EdinetDownloadService
-from app.services.market_data.edinet.edinet_cash_flow_statement.converter import (
-    EdinetCashFlowStatementConverter,
-)
-from app.services.market_data.edinet.edinet_cash_flow_statement.parser import (
-    EdinetCashFlowStatementParser,
-)
-from app.services.market_data.edinet.profit_and_loss.converter import EdinetProfitAndLossConverter
-from app.services.market_data.edinet.profit_and_loss.parser import EdinetProfitAndLossParser
-from app.services.market_data.edinet.stock_dividend.converter import EdinetStockDividendConverter
-from app.services.market_data.edinet.stock_dividend.parser import EdinetStockDividendParser
-from app.services.market_data.edinet.update_service import EdinetAggregateUpdateService
-from app.utils.database import close_db, get_engine
+from app.main import app
+from app.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
-async def _run(
+def _validate_dates(start_date_str: str, end_date_str: str) -> tuple[date, date]:
+    """日付を妥当性チェックし、date オブジェクトに変換します。
+
+    Args:
+        start_date_str: ISO 形式の開始日付文字列
+        end_date_str: ISO 形式の終了日付文字列
+
+    Returns:
+        (start_date, end_date)のタプル
+
+    Raises:
+        ValueError: 無効な日付フォーマットまたは日付ロジックエラー
+    """
+    try:
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+    except ValueError as e:
+        error_msg = (
+            f"Invalid date format. Expected YYYY-MM-DD, got '{start_date_str}', '{end_date_str}'"
+        )
+        logger.error(error_msg)
+        raise ValueError(error_msg) from e
+
+    if start_date > end_date:
+        error_msg = "start_date must be before or equal to end_date"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+
+    logger.info("Date validation passed: start_date=%s, end_date=%s", start_date, end_date)
+    return start_date, end_date
+
+
+def _run(
+    client: TestClient,
     start_date: date,
     end_date: date,
     progress_interval: int = 10,
     max_documents: int | None = None,
-) -> None:
-    """メイン処理: 指定期間のEDINETデータを取得しDBへ保存します.
+) -> Dict[str, Any]:
+    """EDINET バッチ API を呼び出し、結果を返します。
 
     Args:
-        start_date: 取得開始日
-        end_date: 取得終了日
-        progress_interval: 進捗表示間隔（ドキュメント数）
-        max_documents: 最大処理ドキュメント数（Noneの場合は全件）
-    """
-    engine: AsyncEngine = get_engine()
-    session_maker = async_sessionmaker(
-        bind=engine, class_=AsyncSession, autoflush=False, expire_on_commit=False
-    )
+        client: FastAPI TestClient インスタンス
+        start_date: 取得開始日 (date オブジェクト)
+        end_date: 取得終了日 (date オブジェクト)
+        progress_interval: 進捗表示間隔（ドキュメント数、デフォルト: 10）
+        max_documents: 最大処理ドキュメント数（Noneの場合は全件、デフォルト: None）
 
+    Returns:
+        API レスポンスの JSON（status, summary を含む）
+
+    Raises:
+        Exception: API エラーまたは予期しないエラー
+    """
     logger.info(
-        "Starting EDINET batch fetch: start_date=%s, end_date=%s, max_documents=%s",
-        start_date,
-        end_date,
+        "Starting EDINET batch: start_date=%s, end_date=%s, progress_interval=%d, max_documents=%s",
+        start_date.isoformat(),
+        end_date.isoformat(),
+        progress_interval,
         max_documents,
     )
 
-    async with session_maker() as session:  # type: AsyncSession
-        # リポジトリの初期化
-        balance_sheet_repo = EdinetBalanceSheetRepository(session=session)
-        profit_and_loss_repo = EdinetProfitAndLossRepository(session=session)
-        stock_dividend_repo = EdinetStockDividendRepository(session=session)
-        cash_flow_repo = EdinetCashFlowStatementRepository(session=session)
+    params = {
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "progress_interval": progress_interval,
+        "transaction_atomic": True,
+    }
 
-        # コンバータの初期化
-        balance_sheet_converter = EdinetBalanceSheetConverter()
-        profit_and_loss_converter = EdinetProfitAndLossConverter()
-        stock_dividend_converter = EdinetStockDividendConverter()
-        cash_flow_converter = EdinetCashFlowStatementConverter()
+    if max_documents is not None:
+        params["max_documents"] = max_documents
 
-        # パーサとセーバーのペアを設定
-        bs_parser = EdinetBalanceSheetParser()
-        pl_parser = EdinetProfitAndLossParser()
-        sd_parser = EdinetStockDividendParser()
-        cfs_parser = EdinetCashFlowStatementParser()
+    try:
+        response = client.post("/api/v1/edinet/process-date-range", params=params)
+        response.raise_for_status()
 
-        parser_saver_pairs = [
-            (
-                bs_parser.parse_root,
-                balance_sheet_converter,
-                balance_sheet_repo.upsert,
-            ),
-            (
-                pl_parser.parse_root,
-                profit_and_loss_converter,
-                profit_and_loss_repo.upsert,
-            ),
-            (
-                sd_parser.parse_root,
-                stock_dividend_converter,
-                stock_dividend_repo.upsert,
-            ),
-            (
-                cfs_parser.parse_root,
-                cash_flow_converter,
-                cash_flow_repo.upsert,
-            ),
-        ]
-
-        # サービスの初期化
-        download_service = EdinetDownloadService()
-        update_service = EdinetAggregateUpdateService(
-            download_service=download_service,
-            parser_saver_pairs=parser_saver_pairs,
+        result = response.json()
+        logger.info(
+            "EDINET API returned status=%s, total=%s, processed=%s, saved=%s, failed=%s",
+            result.get("status"),
+            result.get("total_documents"),
+            result.get("processed_documents"),
+            result.get("saved_items"),
+            result.get("failed_documents"),
         )
 
-        # バッチ処理の実行
-        try:
-            summary = await update_service.process_date_range(
-                start_date=start_date,
-                end_date=end_date,
-                progress_interval=progress_interval,
-                max_documents=max_documents,
-                session=session,
-                transaction_atomic=True,
-            )
+        return result
 
-            logger.info(
-                "Batch processing completed: status=%s, total=%s, processed=%s, "
-                "saved=%s, failed=%s",
-                summary.get("status"),
-                summary.get("total_documents"),
-                summary.get("processed_documents"),
-                summary.get("saved_items"),
-                summary.get("failed_documents"),
-            )
+    except Exception as e:
+        logger.error("EDINET API failed: %s", e, exc_info=True)
+        raise
 
-            # 成功時はコミット
-            await session.commit()
-            logger.info("Successfully committed all changes")
 
-        except Exception as e:
-            logger.exception("Batch processing failed: %s", e)
-            await session.rollback()
-            logger.warning("Rolled back all changes due to error")
-            raise
+def _log_edinet_results(result: Dict[str, Any]) -> None:
+    """EDINET バッチ結果をログ出力します。
 
-    # エンジンをクリーンアップ
-    logger.info("Disposing database engine")
-    try:
-        await close_db()
-    except Exception:
-        logger.exception("Failed to dispose DB engine cleanly")
+    Args:
+        result: API レスポンスオブジェクト
+    """
+    status = result.get("status", "unknown")
+    total_documents = result.get("total_documents", 0)
+    processed = result.get("processed_documents", 0)
+    saved = result.get("saved_items", 0)
+    failed = result.get("failed_documents", 0)
+
+    logger.info("=" * 80)
+    logger.info("EDINET BATCH RESULT")
+    logger.info("=" * 80)
+    logger.info("Status: %s", status)
+    logger.info("Total Documents: %d", total_documents)
+    logger.info("Processed: %d", processed)
+    logger.info("Saved: %d", saved)
+    logger.info("Failed: %d", failed)
+    logger.info("=" * 80)
 
 
 def _parse_args() -> argparse.Namespace:
     """コマンドライン引数をパースします."""
     p = argparse.ArgumentParser(
-        description="Fetch EDINET data (Balance Sheet & P/L) for a specified date range"
+        description="Fetch EDINET data (Balance Sheet & P/L) for a specified date range",
+        epilog=(
+            "Examples:\n"
+            "  python -m scripts.batch.batch_fetch_edinet_data --start-date 2024-01-01 --end-date 2024-01-31\n"
+            "  python -m scripts.batch.batch_fetch_edinet_data --start-date 2024-01-01 --end-date 2024-01-31 --max-documents 10"
+        ),
     )
     p.add_argument(
         "--start-date",
@@ -212,43 +194,54 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """エントリポイント.
+    """エントリポイント。全体の実行制御を行います。
 
-    コマンドライン引数を解析して非同期メイン処理を実行する。
+    Raises:
+        SystemExit: CLI 引数パースエラーまたは予期しないエラー
     """
+    # ロギング初期化
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    args = _parse_args()
-
-    # 日付文字列をdateオブジェクトに変換
-    try:
-        start_date = datetime.strptime(args.start_date, "%Y-%m-%d").date()
-        end_date = datetime.strptime(args.end_date, "%Y-%m-%d").date()
-    except ValueError as e:
-        logger.error("Invalid date format: %s", e)
-        logger.error("Please use YYYY-MM-DD format for dates")
-        raise
-
-    # 日付の妥当性チェック
-    if start_date > end_date:
-        logger.error("start_date must be before or equal to end_date")
-        raise ValueError("start_date must be before or equal to end_date")
+    logger.info("Starting EDINET batch fetch script")
 
     try:
-        asyncio.run(
-            _run(
+        # Step 1: CLI 引数パース
+        args = _parse_args()
+        logger.info("CLI args parsed successfully")
+
+        # Step 2: 日付の妥当性チェック
+        start_date, end_date = _validate_dates(args.start_date, args.end_date)
+
+        # Step 3-4: TestClient コンテキストで実行
+        with TestClient(app) as client:
+            # Step 3: EDINET バッチ実行
+            result = _run(
+                client=client,
                 start_date=start_date,
                 end_date=end_date,
                 progress_interval=args.progress_interval,
                 max_documents=args.max_documents,
             )
-        )
+
+            # Step 4: 結果ログ出力
+            _log_edinet_results(result)
+
+        logger.info("EDINET batch fetch completed successfully")
+
+    except ValueError as e:
+        logger.error("Validation error: %s", e)
+        raise SystemExit(1) from e
+
     except Exception as e:
-        logger.exception("Script failed: %s", e)
-        raise
+        logger.exception("EDINET batch fetch failed: %s", e)
+        raise SystemExit(1) from e
+
+    except KeyboardInterrupt:
+        logger.info("Script interrupted by user")
+        raise SystemExit(130) from None
 
 
 if __name__ == "__main__":

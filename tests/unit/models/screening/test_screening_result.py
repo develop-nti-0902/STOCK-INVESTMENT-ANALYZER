@@ -8,8 +8,8 @@ from app.models.screening import ScreeningResult
 def test_screening_result_fields_and_repr():
     """Model のフィールドが正しく設定され、repr に重要情報が含まれることを確認します."""
     model = ScreeningResult(
-        sec_code="7203",
-        evaluation_date=date(2026, 2, 19),
+        symbol="7203",
+        evaluation_year=2026,
         pass_required_conditions=True,
         status="priority",
         total_score=92,
@@ -22,7 +22,7 @@ def test_screening_result_fields_and_repr():
         screening_details={"notes": "test"},
     )
 
-    assert model.sec_code == "7203"
+    assert model.symbol == "7203"
     assert model.status == "priority"
     assert model.total_score == 92
     assert model.score_profitability == 12

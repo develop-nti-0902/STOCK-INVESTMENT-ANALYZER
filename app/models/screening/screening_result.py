@@ -16,8 +16,8 @@ class ScreeningResult(SerialPKMixin, TimestampMixin, Base):
 
     __tablename__ = "screening_results"
 
-    sec_code: Mapped[str] = mapped_column(String(10), nullable=False)
-    evaluation_date: Mapped[date] = mapped_column(Date, nullable=False)
+    symbol: Mapped[str] = mapped_column(String(10), nullable=False)
+    evaluation_year: Mapped[int] = mapped_column(Integer, nullable=False)
     fiscal_year_end: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     pass_required_conditions: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("0")
@@ -34,9 +34,9 @@ class ScreeningResult(SerialPKMixin, TimestampMixin, Base):
     screening_details: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("sec_code", "evaluation_date", name="uq_screening_results_sec_eval"),
-        Index("idx_screening_results_sec_code", "sec_code"),
-        Index("idx_screening_results_evaluation_date", "evaluation_date"),
+        UniqueConstraint("symbol", "evaluation_year", name="uq_screening_results_symbol_year"),
+        Index("idx_screening_results_symbol", "symbol"),
+        Index("idx_screening_results_evaluation_year", "evaluation_year"),
         Index("idx_screening_results_status", "status"),
         Index("idx_screening_results_total_score", "total_score"),
     )
@@ -44,8 +44,8 @@ class ScreeningResult(SerialPKMixin, TimestampMixin, Base):
     def __repr__(self) -> str:  # pragma: no cover - trivial
         """短いデバッグ用表示を返します."""
         return (
-            "<ScreeningResult(sec_code="
-            f"{self.sec_code!r}, evaluation_date={self.evaluation_date!r}, status={self.status!r})>"
+            "<ScreeningResult(symbol="
+            f"{self.symbol!r}, evaluation_year={self.evaluation_year!r}, status={self.status!r})>"
         )
 
     @property

@@ -24,15 +24,10 @@ from app.schemas.core.base import (
 
 # backward-compat: expose module names that tests (and older imports) may reference
 from app.schemas.market_data.edinet import (  # noqa: F401
-    EdinetBalanceSheetBase,
-    EdinetBalanceSheetCreate,
-    EdinetBalanceSheetLatest,
-    EdinetBalanceSheetRead,
     EdinetProfitAndLossBase,
     EdinetProfitAndLossCreate,
     EdinetProfitAndLossLatest,
     EdinetProfitAndLossRead,
-    edinet_balance_sheet,
     edinet_cash_flow_statement,
     edinet_profit_and_loss,
     edinet_stock_dividend,
@@ -97,15 +92,10 @@ __all__.extend(
 # edinet schemas
 __all__.extend(
     [
-        "EdinetBalanceSheetBase",
-        "EdinetBalanceSheetCreate",
-        "EdinetBalanceSheetRead",
-        "EdinetBalanceSheetLatest",
         "EdinetProfitAndLossBase",
         "EdinetProfitAndLossCreate",
         "EdinetProfitAndLossRead",
         "EdinetProfitAndLossLatest",
-        "edinet_balance_sheet",
         "edinet_cash_flow_statement",
         "edinet_profit_and_loss",
         "edinet_stock_dividend",

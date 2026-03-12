@@ -1,12 +1,17 @@
 """単体テスト - Service依存性注入プロバイダ."""
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies.services import get_stock_master_repository, get_stock_master_service
+from app.api.dependencies.services import (
+    get_screening_service,
+    get_stock_master_repository,
+    get_stock_master_service,
+)
 from app.repositories.market_data.stock_master import StockMasterRepository
-from app.services.market_data.stock_master import StockMasterService
+from app.services.data_synchronization.market_data.stock_master import StockMasterService
+from app.services.screening.screening_service import ScreeningService
 
 
 class TestGetStockMasterRepository:
@@ -73,3 +78,33 @@ class TestGetStockMasterService:
         assert service2.repo == repo2
         assert service1.repo.session == mock_session1
         assert service2.repo.session == mock_session2
+
+
+class TestGetScreeningService:
+    """Verify get_screening_service behavior."""
+
+    def test_get_screening_service_returns_service_from_app_state(self):
+        """Verify ScreeningService is retrieved from app.state."""
+        # Arrange
+        mock_service = MagicMock(spec=ScreeningService)
+        mock_request = MagicMock()
+        mock_request.app.state.screening_service = mock_service
+
+        # Act
+        result = get_screening_service(request=mock_request)
+
+        # Assert
+        assert result is mock_service
+
+    def test_get_screening_service_raises_when_not_initialized(self):
+        """Verify RuntimeError is raised when ScreeningService is not initialized."""
+        # Arrange
+        mock_request = MagicMock()
+        mock_request.app.state.screening_service = None
+
+        # Act & Assert
+        try:
+            get_screening_service(request=mock_request)
+            assert False, "Expected RuntimeError to be raised"
+        except RuntimeError as e:
+            assert "ScreeningService not initialized" in str(e)

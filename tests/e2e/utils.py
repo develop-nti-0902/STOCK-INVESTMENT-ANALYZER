@@ -236,36 +236,36 @@ def write_text_artifact(text: str, name: Optional[str] = None) -> str:
     return path
 
 
-async def fetch_stock_master_for_artifact() -> List[Dict[str, Any]]:
-    """stock_masterテーブルから全データを取得してアーティファクト用に返す。
+def fetch_stock_master_for_artifact() -> List[Dict[str, Any]]:
+    """同期版: stock_masterテーブルから全データを取得（テスト環境用）.
 
     Returns:
         stock_masterテーブルの全レコードを辞書のリストで返す。
     """
-    from sqlalchemy import select
-    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+    from sqlalchemy import create_engine, select
 
     from app.models.market_data.stock_master import StockMaster
     from app.utils.database import get_database_url
 
-    engine = create_async_engine(get_database_url())
+    # テスト環境用スキーム変換
+    db_url = get_database_url()
+    if db_url.startswith("postgresql+asyncpg://"):
+        db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+    elif db_url.startswith("sqlite+aiosqlite://"):
+        db_url = db_url.replace("sqlite+aiosqlite://", "sqlite:///")
+
+    engine = create_engine(db_url)
     try:
-        async with AsyncSession(engine) as session:
-            result = await session.execute(select(StockMaster))
+        from sqlalchemy.orm import Session
+
+        with Session(engine) as session:
+            result = session.execute(select(StockMaster))
             rows = result.scalars().all()
             return [
                 {
-                    "id": row.id,
                     "stock_code": row.stock_code,
                     "stock_name": row.stock_name,
-                    "market_category": row.market_category,
-                    "sector_code_33": row.sector_code_33,
-                    "sector_name_33": row.sector_name_33,
-                    "sector_code_17": row.sector_code_17,
-                    "sector_name_17": row.sector_name_17,
-                    "scale_code": row.scale_code,
-                    "scale_category": row.scale_category,
-                    "data_date": row.data_date,
+                    "data_date": str(row.data_date) if row.data_date else None,
                     "is_active": row.is_active,
                     "created_at": (row.created_at.isoformat() if row.created_at else None),
                     "updated_at": (row.updated_at.isoformat() if row.updated_at else None),
@@ -273,4 +273,730 @@ async def fetch_stock_master_for_artifact() -> List[Dict[str, Any]]:
                 for row in rows
             ]
     finally:
+        engine.dispose()
+
+
+async def fetch_stock_code_mapping_for_artifact() -> List[Dict[str, Any]]:
+    """stock_code_mappingテーブルから全データを取得してアーティファクト用に返す。
+
+    Returns:
+        stock_code_mappingテーブルの全レコードを辞書のリストで返す。
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.stock_master import StockCodeMapping
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(StockCodeMapping))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": row.id,
+                    "stock_code": row.stock_code,
+                    "sec_code": row.sec_code,
+                    "created_at": (row.created_at.isoformat() if row.created_at else None),
+                    "updated_at": (row.updated_at.isoformat() if row.updated_at else None),
+                }
+                for row in rows
+            ]
+    finally:
         await engine.dispose()
+
+
+async def fetch_market_category_master_for_artifact() -> List[Dict[str, Any]]:
+    """market_category_masterテーブルから全データを取得してアーティファクト用に返す。
+
+    Returns:
+        market_category_masterテーブルの全レコードを辞書のリストで返す。
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.stock_master import MarketCategoryMaster
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(MarketCategoryMaster))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": row.id,
+                    "code": row.code,
+                    "name": row.name,
+                    "created_at": (row.created_at.isoformat() if row.created_at else None),
+                    "updated_at": (row.updated_at.isoformat() if row.updated_at else None),
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def fetch_sector_33_master_for_artifact() -> List[Dict[str, Any]]:
+    """sector_33_masterテーブルから全データを取得してアーティファクト用に返す。
+
+    Returns:
+        sector_33_masterテーブルの全レコードを辞書のリストで返す。
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.stock_master import Sector33Master
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(Sector33Master))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": row.id,
+                    "code": row.code,
+                    "name": row.name,
+                    "created_at": (row.created_at.isoformat() if row.created_at else None),
+                    "updated_at": (row.updated_at.isoformat() if row.updated_at else None),
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def fetch_sector_17_master_for_artifact() -> List[Dict[str, Any]]:
+    """sector_17_masterテーブルから全データを取得してアーティファクト用に返す。
+
+    Returns:
+        sector_17_masterテーブルの全レコードを辞書のリストで返す。
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.stock_master import Sector17Master
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(Sector17Master))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": row.id,
+                    "code": row.code,
+                    "name": row.name,
+                    "created_at": (row.created_at.isoformat() if row.created_at else None),
+                    "updated_at": (row.updated_at.isoformat() if row.updated_at else None),
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def fetch_scale_master_for_artifact() -> List[Dict[str, Any]]:
+    """scale_masterテーブルから全データを取得してアーティファクト用に返す。
+
+    Returns:
+        scale_masterテーブルの全レコードを辞書のリストで返す。
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.stock_master import ScaleMaster
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(ScaleMaster))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": row.id,
+                    "code": row.code,
+                    "name": row.name,
+                    "created_at": (row.created_at.isoformat() if row.created_at else None),
+                    "updated_at": (row.updated_at.isoformat() if row.updated_at else None),
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def cleanup_repository_delete_all(repo_class: type) -> None:
+    """汎用 cleanup 関数。指定リポジトリの delete_all() メソッドを使用してデータを削除。
+
+    Args:
+        repo_class: BaseRepository を継承するリポジトリクラス
+
+    Examples:
+        await cleanup_repository_delete_all(EdinetProfitAndLossRepository)
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            repo = repo_class(session=session)
+            await repo.delete_all()
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
+# ========== Fetch functions for test assertions ==========
+
+
+async def fetch_edinet_profit_and_loss_rows() -> List[Dict[str, Any]]:
+    """edinet_profit_and_loss テーブルから全データを取得する.
+
+    Returns:
+        edinet_profit_and_loss テーブルの全レコードを辞書のリストで返す
+    """
+    from sqlalchemy import join, select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.edinet import EdinetDocument, EdinetProfitAndLoss
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            stmt = select(EdinetProfitAndLoss, EdinetDocument).join(EdinetDocument)
+            result = await session.execute(stmt)
+            rows = result.all()
+            return [
+                {
+                    "id": row[0].id,
+                    "sec_code": row[1].sec_code,
+                    "doc_id": row[1].doc_id,
+                    "period_end_date": (
+                        row[0].period_end_date.isoformat() if row[0].period_end_date else None
+                    ),
+                    "submission_date": (
+                        row[1].submission_date.isoformat() if row[1].submission_date else None
+                    ),
+                    "fiscal_year": row[0].fiscal_year,
+                    "report_type": row[1].report_type,
+                    "net_sales": float(row[0].net_sales) if row[0].net_sales is not None else None,
+                    "operating_income": (
+                        float(row[0].operating_income)
+                        if row[0].operating_income is not None
+                        else None
+                    ),
+                    "eps": float(row[0].eps) if row[0].eps is not None else None,
+                    "candidate_contexts": row[1].candidate_contexts,
+                    "candidate_keys": row[1].candidate_keys,
+                    "is_consolidated": row[0].is_consolidated,
+                    "created_at": row[0].created_at.isoformat() if row[0].created_at else None,
+                    "updated_at": row[0].updated_at.isoformat() if row[0].updated_at else None,
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def fetch_edinet_stock_dividend_rows() -> List[Dict[str, Any]]:
+    """edinet_stock_dividend テーブルから全データを取得する.
+
+    Returns:
+        edinet_stock_dividend テーブルの全レコードを辞書のリストで返す
+    """
+    from sqlalchemy import join, select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.edinet import EdinetDocument, EdinetStockDividend
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            stmt = select(EdinetStockDividend, EdinetDocument).join(EdinetDocument)
+            result = await session.execute(stmt)
+            rows = result.all()
+            return [
+                {
+                    "id": row[0].id,
+                    "sec_code": row[1].sec_code,
+                    "doc_id": row[1].doc_id,
+                    "period_end_date": (
+                        row[0].period_end_date.isoformat() if row[0].period_end_date else None
+                    ),
+                    "submission_date": (
+                        row[1].submission_date.isoformat() if row[1].submission_date else None
+                    ),
+                    "fiscal_year": row[0].fiscal_year,
+                    "report_type": row[1].report_type,
+                    "dividend_actual": (
+                        float(row[0].dividend_actual)
+                        if row[0].dividend_actual is not None
+                        else None
+                    ),
+                    "candidate_contexts": row[1].candidate_contexts,
+                    "candidate_keys": row[1].candidate_keys,
+                    "is_consolidated": row[0].is_consolidated,
+                    "created_at": row[0].created_at.isoformat() if row[0].created_at else None,
+                    "updated_at": row[0].updated_at.isoformat() if row[0].updated_at else None,
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def fetch_edinet_cash_flow_statement_rows() -> List[Dict[str, Any]]:
+    """edinet_cash_flow_statement テーブルから全データを取得する.
+
+    Returns:
+        edinet_cash_flow_statement テーブルの全レコードを辞書のリストで返す
+    """
+    from sqlalchemy import join, select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.edinet import EdinetCashFlowStatement, EdinetDocument
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            stmt = select(EdinetCashFlowStatement, EdinetDocument).join(EdinetDocument)
+            result = await session.execute(stmt)
+            rows = result.all()
+            return [
+                {
+                    "id": row[0].id,
+                    "sec_code": row[1].sec_code,
+                    "doc_id": row[1].doc_id,
+                    "period_end_date": (
+                        row[0].period_end_date.isoformat() if row[0].period_end_date else None
+                    ),
+                    "submission_date": (
+                        row[1].submission_date.isoformat() if row[1].submission_date else None
+                    ),
+                    "fiscal_year": row[0].fiscal_year,
+                    "report_type": row[1].report_type,
+                    "operating_cf": (
+                        float(row[0].operating_cf) if row[0].operating_cf is not None else None
+                    ),
+                    "candidate_contexts": row[1].candidate_contexts,
+                    "candidate_keys": row[1].candidate_keys,
+                    "is_consolidated": row[0].is_consolidated,
+                    "created_at": row[0].created_at.isoformat() if row[0].created_at else None,
+                    "updated_at": row[0].updated_at.isoformat() if row[0].updated_at else None,
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def fetch_edinet_balance_sheet_rows() -> List[Dict[str, Any]]:
+    """edinet_balance_sheet テーブルから全データを取得する.
+
+    Returns:
+        edinet_balance_sheet テーブルの全レコードを辞書のリストで返す
+    """
+    from sqlalchemy import join, select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.edinet import EdinetBalanceSheet, EdinetDocument
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            stmt = select(EdinetBalanceSheet, EdinetDocument).join(EdinetDocument)
+            result = await session.execute(stmt)
+            rows = result.all()
+            return [
+                {
+                    "id": row[0].id,
+                    "sec_code": row[1].sec_code,
+                    "doc_id": row[1].doc_id,
+                    "period_end_date": (
+                        row[0].period_end_date.isoformat() if row[0].period_end_date else None
+                    ),
+                    "submission_date": (
+                        row[1].submission_date.isoformat() if row[1].submission_date else None
+                    ),
+                    "fiscal_year": row[0].fiscal_year,
+                    "report_type": row[1].report_type,
+                    "total_assets": (
+                        float(row[0].total_assets) if row[0].total_assets is not None else None
+                    ),
+                    "net_assets": (
+                        float(row[0].net_assets) if row[0].net_assets is not None else None
+                    ),
+                    "shareholders_equity": (
+                        float(row[0].shareholders_equity)
+                        if row[0].shareholders_equity is not None
+                        else None
+                    ),
+                    "bps": float(row[0].bps) if row[0].bps is not None else None,
+                    "equity_ratio": (
+                        float(row[0].equity_ratio) if row[0].equity_ratio is not None else None
+                    ),
+                    "candidate_contexts": row[1].candidate_contexts,
+                    "candidate_keys": row[1].candidate_keys,
+                    "is_consolidated": row[0].is_consolidated,
+                    "created_at": row[0].created_at.isoformat() if row[0].created_at else None,
+                    "updated_at": row[0].updated_at.isoformat() if row[0].updated_at else None,
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def fetch_edinet_document_rows() -> List[Dict[str, Any]]:
+    """edinet_document テーブルから全データを取得する.
+
+    Returns:
+        edinet_document テーブルの全レコードを辞書のリストで返す
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.edinet import EdinetDocument
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(EdinetDocument))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": row.id,
+                    "doc_id": row.doc_id,
+                    "sec_code": row.sec_code,
+                    "submission_date": (
+                        row.submission_date.isoformat() if row.submission_date else None
+                    ),
+                    "report_type": row.report_type,
+                    "candidate_contexts": row.candidate_contexts,
+                    "candidate_keys": row.candidate_keys,
+                    "created_at": row.created_at.isoformat() if row.created_at else None,
+                    "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def fetch_screening_result_rows() -> List[Dict[str, Any]]:
+    """screening_results テーブルから全データを取得する.
+
+    Returns:
+        screening_results テーブルの全レコードを辞書のリストで返す
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.screening.screening_result import ScreeningResult
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(ScreeningResult))
+            rows = result.scalars().all()
+            result_list = [
+                {
+                    "id": row.id,
+                    "symbol": row.symbol,
+                    "evaluation_year": row.evaluation_year,
+                    "fiscal_year_end": (
+                        row.fiscal_year_end.isoformat() if row.fiscal_year_end else None
+                    ),
+                    "pass_required_conditions": row.pass_required_conditions,
+                    "total_score": row.total_score,
+                    "score_dividend": row.score_dividend,
+                    "score_eps": row.score_eps,
+                    "score_stability": row.score_stability,
+                    "score_profitability": row.score_profitability,
+                    "status": row.status,
+                    "failed_conditions": row.failed_conditions,
+                    "screening_details": row.screening_details,
+                    "created_at": row.created_at.isoformat() if row.created_at else None,
+                    "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                }
+                for row in rows
+            ]
+            return result_list
+    finally:
+        await engine.dispose()
+
+
+# ========== DB Verification Functions (Phase 1) ==========
+
+
+async def _verify_table_has_data_async(table_class: Any) -> bool:
+    """テーブルに1行以上のデータが存在するかを非同期で確認する（内部用）.
+
+    Args:
+        table_class: SQLAlchemy のモデルクラス
+
+    Returns:
+        テーブルに1行以上のデータが存在する場合 True、存在しない場合 False
+    """
+    from sqlalchemy import func, select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(func.count()).select_from(table_class))
+            count = result.scalar()
+            return count is not None and count > 0
+    except Exception as e:
+        import logging
+
+        logging.warning(f"Failed to verify table {table_class.__tablename__}: {e}", exc_info=True)
+        return False
+    finally:
+        await engine.dispose()
+
+
+async def _cleanup_table_async(table_class: Any) -> None:
+    """テーブルをクリーンアップ（全行削除）する（内部用）.
+
+    Args:
+        table_class: SQLAlchemy のモデルクラス
+    """
+    from sqlalchemy import delete
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            await session.execute(delete(table_class))
+            await session.commit()
+    except Exception as e:
+        import logging
+
+        logging.warning(f"Failed to cleanup table {table_class.__tablename__}: {e}", exc_info=True)
+    finally:
+        await engine.dispose()
+
+
+async def _verify_table_is_empty_async(table_class: Any) -> bool:
+    """テーブルが空かどうかを非同期で確認する（内部用）.
+
+    Args:
+        table_class: SQLAlchemy のモデルクラス
+
+    Returns:
+        テーブルが空である場合 True、1行以上のデータが存在する場合 False
+    """
+    from sqlalchemy import func, select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(func.count()).select_from(table_class))
+            count = result.scalar()
+            return count is None or count == 0
+    except Exception as e:
+        import logging
+
+        logging.warning(
+            f"Failed to check if table {table_class.__tablename__} is empty: {e}",
+            exc_info=True,
+        )
+        return False
+    finally:
+        await engine.dispose()
+
+
+def verify_table_has_data(table_class: Any) -> bool:
+    """テーブルに1行以上のデータが存在するかを確認する（同期ラッパー）.
+
+    E2E テストから直接呼び出すことを想定します。
+
+    Args:
+        table_class: SQLAlchemy のモデルクラス
+
+    Returns:
+        テーブルに1行以上のデータが存在する場合 True、存在しない場合 False
+
+    Example:
+        from app.models.market_data.stock_price import Stocks1d
+        assert verify_table_has_data(Stocks1d), "Stocks1d テーブルにデータが見つかりません"
+    """
+    return run_async_safely(_verify_table_has_data_async(table_class))
+
+
+def verify_table_is_empty(table_class: Any) -> bool:
+    """テーブルが空かどうかを確認する（同期ラッパー）.
+
+    E2E テストから直接呼び出すことを想定します。
+
+    Args:
+        table_class: SQLAlchemy のモデルクラス
+
+    Returns:
+        テーブルが空である場合 True、1行以上のデータが存在する場合 False
+
+    Example:
+        from app.models.market_data.stock_price import Stocks1d
+        assert verify_table_is_empty(Stocks1d), "Stocks1d テーブルがクリーンアップされていません"
+    """
+    return run_async_safely(_verify_table_is_empty_async(table_class))
+
+
+def cleanup_table(table_class: Any) -> None:
+    """テーブルをクリーンアップ（全行削除）する（同期ラッパー）.
+
+    E2E テストから直接呼び出すことを想定します。
+
+    Args:
+        table_class: SQLAlchemy のモデルクラス
+
+    Example:
+        from app.models.market_data.stock_price import Stocks1d
+        cleanup_table(Stocks1d)
+    """
+    run_async_safely(_cleanup_table_async(table_class))
+
+
+# ========== Table-specific Verification Helpers ==========
+
+
+def verify_stocks_1d_has_data() -> bool:
+    """Stocks1d テーブルにデータが存在するかを確認する.
+
+    Returns:
+        Stocks1d テーブルに1行以上のデータが存在する場合 True
+
+    Example:
+        assert verify_stocks_1d_has_data(), "Stocks1d テーブルにデータが見つかりません"
+    """
+    from app.models.market_data.stock_price import Stocks1d
+
+    return verify_table_has_data(Stocks1d)
+
+
+def verify_stock_master_has_data() -> bool:
+    """StockMaster テーブルにデータが存在するかを確認する.
+
+    Returns:
+        StockMaster テーブルに1行以上のデータが存在する場合 True
+
+    Example:
+        assert verify_stock_master_has_data(), "StockMaster テーブルにデータが見つかりません"
+    """
+    from app.models.market_data.stock_master import StockMaster
+
+    return verify_table_has_data(StockMaster)
+
+
+def verify_edinet_profit_and_loss_has_data() -> bool:
+    """EdinetProfitAndLoss テーブルにデータが存在するかを確認する.
+
+    Returns:
+        EdinetProfitAndLoss テーブルに1行以上のデータが存在する場合 True
+
+    Example:
+        assert verify_edinet_profit_and_loss_has_data(), "EdinetProfitAndLoss テーブルにデータが見つかりません"
+    """
+    from app.models.market_data.edinet import EdinetProfitAndLoss
+
+    return verify_table_has_data(EdinetProfitAndLoss)
+
+
+def verify_edinet_stock_dividend_has_data() -> bool:
+    """EdinetStockDividend テーブルにデータが存在するかを確認する.
+
+    Returns:
+        EdinetStockDividend テーブルに1行以上のデータが存在する場合 True
+
+    Example:
+        assert verify_edinet_stock_dividend_has_data(), "EdinetStockDividend テーブルにデータが見つかりません"
+    """
+    from app.models.market_data.edinet import EdinetStockDividend
+
+    return verify_table_has_data(EdinetStockDividend)
+
+
+def verify_edinet_cash_flow_statement_has_data() -> bool:
+    """EdinetCashFlowStatement テーブルにデータが存在するかを確認する.
+
+    Returns:
+        EdinetCashFlowStatement テーブルに1行以上のデータが存在する場合 True
+
+    Example:
+        assert verify_edinet_cash_flow_statement_has_data(), "EdinetCashFlowStatement テーブルにデータが見つかりません"
+    """
+    from app.models.market_data.edinet import EdinetCashFlowStatement
+
+    return verify_table_has_data(EdinetCashFlowStatement)
+
+
+def verify_edinet_balance_sheet_has_data() -> bool:
+    """EdinetBalanceSheet テーブルにデータが存在するかを確認する.
+
+    Returns:
+        EdinetBalanceSheet テーブルに1行以上のデータが存在する場合 True
+
+    Example:
+        assert verify_edinet_balance_sheet_has_data(), "EdinetBalanceSheet テーブルにデータが見つかりません"
+    """
+    from app.models.market_data.edinet import EdinetBalanceSheet
+
+    return verify_table_has_data(EdinetBalanceSheet)
+
+
+# ========== Artifact Verification Helpers ==========
+
+
+def assert_artifact_written(artifact_name: str) -> bool:
+    """Artifact ファイルが正しく生成されたことを確認する.
+
+    Args:
+        artifact_name: Artifact ファイル名のベース（拡張子なし）
+
+    Returns:
+        ファイルが存在する場合 True
+
+    Raises:
+        AssertionError: Artifact ファイルが見つからない場合、または空の場合
+
+    Example:
+        write_csv_artifact(data, name="test_xxx")
+        assert_artifact_written("test_xxx")  # artifact ファイル確認が必須
+    """
+    base = _safe_name(artifact_name)
+    filename = f"{base}.csv"
+    path = os.path.join(ARTIFACT_DIR, filename)
+
+    assert os.path.exists(path), (
+        f"Artifact file not found: {path}. " f"Table data was updated but artifact was not written."
+    )
+
+    # ファイルが空でないことも確認
+    file_size = os.path.getsize(path)
+    assert file_size > 0, (
+        f"Artifact file is empty: {path}. " f"Artifact must contain at least header row."
+    )
+
+    return True

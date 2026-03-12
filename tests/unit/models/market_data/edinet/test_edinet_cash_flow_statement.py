@@ -12,12 +12,9 @@ def test_tablename_and_columns_exist():
     assert getattr(EdinetCashFlowStatement, "__tablename__") == "edinet_cash_flow_statement"
 
     expected_attrs = [
-        "doc_id",
-        "sec_code",
-        "submission_date",
+        "edinet_document_id",
         "period_end_date",
         "operating_cf",
-        "candidate_contexts",
         "is_consolidated",
     ]
 
@@ -30,8 +27,8 @@ def test_table_args_contains_unique_constraint():
     table_args = getattr(EdinetCashFlowStatement, "__table_args__", None)
     assert table_args is not None
 
-    uc_found = any(getattr(t, "name", None) == "uq_edinet_cfs_sec_period" for t in table_args)
-    assert uc_found, "UniqueConstraint 'uq_edinet_cfs_sec_period' not found in __table_args__"
+    uc_found = any(getattr(t, "name", None) == "uq_edinet_cfs_doc_period" for t in table_args)
+    assert uc_found, "UniqueConstraint 'uq_edinet_cfs_doc_period' not found in __table_args__"
 
 
 def test_repr_signature():

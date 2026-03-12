@@ -6,7 +6,7 @@ class TestBaseFetcher:
 
     def test_imports(self):
         """BaseFetcher がインポート可能であることを確認します."""
-        from app.services.core.fetchers import BaseFetcher
+        from app.services.data_synchronization._core.fetchers import BaseFetcher
 
         assert BaseFetcher is not None
 
@@ -16,7 +16,7 @@ class TestBaseSaver:
 
     def test_imports(self):
         """BaseSaver がインポート可能であることを確認します."""
-        from app.services.core.savers import BaseSaver
+        from app.services.data_synchronization._core.savers import BaseSaver
 
         assert BaseSaver is not None
 
@@ -26,7 +26,7 @@ class TestBaseValidator:
 
     def test_imports(self):
         """BaseValidator がインポート可能であることを確認します."""
-        from app.services.core.validators import BaseValidator
+        from app.services.data_synchronization._core.validators import BaseValidator
 
         assert BaseValidator is not None
 
@@ -36,7 +36,7 @@ class TestBaseConverter:
 
     def test_imports(self):
         """BaseConverter がインポート可能であることを確認します."""
-        from app.services.core.converters import BaseConverter
+        from app.services.data_synchronization._core.converters import BaseConverter
 
         assert BaseConverter is not None
 

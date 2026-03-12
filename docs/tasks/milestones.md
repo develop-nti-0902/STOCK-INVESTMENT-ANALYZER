@@ -125,7 +125,7 @@ gantt
 - [ ] 開発環境セットアップドキュメント
 - [ ] Git/GitHub設定（ブランチ戦略、Issue/PRテンプレート）
 - [ ] CI/CD基盤（GitHub Actions）
-- [ ] Linter/Formatter設定（Ruff, Black）
+- [ ] Formatter設定（Black）
 - [ ] pre-commit hooks設定
 - [ ] ドキュメント整備（README、アーキテクチャ図）
 
