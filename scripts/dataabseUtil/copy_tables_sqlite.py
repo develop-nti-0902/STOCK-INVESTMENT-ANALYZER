@@ -43,7 +43,11 @@ def ensure_table_exists_in_dest(
 
 
 def copy_table_with_progress(
-    src_conn: sqlite3.Connection, dest_conn: sqlite3.Connection, table: str, batch_size: int = 10000
+    src_conn: sqlite3.Connection,
+    dest_conn: sqlite3.Connection,
+    table: str,
+    batch_size: int = 10000,
+    commit_every: int = 100000,
 ) -> None:
     print(f"[{datetime.now().isoformat()}] [{table}] 宛先テーブル存在確認/作成を開始します...")
     sys.stdout.flush()
@@ -64,24 +68,63 @@ def copy_table_with_progress(
     insert_sql = f"INSERT INTO {table} VALUES ({placeholders})"
 
     copied = 0
-    while True:
-        rows = src_cur.fetchmany(batch_size)
-        if not rows:
-            break
-        dest_conn.executemany(insert_sql, rows)
-        dest_conn.commit()
-        copied += len(rows)
-        sys.stdout.write(f"\r[{datetime.now().isoformat()}] {table}: {copied} 行コピー中...")
-        sys.stdout.flush()
+    rows_since_commit = 0
 
-    sys.stdout.write("\n")
-    print(
-        f"[{datetime.now().isoformat()}] [{table}] コピー完了。合計 {copied} 行をコピーしました。"
-    )
+    # Begin a transaction to allow grouped commits for better throughput
+    try:
+        dest_conn.execute("BEGIN")
+    except Exception:
+        # Some SQLite wrappers/versions may not allow explicit BEGIN; proceed anyway
+        pass
+
+    try:
+        while True:
+            rows = src_cur.fetchmany(batch_size)
+            if not rows:
+                break
+            dest_conn.executemany(insert_sql, rows)
+            copied += len(rows)
+            rows_since_commit += len(rows)
+
+            # Commit when accumulated rows reach threshold
+            if commit_every > 0 and rows_since_commit >= commit_every:
+                dest_conn.commit()
+                try:
+                    dest_conn.execute("BEGIN")
+                except Exception:
+                    pass
+                rows_since_commit = 0
+
+            sys.stdout.write(f"\r[{datetime.now().isoformat()}] {table}: {copied} 行コピー中...")
+            sys.stdout.flush()
+
+        # Final commit for remaining rows
+        if rows_since_commit > 0:
+            dest_conn.commit()
+
+    except Exception:
+        # On error, ensure we attempt to commit whatever is pending to avoid losing progress
+        try:
+            dest_conn.commit()
+        except Exception:
+            pass
+        raise
+
+    finally:
+        sys.stdout.write("\n")
+        print(
+            f"[{datetime.now().isoformat()}] [{table}] コピー完了。合計 {copied} 行をコピーしました。"
+        )
     sys.stdout.flush()
 
 
-def copy_tables(source: str, dest: str, tables: Iterable[str], batch_size: int = 1000) -> None:
+def copy_tables(
+    source: str,
+    dest: str,
+    tables: Iterable[str],
+    batch_size: int = 1000,
+    commit_every: int = 100000,
+) -> None:
     if not os.path.exists(source):
         raise FileNotFoundError(f"Source DB not found: {source}")
     # 宛先DBのディレクトリがなければ作る
@@ -111,7 +154,9 @@ def copy_tables(source: str, dest: str, tables: Iterable[str], batch_size: int =
             if not cur.fetchone():
                 print(f"警告: ソースにテーブルが見つかりません: {table} — スキップします。")
                 continue
-            copy_table_with_progress(src_conn, dest_conn, table, batch_size=batch_size)
+            copy_table_with_progress(
+                src_conn, dest_conn, table, batch_size=batch_size, commit_every=commit_every
+            )
     finally:
         src_conn.close()
         dest_conn.close()
@@ -136,6 +181,12 @@ def main(argv: List[str] | None = None) -> int:
         help="Tables to copy (space separated)",
     )
     p.add_argument("--batch", type=int, default=10000, help="Batch size for inserting rows")
+    p.add_argument(
+        "--commit-every",
+        type=int,
+        default=100000,
+        help="Number of rows to accumulate before issuing a commit (0 = commit every batch)",
+    )
     args = p.parse_args(argv)
 
     print("Source:", args.source)
@@ -143,7 +194,13 @@ def main(argv: List[str] | None = None) -> int:
     print("Tables:", ", ".join(args.tables))
 
     try:
-        copy_tables(args.source, args.dest, args.tables, batch_size=args.batch)
+        copy_tables(
+            args.source,
+            args.dest,
+            args.tables,
+            batch_size=args.batch,
+            commit_every=args.commit_every,
+        )
     except Exception as e:
         print("エラーが発生しました:", e)
         return 1
