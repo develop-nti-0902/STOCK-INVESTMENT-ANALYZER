@@ -16,6 +16,11 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.repositories.latest_stocks_repository import LatestStocksRepository
+from app.repositories.market_data.edinet import (
+    EdinetDividendMetricsRepository,
+    EdinetProfitAndLossRepository,
+    EdinetStockDividendRepository,
+)
 from app.repositories.market_data.stock_master import (
     StockCodeMappingRepository,
     StockMasterRepository,
@@ -34,6 +39,11 @@ from app.services.data_synchronization.market_data.edinet.balance_sheet.saver im
     EdinetBalanceSheetSaver,
 )
 from app.services.data_synchronization.market_data.edinet.common.api_client import EdinetAPIClient
+from app.services.data_synchronization.market_data.edinet.dividend_metrics import (
+    DividendMetricsConverter,
+    DividendMetricsSaver,
+    DividendMetricsService,
+)
 from app.services.data_synchronization.market_data.edinet.download_service import (
     EdinetDownloadService,
 )
@@ -440,6 +450,80 @@ def get_edinet_balance_sheet_saver(
     return EdinetBalanceSheetSaver(session=db)
 
 
+# EDINET 配当メトリクス用プロバイダ
+
+
+def get_edinet_dividend_metrics_repository(
+    db: AsyncSession = Depends(get_db),
+) -> EdinetDividendMetricsRepository:
+    """EdinetDividendMetricsRepository を提供する依存性プロバイダ.
+
+    Args:
+        db: 非同期DBセッション
+
+    Returns:
+        EdinetDividendMetricsRepository: EDINET 配当メトリクスリポジトリ
+    """
+    return EdinetDividendMetricsRepository(session=db)
+
+
+def get_edinet_dividend_metrics_converter() -> DividendMetricsConverter:
+    """DividendMetricsConverter を提供する依存性プロバイダ.
+
+    Returns:
+        DividendMetricsConverter: 配当メトリクスコンバータ
+    """
+    return DividendMetricsConverter()
+
+
+def get_edinet_dividend_metrics_saver(
+    db: AsyncSession = Depends(get_db),
+    metrics_repo: EdinetDividendMetricsRepository = Depends(get_edinet_dividend_metrics_repository),
+) -> DividendMetricsSaver:
+    """DividendMetricsSaver を提供する依存性プロバイダ.
+
+    Args:
+        db: 非同期DBセッション
+        metrics_repo: 配当メトリクスリポジトリ
+
+    Returns:
+        DividendMetricsSaver: 配当メトリクスセーバ
+    """
+    return DividendMetricsSaver(repository=metrics_repo, session=db)
+
+
+def get_edinet_dividend_metrics_service(
+    converter: DividendMetricsConverter = Depends(get_edinet_dividend_metrics_converter),
+    saver: DividendMetricsSaver = Depends(get_edinet_dividend_metrics_saver),
+    dividend_repo: EdinetStockDividendRepository = Depends(
+        lambda db=Depends(get_db): EdinetStockDividendRepository(session=db)
+    ),
+    profit_loss_repo: EdinetProfitAndLossRepository = Depends(
+        lambda db=Depends(get_db): EdinetProfitAndLossRepository(session=db)
+    ),
+    metrics_repo: EdinetDividendMetricsRepository = Depends(get_edinet_dividend_metrics_repository),
+) -> DividendMetricsService:
+    """DividendMetricsService を提供する依存性プロバイダ.
+
+    Args:
+        converter: 配当メトリクスコンバータ
+        saver: 配当メトリクスセーバ
+        dividend_repo: 配当リポジトリ
+        profit_loss_repo: 損益リポジトリ
+        metrics_repo: 配当メトリクスリポジトリ
+
+    Returns:
+        DividendMetricsService: 配当メトリクスサービス
+    """
+    return DividendMetricsService(
+        converter=converter,
+        saver=saver,
+        dividend_repo=dividend_repo,
+        profit_loss_repo=profit_loss_repo,
+        metrics_repo=metrics_repo,
+    )
+
+
 # pylint: disable=too-many-arguments,too-many-positional-arguments
 def get_edinet_aggregate_update_service(  # noqa: E501
     fetcher: EdinetDownloadService = Depends(get_edinet_document_fetcher),
@@ -457,6 +541,7 @@ def get_edinet_aggregate_update_service(  # noqa: E501
     bs_parser: EdinetBalanceSheetParser = Depends(get_edinet_balance_sheet_parser),
     bs_converter: EdinetBalanceSheetConverter = Depends(get_edinet_balance_sheet_converter),
     bs_saver: EdinetBalanceSheetSaver = Depends(get_edinet_balance_sheet_saver),
+    dividend_metrics_service: DividendMetricsService = Depends(get_edinet_dividend_metrics_service),
 ) -> EdinetAggregateUpdateService:
     """EdinetAggregateUpdateService を提供する依存性プロバイダ.
 
@@ -474,7 +559,9 @@ def get_edinet_aggregate_update_service(  # noqa: E501
     # cast to Any to satisfy the aggregate service typing expectations
     # pylint: disable=too-many-arguments,too-many-positional-arguments
     return EdinetAggregateUpdateService(
-        download_service=download_service, parser_saver_pairs=cast(Any, parser_saver_pairs)
+        download_service=download_service,
+        parser_saver_pairs=cast(Any, parser_saver_pairs),
+        dividend_metrics_service=dividend_metrics_service,
     )
 
 
