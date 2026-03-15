@@ -1,8 +1,3 @@
----
-title: Handoff Template
-version: 0.1
----
-
 # Context
 
 - 目的：
