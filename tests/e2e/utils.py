@@ -966,6 +966,20 @@ def verify_edinet_balance_sheet_has_data() -> bool:
     return verify_table_has_data(EdinetBalanceSheet)
 
 
+def verify_edinet_dividend_metrics_has_data() -> bool:
+    """EdinetDividendMetrics テーブルにデータが存在するかを確認する.
+
+    Returns:
+        EdinetDividendMetrics テーブルに1行以上のデータが存在する場合 True
+
+    Example:
+        assert verify_edinet_dividend_metrics_has_data(), "EdinetDividendMetrics テーブルにデータが見つかりません"
+    """
+    from app.models.market_data.edinet import EdinetDividendMetrics
+
+    return verify_table_has_data(EdinetDividendMetrics)
+
+
 # ========== Artifact Verification Helpers ==========
 
 
@@ -1000,3 +1014,52 @@ def assert_artifact_written(artifact_name: str) -> bool:
     )
 
     return True
+
+
+async def fetch_edinet_dividend_metrics_rows() -> List[Dict[str, Any]]:
+    """edinet_dividend_metrics テーブルから全データを取得する.
+
+    Returns:
+        edinet_dividend_metrics テーブルの全レコードを辞書のリストで返す
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+    from app.models.market_data.edinet import EdinetDividendMetrics, EdinetDocument
+    from app.utils.database import get_database_url
+
+    engine = create_async_engine(get_database_url())
+    try:
+        async with AsyncSession(engine) as session:
+            stmt = select(EdinetDividendMetrics, EdinetDocument).join(EdinetDocument)
+            result = await session.execute(stmt)
+            rows = result.all()
+            return [
+                {
+                    "id": row[0].id,
+                    "sec_code": row[1].sec_code,
+                    "doc_id": row[1].doc_id,
+                    "period_end_date": (
+                        row[0].period_end_date.isoformat() if row[0].period_end_date else None
+                    ),
+                    "submission_date": (
+                        row[1].submission_date.isoformat() if row[1].submission_date else None
+                    ),
+                    "fiscal_year": row[0].fiscal_year,
+                    "dividend_actual": (
+                        float(row[0].dividend_actual)
+                        if row[0].dividend_actual is not None
+                        else None
+                    ),
+                    "eps": float(row[0].eps) if row[0].eps is not None else None,
+                    "payout_ratio": (
+                        float(row[0].payout_ratio) if row[0].payout_ratio is not None else None
+                    ),
+                    "is_consolidated": row[0].is_consolidated,
+                    "created_at": row[0].created_at.isoformat() if row[0].created_at else None,
+                    "updated_at": row[0].updated_at.isoformat() if row[0].updated_at else None,
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()

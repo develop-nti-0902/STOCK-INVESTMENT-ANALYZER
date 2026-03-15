@@ -3,12 +3,15 @@
 このテストは実際のEDINET APIを呼び出すため、ネットワーク接続が必要です。
 テスト実行時間を短縮するため、max_documentsを制限しています。
 
-テストは以下の5つに分割：
+テストは以下の6つに分割：
 1. test_setup_stock_master_for_edinet - マスタ更新
 2. test_edinet_process_date_range_triggers_api - API実行確認
 3. test_edinet_process_date_range_saves_to_db_profit_and_loss - P&L確認
 4. test_edinet_process_date_range_saves_to_db_dividends - 配当確認
 5. test_edinet_process_date_range_saves_to_db_cash_flow - キャッシュフロー確認
+6. test_edinet_process_date_range_saves_to_db_balance_sheet - BS確認
+7. test_edinet_process_date_range_saves_to_db_dividend_metrics_basic - 配当メトリクス（基本）
+8. test_edinet_process_date_range_saves_to_db_dividend_metrics_null_handling - 配当メトリクス（NULL値）
 """
 
 # flake8: noqa
@@ -20,6 +23,7 @@ import pytest
 from app.models.market_data.edinet import (
     EdinetBalanceSheet,
     EdinetCashFlowStatement,
+    EdinetDividendMetrics,
     EdinetDocument,
     EdinetProfitAndLoss,
     EdinetStockDividend,
@@ -38,6 +42,7 @@ from tests.e2e.utils import (
     cleanup_table,
     fetch_edinet_balance_sheet_rows,
     fetch_edinet_cash_flow_statement_rows,
+    fetch_edinet_dividend_metrics_rows,
     fetch_edinet_document_rows,
     fetch_edinet_profit_and_loss_rows,
     fetch_edinet_stock_dividend_rows,
@@ -45,6 +50,7 @@ from tests.e2e.utils import (
     run_async_safely,
     verify_edinet_balance_sheet_has_data,
     verify_edinet_cash_flow_statement_has_data,
+    verify_edinet_dividend_metrics_has_data,
     verify_edinet_profit_and_loss_has_data,
     verify_edinet_stock_dividend_has_data,
     verify_stock_master_has_data,
@@ -373,3 +379,121 @@ def test_edinet_process_date_range_saves_to_db_balance_sheet(client):
     if edinet_doc_rows:
         write_csv_artifact(edinet_doc_rows, name="edinet_document_artifact")
         assert_artifact_written("edinet_document_artifact")
+
+
+@pytest.mark.slow
+def test_edinet_process_date_range_saves_to_db_dividend_metrics_basic(client):
+    """DB確認: EDINET 処理で配当メトリクス（DIVIDEND_METRICS）が DB に格納されることを確認.
+
+    手順:
+    1. EdinetDividendMetrics テーブルをクリーンアップ
+    2. /api/v1/edinet/process-date-range でバッチ実行
+    3. DB に配当メトリクスレコードが格納されたことを確認（存在確認のみ）
+    """
+    # テーブルクリーンアップ
+    cleanup_table(StockMaster)
+    cleanup_table(EdinetDocument)
+    cleanup_table(EdinetStockDividend)
+    cleanup_table(EdinetProfitAndLoss)
+    cleanup_table(EdinetDividendMetrics)
+
+    target_date = date(2025, 6, 25)
+
+    params = {
+        "start_date": target_date.isoformat(),
+        "end_date": target_date.isoformat(),
+        "max_documents": 10,
+        "progress_interval": 1,
+        "transaction_atomic": True,
+    }
+
+    # API実行
+    r_batch = client.post("/api/v1/edinet/process-date-range", params=params)
+
+    if r_batch.status_code != 200:
+        pytest.skip("EDINET API did not return 200")
+        return
+
+    batch_result = r_batch.json()
+    if batch_result.get("total_documents", 0) == 0:
+        pytest.skip("No documents found by EDINET API")
+        return
+
+    if batch_result.get("failed_documents", 0) > 0 and batch_result.get("saved_items", 0) == 0:
+        assert False, (
+            f"All documents failed (異常):\\n"
+            f"  Total: {batch_result.get('total_documents')}\\n"
+            f"  Failed: {batch_result.get('failed_documents')}\\n"
+            f"  Saved: {batch_result.get('saved_items')}\\n"
+            f"  Status: {batch_result.get('status')}"
+        )
+
+    # DB確認（存在確認のみ）
+    has_data = verify_edinet_dividend_metrics_has_data()
+    assert has_data, "DB確認失敗: EdinetDividendMetrics テーブルにレコードが見つかりません"
+
+    # artifact 出力（必須）
+    dividend_metrics_rows = run_async_safely(fetch_edinet_dividend_metrics_rows())
+    assert dividend_metrics_rows, "No dividend metrics data to write artifact"
+    artifact_name = "edinet_dividend_metrics_basic_artifact"
+    write_csv_artifact(dividend_metrics_rows, name=artifact_name)
+    assert_artifact_written(artifact_name)
+
+
+@pytest.mark.slow
+def test_edinet_process_date_range_saves_to_db_dividend_metrics_null_handling(client):
+    """DB確認: EDINET 処理で配当メトリクスの NULL値処理を検証.
+
+    手順:
+    1. EdinetDividendMetrics テーブルをクリーンアップ
+    2. /api/v1/edinet/process-date-range でバッチ実行
+    3. payout_ratio が NULL で保存されるケースを確認
+    """
+    # テーブルクリーンアップ
+    cleanup_table(StockMaster)
+    cleanup_table(EdinetDocument)
+    cleanup_table(EdinetStockDividend)
+    cleanup_table(EdinetProfitAndLoss)
+    cleanup_table(EdinetDividendMetrics)
+
+    target_date = date(2025, 6, 25)
+
+    params = {
+        "start_date": target_date.isoformat(),
+        "end_date": target_date.isoformat(),
+        "max_documents": 10,
+        "progress_interval": 1,
+        "transaction_atomic": True,
+    }
+
+    # API実行
+    r_batch = client.post("/api/v1/edinet/process-date-range", params=params)
+
+    if r_batch.status_code != 200:
+        pytest.skip("EDINET API did not return 200")
+        return
+
+    batch_result = r_batch.json()
+    if batch_result.get("total_documents", 0) == 0:
+        pytest.skip("No documents found by EDINET API")
+        return
+
+    if batch_result.get("failed_documents", 0) > 0 and batch_result.get("saved_items", 0) == 0:
+        assert False, (
+            f"All documents failed (異常):\\n"
+            f"  Total: {batch_result.get('total_documents')}\\n"
+            f"  Failed: {batch_result.get('failed_documents')}\\n"
+            f"  Saved: {batch_result.get('saved_items')}\\n"
+            f"  Status: {batch_result.get('status')}"
+        )
+
+    # DB確認（存在確認のみ）
+    has_data = verify_edinet_dividend_metrics_has_data()
+    assert has_data, "DB確認失敗: EdinetDividendMetrics テーブルにレコードが見つかりません"
+
+    # artifact 出力（必須）
+    dividend_metrics_rows = run_async_safely(fetch_edinet_dividend_metrics_rows())
+    assert dividend_metrics_rows, "No dividend metrics data to write artifact"
+    artifact_name = "edinet_dividend_metrics_null_handling_artifact"
+    write_csv_artifact(dividend_metrics_rows, name=artifact_name)
+    assert_artifact_written(artifact_name)

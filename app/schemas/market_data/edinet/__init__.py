@@ -16,6 +16,7 @@ from .edinet_cash_flow_statement import (
     EdinetCashFlowStatementLatest,
     EdinetCashFlowStatementRead,
 )
+from .edinet_dividend_metrics import EdinetDividendMetricsCreate, EdinetDividendMetricsRead
 from .edinet_profit_and_loss import (
     EdinetProfitAndLossBase,
     EdinetProfitAndLossCreate,
@@ -38,6 +39,8 @@ __all__ = [
     "EdinetCashFlowStatementCreate",
     "EdinetCashFlowStatementRead",
     "EdinetCashFlowStatementLatest",
+    "EdinetDividendMetricsCreate",
+    "EdinetDividendMetricsRead",
     "EdinetProfitAndLossBase",
     "EdinetProfitAndLossCreate",
     "EdinetProfitAndLossRead",

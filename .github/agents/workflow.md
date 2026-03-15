@@ -1,7 +1,3 @@
----
-title: Local Multi-Agent Workflow (Agents-as-Tools)
-version: 0.1
----
 
 # 標準フロー
 
@@ -12,9 +8,9 @@ version: 0.1
 1. Planner — 要件の分解と実行プラン作成
 2. Architect — API/DB/仕様の設計（必要時）
 3. Coder — 実装（最小差分）
-4. Tester — ユニット/統合/e2e テストの実行
-5. Reviewer — 品質ゲート（自動＋手動指摘）
-6. Security — セキュリティ評価と HITL 判定（重要変更時）
+4. Tester(unit) — ユニット テストの実装と実行
+5. Tester(e2e) — e2e テストの実装と実行
+6. Reviewer — 品質ゲート（自動＋手動指摘）
 
 各サブエージェントは handoff ファイル（`handoff_template.md` ベース）を介して入力／出力をやり取りします。Orchestrator は handoff の作成・検証・集約を行い、サブエージェントは所定のパスに自分の出力を書き出してください（詳細は `00_orchestrator.md` と `handoff_template.md` を参照）。
 
@@ -24,6 +20,6 @@ version: 0.1
 |------|------|
 | 仕様が曖昧 | Plannerで確認質問 → 確定後に進む |
 | 新規API/DB変更 | Architectを必ず挟む |
-| 重要フロー変更 | Testerでe2e優先 |
-| 外部連携/権限/機密 | Securityを必ず挟む |
+| 新規API/DB変更 | Architectを必ず挟む |
+| 重要フロー変更 | Tester(e2e)で必ずDB更新されていることを確認 |
 | HITL条件 | 承認待ちで停止 |

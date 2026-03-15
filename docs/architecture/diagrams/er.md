@@ -28,6 +28,7 @@ erDiagram
     EDINET_DOCUMENT ||--o{ EDINET_STOCK_DIVIDEND : contains
     EDINET_DOCUMENT ||--o{ EDINET_CASH_FLOW_STATEMENT : contains
     EDINET_DOCUMENT ||--o{ EDINET_BALANCE_SHEET : contains
+    EDINET_DOCUMENT ||--o{ EDINET_DIVIDEND_METRICS : contains
     EDINET_STOCK_DIVIDEND ||--o{ DIVIDEND_YIELD_HISTORY : "references"
     STOCKS_1D ||--o{ DIVIDEND_YIELD_HISTORY : "references_price"
     MARKET_CATEGORY_MASTER ||--o{ STOCK_MASTER : "categorizes"
@@ -229,6 +230,19 @@ erDiagram
         datetime updated_at "更新日時"
     }
 
+    EDINET_DIVIDEND_METRICS {
+        int id PK "プライマリキー"
+        int edinet_document_id FK "EDINETドキュメントID"
+        date period_end_date "報告期末日"
+        int fiscal_year "会計年度"
+        boolean is_consolidated "連結フラグ"
+        decimal dividend_actual "実績配当金（円）"
+        decimal eps "1株当たり利益（円）"
+        decimal payout_ratio "配当性向"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
     STOCK_SPLIT {
         int id PK "プライマリキー"
         string code "銘柄コード"
@@ -306,6 +320,7 @@ erDiagram
 - **EdinetStockDividend**: EDINET配当情報データ。`edinet_document_id`で EdinetDocument を参照。年間配当金（実績/調整後）のみを格納。
 - **EdinetCashFlowStatement**: EDINETキャッシュフロー計算書データ。`edinet_document_id`で EdinetDocument を参照。営業キャッシュフローなどの実データのみを格納。
 - **EdinetBalanceSheet**: EDINET貸借対照表データ。`edinet_document_id`で EdinetDocument を参照。総資産、負債、資本などのバランスシート実データのみを格納。
+- **EdinetDividendMetrics**: EDINET配当メトリクスデータ。`edinet_document_id`で EdinetDocument を参照。配当実績、EPS、配当性向などの計算指標データを格納。このテーブルは計算テーブルであり、既存の EdinetStockDividend と EdinetProfitAndLoss データから派生した指標を保持。
 
 ### Analysis & Monitoring
 - **StockSplit**: 株式分割イベントの履歴。

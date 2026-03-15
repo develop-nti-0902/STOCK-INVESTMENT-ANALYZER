@@ -35,6 +35,7 @@ class EdinetAggregateUpdateService:
                 ]
             ]
         ] = None,
+        dividend_metrics_service: Optional[Any] = None,
     ) -> None:
         """サービスは予め処理する `parser` と `saver` の組み合わせを保持します.
 
@@ -48,6 +49,7 @@ class EdinetAggregateUpdateService:
         self.parser_saver_pairs: List[
             Tuple[Callable[[etree._Element], Dict[str, Any]], Any, Callable[[Dict[str, Any]], Any]]
         ] = (parser_saver_pairs or [])
+        self.dividend_metrics_service = dividend_metrics_service
 
     async def process_document(
         self,
@@ -499,6 +501,57 @@ class EdinetAggregateUpdateService:
                     )
 
         ##########################################################
+        # 配当メトリクス計算・保存
+        # - 全ドキュメント処理後に、配当メトリクスを計算・保存します。
+        ##########################################################
+        dividend_metrics_result = {}
+        if self.dividend_metrics_service and processed_docs > 0:
+            try:
+                logger.info("配当メトリクス計算・保存開始")
+                # 処理済みドキュメントから sec_code を集約
+                sec_codes_processed = set()
+                for doc in all_documents[:processed_docs]:  # 処理済みドキュメントのみ
+                    sec_code = doc.get("secCode")
+                    if sec_code:
+                        sec_codes_processed.add(sec_code)
+
+                # 各証券コード毎に dividend レコードを検索・計算
+                total_saved = 0
+                for sec_code in sec_codes_processed:
+                    try:
+                        dividend_records = await self.dividend_metrics_service.dividend_repo.find_latest_by_sec_code(
+                            sec_code
+                        )
+                        if dividend_records:
+                            # 先ほどの find_latest_by_sec_code は Optional で単一値を返す
+                            # 複数件を処理するために find_by_period を使うか、または
+                            # 全員を処理するロジックに修正
+                            # ここで簡潔に、単一レコードで処理
+                            records_list = [dividend_records] if dividend_records else []
+                            result_item = (
+                                await self.dividend_metrics_service.compute_and_save_metrics(
+                                    sec_code=sec_code,
+                                    dividend_records=records_list,
+                                )
+                            )
+                            total_saved += result_item.get("saved_records", 0)
+                    except Exception as e:
+                        logger.warning(f"配当メトリクス計算失敗 ({sec_code}): {e}")
+
+                dividend_metrics_result = {
+                    "status": "completed",
+                    "total_sec_codes": len(sec_codes_processed),
+                    "total_saved": total_saved,
+                }
+                logger.info(f"配当メトリクス計算・保存完了: {dividend_metrics_result}")
+            except Exception as e:
+                logger.exception("配当メトリクス処理に失敗: %s", e)
+                dividend_metrics_result = {
+                    "status": "error",
+                    "error": str(e),
+                }
+
+        ##########################################################
         # バッチ集計の作成と返却
         # - 処理結果（総件数・処理済み件数・保存件数・失敗件数）を集計して返します。
         ##########################################################
@@ -509,6 +562,7 @@ class EdinetAggregateUpdateService:
             "saved_items": saved_items,
             "failed_documents": failed_docs,
             "failed_documents_details": failed_docs_details,
+            "dividend_metrics": dividend_metrics_result,
         }
         logger.info(
             "EDINET batch metrics",
