@@ -122,8 +122,8 @@ class TestDividendMetricsConverterDividendAdjPriority:
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
 
-        # dividend_actual フィールドに dividend_adj が入る（優先度が高い）
-        assert result.dividend_actual == Decimal("55.00")
+        # 未調整の dividend_actual が優先される
+        assert result.dividend_actual == Decimal("50.00")
 
     @pytest.mark.asyncio
     async def test_dividend_actual_fallback_when_adj_none(
@@ -150,8 +150,9 @@ class TestDividendMetricsConverterDividendAdjPriority:
     @pytest.mark.asyncio
     async def test_dividend_adj_zero(self, converter, dividend_record, profit_loss_record):
         """dividend_adj = 0（境界値）."""
+        # 未調整値が無い場合に調整値(0)が有効となる
         dividend_record.dividend_adj = Decimal("0")
-        dividend_record.dividend_actual = Decimal("50.00")
+        dividend_record.dividend_actual = None
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
 
@@ -161,6 +162,8 @@ class TestDividendMetricsConverterDividendAdjPriority:
     @pytest.mark.asyncio
     async def test_dividend_large_value(self, converter, dividend_record, profit_loss_record):
         """dividend の大きい値（境界値）."""
+        # 未調整値が無い場合に調整済み値がフォールバックとして使用される
+        dividend_record.dividend_actual = None
         dividend_record.dividend_adj = Decimal("99999.99")
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
@@ -176,7 +179,7 @@ class TestDividendMetricsConverterPayoutRatiCalculation:
         self, converter, dividend_record, profit_loss_record
     ):
         """payout_ratio = dividend / eps（正常系）."""
-        dividend_record.dividend_adj = Decimal("50.00")
+        dividend_record.dividend_actual = Decimal("50.00")
         profit_loss_record.eps = Decimal("100.00")
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
@@ -190,7 +193,7 @@ class TestDividendMetricsConverterPayoutRatiCalculation:
         self, converter, dividend_record, profit_loss_record
     ):
         """payout_ratio の精度確認（小数第4位以上）."""
-        dividend_record.dividend_adj = Decimal("33.33")
+        dividend_record.dividend_actual = Decimal("33.33")
         profit_loss_record.eps = Decimal("100.00")
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
@@ -204,7 +207,7 @@ class TestDividendMetricsConverterPayoutRatiCalculation:
         self, converter, dividend_record, profit_loss_record
     ):
         """eps = 0 の場合 payout_ratio は None（ゼロ除算防止）."""
-        dividend_record.dividend_adj = Decimal("50.00")
+        dividend_record.dividend_actual = Decimal("50.00")
         profit_loss_record.eps = Decimal("0")
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
@@ -216,7 +219,7 @@ class TestDividendMetricsConverterPayoutRatiCalculation:
         self, converter, dividend_record, profit_loss_record
     ):
         """eps < 0 の場合 payout_ratio は None（負数回避）."""
-        dividend_record.dividend_adj = Decimal("50.00")
+        dividend_record.dividend_actual = Decimal("50.00")
         profit_loss_record.eps = Decimal("-100.00")
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
@@ -241,7 +244,7 @@ class TestDividendMetricsConverterPayoutRatiCalculation:
         self, converter, dividend_record, profit_loss_record
     ):
         """eps = None の場合 payout_ratio は None."""
-        dividend_record.dividend_adj = Decimal("50.00")
+        dividend_record.dividend_actual = Decimal("50.00")
         profit_loss_record.eps = None
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
@@ -262,7 +265,7 @@ class TestDividendMetricsConverterPayoutRatiCalculation:
     @pytest.mark.asyncio
     async def test_payout_ratio_dividend_zero(self, converter, dividend_record, profit_loss_record):
         """dividend = 0（配当なし）かつ eps > 0（payout_ratio = 0）."""
-        dividend_record.dividend_adj = Decimal("0")
+        dividend_record.dividend_actual = Decimal("0")
         profit_loss_record.eps = Decimal("100.00")
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
@@ -273,7 +276,7 @@ class TestDividendMetricsConverterPayoutRatiCalculation:
     @pytest.mark.asyncio
     async def test_payout_ratio_high_value(self, converter, dividend_record, profit_loss_record):
         """payout_ratio > 1（配当が利益を超える）."""
-        dividend_record.dividend_adj = Decimal("150.00")
+        dividend_record.dividend_actual = Decimal("150.00")
         profit_loss_record.eps = Decimal("100.00")
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
@@ -298,7 +301,7 @@ class TestDividendMetricsConverterProfitLossNone:
     @pytest.mark.asyncio
     async def test_profit_loss_none_preserves_dividend(self, converter, dividend_record):
         """profit_loss_record = None でも dividend は保持."""
-        dividend_record.dividend_adj = Decimal("50.00")
+        dividend_record.dividend_actual = Decimal("50.00")
         result = await converter.to_schema(dividend_record, None)
 
         assert result.dividend_actual == Decimal("50.00")
@@ -324,7 +327,7 @@ class TestDividendMetricsConverterEpsHandling:
     @pytest.mark.asyncio
     async def test_eps_small_value(self, converter, dividend_record, profit_loss_record):
         """eps が非常に小さい値."""
-        dividend_record.dividend_adj = Decimal("10.00")
+        dividend_record.dividend_actual = Decimal("10.00")
         profit_loss_record.eps = Decimal("0.01")
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
@@ -335,7 +338,7 @@ class TestDividendMetricsConverterEpsHandling:
     @pytest.mark.asyncio
     async def test_eps_large_value(self, converter, dividend_record, profit_loss_record):
         """eps が非常に大きい値."""
-        dividend_record.dividend_adj = Decimal("50.00")
+        dividend_record.dividend_actual = Decimal("50.00")
         profit_loss_record.eps = Decimal("999999.99")
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
@@ -353,7 +356,7 @@ class TestDividendMetricsConverterDecimalConversion:
     ):
         """float から Decimal への変換（if 使用）."""
         # record が float を返す場合のシミュレーション
-        dividend_record.dividend_adj = 50.0  # float
+        dividend_record.dividend_actual = 50.0  # float
         profit_loss_record.eps = 100.0  # float
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
@@ -368,7 +371,7 @@ class TestDividendMetricsConverterDecimalConversion:
         self, converter, dividend_record, profit_loss_record
     ):
         """文字列から Decimal への変換."""
-        dividend_record.dividend_adj = "50.00"  # str
+        dividend_record.dividend_actual = "50.00"  # str
         profit_loss_record.eps = "100.00"  # str
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
@@ -383,7 +386,7 @@ class TestDividendMetricsConverterDecimalConversion:
         self, converter, dividend_record, profit_loss_record
     ):
         """整数から Decimal への変換."""
-        dividend_record.dividend_adj = 50  # int
+        dividend_record.dividend_actual = 50  # int
         profit_loss_record.eps = 100  # int
 
         result = await converter.to_schema(dividend_record, profit_loss_record)
