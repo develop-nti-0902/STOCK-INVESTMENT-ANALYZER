@@ -35,6 +35,7 @@ erDiagram
     SECTOR_33_MASTER ||--o{ STOCK_MASTER : "classifies"
     SECTOR_17_MASTER ||--o{ STOCK_MASTER : "classifies"
     SCALE_MASTER ||--o{ STOCK_MASTER : "categorizes"
+    SP500_STOCK_MASTER ||--o{ SP500_STOCKS_1D : contains
 
     ACCOUNT {
         int id PK "プライマリキー"
@@ -156,6 +157,34 @@ erDiagram
     STOCKS_1D {
         int id PK "プライマリキー"
         string symbol FK "銘柄コード"
+        datetime timestamp "タイムスタンプ（JST）"
+        decimal open "始値"
+        decimal high "高値"
+        decimal low "安値"
+        decimal close "終値"
+        decimal adj_close "調整終値"
+        bigint volume "出来高"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
+    SP500_STOCK_MASTER {
+        int id PK "プライマリキー"
+        string Symbol UK "ティッカーコード（ユニーク）"
+        string Security "企業名"
+        string "GICS Sector" "セクター（GICS分類）"
+        string "GICS Sub-Industry" "サブ業種"
+        string "Headquarters Location" "本社所在地"
+        date "Date added" "S&P 500追加日"
+        string CIK "CIK番号"
+        string Founded "設立年"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
+    SP500_STOCKS_1D {
+        int id PK "プライマリキー"
+        string symbol FK "ティッカーコード"
         datetime timestamp "タイムスタンプ（JST）"
         decimal open "始値"
         decimal high "高値"
@@ -314,6 +343,10 @@ erDiagram
 - **StockCodeMapping**: JPX株式コード（stock_code）とEDINET提出企業コード（sec_code）の対応関係を管理するマッピングテーブル。1つのJPX企業が複数のEDINET企業コードを持つ可能性に対応。
 - **Stocks_1d（他の時間軸1m/5m/15m/30m/1h/1wkも同様）**: 複数の時間軸における株価データ。OHLCV データを格納。ER図では日足（1d）を代表として表示。
 
+### S&P 500 Market Data
+- **SP500StockMaster**: S&P 500 の構成企業マスタ。Wikipedia の S&P 500 企業リストから取得し、ティッカーコード（symbol）を主キーとして管理。企業名、セクター、サブ業種、本社所在地、S&P 500 追加日、CIK番号、設立年などの企業情報を格納。
+- **SP500Stocks_1d（他の時間軸1m/5m/15m/30m/1h/1wkも同様）**: S&P 500 構成企業の複数時間軸株価データ。OHLCV データを格納。ティッカーコード（symbol）でSP500StockMasterを参照。日本株データ（STOCKS_1D）と並行して管理。
+
 ### EDINET Financial Data（正規化済み）
 - **EdinetDocument**: EDINET文書メタデータの集約テーブル。`doc_id`（書類ID）、`sec_code`（EDINET提出企業コード）、提出日、報告書タイプなど、複数の財務statement間で共通するドキュメント情報を管理。これにより、同一のドキュメントから抽出された複数の財務指標に対して単一のメタデータソースを提供。
 - **EdinetProfitAndLoss**: EDINET損益計算書データ。`edinet_document_id`で EdinetDocument を参照。売上高、営業利益、EPS など実際の財務データのみを格納。
@@ -344,6 +377,7 @@ erDiagram
 | StockMaster      | StockCodeMapping                                                 | 1:N  | 銘柄はEDINET対応企業コード（1つ以上）を持つ可能性がある |
 | StockCodeMapping | EdinetDocument                                                   | 1:N  | マッピングを通じてEDINETドキュメントと連結              |
 | EdinetDocument   | EdinetProfitAndLoss/StockDividend/CashFlowStatement/BalanceSheet | 1:N  | ドキュメントメタデータは複数の財務データを共有           |
+| SP500StockMaster | SP500Stocks_1d（他の時間軸も同様）                               | 1:N  | S&P500銘柄は複数の日足株価データを持つ                  |
 
 ## Naming Conventions
 
