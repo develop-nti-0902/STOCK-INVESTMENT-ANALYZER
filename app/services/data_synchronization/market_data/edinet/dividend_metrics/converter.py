@@ -39,12 +39,21 @@ class DividendMetricsConverter:
         Returns:
             EdinetDividendMetricsCreate: 計算済みメトリクス
         """
-        # Step 1: dividend 実績額の決定（優先順序: dividend_adj > dividend_actual）
+        # Step 1: dividend 実績額の決定
+        # 注意: EPS は調整されていないため、payout_ratio の計算では
+        # 未調整の `dividend_actual` を優先して使用する。
+        # ただし未調整値が存在しない場合は `dividend_adj` を代替値として使用する。
         dividend_actual: Optional[Decimal] = None
-        if dividend_record.dividend_adj is not None:
-            dividend_actual = Decimal(str(dividend_record.dividend_adj))
-        elif dividend_record.dividend_actual is not None:
+        if dividend_record.dividend_actual is not None:
             dividend_actual = Decimal(str(dividend_record.dividend_actual))
+        elif dividend_record.dividend_adj is not None:
+            # 未調整値が無いため調整済み値を代替使用する（警告ログ）
+            dividend_actual = Decimal(str(dividend_record.dividend_adj))
+            logger.debug(
+                f"dividend_actual is missing; using dividend_adj as fallback: "
+                f"doc_id={dividend_record.edinet_document_id}, "
+                f"period_end_date={dividend_record.period_end_date}"
+            )
 
         # Step 2: EPS の取得 (Decimal に変換)
         eps: Optional[Decimal] = None

@@ -108,9 +108,9 @@ def sample_metrics_schema():
         edinet_document_id=1,
         period_end_date=date(2025, 3, 31),
         fiscal_year=2025,
-        dividend_actual=Decimal("50.00"),
+        dividend_actual=Decimal("48.00"),
         eps=Decimal("100.00"),
-        payout_ratio=Decimal("0.5000"),
+        payout_ratio=Decimal("0.4800"),
     )
 
 
