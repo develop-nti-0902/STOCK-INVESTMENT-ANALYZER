@@ -21,6 +21,7 @@ erDiagram
     STOCK_MASTER ||--o{ STOCK_SPLIT : references
     STOCK_MASTER ||--o{ DIVIDEND_YIELD_MONITORING : monitors
     STOCK_MASTER ||--o{ DIVIDEND_YIELD_HISTORY : "contains_history"
+    STOCK_MASTER ||--o{ RELATIVE_STRENGTH : analyzes
     STOCK_MASTER ||--o{ SCREENING_RESULTS : evaluates
     STOCK_MASTER ||--o{ STOCK_CODE_MAPPING : has
     STOCK_CODE_MAPPING ||--o{ EDINET_DOCUMENT : connects
@@ -328,6 +329,19 @@ erDiagram
         datetime created_at "作成日時"
         datetime updated_at "更新日時"
     }
+
+    RELATIVE_STRENGTH {
+        int id PK "プライマリキー"
+        string symbol FK "銘柄コード（stock_code）"
+        date calculation_date "計算基準日（この日を最新データとして過去の変化率を算出）"
+        decimal change_63days "63日間の変化率（%） — 終値を用いて計算（基準日終値 / 63日前終値 - 1）"
+        decimal change_126days "126日間の変化率（%） — 終値を用いて計算"
+        decimal change_189days "189日間の変化率（%） — 終値を用いて計算"
+        decimal change_252days "252日間の変化率（%） — 終値を用いて計算"
+        decimal relative_strength_score "レラティブストレングススコア（加重平均、終値ベース）"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
 ```
 
 ## Entity Descriptions
@@ -359,6 +373,24 @@ erDiagram
 - **StockSplit**: 株式分割イベントの履歴。
 - **DividendYieldMonitoring**: 配当利回り監視結果（スナップショット）。`symbol`（stock_code）を使用してStockMasterと紐付け。最新の監視情報を保持。
 - **DividendYieldHistory**: 日次配当利回り履歴。EDINETから取得した年間配当と株価データから生成された時系列データ。計算に使用した``stock_price``は``COALESCE(adj_close, close)``で決定され、スナップショットとして保持（履歴の不変性を確保）。`symbol`（stock_code）でStockMasterを参照し、`edinet_document_id`でEdinetDocumentを参照。(symbol, date)をユニークキーとしてUPSERT可能。配当利回りレンジ分析やグラフ表示に利用。
+- **RelativeStrength**: レラティブストレングス（William O'Neill式）を日次で算出・保存するテーブル。各レコードは「計算基準日（calculation_date）」を持ち、その日を最新データとして過去データを用いてスコアを算出します。主なポイント：
+
+    - 変化率の算出は終値（`close`）を用い、基準日 D に対して次のように定義します。
+        - 63日変化率 = (close[D] / close[D-63] - 1) × 100
+        - 126日変化率 = (close[D] / close[D-126] - 1) × 100
+        - 189日変化率 = (close[D] / close[D-189] - 1) × 100
+        - 252日変化率 = (close[D] / close[D-252] - 1) × 100
+
+    - 加重平均スコア（`relative_strength_score`）は終値ベースの変化率に対して次の重みを適用して算出します：
+        - score = 0.4 × change_63days + 0.2 × change_126days + 0.2 × change_189days + 0.2 × change_252days
+
+    - 例：2026-03-21 のスコアは基準日を 2026-03-21 として、当日の終値とそれぞれの遡及終値を参照して計算します。2026-03-20 のスコアは同様に基準日を 2026-03-20 として算出します。
+
+    - 保存設計：`symbol` と `calculation_date` をユニークキーとし、UPSERT により各日付ごとのスコアを時系列で保持します。スクリーニング、チャート描画、日次バッチ出力の参照先として利用します。
+
+    - 補足：過去データが不足する場合は `NULL` を許容する、または計算をスキップして不足フラグを付与する等の運用ルールを設けてください。
+
+このテーブルは「各日を基準にその日のスコアを出す」用途に特化しており、終値を基準にした日次の相対強さ指標を時系列で扱うためのデータソースとなります。
 - **ScreeningResults**: 高配当スクリーニング結果とスコア情報。`symbol`（stock_code）を使用してStockMasterと紐付け。
 
 ## Key Relationships
@@ -373,6 +405,7 @@ erDiagram
 | StockMaster      | DividendYieldMonitoring                                          | 1:N  | 銘柄は複数の監視レコードを持つ                          |
 | StockMaster      | DividendYieldHistory                                             | 1:N  | 銘柄は複数の日次配当利回り履歴を持つ                    |
 | EdinetDocument   | DividendYieldHistory                                             | 1:N  | ドキュメントは複数の履歴レコードで参照される            |
+| StockMaster      | RelativeStrength                                                 | 1:N  | 銘柄は複数のレラティブストレングス計算結果を持つ        |
 | StockMaster      | ScreeningResults                                                 | 1:N  | 銘柄は複数のスクリーニング結果を持つ                    |
 | StockMaster      | StockCodeMapping                                                 | 1:N  | 銘柄はEDINET対応企業コード（1つ以上）を持つ可能性がある |
 | StockCodeMapping | EdinetDocument                                                   | 1:N  | マッピングを通じてEDINETドキュメントと連結              |
