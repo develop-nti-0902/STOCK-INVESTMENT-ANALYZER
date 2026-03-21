@@ -76,6 +76,13 @@ repos:
         pass_filenames: false
         stages: [commit]
 
+      - id: pytest-collect
+        name: pytest (collect-only) (project)
+        entry: poetry run python scripts/hooks/run_check_with_status.py --check pytest-collect
+        language: system
+        pass_filenames: false
+        stages: [commit]
+
       - id: pytest
         name: pytest (project)
         entry: poetry run python scripts/hooks/run_check_with_status.py --check pytest

@@ -10,6 +10,7 @@ from .edinet import (
     EdinetStockDividend,
     StockSplit,
 )
+from .relative_strength import RelativeStrength
 from .stock_master import (
     IS_ACTIVE,
     IS_INACTIVE,
@@ -34,6 +35,7 @@ from .stock_price import (
 
 __all__ = [
     "DividendYieldHistory",
+    "RelativeStrength",
     "EdinetCashFlowStatement",
     "EdinetDocument",
     "EdinetProfitAndLoss",

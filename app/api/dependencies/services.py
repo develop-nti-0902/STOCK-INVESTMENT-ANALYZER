@@ -81,6 +81,7 @@ from app.services.data_synchronization.market_data.edinet.stock_dividend.saver i
 from app.services.data_synchronization.market_data.edinet.update_service import (
     EdinetAggregateUpdateService,
 )
+from app.services.data_synchronization.market_data.relative_strength import RelativeStrengthService
 from app.services.data_synchronization.market_data.stock_master import (
     StockCodeMappingSaver,
     StockMasterService,
@@ -605,3 +606,21 @@ def get_dividend_yield_history_service(
     """
     session_maker = async_sessionmaker(bind=engine, class_=AsyncSession)
     return DividendYieldHistoryService(session_maker=session_maker)
+
+
+# RelativeStrength Service プロバイダー
+
+
+def get_relative_strength_service(
+    engine: AsyncEngine = Depends(get_engine),
+) -> RelativeStrengthService:
+    """RelativeStrengthService を提供する依存性プロバイダ.
+
+    Args:
+        engine (AsyncEngine): 非同期DB エンジン
+
+    Returns:
+        RelativeStrengthService: レラティブストレングス計算サービスのインスタンス
+    """
+    session_maker = async_sessionmaker(bind=engine, class_=AsyncSession)
+    return RelativeStrengthService(session_maker=session_maker)

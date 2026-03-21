@@ -21,6 +21,7 @@ erDiagram
     STOCK_MASTER ||--o{ STOCK_SPLIT : references
     STOCK_MASTER ||--o{ DIVIDEND_YIELD_MONITORING : monitors
     STOCK_MASTER ||--o{ DIVIDEND_YIELD_HISTORY : "contains_history"
+    STOCK_MASTER ||--o{ RELATIVE_STRENGTH : analyzes
     STOCK_MASTER ||--o{ SCREENING_RESULTS : evaluates
     STOCK_MASTER ||--o{ STOCK_CODE_MAPPING : has
     STOCK_CODE_MAPPING ||--o{ EDINET_DOCUMENT : connects
@@ -35,6 +36,7 @@ erDiagram
     SECTOR_33_MASTER ||--o{ STOCK_MASTER : "classifies"
     SECTOR_17_MASTER ||--o{ STOCK_MASTER : "classifies"
     SCALE_MASTER ||--o{ STOCK_MASTER : "categorizes"
+    SP500_STOCK_MASTER ||--o{ SP500_STOCKS_1D : contains
 
     ACCOUNT {
         int id PK "プライマリキー"
@@ -156,6 +158,34 @@ erDiagram
     STOCKS_1D {
         int id PK "プライマリキー"
         string symbol FK "銘柄コード"
+        datetime timestamp "タイムスタンプ（JST）"
+        decimal open "始値"
+        decimal high "高値"
+        decimal low "安値"
+        decimal close "終値"
+        decimal adj_close "調整終値"
+        bigint volume "出来高"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
+    SP500_STOCK_MASTER {
+        int id PK "プライマリキー"
+        string Symbol UK "ティッカーコード（ユニーク）"
+        string Security "企業名"
+        string "GICS Sector" "セクター（GICS分類）"
+        string "GICS Sub-Industry" "サブ業種"
+        string "Headquarters Location" "本社所在地"
+        date "Date added" "S&P 500追加日"
+        string CIK "CIK番号"
+        string Founded "設立年"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
+    SP500_STOCKS_1D {
+        int id PK "プライマリキー"
+        string symbol FK "ティッカーコード"
         datetime timestamp "タイムスタンプ（JST）"
         decimal open "始値"
         decimal high "高値"
@@ -299,6 +329,19 @@ erDiagram
         datetime created_at "作成日時"
         datetime updated_at "更新日時"
     }
+
+    RELATIVE_STRENGTH {
+        int id PK "プライマリキー"
+        string symbol FK "銘柄コード（stock_code）"
+        date calculation_date "計算基準日（この日を最新データとして過去の変化率を算出）"
+        decimal change_63days "63日間の変化率（%） — 終値を用いて計算（基準日終値 / 63日前終値 - 1）"
+        decimal change_126days "126日間の変化率（%） — 終値を用いて計算"
+        decimal change_189days "189日間の変化率（%） — 終値を用いて計算"
+        decimal change_252days "252日間の変化率（%） — 終値を用いて計算"
+        decimal relative_strength_score "レラティブストレングススコア（加重平均、終値ベース）"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
 ```
 
 ## Entity Descriptions
@@ -314,6 +357,10 @@ erDiagram
 - **StockCodeMapping**: JPX株式コード（stock_code）とEDINET提出企業コード（sec_code）の対応関係を管理するマッピングテーブル。1つのJPX企業が複数のEDINET企業コードを持つ可能性に対応。
 - **Stocks_1d（他の時間軸1m/5m/15m/30m/1h/1wkも同様）**: 複数の時間軸における株価データ。OHLCV データを格納。ER図では日足（1d）を代表として表示。
 
+### S&P 500 Market Data
+- **SP500StockMaster**: S&P 500 の構成企業マスタ。Wikipedia の S&P 500 企業リストから取得し、ティッカーコード（symbol）を主キーとして管理。企業名、セクター、サブ業種、本社所在地、S&P 500 追加日、CIK番号、設立年などの企業情報を格納。
+- **SP500Stocks_1d（他の時間軸1m/5m/15m/30m/1h/1wkも同様）**: S&P 500 構成企業の複数時間軸株価データ。OHLCV データを格納。ティッカーコード（symbol）でSP500StockMasterを参照。日本株データ（STOCKS_1D）と並行して管理。
+
 ### EDINET Financial Data（正規化済み）
 - **EdinetDocument**: EDINET文書メタデータの集約テーブル。`doc_id`（書類ID）、`sec_code`（EDINET提出企業コード）、提出日、報告書タイプなど、複数の財務statement間で共通するドキュメント情報を管理。これにより、同一のドキュメントから抽出された複数の財務指標に対して単一のメタデータソースを提供。
 - **EdinetProfitAndLoss**: EDINET損益計算書データ。`edinet_document_id`で EdinetDocument を参照。売上高、営業利益、EPS など実際の財務データのみを格納。
@@ -326,6 +373,24 @@ erDiagram
 - **StockSplit**: 株式分割イベントの履歴。
 - **DividendYieldMonitoring**: 配当利回り監視結果（スナップショット）。`symbol`（stock_code）を使用してStockMasterと紐付け。最新の監視情報を保持。
 - **DividendYieldHistory**: 日次配当利回り履歴。EDINETから取得した年間配当と株価データから生成された時系列データ。計算に使用した``stock_price``は``COALESCE(adj_close, close)``で決定され、スナップショットとして保持（履歴の不変性を確保）。`symbol`（stock_code）でStockMasterを参照し、`edinet_document_id`でEdinetDocumentを参照。(symbol, date)をユニークキーとしてUPSERT可能。配当利回りレンジ分析やグラフ表示に利用。
+- **RelativeStrength**: レラティブストレングス（William O'Neill式）を日次で算出・保存するテーブル。各レコードは「計算基準日（calculation_date）」を持ち、その日を最新データとして過去データを用いてスコアを算出します。主なポイント：
+
+    - 変化率の算出は終値（`close`）を用い、基準日 D に対して次のように定義します。
+        - 63日変化率 = (close[D] / close[D-63] - 1) × 100
+        - 126日変化率 = (close[D] / close[D-126] - 1) × 100
+        - 189日変化率 = (close[D] / close[D-189] - 1) × 100
+        - 252日変化率 = (close[D] / close[D-252] - 1) × 100
+
+    - 加重平均スコア（`relative_strength_score`）は終値ベースの変化率に対して次の重みを適用して算出します：
+        - score = 0.4 × change_63days + 0.2 × change_126days + 0.2 × change_189days + 0.2 × change_252days
+
+    - 例：2026-03-21 のスコアは基準日を 2026-03-21 として、当日の終値とそれぞれの遡及終値を参照して計算します。2026-03-20 のスコアは同様に基準日を 2026-03-20 として算出します。
+
+    - 保存設計：`symbol` と `calculation_date` をユニークキーとし、UPSERT により各日付ごとのスコアを時系列で保持します。スクリーニング、チャート描画、日次バッチ出力の参照先として利用します。
+
+    - 補足：過去データが不足する場合は `NULL` を許容する、または計算をスキップして不足フラグを付与する等の運用ルールを設けてください。
+
+このテーブルは「各日を基準にその日のスコアを出す」用途に特化しており、終値を基準にした日次の相対強さ指標を時系列で扱うためのデータソースとなります。
 - **ScreeningResults**: 高配当スクリーニング結果とスコア情報。`symbol`（stock_code）を使用してStockMasterと紐付け。
 
 ## Key Relationships
@@ -340,10 +405,12 @@ erDiagram
 | StockMaster      | DividendYieldMonitoring                                          | 1:N  | 銘柄は複数の監視レコードを持つ                          |
 | StockMaster      | DividendYieldHistory                                             | 1:N  | 銘柄は複数の日次配当利回り履歴を持つ                    |
 | EdinetDocument   | DividendYieldHistory                                             | 1:N  | ドキュメントは複数の履歴レコードで参照される            |
+| StockMaster      | RelativeStrength                                                 | 1:N  | 銘柄は複数のレラティブストレングス計算結果を持つ        |
 | StockMaster      | ScreeningResults                                                 | 1:N  | 銘柄は複数のスクリーニング結果を持つ                    |
 | StockMaster      | StockCodeMapping                                                 | 1:N  | 銘柄はEDINET対応企業コード（1つ以上）を持つ可能性がある |
 | StockCodeMapping | EdinetDocument                                                   | 1:N  | マッピングを通じてEDINETドキュメントと連結              |
 | EdinetDocument   | EdinetProfitAndLoss/StockDividend/CashFlowStatement/BalanceSheet | 1:N  | ドキュメントメタデータは複数の財務データを共有           |
+| SP500StockMaster | SP500Stocks_1d（他の時間軸も同様）                               | 1:N  | S&P500銘柄は複数の日足株価データを持つ                  |
 
 ## Naming Conventions
 
