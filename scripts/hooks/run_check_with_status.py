@@ -264,6 +264,38 @@ def run_pytest(args: List[str], files: List[str], status: Dict[str, Any]) -> int
     return rc
 
 
+def run_pytest_collect(args: List[str], files: List[str], status: Dict[str, Any]) -> int:
+    """Run pytest in collect-only mode to ensure tests are discoverable.
+
+    This runs `pytest --collect-only -vv` and records its success/failure in the
+    shared status file. Output is forwarded to stdout/stderr.
+    """
+    cmd = [
+        sys.executable,
+        "-m",
+        "pytest",
+        "--collect-only",
+        "-vv",
+        *args,
+    ]
+
+    proc = subprocess.run(
+        cmd, check=False, capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
+    if proc.stdout:
+        print(proc.stdout, end="")
+    if proc.stderr:
+        print(proc.stderr, end="", file=sys.stderr)
+
+    rc = proc.returncode
+    set_check_result(status, "pytest-collect", rc == 0)
+    if rc != 0:
+        status["failed"] = True
+    save_status(status)
+    print_commit_status_after("pytest-collect", status)
+    return rc
+
+
 def run_unit_test_coverage(args: List[str], files: List[str], status: Dict[str, Any]) -> int:
     """Run the unit test coverage mapping script and record its exit code.
 
@@ -316,6 +348,7 @@ def main() -> int:
             "mypy",
             "pylint",
             "pytest",
+            "pytest-collect",
             "unit-test-coverage",
         ],
         help="Which check to run",
@@ -354,6 +387,8 @@ def main() -> int:
         rc = run_pylint(tool_args, files, status)
     if known_args.check == "pytest":
         rc = run_pytest(tool_args, files, status)
+    if known_args.check == "pytest-collect":
+        rc = run_pytest_collect(tool_args, files, status)
     if known_args.check == "unit-test-coverage":
         rc = run_unit_test_coverage(tool_args, files, status)
     if rc == 2:
