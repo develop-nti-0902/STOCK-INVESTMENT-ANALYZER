@@ -8,6 +8,7 @@ from . import auth as auth_module
 from . import dividend_yield_history as dividend_yield_history_module
 from . import edinet as edinet_module
 from . import latest_stocks as latest_stocks_module
+from . import relative_strength as relative_strength_module
 from . import screening as screening_module
 from . import stock_master as stock_master_module
 from . import stock_price as stock_price_module
@@ -22,5 +23,6 @@ router.include_router(auth_module.router, prefix="/auth")
 router.include_router(accounts_module.router, prefix="/accounts")
 router.include_router(latest_stocks_module.router, prefix="/views")
 router.include_router(screening_module.router, prefix="/screening")
+router.include_router(relative_strength_module.router, prefix="/relative-strength")
 
 __all__ = ["router"]

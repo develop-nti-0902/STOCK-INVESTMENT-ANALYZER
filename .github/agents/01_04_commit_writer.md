@@ -1,6 +1,6 @@
 ---
 description: 変更内容から適切なコミットメッセージを生成し、安全にgit commitを実行するエージェント。
-model: Claude Haiku 4.5 (copilot)
+model: Claude Sonnet 4.6 (copilot)
 tools: [vscode, execute, read, agent, edit, search, web, 'context7/*', 'serena/*', ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, todo]
 ---
 

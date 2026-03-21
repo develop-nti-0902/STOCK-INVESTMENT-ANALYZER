@@ -25,6 +25,7 @@ JOBS: Sequence[str] = [
     "scripts.batch.batch_fetch_stock_prices",
     "scripts.batch.batch_fetch_edinet_data",
     "scripts.batch.batch_run_screening",
+    "scripts.batch.batch_run_relative_strength",
 ]
 
 
@@ -94,6 +95,11 @@ def run_job(module: str) -> int:
     if module == "scripts.batch.batch_fetch_edinet_data":
         yesterday = (date.today() - timedelta(days=1)).isoformat()
         cmd += ["--start-date", yesterday, "--end-date", yesterday]
+
+    # RS の既定引数を付与
+    if module == "scripts.batch.batch_run_relative_strength":
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        cmd += ["--target-date", yesterday]
 
     logging.info("Starting job: %s", module)
     logging.debug("Command: %s", " ".join(cmd))

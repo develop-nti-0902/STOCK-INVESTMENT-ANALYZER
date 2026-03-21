@@ -1,6 +1,6 @@
 ---
 description: pre-commitを実行し、結果を構造化して後続のFixerへ引き渡す品質チェック専用エージェント。
-model: Claude Haiku 4.5 (copilot)
+model: Claude Sonnet 4.6 (copilot)
 tools: [vscode, execute, read, agent, edit, search, web, 'context7/*', 'serena/*', ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, todo]
 ---
 

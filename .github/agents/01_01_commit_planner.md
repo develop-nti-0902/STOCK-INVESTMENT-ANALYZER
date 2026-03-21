@@ -1,6 +1,6 @@
 ---
 description: コミット対象の差分を整理し、意図と粒度を明確化して後続処理へ引き渡す。
-model: Claude Haiku 4.5 (copilot)
+model: Claude Sonnet 4.6 (copilot)
 tools: [vscode, execute, read, agent, edit, search, web, 'context7/*', 'serena/*', todo]
 ---
 
