@@ -78,15 +78,11 @@ def test_relative_strength_setup(client: TestClient) -> None:
     async def _check_counts() -> None:
         async with get_test_engine() as engine:
             async with AsyncSession(engine) as session:
-                result = await session.execute(
-                    select(func.count()).select_from(Stocks1d)
-                )
+                result = await session.execute(select(func.count()).select_from(Stocks1d))
                 stocks_1d_count = result.scalar_one()
                 print(f"✅ Stocks1d: {stocks_1d_count} records")
 
-                result2 = await session.execute(
-                    select(func.count()).select_from(RelativeStrength)
-                )
+                result2 = await session.execute(select(func.count()).select_from(RelativeStrength))
                 rs_count = result2.scalar_one()
                 print(f"✅ RelativeStrength (before calc): {rs_count} records")
 
@@ -129,9 +125,7 @@ def test_relative_strength_calculate_date(client: TestClient) -> None:
     response = client.post("/api/v1/relative-strength/calculate/date", json=payload)
 
     # ステータスコード確認
-    assert response.status_code == 200, (
-        f"Expected 200, got {response.status_code}: {response.text}"
-    )
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
 
     # レスポンスボディ確認
     body = response.json()
@@ -153,9 +147,7 @@ def test_relative_strength_calculate_date(client: TestClient) -> None:
     async def _count_rs() -> int:
         async with get_test_engine() as engine:
             async with AsyncSession(engine) as session:
-                result = await session.execute(
-                    select(func.count()).select_from(RelativeStrength)
-                )
+                result = await session.execute(select(func.count()).select_from(RelativeStrength))
                 return result.scalar_one()
 
     rs_count = run_async_safely(_count_rs())
@@ -189,9 +181,7 @@ def test_relative_strength_calculate_all(client: TestClient) -> None:
     response = client.post("/api/v1/relative-strength/calculate/all")
 
     # ステータスコード確認
-    assert response.status_code == 200, (
-        f"Expected 200, got {response.status_code}: {response.text}"
-    )
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
 
     # レスポンスボディ確認
     body = response.json()
@@ -216,9 +206,7 @@ def test_relative_strength_calculate_all(client: TestClient) -> None:
     async def _count_rs() -> int:
         async with get_test_engine() as engine:
             async with AsyncSession(engine) as session:
-                result = await session.execute(
-                    select(func.count()).select_from(RelativeStrength)
-                )
+                result = await session.execute(select(func.count()).select_from(RelativeStrength))
                 return result.scalar_one()
 
     rs_count = run_async_safely(_count_rs())

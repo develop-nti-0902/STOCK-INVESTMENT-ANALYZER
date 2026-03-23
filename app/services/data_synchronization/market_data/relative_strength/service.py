@@ -13,9 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models.market_data.stock_price import Stocks1d
 from app.repositories.market_data.relative_strength import RelativeStrengthRepository
-from app.repositories.market_data.stock_master.stock_master_repository import (
-    StockMasterRepository,
-)
+from app.repositories.market_data.stock_master.stock_master_repository import StockMasterRepository
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +78,7 @@ class RelativeStrengthService:
                         skipped_count += 1
                 except Exception:
                     error_count += 1
-                    logger.exception(
-                        "Error processing symbol=%s date=%s", symbol, calculation_date
-                    )
+                    logger.exception("Error processing symbol=%s date=%s", symbol, calculation_date)
 
             rowcount = 0
             if records:
@@ -91,8 +87,7 @@ class RelativeStrengthService:
                 await session.commit()
 
             message = (
-                f"Completed: {rowcount} upserted, "
-                f"{skipped_count} skipped, {error_count} errors"
+                f"Completed: {rowcount} upserted, " f"{skipped_count} skipped, {error_count} errors"
             )
             return RelativeStrengthResult(
                 rowcount=rowcount,
@@ -130,9 +125,7 @@ class RelativeStrengthService:
 
         last_row = rows[-1]
         last_date = (
-            last_row.timestamp.date()
-            if hasattr(last_row.timestamp, "date")
-            else last_row.timestamp
+            last_row.timestamp.date() if hasattr(last_row.timestamp, "date") else last_row.timestamp
         )
         if last_date != calculation_date:
             return None
@@ -225,11 +218,7 @@ class RelativeStrengthService:
         self, session: AsyncSession, symbol: str
     ) -> List[dict[str, Any]]:
         """1銘柄の全日付分RSレコードを生成（スライドウィンドウ）."""
-        stmt = (
-            select(Stocks1d)
-            .where(Stocks1d.symbol == symbol)
-            .order_by(Stocks1d.timestamp.asc())
-        )
+        stmt = select(Stocks1d).where(Stocks1d.symbol == symbol).order_by(Stocks1d.timestamp.asc())
         result = await session.execute(stmt)
         rows = list(result.scalars().all())
 

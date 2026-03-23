@@ -124,3 +124,37 @@ async def test_relative_strength_repository_bulk_upsert_rowcount_fallback():
     result = await repo.bulk_upsert(records)
 
     assert result == 2  # レコード数が返される
+
+
+@pytest.mark.asyncio
+async def test_bulk_upsert_exceeds_chunk_size():
+    """チャンクサイズを超える件数でも複数チャンクに分割してupsertされること."""
+    from app.repositories.market_data.relative_strength.relative_strength_repository import (
+        _UPSERT_CHUNK_SIZE,
+    )
+
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.rowcount = None  # len(chunk) フォールバックを使用
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    repo = RelativeStrengthRepository(session=mock_session)
+
+    records = [
+        {
+            "symbol": f"T{i:04d}",
+            "calculation_date": date(2024, 1, 1),
+            "change_63days": Decimal("10.5"),
+            "change_126days": Decimal("15.3"),
+            "change_189days": Decimal("12.8"),
+            "change_252days": Decimal("18.2"),
+            "relative_strength_score": Decimal("14.20"),
+        }
+        for i in range(_UPSERT_CHUNK_SIZE + 1)
+    ]
+
+    result = await repo.bulk_upsert(records)
+
+    # 2501件 → 2チャンクに分割、execute が2回呼ばれる
+    assert mock_session.execute.call_count == 2
+    assert result == _UPSERT_CHUNK_SIZE + 1

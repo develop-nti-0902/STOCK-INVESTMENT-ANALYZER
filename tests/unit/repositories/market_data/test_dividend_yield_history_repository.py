@@ -209,5 +209,35 @@ class TestDividendYieldHistoryRepository:
         # Assert
         assert result == 0
 
+    @pytest.mark.asyncio
+    async def test_bulk_upsert_exceeds_chunk_size(self, repo):
+        """チャンクサイズを超える件数でもチャンク分割してupsertされること."""
+        from app.repositories.market_data.dividend_yield_history_repository import (
+            _UPSERT_CHUNK_SIZE,
+        )
+
+        mock_result = MagicMock()
+        mock_result.rowcount = None  # len(chunk) フォールバックを使用
+        repo.session.execute.return_value = mock_result
+
+        records = [
+            {
+                "symbol": f"T{i:04d}",
+                "date": date(2024, 1, 1),
+                "dividend": Decimal("50.00"),
+                "stock_price": Decimal("1500.00"),
+                "dividend_yield": Decimal("0.0333"),
+                "fiscal_year": 2023,
+                "edinet_document_id": i + 1,
+            }
+            for i in range(_UPSERT_CHUNK_SIZE + 1)
+        ]
+
+        result = await repo.bulk_upsert(records)
+
+        # 2501件 → 2チャンクに分割、execute が2回呼ばれる
+        assert repo.session.execute.call_count == 2
+        assert result == _UPSERT_CHUNK_SIZE + 1
+
 
 __all__ = []

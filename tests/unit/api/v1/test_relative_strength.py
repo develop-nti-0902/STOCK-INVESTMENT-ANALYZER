@@ -6,8 +6,8 @@ import pytest
 
 from app.api.v1 import relative_strength as rs_mod
 from app.services.data_synchronization.market_data.relative_strength import (
-    RelativeStrengthResult,
     RelativeStrengthAllResult,
+    RelativeStrengthResult,
 )
 
 

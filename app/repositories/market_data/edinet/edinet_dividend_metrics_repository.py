@@ -16,6 +16,8 @@ from app.repositories.core.base import BaseRepository
 
 logger = logging.getLogger(__name__)
 
+_UPSERT_CHUNK_SIZE = 2500
+
 
 class EdinetDividendMetricsRepository(BaseRepository[EdinetDividendMetrics]):
     """EdinetDividendMetrics モデル用のリポジトリ。"""
@@ -146,29 +148,33 @@ class EdinetDividendMetricsRepository(BaseRepository[EdinetDividendMetrics]):
             return []
 
         table = self.model.__table__
-        insert_stmt = insert(table).values(data_list)
+        all_results: list[EdinetDividendMetrics] = []
 
-        update_dict: dict[str, Any] = {
-            c.name: getattr(insert_stmt.excluded, c.name)
-            for c in table.c
-            if c.name not in ("id", "created_at")
-        }
+        for i in range(0, len(data_list), _UPSERT_CHUNK_SIZE):
+            chunk = data_list[i : i + _UPSERT_CHUNK_SIZE]
+            insert_stmt = insert(table).values(chunk)
 
-        stmt = insert_stmt.on_conflict_do_update(
-            index_elements=["edinet_document_id", "period_end_date"],
-            set_=update_dict,
-        ).returning(table)
+            update_dict: dict[str, Any] = {
+                c.name: getattr(insert_stmt.excluded, c.name)
+                for c in table.c
+                if c.name not in ("id", "created_at")
+            }
 
-        try:
-            result = await self.session.execute(stmt)
-            rows = result.fetchall()
+            stmt = insert_stmt.on_conflict_do_update(
+                index_elements=["edinet_document_id", "period_end_date"],
+                set_=update_dict,
+            ).returning(table)
 
-            await self.session.flush()
-            # Row オブジェクトを ORM モデルリストに変換
-            return [self.model(**dict(row._mapping)) for row in rows]
-        except SQLAlchemyError:
-            logger.exception("save_batch_upsert failed for edinet_dividend_metrics")
-            raise
+            try:
+                result = await self.session.execute(stmt)
+                rows = result.fetchall()
+                all_results.extend([self.model(**dict(row._mapping)) for row in rows])
+            except SQLAlchemyError:
+                logger.exception("save_batch_upsert failed for edinet_dividend_metrics")
+                raise
+
+        await self.session.flush()
+        return all_results
 
 
 __all__ = ["EdinetDividendMetricsRepository"]
