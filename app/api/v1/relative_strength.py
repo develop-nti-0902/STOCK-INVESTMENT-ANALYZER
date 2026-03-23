@@ -13,9 +13,7 @@ from app.schemas.relative_strength import (
     RelativeStrengthAllResponse,
     RelativeStrengthDateResponse,
 )
-from app.services.data_synchronization.market_data.relative_strength import (
-    RelativeStrengthService,
-)
+from app.services.data_synchronization.market_data.relative_strength import RelativeStrengthService
 
 router = APIRouter(tags=["relative-strength"])
 

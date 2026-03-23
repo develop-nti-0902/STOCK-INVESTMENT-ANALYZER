@@ -15,6 +15,8 @@ from app.repositories.core.base import BaseRepository
 
 logger = logging.getLogger(__name__)
 
+_UPSERT_CHUNK_SIZE = 2500
+
 
 class DividendYieldHistoryRepository(BaseRepository[DividendYieldHistory]):
     """配当利回り履歴リポジトリ。
@@ -51,27 +53,33 @@ class DividendYieldHistoryRepository(BaseRepository[DividendYieldHistory]):
             return 0
 
         table = self.model.__table__
-        stmt = insert(table).values(records)
+        total_rowcount = 0
 
-        # UPDATEするカラムを、id と created_at を除いてすべて対象
-        update_dict = {
-            column.name: getattr(stmt.excluded, column.name)
-            for column in table.c
-            if column.name not in ("id", "created_at")
-        }
+        for i in range(0, len(records), _UPSERT_CHUNK_SIZE):
+            chunk = records[i : i + _UPSERT_CHUNK_SIZE]
+            stmt = insert(table).values(chunk)
 
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["symbol", "date"],
-            set_=update_dict,
-        )
+            # UPDATEするカラムを、id と created_at を除いてすべて対象
+            update_dict = {
+                column.name: getattr(stmt.excluded, column.name)
+                for column in table.c
+                if column.name not in ("id", "created_at")
+            }
 
-        try:
-            result = await self.session.execute(stmt)
-            rowcount = getattr(result, "rowcount", None)
-            return rowcount or len(records)
-        except Exception:
-            logger.exception("Failed to upsert dividend yield history records")
-            raise
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["symbol", "date"],
+                set_=update_dict,
+            )
+
+            try:
+                result = await self.session.execute(stmt)
+                rowcount = getattr(result, "rowcount", None)
+                total_rowcount += rowcount or len(chunk)
+            except Exception:
+                logger.exception("Failed to upsert dividend yield history records")
+                raise
+
+        return total_rowcount
 
     async def get_by_symbol_date_range(
         self, symbol: str, start_date: date, end_date: date

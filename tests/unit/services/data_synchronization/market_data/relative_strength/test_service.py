@@ -6,9 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.services.data_synchronization.market_data.relative_strength import (
-    RelativeStrengthService,
-)
+from app.services.data_synchronization.market_data.relative_strength import RelativeStrengthService
 
 
 @pytest.mark.asyncio

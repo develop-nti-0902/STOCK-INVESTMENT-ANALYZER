@@ -7,8 +7,8 @@ from pydantic import ValidationError
 
 from app.schemas.relative_strength import (
     CalculateRelativeStrengthRequest,
-    RelativeStrengthDateResponse,
     RelativeStrengthAllResponse,
+    RelativeStrengthDateResponse,
 )
 
 

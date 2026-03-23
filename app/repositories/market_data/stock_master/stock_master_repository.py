@@ -25,6 +25,8 @@ from app.repositories.core.base import BaseRepository
 
 logger = logging.getLogger(__name__)
 
+_UPSERT_CHUNK_SIZE = 2500
+
 
 def _escape_like(query: str, escape_char: str = "\\") -> str:
     r"""LIKE クエリ用のエスケープを行う.
@@ -230,12 +232,11 @@ class StockMasterRepository(BaseRepository[StockMaster]):
             "Single upsert is not supported for StockMaster; use bulk_upsert instead"
         )
 
-    async def bulk_upsert(self, records: List[dict], batch_size: int = 1000) -> int:
+    async def bulk_upsert(self, records: List[dict]) -> int:
         """複数レコードの一括 UPSERT を実行する.
 
         Args:
             records (List[dict]): UPSERT 対象のレコード辞書リスト
-            batch_size (int): バッチサイズ（デフォルト: 1000）
 
         Returns:
             int: 処理した件数
@@ -247,22 +248,32 @@ class StockMasterRepository(BaseRepository[StockMaster]):
             return 0
 
         table = self.model.__table__
-        insert_stmt = insert(table).values(records)
+        total = 0
 
-        # excluded は on_conflict_do_update 内で参照可能
-        update_dict = {
-            c.name: getattr(insert_stmt.excluded, c.name) for c in table.c if c.name != "id"
-        }
+        for i in range(0, len(records), _UPSERT_CHUNK_SIZE):
+            chunk = records[i : i + _UPSERT_CHUNK_SIZE]
+            insert_stmt = insert(table).values(chunk)
 
-        stmt = insert_stmt.on_conflict_do_update(index_elements=["stock_code"], set_=update_dict)
+            # excluded は on_conflict_do_update 内で参照可能
+            update_dict = {
+                c.name: getattr(insert_stmt.excluded, c.name)
+                for c in table.c
+                if c.name not in ("id", "created_at")
+            }
 
-        try:
-            await self.session.execute(stmt)
-            await self.session.flush()
-            return len(records)
-        except SQLAlchemyError as e:
-            logger.exception("bulk_upsert failed: %s", e)
-            raise
+            stmt = insert_stmt.on_conflict_do_update(
+                index_elements=["stock_code"], set_=update_dict
+            )
+
+            try:
+                await self.session.execute(stmt)
+                await self.session.flush()
+                total += len(chunk)
+            except SQLAlchemyError as e:
+                logger.exception("bulk_upsert failed: %s", e)
+                raise
+
+        return total
 
     async def delete_all(self) -> int:
         """テーブル内の全レコードを削除する.
