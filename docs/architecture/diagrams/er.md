@@ -197,6 +197,19 @@ erDiagram
         datetime updated_at "更新日時"
     }
 
+    NIKKEI225_1D {
+        int id PK "プライマリキー"
+        datetime timestamp UK "タイムスタンプ（JST）"
+        decimal open "始値"
+        decimal high "高値"
+        decimal low "安値"
+        decimal close "終値"
+        decimal adj_close "調整終値"
+        bigint volume "出来高"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
     EDINET_DOCUMENT {
         int id PK "プライマリキー"
         string doc_id UK "書類ID（ユニーク）"
@@ -361,6 +374,9 @@ erDiagram
 - **SP500StockMaster**: S&P 500 の構成企業マスタ。Wikipedia の S&P 500 企業リストから取得し、ティッカーコード（symbol）を主キーとして管理。企業名、セクター、サブ業種、本社所在地、S&P 500 追加日、CIK番号、設立年などの企業情報を格納。
 - **SP500Stocks_1d（他の時間軸1m/5m/15m/30m/1h/1wkも同様）**: S&P 500 構成企業の複数時間軸株価データ。OHLCV データを格納。ティッカーコード（symbol）でSP500StockMasterを参照。日本株データ（STOCKS_1D）と並行して管理。
 
+### Index Market Data（インデックス）
+- **Nikkei225_1d（他の時間軸1m/5m/15m/30m/1h/1wkも同様）**: 日経平均株価（^N225）のインデックスデータ。yfinance から `period='max'` で取得した OHLCV データを格納。1965年1月5日から現在までの約60年間、合計15,000行以上の営業日データを保有。他のテーブルとの FK 関連を持たない **独立したインデックスデータセット** 。生データ保持が主な用途で、現在のプロジェクト内では直接的な分析利用は予定されていない。`timestamp` をユニークキーとしてUPSERT可能な構造。
+
 ### EDINET Financial Data（正規化済み）
 - **EdinetDocument**: EDINET文書メタデータの集約テーブル。`doc_id`（書類ID）、`sec_code`（EDINET提出企業コード）、提出日、報告書タイプなど、複数の財務statement間で共通するドキュメント情報を管理。これにより、同一のドキュメントから抽出された複数の財務指標に対して単一のメタデータソースを提供。
 - **EdinetProfitAndLoss**: EDINET損益計算書データ。`edinet_document_id`で EdinetDocument を参照。売上高、営業利益、EPS など実際の財務データのみを格納。
@@ -411,6 +427,7 @@ erDiagram
 | StockCodeMapping | EdinetDocument                                                   | 1:N  | マッピングを通じてEDINETドキュメントと連結              |
 | EdinetDocument   | EdinetProfitAndLoss/StockDividend/CashFlowStatement/BalanceSheet | 1:N  | ドキュメントメタデータは複数の財務データを共有           |
 | SP500StockMaster | SP500Stocks_1d（他の時間軸も同様）                               | 1:N  | S&P500銘柄は複数の日足株価データを持つ                  |
+| （なし）         | Nikkei225_1d（他の時間軸も同様）                                | （独立） | 日経平均株価は他テーブルと FK 関連を持たない独立インデックス |
 
 ## Naming Conventions
 
