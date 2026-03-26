@@ -52,6 +52,7 @@ class Nikkei225Fetcher(RetryMixin):
                     None,
                     lambda: yf.download(
                         self.SYMBOL,
+                        period="max",
                         interval=self.INTERVAL,
                         progress=False,
                         auto_adjust=False,

@@ -52,7 +52,9 @@ class Nikkei2251dRepository(BaseRepository[Nikkei2251d]):
         return {"rowcount": result.rowcount, "operation": "upsert"}
 
     async def upsert_bulk(self, records: list[dict[str, Any]]) -> int:
-        """複数レコード UPSERT — 1 ステートメントで全件挿入.
+        """複数レコード UPSERT — バッチ分割で挿入.
+
+        SQLite はバインドパラメータ上限があるため、バッチサイズを小さく分割する.
 
         Args:
             records: 挿入・更新するレコードデータのリスト
@@ -62,19 +64,28 @@ class Nikkei2251dRepository(BaseRepository[Nikkei2251d]):
         """
         if not records:
             return 0
-        stmt = insert(Nikkei2251d).values(records)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["timestamp"],
-            set_={
-                "open": stmt.excluded.open,
-                "high": stmt.excluded.high,
-                "low": stmt.excluded.low,
-                "close": stmt.excluded.close,
-                "adj_close": stmt.excluded.adj_close,
-                "volume": stmt.excluded.volume,
-                "updated_at": text("CURRENT_TIMESTAMP"),
-            },
-        )
-        result = cast(CursorResult, await self.session.execute(stmt))
+
+        # SQLite のバインドパラメータ上限対策（1 バッチ500レコード）
+        batch_size = 500
+        total_rows = 0
+
+        for i in range(0, len(records), batch_size):
+            batch = records[i : i + batch_size]
+            stmt = insert(Nikkei2251d).values(batch)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["timestamp"],
+                set_={
+                    "open": stmt.excluded.open,
+                    "high": stmt.excluded.high,
+                    "low": stmt.excluded.low,
+                    "close": stmt.excluded.close,
+                    "adj_close": stmt.excluded.adj_close,
+                    "volume": stmt.excluded.volume,
+                    "updated_at": text("CURRENT_TIMESTAMP"),
+                },
+            )
+            result = cast(CursorResult, await self.session.execute(stmt))
+            total_rows += result.rowcount
+
         await self.session.flush()
-        return result.rowcount
+        return total_rows

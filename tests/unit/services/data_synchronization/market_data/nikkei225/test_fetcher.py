@@ -94,8 +94,9 @@ class TestNikkei225FetcherCallArgs:
         call_kwargs = mock_download.call_args
         # start 引数が渡されていないこと
         assert "start" not in (call_kwargs.kwargs or {})
-        # period 引数も渡されていないこと（指定なしで yfinance がデフォルト最大を返す）
-        assert "period" not in (call_kwargs.kwargs or {})
+        # period='max' 引数が渡されていること（オール利用可能データ取得用）
+        assert "period" in (call_kwargs.kwargs or {})
+        assert call_kwargs.kwargs["period"] == "max"
         assert not result.empty
 
     @pytest.mark.asyncio
