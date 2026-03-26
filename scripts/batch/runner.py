@@ -23,6 +23,7 @@ from typing import Sequence
 JOBS: Sequence[str] = [
     "scripts.batch.batch_fetch_stock_master",
     "scripts.batch.batch_fetch_stock_prices",
+    "scripts.batch.batch_fetch_nikkei225",
     "scripts.batch.batch_fetch_edinet_data",
     "scripts.batch.batch_run_screening",
     "scripts.batch.batch_run_relative_strength",

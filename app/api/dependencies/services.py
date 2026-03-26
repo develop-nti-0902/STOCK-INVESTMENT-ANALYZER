@@ -624,3 +624,33 @@ def get_relative_strength_service(
     """
     session_maker = async_sessionmaker(bind=engine, class_=AsyncSession)
     return RelativeStrengthService(session_maker=session_maker)
+
+
+# Nikkei225 Service プロバイダー
+
+
+def get_nikkei225_service(
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Nikkei225Service を提供する依存性プロバイダ.
+
+    Args:
+        db (AsyncSession): 非同期DBセッション
+
+    Returns:
+        Nikkei225Service: 日経225データ取得・保存サービスのインスタンス
+    """
+    from app.services.data_synchronization.market_data.nikkei225 import (
+        Nikkei225Converter,
+        Nikkei225Fetcher,
+        Nikkei225Saver,
+        Nikkei225Service,
+        Nikkei225Validator,
+    )
+
+    return Nikkei225Service(
+        fetcher=Nikkei225Fetcher(),
+        converter=Nikkei225Converter(),
+        validator=Nikkei225Validator(),
+        saver=Nikkei225Saver(session=db),
+    )

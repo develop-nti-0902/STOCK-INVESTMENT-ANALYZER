@@ -10,6 +10,7 @@ from .edinet import (
     EdinetStockDividend,
     StockSplit,
 )
+from .nikkei225 import Nikkei2251d
 from .relative_strength import RelativeStrength
 from .stock_master import (
     IS_ACTIVE,
@@ -35,6 +36,7 @@ from .stock_price import (
 
 __all__ = [
     "DividendYieldHistory",
+    "Nikkei2251d",
     "RelativeStrength",
     "EdinetCashFlowStatement",
     "EdinetDocument",
