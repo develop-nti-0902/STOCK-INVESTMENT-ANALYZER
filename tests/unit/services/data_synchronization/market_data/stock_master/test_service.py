@@ -94,18 +94,25 @@ async def test_fetch_and_save_basic_flow():
     mock_repo = MagicMock()
     mock_repo.get_all_active_symbols = AsyncMock(return_value=[])
 
+    # Mock nikkei225 service
+    mock_nikkei225 = AsyncMock()
+    mock_nikkei225.fetch_and_update = AsyncMock(
+        return_value={"success": True, "count": 225, "error": None}
+    )
+
     # Create service
     svc = StockMasterService(
         repo=mock_repo,
         fetcher=mock_fetcher,
         saver=mock_saver,
+        nikkei225_service=mock_nikkei225,
     )
 
     # Execute
     result = await svc.fetch_and_save()
 
     # Assert
-    assert result == 1
+    assert result["stock_master"]["updated_count"] == 1
     mock_fetcher.fetch_and_extract_masters.assert_awaited_once()
     mock_saver.save_with_masters.assert_awaited_once()
 
@@ -165,17 +172,24 @@ async def test_fetch_and_save_with_limit():
     mock_repo = MagicMock()
     mock_repo.get_all_active_symbols = AsyncMock(return_value=[])
 
+    # Mock nikkei225 service
+    mock_nikkei225 = AsyncMock()
+    mock_nikkei225.fetch_and_update = AsyncMock(
+        return_value={"success": True, "count": 225, "error": None}
+    )
+
     svc = StockMasterService(
         repo=mock_repo,
         fetcher=mock_fetcher,
         saver=mock_saver,
+        nikkei225_service=mock_nikkei225,
     )
 
     # Execute with limit=2
     result = await svc.fetch_and_save(limit=2)
 
     # Assert: saver に渡されたデータは 2 件のみ
-    assert result == 1
+    assert result["stock_master"]["updated_count"] == 1
     call_args = mock_saver.save_with_masters.call_args
     saved_data = call_args[0][0]
     assert len(saved_data["stocks"]) == 2
@@ -240,16 +254,23 @@ async def test_fetch_and_save_with_updates_repo_creates_summary():
     updates_repo.create_summary = AsyncMock(return_value=created)
     updates_repo.update_status = AsyncMock()
 
+    # Mock nikkei225 service
+    mock_nikkei225 = AsyncMock()
+    mock_nikkei225.fetch_and_update = AsyncMock(
+        return_value={"success": True, "count": 225, "error": None}
+    )
+
     svc = StockMasterService(
         repo=mock_repo,
         fetcher=mock_fetcher,
         saver=mock_saver,
         updates_repo=updates_repo,
+        nikkei225_service=mock_nikkei225,
     )
 
     result = await svc.fetch_and_save()
 
-    assert result == 1
+    assert result["stock_master"]["updated_count"] == 1
     updates_repo.create_summary.assert_awaited_once()
     updates_repo.update_status.assert_awaited()
 

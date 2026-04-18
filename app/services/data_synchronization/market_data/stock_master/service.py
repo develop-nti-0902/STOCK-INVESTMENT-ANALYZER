@@ -5,7 +5,7 @@
 
 import time
 from datetime import datetime, timezone
-from typing import List, Optional, Set
+from typing import Any, List, Optional, Set
 
 from app.repositories.market_data.stock_master import (
     StockCodeMappingRepository,
@@ -20,6 +20,7 @@ from app.services.data_synchronization.market_data.stock_master.saver import Sto
 from app.services.data_synchronization.market_data.stock_master.stock_code_mapping_saver import (
     StockCodeMappingSaver,
 )
+from app.services.market_data.nikkei225 import Nikkei225ComponentsService
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -49,6 +50,7 @@ class StockMasterService:
         updates_repo: Optional[StockMasterUpdatesRepository] = None,
         stock_code_mapping_repo: Optional[StockCodeMappingRepository] = None,
         stock_code_mapping_saver: Optional[StockCodeMappingSaver] = None,
+        nikkei225_service: Optional[Nikkei225ComponentsService] = None,
     ):
         """サービスを初期化します.
 
@@ -68,6 +70,8 @@ class StockMasterService:
         # stock_code_mapping 対応
         self.stock_code_mapping_repo = stock_code_mapping_repo
         self.stock_code_mapping_saver = stock_code_mapping_saver
+        # 日経225自動更新サービス（任意）
+        self.nikkei225_service = nikkei225_service
 
     async def get_all_active_symbols(self) -> List[str]:
         """全てのアクティブな銘柄コードを返します.
@@ -138,7 +142,9 @@ class StockMasterService:
             )
             raise
 
-    async def fetch_and_save(self, limit: Optional[int] = None, batch_size: int = 500) -> int:
+    async def fetch_and_save(
+        self, limit: Optional[int] = None, batch_size: int = 500
+    ) -> dict[str, Any]:
         """銘柄マスターをフェッチして保存します.
 
         Args:
@@ -146,7 +152,7 @@ class StockMasterService:
             batch_size (int): バッチサイズ（デフォルト: 500）
 
         Returns:
-            int: 永続化に成功したレコード数
+            dict: stock_master と nikkei225 の処理結果
 
         Raises:
             Exception: 内部で発生した例外を透過します
@@ -265,7 +271,35 @@ class StockMasterService:
                     "save_time_seconds": save_time,
                 },
             )
-            return total_processed
+
+            ##########################################################
+            # 日経225構成銘柄を自動更新（失敗してもSTOCK_MASTERは成功扱い）
+            ##########################################################
+            nikkei225_result: dict[str, Any]
+            if self.nikkei225_service is not None:
+                try:
+                    nikkei225_result = await self.nikkei225_service.fetch_and_update()
+                except Exception as n225_exc:
+                    logger.warning(
+                        "Nikkei225 update failed but continuing",
+                        extra={"error": str(n225_exc)},
+                    )
+                    nikkei225_result = {
+                        "success": False,
+                        "error": f"Unexpected error: {n225_exc}",
+                        "count": 0,
+                    }
+            else:
+                nikkei225_result = {"success": False, "error": "not configured", "count": 0}
+
+            return {
+                "stock_master": {
+                    "updated_count": total_processed,
+                    "fetch_time": fetch_time,
+                    "save_time": save_time,
+                },
+                "nikkei225": nikkei225_result,
+            }
         except Exception as exc:
             logger.error("Failed to fetch stock master", extra={"error": str(exc)})
             # 可能であれば更新テーブル上で失敗をマークする

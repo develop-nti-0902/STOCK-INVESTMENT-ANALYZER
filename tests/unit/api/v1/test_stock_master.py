@@ -30,7 +30,10 @@ class FakeService:
         """Simulate fetching and storing; may raise if configured."""
         if "fetch_and_store" in self._raise_on:
             raise RuntimeError("fetch failed")
-        return self._fetch_and_store_result
+        return {
+            "stock_master": {"updated_count": self._fetch_and_store_result},
+            "nikkei225": {"success": True, "count": 0, "error": None},
+        }
 
     async def fetch_and_save(self, *args, **kwargs):
         """Alias for `fetch_and_store` to maintain compatibility."""

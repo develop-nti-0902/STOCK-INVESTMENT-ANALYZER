@@ -3,7 +3,7 @@
 銘柄マスタの取得・更新を行うエンドポイント群を提供します。
 """
 
-from typing import List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from fastapi import status as http_status
@@ -23,10 +23,12 @@ class FetchResponse(BaseModel):
     Attributes:
         message (str): 結果メッセージ
         updated_count (int): 更新件数
+        nikkei225 (Optional[Dict]): 日経225更新結果
     """
 
     message: str
     updated_count: int
+    nikkei225: Optional[Dict[str, Any]] = None
 
 
 class SymbolListResponse(BaseModel):
@@ -85,10 +87,11 @@ async def fetch_stock_master(
         FetchResponse: 更新結果
     """
     try:
-        updated_count = await service.fetch_and_save()
+        result = await service.fetch_and_save()
         return FetchResponse(
             message="Stock master fetch completed",
-            updated_count=updated_count,
+            updated_count=result["stock_master"]["updated_count"],
+            nikkei225=result["nikkei225"],
         )
     except Exception as e:
         raise ServiceError(
@@ -129,10 +132,11 @@ async def fetch_stock_master_sample(
         FetchResponse: 更新結果
     """
     try:
-        updated_count = await service.fetch_and_save(limit=sample_size, batch_size=batch_size)
+        result = await service.fetch_and_save(limit=sample_size, batch_size=batch_size)
         return FetchResponse(
             message=(f"Stock master sample fetch completed " f"(sample_size={sample_size})"),
-            updated_count=updated_count,
+            updated_count=result["stock_master"]["updated_count"],
+            nikkei225=result["nikkei225"],
         )
     except Exception as e:
         raise ServiceError(

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import shutil
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
@@ -33,6 +34,7 @@ class TempFileManagerMixin:
             # ここではログを出す想定だが、依存を増やさないため無視する
             pass
 
+    @contextmanager
     def tempdir_context(self, prefix: str = "edinet_") -> Iterator[Path]:
         """コンテキストマネージャとして一時ディレクトリを提供するジェネレータ.
 

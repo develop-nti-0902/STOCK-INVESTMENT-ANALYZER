@@ -19,6 +19,7 @@ erDiagram
     STOCK_MASTER ||--o{ ACCOUNT_PORTFOLIOS : links
     STOCK_MASTER ||--o{ STOCKS_1D : contains
     STOCK_MASTER ||--o{ STOCK_SPLIT : references
+    STOCK_MASTER ||--o{ NIKKEI225_COMPONENTS : "includes_as_member"
     STOCK_MASTER ||--o{ DIVIDEND_YIELD_MONITORING : monitors
     STOCK_MASTER ||--o{ DIVIDEND_YIELD_HISTORY : "contains_history"
     STOCK_MASTER ||--o{ RELATIVE_STRENGTH : analyzes
@@ -171,14 +172,14 @@ erDiagram
 
     SP500_STOCK_MASTER {
         int id PK "プライマリキー"
-        string Symbol UK "ティッカーコード（ユニーク）"
-        string Security "企業名"
-        string "GICS Sector" "セクター（GICS分類）"
-        string "GICS Sub-Industry" "サブ業種"
-        string "Headquarters Location" "本社所在地"
-        date "Date added" "S&P 500追加日"
-        string CIK "CIK番号"
-        string Founded "設立年"
+        string symbol UK "ティッカーコード（ユニーク）"
+        string security "企業名"
+        string gics_sector "セクター（GICS分類）"
+        string gics_sub_industry "サブ業種"
+        string headquarters_location "本社所在地"
+        date date_added "S&P 500追加日"
+        string cik "CIK番号"
+        string founded "設立年"
         datetime created_at "作成日時"
         datetime updated_at "更新日時"
     }
@@ -206,6 +207,15 @@ erDiagram
         decimal close "終値"
         decimal adj_close "調整終値"
         bigint volume "出来高"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
+    NIKKEI225_COMPONENTS {
+        int id PK "プライマリキー"
+        string stock_code FK "JPX銘柄コード（stock_master.stock_code）"
+        decimal price_adjustment_factor "株価換算係数（0.1～24.0、指数計算用）"
+        date effective_date UK "有効日（stock_codeとの複合ユニーク制約）"
         datetime created_at "作成日時"
         datetime updated_at "更新日時"
     }
@@ -377,6 +387,15 @@ erDiagram
 ### Index Market Data（インデックス）
 - **Nikkei225_1d（他の時間軸1m/5m/15m/30m/1h/1wkも同様）**: 日経平均株価（^N225）のインデックスデータ。yfinance から `period='max'` で取得した OHLCV データを格納。1965年1月5日から現在までの約60年間、合計15,000行以上の営業日データを保有。他のテーブルとの FK 関連を持たない **独立したインデックスデータセット** 。生データ保持が主な用途で、現在のプロジェクト内では直接的な分析利用は予定されていない。`timestamp` をユニークキーとしてUPSERT可能な構造。
 
+### Nikkei225 Components（日経225銘柄構成マスター）
+- **Nikkei225Components**: 日経公式CSV より毎日取得される日経225構成銘柄の構成情報マスター。`stock_code`（JPX銘柄コード）で STOCK_MASTER と FK 関連を持つ。`effective_date`は CSVの対象日付で、銘柄入れ替わりの履歴を追跡可能に設計。銘柄属性情報（名称、業種、セクター）は STOCK_MASTER で管理されるため、本テーブルは日経225固有データのみを保持。主な特徴：
+    - **正規化設計**: 銘柄の基本情報（stock_name、業種、セクター）は STOCK_MASTER で一元管理。NIKKEI225_COMPONENTS は構成メンバーシップと株価換算係数のみ保有。
+    - **銘柄入れ替わり履歴管理**: `stock_code` と `effective_date` の複合ユニーク制約により、同一銘柄が異なる有効日でレコードを持つことが可能。これにより、銘柄が日経225に組み入れられた日付と外れた日付を時系列で追跡可能。
+    - **過去データ対応**: 現在は営業日ベース（毎日更新）を想定するが、`effective_date`で時系列管理することで、将来的に過去の銘柄入れ替え履歴を遡及取得する際も対応可能。
+    - **株価換算係数**: 日経平均指数計算用の係数を保有。スクリーニングやレポート出力時に参照可能。
+    - **クエリ例**: `SELECT * FROM nikkei225_components WHERE stock_code = '7203' ORDER BY effective_date DESC` により銘柄の入れ替わり履歴を時系列で取得。
+    - **最新銘柄判定**: `SELECT * FROM stock_master s INNER JOIN nikkei225_components n ON s.stock_code = n.stock_code WHERE n.effective_date = (SELECT MAX(effective_date) FROM nikkei225_components)` により、最新の日経225構成銘柄を取得。
+
 ### EDINET Financial Data（正規化済み）
 - **EdinetDocument**: EDINET文書メタデータの集約テーブル。`doc_id`（書類ID）、`sec_code`（EDINET提出企業コード）、提出日、報告書タイプなど、複数の財務statement間で共通するドキュメント情報を管理。これにより、同一のドキュメントから抽出された複数の財務指標に対して単一のメタデータソースを提供。
 - **EdinetProfitAndLoss**: EDINET損益計算書データ。`edinet_document_id`で EdinetDocument を参照。売上高、営業利益、EPS など実際の財務データのみを格納。
@@ -423,11 +442,13 @@ erDiagram
 | EdinetDocument   | DividendYieldHistory                                             | 1:N  | ドキュメントは複数の履歴レコードで参照される            |
 | StockMaster      | RelativeStrength                                                 | 1:N  | 銘柄は複数のレラティブストレングス計算結果を持つ        |
 | StockMaster      | ScreeningResults                                                 | 1:N  | 銘柄は複数のスクリーニング結果を持つ                    |
+| StockMaster      | Nikkei225Components                                              | 1:N  | 銘柄は複数の日経225レコードを持つ（入れ替わり履歴）    |
 | StockMaster      | StockCodeMapping                                                 | 1:N  | 銘柄はEDINET対応企業コード（1つ以上）を持つ可能性がある |
 | StockCodeMapping | EdinetDocument                                                   | 1:N  | マッピングを通じてEDINETドキュメントと連結              |
 | EdinetDocument   | EdinetProfitAndLoss/StockDividend/CashFlowStatement/BalanceSheet | 1:N  | ドキュメントメタデータは複数の財務データを共有           |
 | SP500StockMaster | SP500Stocks_1d（他の時間軸も同様）                               | 1:N  | S&P500銘柄は複数の日足株価データを持つ                  |
 | （なし）         | Nikkei225_1d（他の時間軸も同様）                                | （独立） | 日経平均株価は他テーブルと FK 関連を持たない独立インデックス |
+| Nikkei225Components | STOCK_MASTER                                                    | N:1  | 構成銘柄は STOCK_MASTER で銘柄属性情報を参照              |
 
 ## Naming Conventions
 
