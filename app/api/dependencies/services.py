@@ -95,6 +95,7 @@ from app.services.data_synchronization.market_data.stock_price import (
 )
 from app.services.data_synchronization.views.latest_stocks.refresh import LatestStocksRefreshService
 from app.services.data_synchronization.views.latest_stocks.service import LatestStocksService
+from app.services.market_data.nikkei225 import Nikkei225ComponentsService
 from app.utils.database import get_db, get_engine
 
 # Alias for profit-and-loss file manager (kept for backward compatibility)
@@ -190,6 +191,7 @@ def get_stock_master_service(
     stock_code_mapping_repo: StockCodeMappingRepository = Depends(
         get_stock_code_mapping_repository
     ),
+    db: AsyncSession = Depends(get_db),
 ) -> StockMasterService:
     """StockMasterService を提供する依存性プロバイダ.
 
@@ -197,16 +199,19 @@ def get_stock_master_service(
         repo (StockMasterRepository): 銘柄マスタリポジトリ
         updates_repo (StockMasterUpdatesRepository): 銘柄マスタ更新履歴リポジトリ
         stock_code_mapping_repo (StockCodeMappingRepository): JPX-EDINETコード対応リポジトリ
+        db (AsyncSession): 非同期DBセッション（Nikkei225サービス用）
 
     Returns:
         StockMasterService: 銘柄マスタ関連のビジネスロジックサービス
     """
     stock_code_mapping_saver = StockCodeMappingSaver(repo=stock_code_mapping_repo)
+    nikkei225_service = Nikkei225ComponentsService(session=db)
     return StockMasterService(
         repo=repo,
         updates_repo=updates_repo,
         stock_code_mapping_repo=stock_code_mapping_repo,
         stock_code_mapping_saver=stock_code_mapping_saver,
+        nikkei225_service=nikkei225_service,
     )
 
 
