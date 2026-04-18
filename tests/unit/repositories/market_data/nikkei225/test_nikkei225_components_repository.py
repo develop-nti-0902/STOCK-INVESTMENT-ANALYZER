@@ -50,22 +50,26 @@ class TestUpsertBatch:
             }
         ]
 
-        mock_row = MagicMock()
-        mock_row._mapping = {
-            "id": 1,
-            "stock_code": "7203",
-            "price_adjustment_factor": 50.0,
-            "effective_date": "2026-04-18",
-            "created_at": None,
-            "updated_at": None,
-        }
-        mock_result = MagicMock()
-        mock_result.fetchall.return_value = [mock_row]
-        repo.session.execute = AsyncMock(return_value=mock_result)
+        # モックコンポーネント
+        mock_component = MagicMock()
+        mock_component.id = 1
+        mock_component.stock_code = "7203"
+        mock_component.price_adjustment_factor = 50.0
+        mock_component.effective_date = "2026-04-18"
+
+        # select 実行時の結果
+        select_result = MagicMock()
+        select_result.scalars.return_value.all.return_value = [mock_component]
+
+        # insert 実行時の結果（None でOK）
+        insert_result = MagicMock()
+
+        # execute は2回呼ばれる（insert と select）
+        repo.session.execute = AsyncMock(side_effect=[insert_result, select_result])
 
         result = await repo.upsert_batch(data)
 
-        repo.session.execute.assert_called_once()
+        assert repo.session.execute.call_count == 2
         repo.session.flush.assert_called_once()
         assert len(result) == 1
 
