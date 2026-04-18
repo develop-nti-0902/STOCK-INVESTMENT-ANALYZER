@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from sqlalchemy import desc, select
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,10 +33,18 @@ class Nikkei225ComponentRepository(BaseRepository[Nikkei225Component]):
         stmt = insert_stmt.on_conflict_do_update(
             index_elements=["stock_code", "effective_date"],
             set_=update_dict,
-        ).returning(table)
-        result = await self.session.execute(stmt)
+        )
+        await self.session.execute(stmt)
         await self.session.flush()
-        return [self.model(**dict(row._mapping)) for row in result.fetchall()]
+
+        # SQLiteはRETURNING句をサポートしていないため、upsert後に再度取得する
+        # 今回は inserted/updated されたレコードのコード一覧から再取得
+        stock_codes = [d.get("stock_code") for d in data_list]
+        if stock_codes:
+            stmt_select = select(self.model).where(self.model.stock_code.in_(stock_codes))
+            result = await self.session.execute(stmt_select)
+            return cast(list[Nikkei225Component], result.scalars().all())
+        return []
 
     async def find_by_code(self, stock_code: str) -> Nikkei225Component | None:
         """銘柄コードで最新レコードを取得."""
